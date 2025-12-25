@@ -1,0 +1,25 @@
+{
+  "required": true,
+  "package": "net.ded3ec.authcore.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "CommandManagerMixin",
+    "EntityMixin",
+    "ItemEntityMixin",
+    "ItemMixin",
+    "LivingEntityMixin",
+    "MobEntityMixin",
+    "PlayerInventoryMixin",
+    "ScreenHandlerMixin",
+    "ServerLoginNetworkHandlerMixin",
+    "ServerPlayerEntityMixin",
+    "ServerPlayerInteractionManagerMixin",
+    "ServerPlayNetworkHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}
