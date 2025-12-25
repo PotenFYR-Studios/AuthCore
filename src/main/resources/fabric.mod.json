@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "authCore",
+  "version": "${version}",
+  "name": "AuthCore",
+  "description": "This is an example description! Tell everyone what your mod is about!",
+  "authors": [
+    "Ded3ec"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/authCore/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "net.ded3ec.authcore.AuthCore"
+    ],
+    "fabric-datagen": [
+      "net.ded3ec.authcore.AuthCoreDataGenerator"
+    ]
+  },
+  "mixins": [
+    "authcore.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+  }
+}

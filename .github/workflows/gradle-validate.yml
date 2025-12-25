@@ -1,0 +1,20 @@
+name: ✅ Gradle Validation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Validate Gradle Wrapper
+        run: ./gradlew wrapper --gradle-version 9.2.1 --distribution-type all
