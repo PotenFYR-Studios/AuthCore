@@ -29,7 +29,7 @@ public abstract class CommandManagerMixin {
    * @param ci The callback information to control the method execution.
    */
   @Inject(method = "execute", at = @At("HEAD"), cancellable = true)
-  private void restrictCommands(
+  private void authCore$restrictCommands(
       ParseResults<ServerCommandSource> parseResults, String command, CallbackInfo ci) {
     // Extract the root command and the player executing it.
     String root = command.split(" ")[0].toLowerCase();
@@ -40,21 +40,20 @@ public abstract class CommandManagerMixin {
       User user = User.users.get(player.getName().getString());
 
       if (user.isInLobby.get()) {
+
+        if (AuthCore.config.lobby.useWhitelistAsBlacklist
+            && AuthCore.config.lobby.whitelistedCommands.contains(root)) {
+          Logger.toUser(
+              false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
+          ci.cancel();
+        }
+
         // Restrict commands if the lobby does not allow them.
-        if (!AuthCore.config.lobby.allowCommands) {
-          // Handle whitelist as blacklist logic.
-          if (AuthCore.config.lobby.useWhitelistAsBlacklist
-              && AuthCore.config.lobby.whitelistedCommands.contains(root)) {
-            Logger.toUser(
-                false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
-            ci.cancel();
-          }
-          // Handle commands not in the whitelist.
-          else if (!AuthCore.config.lobby.whitelistedCommands.contains(root)) {
-            Logger.toUser(
-                false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
-            ci.cancel();
-          }
+        else if (!AuthCore.config.lobby.whitelistedCommands.contains(root)
+            && !AuthCore.config.lobby.allowCommands) {
+          Logger.toUser(
+              false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
+          ci.cancel();
         }
       }
     }

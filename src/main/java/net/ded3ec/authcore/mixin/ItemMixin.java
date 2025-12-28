@@ -29,7 +29,7 @@ public abstract class ItemMixin {
    * @param cir The callback information to control the method execution.
    */
   @Inject(method = "use", at = @At("HEAD"), cancellable = true)
-  private void preventUse(
+  private void authCore$preventUse(
       World world, PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
     // Retrieve the user associated with the player.
     User user = User.users.get(player.getName().getString());

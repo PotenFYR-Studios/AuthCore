@@ -25,7 +25,7 @@ abstract class MobEntityMixin {
    * @param ci The callback information to control the method execution.
    */
   @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
-  private void disableAggression(LivingEntity target, CallbackInfo ci) {
+  private void authCore$disableAggression(LivingEntity target, CallbackInfo ci) {
     // Check if the target is a player.
     if (target instanceof ServerPlayerEntity) {
       // Retrieve the user associated with the player.

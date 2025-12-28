@@ -51,7 +51,7 @@ public class Register {
                 argument("password", string())
                     .executes(ctx -> execute(ctx.getSource(), getString(ctx, "password"), null))
                     .then(
-                        argument("confirmPassword", string())
+                        argument("confirm-password", string())
                             .requires(
                                 ctx ->
                                     AuthCore.config
@@ -63,7 +63,7 @@ public class Register {
                                     execute(
                                         ctx.getSource(),
                                         getString(ctx, "password"),
-                                        getString(ctx, "confirmPassword"))))));
+                                        getString(ctx, "confirm-password"))))));
   }
 
   /**
@@ -81,7 +81,7 @@ public class Register {
 
       if (player == null) return 0;
 
-      Logger.debug(0, "{} used '/logout' command in the Server!", player.getName());
+      Logger.debug(0, "{} used '/register' command in the Server!", player.getName().getString());
 
       User user = User.users.get(player.getName().getString());
 
@@ -155,27 +155,47 @@ public class Register {
 
     // Checks uppercase in the password
     if (AuthCore.config.passwordRules.upperCase.enabled
-        && (uppercaseCount <= AuthCore.config.passwordRules.upperCase.min
-            || uppercaseCount >= AuthCore.config.passwordRules.upperCase.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.upperCaseNotPresent);
+        && (uppercaseCount < AuthCore.config.passwordRules.upperCase.min
+            || uppercaseCount > AuthCore.config.passwordRules.upperCase.max))
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.upperCaseNotPresent,
+          AuthCore.config.passwordRules.upperCase.min,
+          AuthCore.config.passwordRules.upperCase.max);
 
     // Checks lowercase in the password
     else if (AuthCore.config.passwordRules.lowerCase.enabled
-        && (lowercaseCount <= AuthCore.config.passwordRules.lowerCase.min
-            || lowercaseCount >= AuthCore.config.passwordRules.lowerCase.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.lowerCaseNotPresent);
+        && (lowercaseCount < AuthCore.config.passwordRules.lowerCase.min
+            || lowercaseCount > AuthCore.config.passwordRules.lowerCase.max))
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.lowerCaseNotPresent,
+          AuthCore.config.passwordRules.lowerCase.min,
+          AuthCore.config.passwordRules.lowerCase.max);
 
     // Checks digits in the password
     else if (AuthCore.config.passwordRules.digits.enabled
-        && (digitsCount <= AuthCore.config.passwordRules.digits.min
-            || digitsCount >= AuthCore.config.passwordRules.digits.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.digitNotPresent);
+        && (digitsCount < AuthCore.config.passwordRules.digits.min
+            || digitsCount > AuthCore.config.passwordRules.digits.max))
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.digitNotPresent,
+          AuthCore.config.passwordRules.digits.min,
+          AuthCore.config.passwordRules.digits.max);
 
     // Checks length of the password
     else if (AuthCore.config.passwordRules.length.enabled
-        && (lengthCount <= AuthCore.config.passwordRules.length.min
-            || lengthCount >= AuthCore.config.passwordRules.length.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.smallPasswordLength);
+        && (lengthCount < AuthCore.config.passwordRules.length.min
+            || lengthCount > AuthCore.config.passwordRules.length.max))
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.PasswordLengthIssue,
+          AuthCore.config.passwordRules.length.min,
+          AuthCore.config.passwordRules.length.max);
     else return true;
   }
 }

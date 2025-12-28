@@ -27,24 +27,14 @@ abstract class ServerPlayNetworkHandlerMixin {
    */
   @Inject(method = "onPlayerMove", at = @At("HEAD"))
   private void authCore$onPlayerMove(PlayerMoveC2SPacket packet, CallbackInfo ci) {
-
     User user = User.users.get(this.player.getName().getString());
 
-    if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowMovement) {
-
-      // Movement by jailed user event detection!
-      double newX = packet.getX(player.getX());
-      double newZ = packet.getZ(player.getZ());
-      double oldX = player.getX();
-      double oldZ = player.getZ();
-
-      // If player actually moved in X/Z
-      boolean moved = (Double.compare(newX, oldX) != 0) || (Double.compare(newZ, oldZ) != 0);
-
-      if (moved) {
-        Logger.toUser(false, user.handler, AuthCore.messages.playerMovementNotAllowed);
-        user.lobby.teleportToLobby();
-      }
+    if (user != null
+        && user.isInLobby.get()
+        && !AuthCore.config.lobby.allowMovement
+        && user.lobby.isOutsideOfLobbyPos(packet.getX(player.getX()), packet.getZ(player.getZ()))) {
+      Logger.toUser(false, user.handler, AuthCore.messages.playerMovementNotAllowed);
+      user.lobby.teleportToLobby();
     }
   }
 }

@@ -27,7 +27,7 @@ abstract class ServerPlayerInteractionManagerMixin {
    * @param cir callback info returnable
    */
   @Inject(method = "tryBreakBlock", at = @At("HEAD"), cancellable = true)
-  private void onTryBreakBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+  private void authCore$onTryBreakBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
     User user = User.users.get(player.getName().getString());
 
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowBlockBreaking) {

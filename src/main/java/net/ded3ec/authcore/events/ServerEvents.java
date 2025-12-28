@@ -34,7 +34,7 @@ public class ServerEvents {
           AuthCore.messages.anotherAccountLoggedIn,
           handler.player.getName().getString());
       return;
-    } else
+    } else if (user == null)
       user =
           new User(
               handler.player.getUuid(),
@@ -55,6 +55,7 @@ public class ServerEvents {
     else if (AuthCore.config.session.authentication.blockDuplicateLogin && user.isInLobby.get())
       user.kick(AuthCore.messages.duplicateLoginNotAllowed);
     else if (AuthCore.config.session.sessionFromSameIPOnly
+        && user.isRegistered.get()
         && (!user.ipAddress.equals(handler.player.getIp())))
       user.kick(AuthCore.messages.differentIpLoginNotAllowed);
     else if (!AuthCore.config.session.authentication.allowCrackedPremiumNames
@@ -90,8 +91,11 @@ public class ServerEvents {
    */
   public static void onPlayerLeave(ServerPlayNetworkHandler handler, MinecraftServer server) {
     User user = User.users.get(handler.player.getName().getString());
-    if (user.isInLobby.get()) user.lobby.unlock(); // Unlock the user from the lobby.
-    user.isOnline = false; // Mark the user as offline.
+
+    if (user != null) {
+      if (user.isInLobby.get()) user.lobby.unlock(); // Unlock the user from the lobby.
+      user.isOnline = false; // Mark the user as offline.
+    }
   }
 
   /**
@@ -115,8 +119,7 @@ public class ServerEvents {
       SignedMessage message, ServerPlayerEntity player, MessageType.Parameters parameters) {
     User user = User.users.get(player.getName().getString());
 
-    if (user == null) return false; // Deny if the user is not found.
-    else if (user.isInLobby.get()) {
+    if (user != null && user.isInLobby.get()) {
 
       // Deny chatting if not allowed in the lobby.
       if (!AuthCore.config.lobby.allowChat)

@@ -42,14 +42,14 @@
 
 ## 🛠️ Commands
 
-| Command                  | Description                                              | Usage Example                  |
-|--------------------------|----------------------------------------------------------|--------------------------------|
-| `/register <pw> <pw>`    | Register a new password                                  | `/register hunter2 hunter2`    |
-| `/login <pw>`            | Log in with your password                                | `/login hunter2`               |
-| `/logout`                | Log out of your current session                          | `/logout`                      |
-| `/transfer cracked <pw>` | Convert your account to cracked mode with a new password | `/transfer cracked newpass123` |
-| `/transfer premium`      | Convert your account to premium (online-mode)            | `/transfer premium`            |
-| `/reloadauthCore`        | Reload AuthCore configuration and player data            | `/reloadauthCore`              |
+| Command                 | Description                                              | Usage Example                 |
+|-------------------------|----------------------------------------------------------|-------------------------------|
+| `/register <pw> <pw>`   | Register a new password                                  | `/register hunter2 hunter2`   |
+| `/login <pw>`           | Log in with your password                                | `/login hunter2`              |
+| `/logout`               | Log out of your current session                          | `/logout`                     |
+| `/account cracked <pw>` | Convert your account to cracked mode with a new password | `/account cracked newpass123` |
+| `/account premium`      | Convert your account to premium (online-mode)            | `/account premium`            |
+| `/reloadauthCore`       | Reload AuthCore configuration and player data            | `/reloadauthCore`             |
 
 > Players must register on first join and log in on subsequent joins. Admin-only commands like `/reloadauthCore` require appropriate permissions.
 

@@ -371,7 +371,7 @@ public class Configs {
              • "md5": Uses MD5 hashing, a fast hash that's robust but insecure for passwords.
              • "scrypt": Uses Scrypt hashing, a memory-hard function that's robust and efficient.
              """)
-    public String passwordHashAlgorithm = "ARGON2";
+    public String passwordHashAlgorithm = "argon2";
 
     @ConfigSerializable
     public static class PasswordRule {
@@ -471,15 +471,15 @@ public class Configs {
         """
 
                 Teleport behavior for newly registered or first-time joining players.
-                • Often used to force a registration area.""")
-    public TeleportConfig teleportOnRegister = new TeleportConfig();
+                • Often used to force a registration/limbo World.""")
+    public TeleportConfig limboConfig = new TeleportConfig();
 
     @Comment(
         """
 
                 Teleport behavior after successful authentication.
-                • Can force players back to a spawn point until fully logged in.""")
-    public TeleportConfig teleportOnLogin =
+                • Can force players back to a spawn/hub until fully logged in.""")
+    public TeleportConfig hubConfig =
         new TeleportConfig() {
           {
             enabled = false;
@@ -498,7 +498,7 @@ public class Configs {
 
                 Maximum number of players that can be jailed simultaneously.
                 • Default: 30 (adjust based on server capacity)""")
-    public int maxJailedUsers = 30;
+    public int maxJailedUsers = 50;
 
     @Comment(
         """

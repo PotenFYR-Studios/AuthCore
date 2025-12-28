@@ -11,8 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class AuthCore implements ModInitializer {
-    public static final String MOD_ID = "AuthCore";
-    public static final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("authCore");
+    public static final String MOD_ID = "authcore";
+    public static final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("authcore");
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     public static Configs config;

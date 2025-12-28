@@ -179,6 +179,8 @@ public class User {
     this.username = username;
     this.userCreatedMs = userCreatedMs;
     this.isPremium = premium;
+
+    User.users.put(this.username, this);
   }
 
   /** Load user configuration and initialization of user model! */
@@ -207,9 +209,10 @@ public class User {
         this.username,
         this.isBedrock.get() ? "Bedrock" : "Java",
         this.isPremium ? "Online" : "Offline",
-        this.ipAddress,
+        handler.player.getIp(),
         this.uuid,
         this.country);
+
     this.isOnline = true;
 
     if (!(StringUtil.isNullOrEmpty(this.ipAddress))) {
@@ -218,9 +221,6 @@ public class User {
       if ((json != null && (json.get("status").getAsString().equalsIgnoreCase("success"))))
         this.geoIpData = json;
     }
-
-    User.users.put(this.username, this);
-    db.insert(this);
   }
 
   /**
@@ -266,7 +266,7 @@ public class User {
     this.loginAttempts = 0;
     this.lastAuthenticatedMs = System.currentTimeMillis();
 
-    this.lobby.unlock();
+    if (this.isInLobby.get()) this.lobby.unlock();
 
     if (!this.uuid.equals(player.getUuid())) {
       Logger.debug(
@@ -433,6 +433,7 @@ public class User {
 
       try (Statement statement = Database.connection.createStatement();
           ResultSet rs = statement.executeQuery("SELECT * FROM USERS")) {
+
         while (rs.next()) users.add(parse(rs));
 
         return Logger.debug(users, "{} users has been fetched from the database!", users.size());

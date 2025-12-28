@@ -67,7 +67,8 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
    * @param cir callback info returnable
    */
   @Inject(method = "changeGameMode", at = @At("HEAD"), cancellable = true)
-  private void authCore$onChangeGameMode(GameMode newGameMode, CallbackInfoReturnable<Boolean> cir) {
+  private void authCore$onChangeGameMode(
+      GameMode newGameMode, CallbackInfoReturnable<Boolean> cir) {
     ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
     User user = User.users.get(player.getName().getString());
 
@@ -96,7 +97,7 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
    * @param cir callback info returnable
    */
   @Inject(method = "teleport", at = @At("HEAD"), cancellable = true)
-  private void onTeleport(
+  private void authCore$onTeleport(
       ServerWorld world,
       double destX,
       double destY,
@@ -110,9 +111,15 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
     User user = User.users.get(player.getName().getString());
 
     // Jailed User's status oldEffects detection!
-    if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowMovement) {
+    if (user != null
+        && user.isInLobby.get()
+        && !AuthCore.config.lobby.allowMovement
+        && user.lobby.isOutsideOfLobbyPos(destX, destZ)) {
       cir.setReturnValue(false);
       cir.cancel();
+
+      Logger.toUser(false, user.handler, AuthCore.messages.playerMovementNotAllowed);
+      user.lobby.teleportToLobby();
     }
   }
 }

@@ -3,6 +3,7 @@ package net.ded3ec.authcore.utils;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.Messages;
 import net.ded3ec.authcore.models.User;
+import net.minecraft.client.resource.language.I18n;
 import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
@@ -26,7 +27,9 @@ public class Logger {
    * @return the returnValue
    */
   public static <T> T debug(T value, String message, Object... args) {
-    if (AuthCore.config.debugMode) AuthCore.LOGGER.debug(message, args);
+    if (AuthCore.config.debugMode) AuthCore.LOGGER.info(message, args);
+    else AuthCore.LOGGER.debug(message, args);
+
     return value;
   }
 
@@ -94,17 +97,17 @@ public class Logger {
 
     Logger.toUser(false, user.handler, payload);
 
+    String message = I18n.translate(payload.message.text, args);
+
     if (payload.logout.delaySec > 0)
       Misc.TimeManager.setTimeout(
           () -> {
             if (user.isOnline)
-              network.disconnect(
-                  Text.translatable(payload.logout.text, args).setStyle(getStyle(payload.logout)));
+              network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
           },
           payload.logout.delaySec * 1000L);
     else if (user.isOnline && user.handler != null)
-      network.disconnect(
-          Text.translatable(payload.logout.text, args).setStyle(getStyle(payload.logout)));
+      network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
 
     return value;
   }
@@ -211,9 +214,11 @@ public class Logger {
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
     User user = User.users.get(network.getPlayer().getName().getString());
 
+    String message = I18n.translate(payload.message.text, args);
+
     if (user.isOnline)
       network.player.sendMessage(
-          Text.translatable(payload.message.text, args).setStyle(getStyle(payload.message)), false);
+          Text.translatable(message).setStyle(getStyle(payload.message)), false);
   }
 
   /**
@@ -230,16 +235,20 @@ public class Logger {
 
     if (!user.isOnline) return;
 
+    String titleMessage = String.format(payload.title.text, args);
+
     network.sendPacket(
         new TitleS2CPacket(
-            Text.translatable(payload.title.text, args)
-                .setStyle(getStyleWithShadow(payload.title))));
+            Text.translatable(titleMessage).setStyle(getStyleWithShadow(payload.title))));
 
-    if (!payload.title.subtitle.text.isBlank())
+    if (!payload.title.subtitle.text.isBlank()) {
+      String subtitleMessage = String.format(payload.title.subtitle.text, args);
+
       network.sendPacket(
           new SubtitleS2CPacket(
-              Text.translatable(payload.title.subtitle.text, args)
+              Text.translatable(subtitleMessage)
                   .setStyle(getStyleWithShadow(payload.title.subtitle))));
+    }
 
     network.sendPacket(
         new TitleFadeS2CPacket(
@@ -257,12 +266,13 @@ public class Logger {
    */
   private static void sendActionBar(
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
+
     User user = User.users.get(network.getPlayer().getName().getString());
 
+    String message = String.format(payload.actionBar.text, args);
+
     if (user.isOnline)
-      network.sendPacket(
-          new SubtitleS2CPacket(
-              Text.translatable(payload.actionBar.text, args)
-                  .setStyle(getStyleWithShadow(payload.actionBar))));
+      network.player.sendMessage(
+          Text.translatable(message).setStyle(getStyle(payload.actionBar)), true);
   }
 }

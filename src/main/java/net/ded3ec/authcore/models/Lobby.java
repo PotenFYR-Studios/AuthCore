@@ -28,34 +28,40 @@ import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
 import org.jspecify.annotations.Nullable;
 
-/** Lobby class for Queue Framework! */
+/**
+ * Represents a lobby system for managing player authentication and queuing in the AuthCore mod.
+ * This class handles locking players into a restricted lobby mode, teleporting them to designated
+ * locations, managing timeouts, and restoring player states upon unlocking. It supports different
+ * configurations for registered and unregistered users, including limbo and hub locations.
+ */
 public class Lobby {
 
-  /** Collection of jailed users. */
+  /** Collection of jailed users mapped by their usernames. */
   public static Map<String, Lobby> users = new HashMap<>();
 
+  /** Snapshot of the player's state before entering the lobby. */
   public Snapshot snapshot;
 
-  /** User model of the lobby instance belongs to. */
+  /** User model associated with this lobby instance. */
   public User user;
 
-  /** Time task instance for queue session timeout! */
+  /** Scheduled task for handling lobby session timeout. */
   private ScheduledFuture<?> lobbyTimeoutTask;
 
-  /** Time task instance for reminder in restricted mode. */
+  /** Scheduled task for sending reminders in restricted mode. */
   private ScheduledFuture<?> lobbyIntervalTask;
 
-  /** Lobby position of the player. */
+  /** Block position for unregistered users in the lobby. */
   private BlockPos lobbyRegisterPosition;
 
-  /** Lobby position of the player. */
+  /** Block position for registered users in the lobby. */
   private BlockPos lobbyLoginPosition;
 
-  /** Lobby position of the player. */
+  /** General lobby position for the player. */
   private BlockPos lobbyPosition;
 
   /**
-   * Lobby constructor.
+   * Constructs a new Lobby instance for the given user.
    *
    * @param user the user associated with this lobby
    */
@@ -63,7 +69,11 @@ public class Lobby {
     this.user = user;
   }
 
-  /** Lock player to the lobby/queue/restricted mode. */
+  /**
+   * Locks the player into the lobby/queue/restricted mode. This method creates a snapshot of the
+   * player's current state, teleports them to the appropriate lobby location, sends a welcome
+   * message, and initiates timeout handling if configured.
+   */
   public void lock() {
 
     ServerPlayerEntity player = user.player.get();
@@ -77,6 +87,12 @@ public class Lobby {
     Lobby.users.put(this.user.username, this);
   }
 
+  /**
+   * Teleports the player to the appropriate lobby location based on their registration status and
+   * configuration. For unregistered users, teleports to the limbo location if enabled; for
+   * registered users, to the hub location. Ensures safe teleportation by adjusting positions to
+   * avoid suffocation or unsafe landing.
+   */
   public void teleportToLobby() {
 
     MinecraftServer server = this.user.server.get();
@@ -84,8 +100,8 @@ public class Lobby {
     ServerWorld world = player.getEntityWorld();
     BlockPos blockPos = player.getBlockPos().toImmutable();
 
-    if (AuthCore.config.lobby.teleportOnRegister.enabled && !this.user.isRegistered.get()) {
-      String raw = AuthCore.config.lobby.teleportOnRegister.location.dimension.trim().toLowerCase();
+    if (AuthCore.config.lobby.limboConfig.enabled && !this.user.isRegistered.get()) {
+      String raw = AuthCore.config.lobby.limboConfig.location.dimension.trim().toLowerCase();
       Identifier id = Identifier.of(raw);
       RegistryKey<World> key = RegistryKey.of(RegistryKeys.WORLD, id);
 
@@ -95,15 +111,15 @@ public class Lobby {
       if (this.lobbyRegisterPosition == null) {
         blockPos =
             BlockPos.ofFloored(
-                AuthCore.config.lobby.teleportOnRegister.location.x,
-                AuthCore.config.lobby.teleportOnRegister.location.y,
-                AuthCore.config.lobby.teleportOnRegister.location.z);
+                AuthCore.config.lobby.limboConfig.location.x,
+                AuthCore.config.lobby.limboConfig.location.y,
+                AuthCore.config.lobby.limboConfig.location.z);
         blockPos = this.snapshot.getTeleportPos(player, blockPos.toImmutable(), world);
         this.lobbyRegisterPosition = blockPos.toImmutable();
       } else blockPos = this.lobbyRegisterPosition.toImmutable();
 
-    } else if (AuthCore.config.lobby.teleportOnLogin.enabled && this.user.isRegistered.get()) {
-      String raw = AuthCore.config.lobby.teleportOnLogin.location.dimension.trim().toLowerCase();
+    } else if (AuthCore.config.lobby.hubConfig.enabled && this.user.isRegistered.get()) {
+      String raw = AuthCore.config.lobby.hubConfig.location.dimension.trim().toLowerCase();
       Identifier id = Identifier.of(raw);
       RegistryKey<World> key = RegistryKey.of(RegistryKeys.WORLD, id);
 
@@ -113,9 +129,9 @@ public class Lobby {
       if (this.lobbyLoginPosition == null) {
         blockPos =
             BlockPos.ofFloored(
-                AuthCore.config.lobby.teleportOnLogin.location.x,
-                AuthCore.config.lobby.teleportOnLogin.location.y,
-                AuthCore.config.lobby.teleportOnLogin.location.z);
+                AuthCore.config.lobby.hubConfig.location.x,
+                AuthCore.config.lobby.hubConfig.location.y,
+                AuthCore.config.lobby.hubConfig.location.z);
         blockPos = this.snapshot.getTeleportPos(player, blockPos.toImmutable(), world);
         this.lobbyLoginPosition = blockPos.toImmutable();
       } else blockPos = this.lobbyLoginPosition.toImmutable();
@@ -127,7 +143,11 @@ public class Lobby {
     this.snapshot.teleport(player, blockPos.toImmutable(), world);
   }
 
-  /** Unlock player from the lobby/queue/restricted mode. */
+  /**
+   * Unlocks the player from the lobby/queue/restricted mode. Restores the player's previous state
+   * using the snapshot, removes them from the jailed users collection, and cancels any ongoing
+   * tasks. Only proceeds if the player is currently in lobby mode.
+   */
   public void unlock() {
     if (!this.user.isInLobby.get()) return;
 
@@ -137,12 +157,16 @@ public class Lobby {
 
     this.snapshot.reset(player);
 
-    Logger.debug(false, "{} has been take out from the lobby/restricted mode!", this.user.username);
+    Logger.debug(
+        false, "{} has been taken out from the lobby/restricted mode!", this.user.username);
 
     this.cancel();
   }
 
-  /** Cancel Queue Timeout and from the lobby/queue/restricted mode. */
+  /**
+   * Cancels the lobby timeout and interval tasks associated with this lobby instance. Logs the
+   * cancellation for debugging purposes.
+   */
   public void cancel() {
 
     if (this.lobbyIntervalTask != null) this.lobbyIntervalTask.cancel(false);
@@ -151,6 +175,28 @@ public class Lobby {
     Logger.debug(false, "{}'s Lobby interval and timeout has been cancelled!", this.user.username);
   }
 
+  /**
+   * Checks if the player has moved outside their lobby position based on new coordinates. Compares
+   * the new X and Z coordinates with the player's current position to detect movement.
+   *
+   * @param newX the new X coordinate
+   * @param newZ the new Z coordinate
+   * @return true if the player has moved in X or Z direction, false otherwise
+   */
+  public boolean isOutsideOfLobbyPos(double newX, double newZ) {
+    // Movement by jailed user event detection!
+    double oldX = this.user.player.get().getX();
+    double oldZ = this.user.player.get().getZ();
+
+    // If player actually moved in X/Z
+    return (Double.compare(newX, oldX) != 0) || (Double.compare(newZ, oldZ) != 0);
+  }
+
+  /**
+   * Handles the timeout logic for the lobby session. Sets up a timeout task based on the player's
+   * latency and configuration, and optionally an interval task for sending reminder messages.
+   * Adjusts timeout duration according to latency thresholds.
+   */
   private void handleTimeout() {
 
     int loginTimeoutMs = AuthCore.config.lobby.timeout.loginTimeoutMs;
@@ -198,6 +244,12 @@ public class Lobby {
                 AuthCore.config.session.loginReminderIntervalMs);
   }
 
+  /**
+   * Represents a snapshot of a player's state before entering the lobby. This class captures
+   * various player attributes such as inventory, effects, health, position, and game mode, allowing
+   * for complete restoration upon exiting the lobby. It also applies lobby-specific effects like
+   * invisibility, blindness, and invulnerability based on configuration.
+   */
   public static class Snapshot {
 
     private final ArrayList<ItemStack> inventory;
@@ -230,6 +282,13 @@ public class Lobby {
 
     private final @Nullable Team team;
 
+    /**
+     * Creates a snapshot of the player's current state. Captures inventory, effects, health,
+     * experience, position, and other attributes. Applies lobby effects such as invisibility,
+     * blindness, and invulnerability if configured.
+     *
+     * @param player the server player entity to snapshot
+     */
     public Snapshot(ServerPlayerEntity player) {
 
       this.blockPos = player.getBlockPos();
@@ -278,6 +337,13 @@ public class Lobby {
       }
     }
 
+    /**
+     * Resets the player to their original state captured in this snapshot. Restores inventory,
+     * effects, health, experience, position, and other attributes. Teleports the player back to
+     * their original location in the original dimension.
+     *
+     * @param player the server player entity to reset
+     */
     public void reset(ServerPlayerEntity player) {
       MinecraftServer server = player.getEntityWorld().getServer();
       if (server == null) return;
@@ -318,6 +384,14 @@ public class Lobby {
       player.changeGameMode(gameMode);
     }
 
+    /**
+     * Teleports the player to the specified position in the given world. Adjusts the position
+     * slightly to center the player on the block.
+     *
+     * @param player the server player entity to teleport
+     * @param pos the target block position
+     * @param world the target server world
+     */
     private void teleport(ServerPlayerEntity player, BlockPos pos, ServerWorld world) {
       MinecraftServer server = player.getEntityWorld().getServer();
 
@@ -333,6 +407,16 @@ public class Lobby {
             true);
     }
 
+    /**
+     * Calculates a safe teleport position for the player based on their current state and the
+     * target position. Adjusts for various player conditions like crouching, swimming, flying,
+     * etc., to prevent suffocation or unsafe landing.
+     *
+     * @param player the server player entity
+     * @param pos the initial target block position
+     * @param world the server world
+     * @return a safe block position for teleportation
+     */
     private BlockPos getTeleportPos(ServerPlayerEntity player, BlockPos pos, ServerWorld world) {
       if (player.isSpectator()) return pos.toImmutable();
 

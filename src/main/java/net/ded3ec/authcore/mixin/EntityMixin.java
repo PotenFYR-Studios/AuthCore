@@ -5,6 +5,7 @@ import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.MovementType;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -27,14 +28,27 @@ public abstract class EntityMixin {
    * @param ci The callback information to control the method execution.
    */
   @Inject(method = "move", at = @At("HEAD"), cancellable = true)
-  private void preventPistonPush(MovementType type, Vec3d movement, CallbackInfo ci) {
+  private void authCore$onMovement(MovementType type, Vec3d movement, CallbackInfo ci) {
     // Check if the entity is a player.
     if ((Object) this instanceof PlayerEntity player) {
       // Retrieve the user associated with the player.
       User user = User.users.get(player.getName().getString());
 
+      // Current block position
+      BlockPos currentPos = player.getBlockPos();
+
+      // Predicted new block position after movement
+      BlockPos newPos =
+          currentPos.add(
+              (int) Math.floor(movement.x),
+              (int) Math.floor(movement.y),
+              (int) Math.floor(movement.z));
+
       // Cancel movement if the user is in the lobby and movement is not allowed.
-      if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowMovement) ci.cancel();
+      if (user != null
+          && user.isInLobby.get()
+          && !AuthCore.config.lobby.allowMovement
+          && !newPos.equals(currentPos)) ci.cancel();
     }
   }
 }

@@ -187,10 +187,10 @@ public class Password {
   }
 
   /**
-   * Checks the complexity of the new password based on server rules.
+   * Checks the complexity of the password based on server rules.
    *
-   * @param player The player whose password is being checked.
-   * @param password The password to check.
+   * @param player The player attempting to register.
+   * @param password The password to validate.
    * @return True if the password meets the complexity requirements, false otherwise.
    */
   private static boolean checkPassComplexity(
@@ -212,25 +212,45 @@ public class Password {
     if (AuthCore.config.passwordRules.upperCase.enabled
         && (uppercaseCount <= AuthCore.config.passwordRules.upperCase.min
             || uppercaseCount >= AuthCore.config.passwordRules.upperCase.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.upperCaseNotPresent);
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.upperCaseNotPresent,
+          AuthCore.config.passwordRules.upperCase.min,
+          AuthCore.config.passwordRules.upperCase.max);
 
     // Checks lowercase in the password
     else if (AuthCore.config.passwordRules.lowerCase.enabled
         && (lowercaseCount <= AuthCore.config.passwordRules.lowerCase.min
             || lowercaseCount >= AuthCore.config.passwordRules.lowerCase.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.lowerCaseNotPresent);
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.lowerCaseNotPresent,
+          AuthCore.config.passwordRules.lowerCase.min,
+          AuthCore.config.passwordRules.lowerCase.max);
 
     // Checks digits in the password
     else if (AuthCore.config.passwordRules.digits.enabled
         && (digitsCount <= AuthCore.config.passwordRules.digits.min
             || digitsCount >= AuthCore.config.passwordRules.digits.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.digitNotPresent);
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.digitNotPresent,
+          AuthCore.config.passwordRules.digits.min,
+          AuthCore.config.passwordRules.digits.max);
 
     // Checks length of the password
     else if (AuthCore.config.passwordRules.length.enabled
         && (lengthCount <= AuthCore.config.passwordRules.length.min
             || lengthCount >= AuthCore.config.passwordRules.length.max))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.smallPasswordLength);
+      return Logger.toUser(
+          false,
+          player.networkHandler,
+          AuthCore.messages.PasswordLengthIssue,
+          AuthCore.config.passwordRules.length.min,
+          AuthCore.config.passwordRules.length.max);
     else return true;
   }
 }

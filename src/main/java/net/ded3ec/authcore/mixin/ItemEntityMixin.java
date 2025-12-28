@@ -25,7 +25,7 @@ public class ItemEntityMixin {
    * @param ci The callback information to control the method execution.
    */
   @Inject(method = "onPlayerCollision", at = @At("HEAD"), cancellable = true)
-  private void onPlayerPickup(PlayerEntity player, CallbackInfo ci) {
+  private void authCore$onPlayerPickup(PlayerEntity player, CallbackInfo ci) {
     // Retrieve the user associated with the player.
     User user = User.users.get(player.getName().getString());
 

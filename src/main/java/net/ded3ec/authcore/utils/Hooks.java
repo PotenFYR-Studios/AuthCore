@@ -1,9 +1,6 @@
 package net.ded3ec.authcore.utils;
 
-import net.ded3ec.authcore.command.Login;
-import net.ded3ec.authcore.command.Logout;
-import net.ded3ec.authcore.command.Register;
-import net.ded3ec.authcore.command.Reload;
+import net.ded3ec.authcore.command.*;
 import net.ded3ec.authcore.events.BlockEvents;
 import net.ded3ec.authcore.events.EntityEvents;
 import net.ded3ec.authcore.events.ServerEvents;
@@ -21,8 +18,8 @@ public class Hooks {
   public static void register() {
 
     registerUtils();
-    registerCommands();
     registerHelpers();
+    registerCommands();
     registerEvents();
   }
 
@@ -46,6 +43,8 @@ public class Hooks {
           Login.register(commandDispatcher);
           Logout.register(commandDispatcher);
           Reload.register(commandDispatcher);
+          Account.register(commandDispatcher);
+          Password.register(commandDispatcher);
         });
   }
 

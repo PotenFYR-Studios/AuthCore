@@ -301,14 +301,16 @@ public class Messages {
       """
 
             Validation error: Password missing uppercase letter.
-            • Default: ActionBar in RED""")
+            • Default: ActionBar in RED
+            • %1$d - Minimum Uppercase count required
+            • %2$d - Maximum Uppercase count required""")
   public ColTemplate upperCaseNotPresent =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password must contain at least %1$d uppercase letter!";
+                  text = "Password must contain between %1$d - %2$d uppercase letter!";
                   color = "RED";
                 }
               };
@@ -319,14 +321,16 @@ public class Messages {
       """
 
             Validation error: Password missing lowercase letter.
-            • Default: ActionBar in RED""")
+            • Default: ActionBar in RED
+            • %1$d - Minimum lowercase count required
+            • %2$d - Maximum lowercase count required""")
   public ColTemplate lowerCaseNotPresent =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password must contain at least %1$d lowercase letter";
+                  text = "Password must contain between %1$d - %2$d lowercase letter";
                   color = "RED";
                 }
               };
@@ -337,14 +341,16 @@ public class Messages {
       """
 
             Validation error: Password missing digit.
-            • Default: ActionBar in RED""")
+            • Default: ActionBar in RED
+            • %1$d - Minimum digit count required
+            • %2$d - Maximum digit count required""")
   public ColTemplate digitNotPresent =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password must contain at least %1$d digit";
+                  text = "Password must contain between %1$d - %2$d digits";
                   color = "RED";
                 }
               };
@@ -355,14 +361,16 @@ public class Messages {
       """
 
             Validation error: Password is too short.
-            • Default: ActionBar in RED""")
-  public ColTemplate smallPasswordLength =
+            • Default: ActionBar in RED
+            • %1$d - Minimum Password length required
+            • %2$d - Maximum Password length required""")
+  public ColTemplate PasswordLengthIssue =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password length is too short!";
+                  text = "Password length should be between %1$d - %2$d!";
                   color = "RED";
                 }
               };
@@ -1022,8 +1030,8 @@ public class Messages {
   public ColTemplate welcomeJailUser =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
                   text = "Welcome to Restricted Mode.";
                   color = "GREEN";
