@@ -44,7 +44,7 @@ public abstract class CommandManagerMixin {
         if (AuthCore.config.lobby.useWhitelistAsBlacklist
             && AuthCore.config.lobby.whitelistedCommands.contains(root)) {
           Logger.toUser(
-              false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
+              false, player.networkHandler, AuthCore.messages.promptUserCommandExecutionNotAllowed, root);
           ci.cancel();
         }
 
@@ -52,7 +52,7 @@ public abstract class CommandManagerMixin {
         else if (!AuthCore.config.lobby.whitelistedCommands.contains(root)
             && !AuthCore.config.lobby.allowCommands) {
           Logger.toUser(
-              false, player.networkHandler, AuthCore.messages.commandExecutionNotAllowed, root);
+              false, player.networkHandler, AuthCore.messages.promptUserCommandExecutionNotAllowed, root);
           ci.cancel();
         }
       }

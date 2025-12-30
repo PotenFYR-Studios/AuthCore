@@ -51,7 +51,7 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
 
     // Changing game mode by jailed user's detection!
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
-      Logger.toUser(false, user.handler, AuthCore.messages.dropItemNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
 
       player.currentScreenHandler.sendContentUpdates();
       player.playerScreenHandler.updateToClient();
@@ -78,7 +78,7 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
         && AuthCore.config.lobby.forceAdventureMode
         && newGameMode != GameMode.ADVENTURE) {
 
-      Logger.toUser(false, user.handler, AuthCore.messages.changeGameModeNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserChangeGameModeNotAllowed);
       cir.setReturnValue(false);
     }
   }
@@ -118,7 +118,7 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
       cir.setReturnValue(false);
       cir.cancel();
 
-      Logger.toUser(false, user.handler, AuthCore.messages.playerMovementNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserPlayerMovementNotAllowed);
       user.lobby.teleportToLobby();
     }
   }

@@ -33,7 +33,7 @@ abstract class ServerPlayNetworkHandlerMixin {
         && user.isInLobby.get()
         && !AuthCore.config.lobby.allowMovement
         && user.lobby.isOutsideOfLobbyPos(packet.getX(player.getX()), packet.getZ(player.getZ()))) {
-      Logger.toUser(false, user.handler, AuthCore.messages.playerMovementNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserPlayerMovementNotAllowed);
       user.lobby.teleportToLobby();
     }
   }

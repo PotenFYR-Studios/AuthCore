@@ -27,12 +27,8 @@ public class ServerEvents {
     User user = User.users.get(handler.player.getName().getString());
 
     // Check if the user is already online and handle duplicate login.
-    if (user != null && user.isOnline) {
-      Logger.toKick(
-          false,
-          handler,
-          AuthCore.messages.anotherAccountLoggedIn,
-          handler.player.getName().getString());
+    if (user != null && user.isActive) {
+      Logger.toKick(false, handler, AuthCore.messages.promptUserAnotherAccountLoggedIn);
       return;
     } else if (user == null)
       user =
@@ -51,16 +47,16 @@ public class ServerEvents {
 
     // Handle various authentication and session rules.
     if (!AuthCore.config.session.authentication.allowProxyUsers && user.isProxy.get())
-      user.kick(AuthCore.messages.proxyNotAllowed);
+      user.kick(AuthCore.messages.promptUserProxyNotAllowed);
     else if (AuthCore.config.session.authentication.blockDuplicateLogin && user.isInLobby.get())
-      user.kick(AuthCore.messages.duplicateLoginNotAllowed);
+      user.kick(AuthCore.messages.promptUserDuplicateLoginNotAllowed);
     else if (AuthCore.config.session.sessionFromSameIPOnly
         && user.isRegistered.get()
         && (!user.ipAddress.equals(handler.player.getIp())))
-      user.kick(AuthCore.messages.differentIpLoginNotAllowed);
+      user.kick(AuthCore.messages.promptUserDifferentIpLoginNotAllowed);
     else if (!AuthCore.config.session.authentication.allowCrackedPremiumNames
         && user.isPremiumUsername.get()
-        && !user.isPremiumUuid.get()) user.kick(AuthCore.messages.premiumNameNotAllowed);
+        && !user.isPremiumUuid.get()) user.kick(AuthCore.messages.promptUserPremiumNameNotAllowed);
     else if (user.uuid.equals(handler.player.getUuid()) && user.isActiveSession.get()) {
       Logger.debug(true, "{} skipped the authentication and resumed his session!", user.username);
       user.login(handler.getPlayer());
@@ -73,13 +69,13 @@ public class ServerEvents {
         && (AuthCore.config.session.cooldownAfterKickMs
             > (System.currentTimeMillis() - user.lastKickedMs)))
       user.kick(
-          AuthCore.messages.cooldownAfterKickNotExpired,
+          AuthCore.messages.promptUserCooldownAfterKickNotExpired,
           Misc.TimeConverter.toDuration(
               AuthCore.config.session.cooldownAfterKickMs
                   - (System.currentTimeMillis() - user.lastKickedMs)));
     else if (AuthCore.config.lobby.maxJailedUsers > 0
         && AuthCore.config.lobby.maxJailedUsers <= Lobby.users.size())
-      user.kick(AuthCore.messages.maxJailedUsersReached);
+      user.kick(AuthCore.messages.promptUserMaxLobbyUsersReached);
     else user.lobby.lock(); // Lock the user in the lobby framework.
   }
 
@@ -94,7 +90,7 @@ public class ServerEvents {
 
     if (user != null) {
       if (user.isInLobby.get()) user.lobby.unlock(); // Unlock the user from the lobby.
-      user.isOnline = false; // Mark the user as offline.
+      user.isActive = false; // Mark the user as offline.
     }
   }
 
@@ -123,7 +119,7 @@ public class ServerEvents {
 
       // Deny chatting if not allowed in the lobby.
       if (!AuthCore.config.lobby.allowChat)
-        return Logger.toUser(false, user.handler, AuthCore.messages.chatNotAllowed);
+        return Logger.toUser(false, user.handler, AuthCore.messages.promptUserChatNotAllowed);
     }
 
     return true; // Allow the message by default.

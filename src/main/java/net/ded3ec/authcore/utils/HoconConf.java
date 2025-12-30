@@ -2,14 +2,14 @@ package net.ded3ec.authcore.utils;
 
 import java.nio.file.Files;
 import net.ded3ec.authcore.AuthCore;
-import net.ded3ec.authcore.models.Configs;
+import net.ded3ec.authcore.models.Config;
 import net.ded3ec.authcore.models.Messages;
 import org.spongepowered.configurate.ConfigurateException;
 import org.spongepowered.configurate.hocon.HoconConfigurationLoader;
 import org.spongepowered.configurate.objectmapping.ObjectMapper;
 
 /** .conf utility for managing the files. */
-public class ConfigUtil {
+public class HoconConf {
 
   /** The Configurate loader for HOCON files. */
   private static final HoconConfigurationLoader CONFIGLOADER =
@@ -36,7 +36,7 @@ public class ConfigUtil {
       loadMessages();
       saveMessages();
 
-      Logger.info("Configuration from .conf files has been successfully loaded.");
+      Logger.info(true, "Configuration from .conf files has been successfully loaded.");
     } catch (Exception err) {
       Logger.error(false, "Facing error while loading and saving .conf files: ", err);
     }
@@ -45,25 +45,25 @@ public class ConfigUtil {
   /**
    * Loads the configuration from the file. If the file does not exist, a new one is created using
    */
-  private static void loadConfig() {
+  public static void loadConfig() {
     try {
-      ObjectMapper<Configs> mapper = ObjectMapper.factory().get(Configs.class);
+      ObjectMapper<Config> mapper = ObjectMapper.factory().get(Config.class);
 
       var node = CONFIGLOADER.load();
       AuthCore.config = mapper.load(node);
       mapper.save(AuthCore.config, node);
 
-      Logger.info("Configuration from settings.conf loaded successfully.");
+      Logger.info(true, "Configuration from settings.conf loaded successfully.");
     } catch (ConfigurateException err) {
       Logger.error(false, "Facing error while loading configuration file 'settings.conf': ", err);
-      AuthCore.config = new Configs();
+      AuthCore.config = new Config();
     }
   }
 
   /**
    * Loads the configuration from the file. If the file does not exist, a new one is created using
    */
-  private static void loadMessages() {
+  public static void loadMessages() {
     try {
       ObjectMapper<Messages> mapper = ObjectMapper.factory().get(Messages.class);
 
@@ -71,31 +71,31 @@ public class ConfigUtil {
       AuthCore.messages = mapper.load(node);
       mapper.save(AuthCore.messages, node);
 
-      Logger.info("Successfully saved messages̥ & default values");
+      Logger.info(true, "Successfully saved messages̥ & default values");
     } catch (ConfigurateException err) {
       Logger.error(false, "Facing error while loading messages file: ", err);
-      AuthCore.config = new Configs();
+      AuthCore.config = new Config();
     }
   }
 
   /** Manually saves the current in-memory config to the file. Use this after programmatically */
-  private static void saveConfig() {
+  public static void saveConfig() {
     if (AuthCore.config == null) return;
     try {
-      ObjectMapper<Configs> mapper = ObjectMapper.factory().get(Configs.class);
+      ObjectMapper<Config> mapper = ObjectMapper.factory().get(Config.class);
 
       var node = CONFIGLOADER.createNode();
       mapper.save(AuthCore.config, node);
       CONFIGLOADER.save(node);
 
-      Logger.info("Successfully saved configurations & default values");
+      Logger.info(true, "Successfully saved configurations & default values");
     } catch (ConfigurateException err) {
       Logger.error(false, "Facing error while saving configuration file: ", err);
     }
   }
 
   /** Manually saves the current in-memory config to the file. Use this after programmatically. */
-  private static void saveMessages() {
+  public static void saveMessages() {
     if (AuthCore.messages == null) return;
     try {
       ObjectMapper<Messages> mapper = ObjectMapper.factory().get(Messages.class);

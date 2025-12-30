@@ -66,7 +66,7 @@ public class User {
       () -> this.handler != null ? this.handler.player.getEntityWorld().getServer() : null;
 
   /** Supplier edition for if user is active in the server! */
-  public boolean isOnline = false;
+  public boolean isActive = false;
 
   /** Supplier edition for the world in the server! */
   public Supplier<ServerWorld> world =
@@ -111,8 +111,8 @@ public class User {
    */
   public Supplier<Boolean> isAuthenticated =
       () ->
-          ((this.isOnline && !this.isInLobby.get())
-              || (!this.isOnline && this.isActiveSession.get()));
+          ((this.isActive && !this.isInLobby.get())
+              || (!this.isActive && this.isActiveSession.get()));
 
   /**
    * Supplier edition for if the user joined via proxy! Checks GeoIP organization against known
@@ -213,7 +213,7 @@ public class User {
         this.uuid,
         this.country);
 
-    this.isOnline = true;
+    this.isActive = true;
 
     if (!(StringUtil.isNullOrEmpty(this.ipAddress))) {
       JsonObject json = Misc.geoIp(this.ipAddress);
@@ -252,7 +252,7 @@ public class User {
     if (AuthCore.config.session.authentication.allowLoginAfterRegistration) this.login(player);
     else if (this.isInLobby.get()) {
       this.lobby.unlock();
-      Logger.toKick(false, this.handler, AuthCore.messages.reJoinAfterRegister);
+      Logger.toKick(false, this.handler, AuthCore.messages.promptUserReJoinAfterRegister);
     }
   }
 
@@ -289,7 +289,7 @@ public class User {
                 if (AuthCore.config.session.enableSessions
                     && AuthCore.config.session.kickAfterSessionTimeout
                     && this.isAuthenticated.get())
-                  Logger.toKick(false, this.handler, AuthCore.messages.sessionExpired);
+                  Logger.toKick(false, this.handler, AuthCore.messages.promptUserSessionExpired);
               },
               AuthCore.config.session.timeoutMs);
 
@@ -308,7 +308,7 @@ public class User {
 
     Logger.debug(true, "{}'s session has been terminated!", this.username);
 
-    if (this.isOnline) Logger.toKick(false, this.handler, payload);
+    if (this.isActive) Logger.toKick(false, this.handler, payload);
   }
 
   /**
@@ -322,7 +322,7 @@ public class User {
 
     Logger.debug(true, "{} has been kicked/logout from the Server", this.username);
 
-    if (this.isOnline) Logger.toKick(false, this.handler, payload, args);
+    if (this.isActive) Logger.toKick(false, this.handler, payload, args);
   }
 
   /**

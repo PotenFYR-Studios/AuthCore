@@ -46,29 +46,35 @@ public class EntityEvents {
       // Prevent attacking players if disallowed
       if (entity instanceof PlayerEntity && !AuthCore.config.lobby.allowAttackingPlayer)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.attackPlayerNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserAttackPlayerNotAllowed);
 
       // Prevent attacking hostile mobs if disallowed
       if (entity instanceof HostileEntity && !AuthCore.config.lobby.allowAttackingHostileMobs)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.attackHostileMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserAttackHostileMobsNotAllowed);
 
       // Prevent attacking animals if disallowed
       if (entity instanceof AnimalEntity && !AuthCore.config.lobby.allowAttackingAnimals)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.attackAnimalNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserAttackAnimalNotAllowed);
 
       // Prevent attacking friendly mobs if disallowed
       if (entity instanceof PassiveEntity && !AuthCore.config.lobby.allowAttackingFriendlyMobs)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.attackFriendlyMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserAttackFriendlyMobsNotAllowed);
 
       // Prevent attacking neutral mobs if disallowed
       if (entity instanceof MobEntity
           && !(entity instanceof AnimalEntity)
           && !AuthCore.config.lobby.allowAttackNeutralMobs)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.attackNeutralMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserAttackNeutralMobsNotAllowed);
 
       // Prevent attacking mountable entities if disallowed
       if (entity instanceof BoatEntity
@@ -78,12 +84,14 @@ public class EntityEvents {
           || entity instanceof PigEntity
           || entity instanceof StriderEntity && !AuthCore.config.lobby.allowAttackMountableEntity)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactMountableEntityNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserInteractMountableEntityNotAllowed);
 
       // Prevent attacking any entity if disallowed
       if (entity instanceof Entity && !AuthCore.config.lobby.allowAttackEntity)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactEntityNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserInteractEntityNotAllowed);
     }
 
     return ActionResult.PASS;
@@ -113,29 +121,35 @@ public class EntityEvents {
       // Prevent interacting with players if disallowed
       if (entity instanceof PlayerEntity && !AuthCore.config.lobby.allowPlayerInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactPlayersNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserInteractPlayersNotAllowed);
 
       // Prevent interacting with hostile mobs if disallowed
       if (entity instanceof HostileEntity && !AuthCore.config.lobby.allowHostileMobsInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactHostileMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserInteractHostileMobsNotAllowed);
 
       // Prevent interacting with animals if disallowed
       if (entity instanceof AnimalEntity && !AuthCore.config.lobby.allowAnimalInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactAnimalsNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserInteractAnimalsNotAllowed);
 
       // Prevent interacting with friendly mobs if disallowed
       if (entity instanceof PassiveEntity && !AuthCore.config.lobby.allowFriendlyMobsInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactFriendlyMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserInteractFriendlyMobsNotAllowed);
 
       // Prevent interacting with neutral mobs if disallowed
       if (entity instanceof MobEntity
           && !(entity instanceof AnimalEntity)
           && !AuthCore.config.lobby.allowNeutralMobsInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactNeutralMobsNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserInteractNeutralMobsNotAllowed);
 
       // Prevent interacting with mountable entities if disallowed
       if (entity instanceof BoatEntity
@@ -145,12 +159,14 @@ public class EntityEvents {
           || entity instanceof PigEntity
           || entity instanceof StriderEntity && !AuthCore.config.lobby.allowMountableInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactMountableEntityNotAllowed);
+            ActionResult.FAIL,
+            user.handler,
+            AuthCore.messages.promptUserInteractMountableEntityNotAllowed);
 
       // Prevent interacting with any entity if disallowed
       if (entity instanceof Entity && !AuthCore.config.lobby.allowEntityInteractWith)
         return Logger.toUser(
-            ActionResult.FAIL, user.handler, AuthCore.messages.interactEntityNotAllowed);
+            ActionResult.FAIL, user.handler, AuthCore.messages.promptUserInteractEntityNotAllowed);
     }
 
     return ActionResult.PASS;
@@ -182,7 +198,7 @@ public class EntityEvents {
         return Logger.toUser(
             false,
             ((ServerPlayerEntity) damageSource.getAttacker()).networkHandler,
-            AuthCore.messages.attackJailedUserNotAllowed);
+            AuthCore.messages.promptUserAttackLobbyUserNotAllowed);
 
       // Prevent all damage if disallowed
       else return !(AuthCore.config.lobby.preventDamage);

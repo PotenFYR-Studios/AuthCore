@@ -59,7 +59,7 @@ abstract class ServerLoginNetworkHandlerMixin {
       else if (!AuthCore.config.session.authentication.allowBedrockPlayers
           && Misc.isBedrockPlayer(uuid))
         this.disconnect(
-            Text.literal("Bedrock Players are not allowed in the Server!")
+            Text.literal(AuthCore.messages.promptUserBedrockPlayersNotAllowed.logout.text)
                 .setStyle(Style.EMPTY.withColor(Formatting.RED)));
     }
 

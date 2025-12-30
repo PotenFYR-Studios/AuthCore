@@ -3,7 +3,6 @@ package net.ded3ec.authcore.utils;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.Messages;
 import net.ded3ec.authcore.models.User;
-import net.minecraft.client.resource.language.I18n;
 import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleFadeS2CPacket;
 import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
@@ -53,8 +52,9 @@ public class Logger {
    * @param message the info message
    * @param args the arguments for the message
    */
-  public static void info(String message, Object... args) {
+  public static <T> T info(T value, String message, Object... args) {
     AuthCore.LOGGER.info(message, args);
+    return value;
   }
 
   /**
@@ -93,20 +93,20 @@ public class Logger {
       T value, ServerPlayNetworkHandler network, Messages.KickTemplate payload, Object... args) {
     User user = User.users.get(network.getPlayer().getName().getString());
 
-    if (!user.isOnline) return value;
+    if (!user.isActive) return value;
 
     Logger.toUser(false, user.handler, payload);
 
-    String message = I18n.translate(payload.message.text, args);
+    String message = String.format(payload.message.text, args);
 
     if (payload.logout.delaySec > 0)
       Misc.TimeManager.setTimeout(
           () -> {
-            if (user.isOnline)
+            if (user.isActive)
               network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
           },
           payload.logout.delaySec * 1000L);
-    else if (user.isOnline && user.handler != null)
+    else if (user.isActive && user.handler != null)
       network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
 
     return value;
@@ -214,9 +214,9 @@ public class Logger {
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
     User user = User.users.get(network.getPlayer().getName().getString());
 
-    String message = I18n.translate(payload.message.text, args);
+    String message = String.format(payload.message.text, args);
 
-    if (user.isOnline)
+    if (user.isActive)
       network.player.sendMessage(
           Text.translatable(message).setStyle(getStyle(payload.message)), false);
   }
@@ -233,7 +233,7 @@ public class Logger {
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
     User user = User.users.get(network.getPlayer().getName().getString());
 
-    if (!user.isOnline) return;
+    if (!user.isActive) return;
 
     String titleMessage = String.format(payload.title.text, args);
 
@@ -271,7 +271,7 @@ public class Logger {
 
     String message = String.format(payload.actionBar.text, args);
 
-    if (user.isOnline)
+    if (user.isActive)
       network.player.sendMessage(
           Text.translatable(message).setStyle(getStyle(payload.actionBar)), true);
   }

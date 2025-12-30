@@ -31,7 +31,7 @@ public class BlockEvents {
       player.currentScreenHandler.sendContentUpdates();
       player.playerScreenHandler.updateToClient();
 
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.useBlockNotAllowed);
+      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseBlockNotAllowed);
     } else return ActionResult.PASS;
   }
 
@@ -49,11 +49,11 @@ public class BlockEvents {
 
     // Prevent item usage if the user is in the lobby and item usage is disallowed
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemUse)
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.useItemNotAllowed);
+      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseItemNotAllowed);
 
     // Prevent item moving if the user is in the lobby and item moving is disallowed
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemMoving)
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.shiftItemNotAllowed);
+      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserShiftItemNotAllowed);
 
     return ActionResult.PASS;
   }

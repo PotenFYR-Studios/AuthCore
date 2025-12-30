@@ -31,7 +31,7 @@ abstract class ServerPlayerInteractionManagerMixin {
     User user = User.users.get(player.getName().getString());
 
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowBlockBreaking) {
-      Logger.toUser(false, user.handler, AuthCore.messages.breakBlockNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserBreakBlockNotAllowed);
 
       cir.setReturnValue(false);
       cir.cancel();

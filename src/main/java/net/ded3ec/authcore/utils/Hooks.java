@@ -31,7 +31,7 @@ public class Hooks {
   /** Registers utility components, such as configuration initialization. */
   private static void registerUtils() {
 
-    ConfigUtil.initialize();
+    HoconConf.initialize();
   }
 
   /** Registers commands for the mod. */
@@ -41,10 +41,8 @@ public class Hooks {
         (commandDispatcher, commandRegistryAccess, environment) -> {
           Register.register(commandDispatcher);
           Login.register(commandDispatcher);
-          Logout.register(commandDispatcher);
-          Reload.register(commandDispatcher);
           Account.register(commandDispatcher);
-          Password.register(commandDispatcher);
+          Admin.register(commandDispatcher);
         });
   }
 

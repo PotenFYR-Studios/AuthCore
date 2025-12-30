@@ -6,11 +6,11 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
-import java.util.regex.Pattern;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
+import net.ded3ec.authcore.utils.Security;
 import net.minecraft.command.permission.PermissionLevel;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -43,13 +43,14 @@ public class Register {
                   else
                     return Permissions.check(
                         ctx.getPlayer(),
-                        AuthCore.config.commands.register.luckPermsNode,
+                        AuthCore.config.commands.user.register.luckPermsNode,
                         PermissionLevel.fromLevel(
-                            AuthCore.config.commands.register.permissionsLevel));
+                            AuthCore.config.commands.user.register.permissionsLevel));
                 })
             .then(
                 argument("password", string())
-                    .executes(ctx -> execute(ctx.getSource(), getString(ctx, "password"), null))
+                    .executes(
+                        ctx -> registerCommand(ctx.getSource(), getString(ctx, "password"), null))
                     .then(
                         argument("confirm-password", string())
                             .requires(
@@ -60,7 +61,7 @@ public class Register {
                                         .registerPasswordConfirmation)
                             .executes(
                                 ctx ->
-                                    execute(
+                                    registerCommand(
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         getString(ctx, "confirm-password"))))));
@@ -74,12 +75,12 @@ public class Register {
    * @param confirmPassword The confirmation password provided by the player (nullable).
    * @return An integer result indicating the outcome of the command execution.
    */
-  private static int execute(
+  private static int registerCommand(
       ServerCommandSource source, @NotNull String password, @Nullable String confirmPassword) {
     try {
       ServerPlayerEntity player = source.getPlayer();
 
-      if (player == null) return 0;
+      if (player == null) return Logger.info(0, "This command can't be executed from console!");
 
       Logger.debug(0, "{} used '/register' command in the Server!", player.getName().getString());
 
@@ -87,16 +88,17 @@ public class Register {
 
       // Handle cases where the user data is not found or the user is already registered.
       if (user == null)
-        return Logger.toKick(0, player.networkHandler, AuthCore.messages.userNotFoundData);
+        return Logger.toKick(0, player.networkHandler, AuthCore.messages.promptUserNotFoundData);
 
       if (user.isRegistered.get())
-        return Logger.toUser(0, player.networkHandler, AuthCore.messages.userAlreadyRegistered);
+        return Logger.toUser(
+            0, player.networkHandler, AuthCore.messages.promptUserAlreadyRegistered);
 
       // Validate the password and register the user if valid.
       if (checkPassword(player, password, confirmPassword)) {
 
-        Logger.debug(1, "{} has been registered to the Server!", player.getName());
-        Logger.toUser(1, player.networkHandler, AuthCore.messages.userRegistered);
+        Logger.debug(1, "{} has been registered to the Server!", player.getName().getString());
+        Logger.toUser(1, player.networkHandler, AuthCore.messages.promptUserRegisteredSuccessfully);
 
         user.register(player, password);
         return 1;
@@ -104,7 +106,7 @@ public class Register {
 
       return 0;
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in Register Command: {}", err);
+      return Logger.error(0, "Faced Error in '/register' Command: {}", err);
     }
   }
 
@@ -121,81 +123,16 @@ public class Register {
       @NotNull String password,
       @Nullable String confirmPassword) {
     if (StringUtils.isBlank(password))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.passwordIsBlank);
+      return Logger.toUser(
+          false, player.networkHandler, AuthCore.messages.promptUserPasswordIsBlank);
     else if (AuthCore.config.session.authentication.registerPasswordConfirmation
         && StringUtils.isBlank(confirmPassword))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.confirmPasswordIsBlank);
+      return Logger.toUser(
+          false, player.networkHandler, AuthCore.messages.promptUserConfirmPasswordIsBlank);
     else if (AuthCore.config.session.authentication.registerPasswordConfirmation
         && !password.equals(confirmPassword))
-      return Logger.toUser(false, player.networkHandler, AuthCore.messages.passwordDoesNotMatch);
-    else return (checkPassComplexity(player, password));
-  }
-
-  /**
-   * Checks the complexity of the password based on server rules.
-   *
-   * @param player The player attempting to register.
-   * @param password The password to validate.
-   * @return True if the password meets the complexity requirements, false otherwise.
-   */
-  private static boolean checkPassComplexity(
-      @NotNull ServerPlayerEntity player, @NotNull String password) {
-
-    // Uppercases count using regex
-    int uppercaseCount = Pattern.compile("[A-Z]").matcher(password).results().toArray().length;
-
-    // Lowercases count using regex
-    int lowercaseCount = Pattern.compile("[a-z]").matcher(password).results().toArray().length;
-
-    // Digits count using regex
-    int digitsCount = Pattern.compile("\\d").matcher(password).results().toArray().length;
-
-    // Password length
-    int lengthCount = password.length();
-
-    // Checks uppercase in the password
-    if (AuthCore.config.passwordRules.upperCase.enabled
-        && (uppercaseCount < AuthCore.config.passwordRules.upperCase.min
-            || uppercaseCount > AuthCore.config.passwordRules.upperCase.max))
       return Logger.toUser(
-          false,
-          player.networkHandler,
-          AuthCore.messages.upperCaseNotPresent,
-          AuthCore.config.passwordRules.upperCase.min,
-          AuthCore.config.passwordRules.upperCase.max);
-
-    // Checks lowercase in the password
-    else if (AuthCore.config.passwordRules.lowerCase.enabled
-        && (lowercaseCount < AuthCore.config.passwordRules.lowerCase.min
-            || lowercaseCount > AuthCore.config.passwordRules.lowerCase.max))
-      return Logger.toUser(
-          false,
-          player.networkHandler,
-          AuthCore.messages.lowerCaseNotPresent,
-          AuthCore.config.passwordRules.lowerCase.min,
-          AuthCore.config.passwordRules.lowerCase.max);
-
-    // Checks digits in the password
-    else if (AuthCore.config.passwordRules.digits.enabled
-        && (digitsCount < AuthCore.config.passwordRules.digits.min
-            || digitsCount > AuthCore.config.passwordRules.digits.max))
-      return Logger.toUser(
-          false,
-          player.networkHandler,
-          AuthCore.messages.digitNotPresent,
-          AuthCore.config.passwordRules.digits.min,
-          AuthCore.config.passwordRules.digits.max);
-
-    // Checks length of the password
-    else if (AuthCore.config.passwordRules.length.enabled
-        && (lengthCount < AuthCore.config.passwordRules.length.min
-            || lengthCount > AuthCore.config.passwordRules.length.max))
-      return Logger.toUser(
-          false,
-          player.networkHandler,
-          AuthCore.messages.PasswordLengthIssue,
-          AuthCore.config.passwordRules.length.min,
-          AuthCore.config.passwordRules.length.max);
-    else return true;
+          false, player.networkHandler, AuthCore.messages.promptUserPasswordDoesNotMatch);
+    else return (Security.getPasswordComplexity(player, password));
   }
 }

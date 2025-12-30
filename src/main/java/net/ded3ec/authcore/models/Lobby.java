@@ -80,7 +80,7 @@ public class Lobby {
 
     this.snapshot = new Snapshot(player);
     this.teleportToLobby();
-    Logger.toUser(true, user.handler, AuthCore.messages.welcomeJailUser);
+    Logger.toUser(true, user.handler, AuthCore.messages.promptUserWelcomeLobbyUser);
 
     if (AuthCore.config.lobby.timeout.enabled) this.handleTimeout();
 
@@ -214,11 +214,11 @@ public class Lobby {
       this.lobbyTimeoutTask =
           Misc.TimeManager.setTimeout(
               () -> {
-                if (user.isOnline && this.user.isInLobby.get())
+                if (user.isActive && this.user.isInLobby.get())
                   Logger.toKick(
                       false,
                       this.user.handler,
-                      AuthCore.messages.authenticationTimeoutExpired,
+                      AuthCore.messages.promptUserAuthenticationExpiredTimeout,
                       Misc.TimeConverter.toDuration(_loginTimeoutMs));
               },
               loginTimeoutMs);
@@ -228,18 +228,18 @@ public class Lobby {
         this.lobbyIntervalTask =
             Misc.TimeManager.setInterval(
                 () -> {
-                  if (this.user.isOnline && this.user.isInLobby.get())
+                  if (this.user.isActive && this.user.isInLobby.get())
                     Logger.toUser(
-                        true, this.user.handler, AuthCore.messages.registerCommandReminderInterval);
+                        true, this.user.handler, AuthCore.messages.promptUserRegisterCommandReminderInterval);
                 },
                 AuthCore.config.session.loginReminderIntervalMs);
       else
         this.lobbyIntervalTask =
             Misc.TimeManager.setInterval(
                 () -> {
-                  if (this.user.isOnline && this.user.isInLobby.get())
+                  if (this.user.isActive && this.user.isInLobby.get())
                     Logger.toUser(
-                        true, this.user.handler, AuthCore.messages.loginCommandReminderInterval);
+                        true, this.user.handler, AuthCore.messages.promptUserLoginCommandReminderInterval);
                 },
                 AuthCore.config.session.loginReminderIntervalMs);
   }
@@ -435,9 +435,12 @@ public class Lobby {
           || player.isGliding()
           || player.hasVehicle()
           || !player.isOnGround()
-          || !world.getBlockState(candidate).isSolidBlock(world, candidate)
+          || !(world.getBlockState(candidate).isSolidBlock(world, candidate)
+              || world.getBlockState(candidate).getBlock() != Blocks.SNOW
+              || world.getBlockState(candidate).getBlock() != Blocks.SNOW_BLOCK)
           || !(world.getBlockState(candidate).isAir()
               && world.getBlockState(candidate.up()).isAir())) {
+
         BlockPos ground = getGroundBelow(world, candidate);
         if (ground != null) candidate = ground.up();
       }

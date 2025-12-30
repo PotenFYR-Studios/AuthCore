@@ -9,79 +9,37 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when no user data is found for the player.
-            • Typically displayed during login attempts when the player has no stored account.
-            • Default: ActionBar in RED""")
-  public KickTemplate userNotFoundData =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "Your data could not be found. Please re-login to the server.";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-
-            Message shown when the player exceeds the maximum allowed login attempts.
-            • Triggers Lobby/restricted mode.
-            • Default: ActionBar in RED
-            • %1$d - Max Login Attempts number.
-            • %2$s - Cooldown Time expires""")
-  public KickTemplate exceededLoginAttempts =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text =
-                      "You have exceeded the maximum login attempts (%1$d). Please re-join the server after %2$s.";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-
-                  Concurrent Login not allowed message on kick.
-                  • Default: Message in RED
-                  • %1$s - Username Information""")
-  public KickTemplate anotherAccountLoggedIn =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "An account with username '%1$s' has already joined the Server!";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-
-            Message shown when the player is not registered yet.
+            Notification sent to administrators when a player joins but is not registered.
             • Prompts the player to use /register.
-            • Default: ActionBar in RED
-            • %1$s - Username Information""")
-  public ColTemplate userNotRegistered =
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$s - Player username""")
+  public ColTemplate promptAdminUserNotRegistered =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "'%1$s' is not registered on the server.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Message shown to a player who has not yet registered.
+            • Encourages the player to register using /register <password> <confirm-password>.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserNotRegistered =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
                   text =
-                      "'%1$s' is not registered on the server. Please register again in the Server!";
+                      "You are not registered on the server. Please register again in the Server!";
                   color = "RED";
                 }
               };
@@ -90,17 +48,15 @@ public class Messages {
 
   @Comment(
       """
-
-                  Password resuse restriction message
-                  • Default: ActionBar in RED
-                  • %1$s - Password""")
-  public ColTemplate duplicatePassword =
+            Warning shown when a player attempts to reuse an existing password during registration.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserDuplicatePassword =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Given password '%1$s' already exists!. Please try again";
+                  text = "Given password already exists!. Please try again";
                   color = "RED";
                 }
               };
@@ -109,12 +65,10 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when the player is not registered yet.
-            • Prompts the player to use /register.
-            • Default: ActionBar in RED
-            • %1$s - Username Information""")
-  public ColTemplate userNotFound =
+            Message displayed when a player's account data cannot be found on the server.
+            • Typically occurs on join if data is missing or corrupted.
+            • Default display: Title with subtitle in RED""")
+  public ColTemplate promptUserNotFound =
       new ColTemplate() {
         {
           title =
@@ -124,8 +78,7 @@ public class Messages {
                   subtitle =
                       new Template() {
                         {
-                          text =
-                              "'%1$s' is not registered on the server. Please re-join the server";
+                          text = "Your data is not Found on the server. Please re-join the server";
                           color = "RED";
                         }
                       };
@@ -136,10 +89,26 @@ public class Messages {
 
   @Comment(
       """
+            Confirmation message shown after a player has been successfully unregistered.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserUnRegisteredSuccessfully =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "You have been unregistered successfully!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
 
-            Success message shown when the player successfully logs in.
-            • Default: Title in GREEN""")
-  public ColTemplate userLoggedIn =
+  @Comment(
+      """
+            Success message displayed when a player logs in correctly.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserLoggedInSuccessfully =
       new ColTemplate() {
         {
           actionBar =
@@ -154,10 +123,9 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when the player enters an incorrect password.
-            • Default: Title in RED""")
-  public ColTemplate wrongPassword =
+            Error message shown when a player provides an incorrect password during login.
+            • Default display: Title in RED""")
+  public ColTemplate promptUserWrongPassword =
       new ColTemplate() {
         {
           title =
@@ -172,17 +140,23 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when the player successfully logs out.
-            • Default: Title in RED""")
-  public ColTemplate userLoggedOut =
+            Message displayed when a player is successfully logged out (e.g., via /logout).
+            • Default display: Title with subtitle in GREEN/WHITE""")
+  public ColTemplate promptUserLoggedOut =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Successfully Logged Out!";
-                  color = "RED";
+                  text = "Successfully Logging You Out!";
+                  color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "You will be logged out after 5 seconds!";
+                          color = "WHITE";
+                        }
+                      };
                 }
               };
         }
@@ -190,10 +164,9 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when an already authenticated player tries to register or login again.
-            • Default: ActionBar in RED""")
-  public ColTemplate userAlreadyRegistered =
+            Warning shown to an already authenticated player who attempts to /register or /login again.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserAlreadyRegistered =
       new ColTemplate() {
         {
           actionBar =
@@ -208,10 +181,9 @@ public class Messages {
 
   @Comment(
       """
-
-            Success message shown after a player successfully registers.
-            • Default: ActionBar in GREEN""")
-  public ColTemplate userRegistered =
+            Success message shown after a player successfully registers for the first time.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserRegisteredSuccessfully =
       new ColTemplate() {
         {
           actionBar =
@@ -226,17 +198,34 @@ public class Messages {
 
   @Comment(
       """
-
-         Password Change Confirmation message.
-         • Default: ActionBar in GREEN
-         • %1$s - Username Information""")
-  public ColTemplate passwordChanged =
+            Notification sent to administrators when a registered player is currently inactive (not logged in).
+            • Default display: Action bar in RED""")
+  public ColTemplate promptAdminUserIsNotActive =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "User '%1$s' password has been changed!";
+                  text = "User is not Active in the Server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Notification sent to administrators when a player's session is forcibly destroyed (e.g., via admin command).
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Player username""")
+  public ColTemplate promptAdminUserSessionDestroyed =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "User %1$s session has been destroyed and kicked from the Server!";
                   color = "GREEN";
                 }
               };
@@ -245,16 +234,135 @@ public class Messages {
 
   @Comment(
       """
+            Message sent to administrators listing players of a specific type (e.g., registered, online, etc.).
+            • Default display: Chat message in GREEN
+            • Placeholders:
+              • %1$s - Type/category of players
+              • %2$s - Comma-separated list of player names""")
+  public ColTemplate promptAdminListOfPlayers =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "List of '%1$s' in Authcore: %2$s";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
 
-            Validation error: Password field is blank.
-            • Default: ActionBar in RED""")
-  public ColTemplate passwordIsBlank =
+  @Comment(
+      """
+            Confirmation message shown to a player after successfully changing their password.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserPasswordChangedSuccessfully =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password cannot be empty";
+                  text = "Your password has been changed successfully!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Notification sent to administrators when a player's password has been changed via admin command.
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Player username""")
+  public ColTemplate promptAdminUserPasswordChangedSuccessfully =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "User %1$s's password has been changed successfully!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Detailed player information shown to administrators via /whois or similar command.
+            • Default display: Chat message in GREEN
+            • Placeholders:
+              • %1$s - Username
+              • %2$s - UUID
+              • %3$s - Account type
+              • %4$s - Mode (online/offline)
+              • %5$s - IP address
+              • %6$s - Status
+              • %7$s - Registration date
+              • %8$s - Country""")
+  public ColTemplate promptAdminWhoIsUser =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text =
+                      "Information about '%1$s' User:\nUUID: %2$s\nType: %3$s\nMode: %4$s\nIP-Address: %5$s\nStatus: %6$s\nRegistered: %7$s\nCountry: %8$s";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Confirmation sent to administrators after changing a player's account mode (online/offline).
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Player username
+              • %2$s - New mode""")
+  public ColTemplate promptAdminChangeUserMode =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "User %1$s's mode has been set %2$ successfully!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Confirmation sent to administrators after updating the limbo/lobby spawn location.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptAdminSpawnLocationUpdated =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "New Spawn Location for Limbo has been configured!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Validation error: The password field was left empty.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserPasswordIsBlank =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Password field <password> cannot be empty!";
                   color = "RED";
                 }
               };
@@ -263,16 +371,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Confirm password field is blank.
-            • Default: ActionBar in RED""")
-  public ColTemplate confirmPasswordIsBlank =
+            Validation error: The confirm-password field was left empty.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserConfirmPasswordIsBlank =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Confirm Password cannot be empty";
+                  text = "Confirm Password field <confirm-password> cannot be empty!";
                   color = "RED";
                 }
               };
@@ -281,16 +388,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Password and confirmation do not match.
-            • Default: ActionBar in RED""")
-  public ColTemplate passwordDoesNotMatch =
+            Validation error: The password and confirmation do not match.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserPasswordDoesNotMatch =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Password and Confirm Password do not match!";
+                  text =
+                      "Password <password> and Confirm Password <confirm-password> fields do not match!";
                   color = "RED";
                 }
               };
@@ -299,12 +406,12 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Password missing uppercase letter.
-            • Default: ActionBar in RED
-            • %1$d - Minimum Uppercase count required
-            • %2$d - Maximum Uppercase count required""")
-  public ColTemplate upperCaseNotPresent =
+            Validation error: Password does not contain enough uppercase letters.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$d - Minimum required uppercase letters
+              • %2$d - Maximum allowed uppercase letters""")
+  public ColTemplate promptUserUpperCaseNotPresent =
       new ColTemplate() {
         {
           actionBar =
@@ -319,12 +426,12 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Password missing lowercase letter.
-            • Default: ActionBar in RED
-            • %1$d - Minimum lowercase count required
-            • %2$d - Maximum lowercase count required""")
-  public ColTemplate lowerCaseNotPresent =
+            Validation error: Password does not contain enough lowercase letters.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$d - Minimum required lowercase letters
+              • %2$d - Maximum allowed lowercase letters""")
+  public ColTemplate promptUserLowerCaseNotPresent =
       new ColTemplate() {
         {
           actionBar =
@@ -339,12 +446,12 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Password missing digit.
-            • Default: ActionBar in RED
-            • %1$d - Minimum digit count required
-            • %2$d - Maximum digit count required""")
-  public ColTemplate digitNotPresent =
+            Validation error: Password does not contain enough digits.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$d - Minimum required digits
+              • %2$d - Maximum allowed digits""")
+  public ColTemplate promptUserDigitNotPresent =
       new ColTemplate() {
         {
           actionBar =
@@ -359,12 +466,12 @@ public class Messages {
 
   @Comment(
       """
-
-            Validation error: Password is too short.
-            • Default: ActionBar in RED
-            • %1$d - Minimum Password length required
-            • %2$d - Maximum Password length required""")
-  public ColTemplate PasswordLengthIssue =
+            Validation error: Password length is outside the allowed range.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$d - Minimum password length
+              • %2$d - Maximum password length""")
+  public ColTemplate promptUserPasswordLengthIssue =
       new ColTemplate() {
         {
           actionBar =
@@ -379,16 +486,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Confirmation message sent when the configuration is reloaded.
-            • Default: Chat message in GREEN""")
-  public ColTemplate reloadedConfiguration =
+            Confirmation message sent to administrators after reloading the AuthCore configuration.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptAdminReloadedConfiguration =
       new ColTemplate() {
         {
-          message =
-              new Message() {
+          actionBar =
+              new ActionBar() {
                 {
-                  text = "AuthCore configuration has been reloaded";
+                  text = "AuthCore configuration files has been reloaded successfully!";
                   color = "GREEN";
                 }
               };
@@ -397,40 +503,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Main title shown when a player enters restricted/jail mode.
-            • Used as the primary title for most jail restriction messages.
-            • Default: Title in RED""")
-  public ColTemplate restrictedMode =
+            Restricted mode violation: Player attempted to break a block while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserBreakBlockNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode enabled";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-
-            Restricted mode: Player attempted to break a block.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate breakBlockNotAllowed =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to break blocks in Lobby";
+                          text = "You are not allowed to break blocks in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -441,21 +527,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to use/interact with a block.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate useBlockNotAllowed =
+            Restricted mode violation: Player attempted to place or interact with a block while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserUseBlockNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to place blocks in Lobby";
+                          text = "You are not allowed to place blocks in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -466,21 +551,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to use an item.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate useItemNotAllowed =
+            Restricted mode violation: Player attempted to use an item while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserUseItemNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to use items in Lobby";
+                          text = "You are not allowed to use items in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -491,16 +575,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to shift-click (sneak + use item).
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate shiftItemNotAllowed =
+            Restricted mode violation: Player attempted to shift-use or move items while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserShiftItemNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
@@ -516,21 +599,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to attack another player.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackPlayerNotAllowed =
+            Restricted mode violation: Player attempted to attack another player while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackPlayerNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack players in Lobby.";
+                          text = "You are not allowed to attack players in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -541,21 +623,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to attack a hostile mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackHostileMobsNotAllowed =
+            Restricted mode violation: Player attempted to attack a hostile mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackHostileMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack hostile mobs in Lobby.";
+                          text = "You are not allowed to attack hostile mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -566,21 +647,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to attack a friendly/passive mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackFriendlyMobsNotAllowed =
+            Restricted mode violation: Player attempted to attack a passive/friendly mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackFriendlyMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack friendly mobs in Lobby.";
+                          text = "You are not allowed to attack friendly mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -591,21 +671,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to attack an animal.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackAnimalNotAllowed =
+            Restricted mode violation: Player attempted to attack an animal while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackAnimalNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack animals in Lobby.";
+                          text = "You are not allowed to attack animals in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -616,21 +695,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to attack a neutral mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackNeutralMobsNotAllowed =
+            Restricted mode violation: Player attempted to attack a neutral mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackNeutralMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack neutral mobs in Lobby.";
+                          text = "You are not allowed to attack neutral mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -641,21 +719,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with another player.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactPlayersNotAllowed =
+            Restricted mode violation: Player attempted to interact with another player while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractPlayersNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with players in Lobby.";
+                          text = "You are not allowed to interact with players in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -666,21 +743,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with an animal.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactAnimalsNotAllowed =
+            Restricted mode violation: Player attempted to interact with an animal while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractAnimalsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with animals in Lobby.";
+                          text = "You are not allowed to interact with animals in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -691,21 +767,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with a friendly mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactFriendlyMobsNotAllowed =
+            Restricted mode violation: Player attempted to interact with a friendly mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractFriendlyMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with friendly mobs in Lobby.";
+                          text = "You are not allowed to interact with friendly mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -716,22 +791,21 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with mountable entities.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactMountableEntityNotAllowed =
+            Restricted mode violation: Player attempted to mount or interact with a rideable entity while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractMountableEntityNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
                           text =
-                              "You are not allowed to interact with mountable entities in Lobby.";
+                              "You are not allowed to interact with mountable entities in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -742,21 +816,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with other entities.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactEntityNotAllowed =
+            Restricted mode violation: Player attempted to interact with any other entity while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractEntityNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with other entities in Lobby.";
+                          text = "You are not allowed to interact with other entities in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -767,21 +840,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with a neutral mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactNeutralMobsNotAllowed =
+            Restricted mode violation: Player attempted to interact with a neutral mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractNeutralMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with neutral mobs in Lobby.";
+                          text = "You are not allowed to interact with neutral mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -792,21 +864,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to interact with a hostile mob.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate interactHostileMobsNotAllowed =
+            Restricted mode violation: Player attempted to interact with a hostile mob while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractHostileMobsNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to interact with hostile mobs in Lobby.";
+                          text = "You are not allowed to interact with hostile mobs in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -817,21 +888,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to chat.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate chatNotAllowed =
+            Restricted mode violation: Player attempted to send a chat message while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserChatNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to chat in Lobby.";
+                          text = "You are not allowed to chat in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -842,28 +912,9 @@ public class Messages {
 
   @Comment(
       """
-
-            Message shown when a jailed player is not allowed to perform certain actions.
-            • Standalone title (used in specific contexts).""")
-  public ColTemplate userNotAllowed =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "You are not Allowed.";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-
-            Restricted mode: Player attempted to attack another jailed player.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate attackJailedUserNotAllowed =
+            Restricted mode violation: Player attempted to attack another player currently in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserAttackLobbyUserNotAllowed =
       new ColTemplate() {
         {
           title =
@@ -874,7 +925,7 @@ public class Messages {
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to attack jailed users in Lobby.";
+                          text = "You are not allowed to attack lobby users in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -885,21 +936,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to drop an item.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate dropItemNotAllowed =
+            Restricted mode violation: Player attempted to drop an item while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserDropItemNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to drop items from your Inventory.";
+                          text = "You are not allowed to drop items from your Inventory!";
                           color = "WHITE";
                         }
                       };
@@ -910,21 +960,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to change game mode.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate changeGameModeNotAllowed =
+            Restricted mode violation: Player attempted to change their game mode while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserChangeGameModeNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to change game mode in Lobby.";
+                          text = "You are not allowed to change game mode in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -935,21 +984,20 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to move.
-            • Title + Subtitle (WHITE)""")
-  public ColTemplate playerMovementNotAllowed =
+            Restricted mode violation: Player attempted to move while movement is restricted in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserPlayerMovementNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to move in Lobby.";
+                          text = "You are not allowed to move in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -960,22 +1008,22 @@ public class Messages {
 
   @Comment(
       """
-
-            Restricted mode: Player attempted to execute a command.
-            • Title + Subtitle (WHITE)
-            • %1$s - Command Name""")
-  public ColTemplate commandExecutionNotAllowed =
+            Restricted mode violation: Player attempted to execute a command while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)
+            • Placeholders:
+              • %1$s - Command name""")
+  public ColTemplate promptUserCommandExecutionNotAllowed =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Restricted Mode!";
+                  text = "Violation Detected!";
                   color = "RED";
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to use the command '%1$s' in Lobby.";
+                          text = "You are not allowed to use the command '%1$s' in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -986,17 +1034,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Periodic reminder shown in action bar to unregistered players in jail.
-            • Encourages using /register.
-            • Default: ActionBar in GREEN""")
-  public ColTemplate registerCommandReminderInterval =
+            Periodic reminder shown in the action bar to unregistered players in lobby/limbo.
+            • Encourages registration.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserRegisterCommandReminderInterval =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Use the '/register' command to register yourself.";
+                  text = "Use the '/register' command to register yourself!";
                   color = "GREEN";
                 }
               };
@@ -1005,17 +1052,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Periodic reminder shown in action bar to unauthenticated players in jail.
-            • Encourages using /login.
-            • Default: ActionBar in GREEN""")
-  public ColTemplate loginCommandReminderInterval =
+            Periodic reminder shown in the action bar to registered but unauthenticated players in lobby/limbo.
+            • Encourages login.
+            • Default display: Action bar in GREEN""")
+  public ColTemplate promptUserLoginCommandReminderInterval =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Use the '/login' command to authenticate yourself.";
+                  text = "Use the '/login' command to authenticate yourself!";
                   color = "GREEN";
                 }
               };
@@ -1024,16 +1070,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Welcome message shown to players when they enter jail/restricted mode.
-            • Default: ActionBar in GREEN""")
-  public ColTemplate welcomeJailUser =
+            Welcome message displayed when a player enters the lobby/limbo area.
+            • Default display: Title in GREEN""")
+  public ColTemplate promptUserWelcomeLobbyUser =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Welcome to Restricted Mode.";
+                  text = "Welcome to the Lobby!";
                   color = "GREEN";
                 }
               };
@@ -1042,12 +1087,12 @@ public class Messages {
 
   @Comment(
       """
-
-                  When user is already in the same mode.
-                  • Default: ActionBar in RED
-                  • %1$s Username Placeholder
-                  • %2$s Account mode [online-mode/offline-mode]""")
-  public ColTemplate userIsInSameMode =
+            Notification sent to administrators when attempting to change a player to a mode they are already in.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$s - Player username
+              • %2$s - Mode (online-mode/offline-mode)""")
+  public ColTemplate promptAdminUserIsInSameMode =
       new ColTemplate() {
         {
           actionBar =
@@ -1062,9 +1107,9 @@ public class Messages {
 
   @Comment(
       """
-
-                        Prompt for successful transfer to cracked account.""")
-  public ColTemplate transferredToCrackedAccount =
+            Message shown to a player after their account has been successfully transferred to offline/cracked mode.
+            • Default display: Title + subtitle (GREEN/WHITE)""")
+  public ColTemplate promptUserTransferredToCrackedAccount =
       new ColTemplate() {
         {
           title =
@@ -1087,9 +1132,9 @@ public class Messages {
 
   @Comment(
       """
-
-           Prompt for successful transfer to premium account.""")
-  public ColTemplate transferredToPremiumAccount =
+            Message shown to a player after their account has been successfully transferred to premium/online mode.
+            • Default display: Title + subtitle (GREEN/RED)""")
+  public ColTemplate promptUserTransferredToPremiumAccount =
       new ColTemplate() {
         {
           title =
@@ -1112,16 +1157,37 @@ public class Messages {
 
   @Comment(
       """
-
-           If Username isn't from the Premium account.
-           • %1$s Username Placeholder""")
-  public ColTemplate usernameIsNotPremium =
+            Notification sent to administrators when attempting to transfer a username that is not a valid premium account.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$s - Username""")
+  public ColTemplate promptAdminUsernameIsNotPremium =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Your username '%1$s' isn't a online-mod account!";
+                  text = "User '%1$s' isn't a online-mod account!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Error message shown when a command is used with missing required arguments.
+            • Default display: Action bar in RED
+            • Placeholders:
+              • %1$s - Missing parameter name
+              • %2$s - Command name""")
+  public ColTemplate promptMissingParameter =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "You are missing '%1$s' parameter in '%2$s' command!";
                   color = "RED";
                 }
               };
@@ -1132,16 +1198,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Proxy/VPN login detected and disallowed.
-            • Shown on disconnect screen with delay 0.""")
-  public KickTemplate proxyNotAllowed =
+            Kick reason: A proxy or VPN connection was detected and blocked.
+            • Displayed on the disconnect screen.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserProxyNotAllowed =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Proxy connections are not allowed on the server.";
+                  text = "Proxy connections are not allowed on the server!";
                   color = "RED";
                 }
               };
@@ -1150,16 +1216,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player tried to login from multiple locations simultaneously.
-            • Shown on disconnect screen with delay 0.""")
-  public KickTemplate duplicateLoginNotAllowed =
+            Kick reason: Player attempted simultaneous login from multiple locations.
+            • Displayed on the disconnect screen.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserDuplicateLoginNotAllowed =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Duplicate logins are not allowed on the server.";
+                  text = "Duplicate logins are not allowed on the server!";
                   color = "RED";
                 }
               };
@@ -1168,16 +1234,16 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player logged in from a different IP than their session.
-            • Security feature.""")
-  public KickTemplate differentIpLoginNotAllowed =
+            Kick reason: Player logged in from a different IP than their active session.
+            • Security protection against session hijacking.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserDifferentIpLoginNotAllowed =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Login from a different IP address is not allowed.";
+                  text = "Login from a different IP address is not allowed!";
                   color = "RED";
                 }
               };
@@ -1186,15 +1252,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player using a premium (paid) Minecraft name that is restricted.""")
-  public KickTemplate premiumNameNotAllowed =
+            Kick reason: Player used a premium (paid) username that is restricted on this server.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserPremiumNameNotAllowed =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "You are not allowed to use an online-mode username.";
+                  text = "You are not allowed to use an online-mode username!";
                   color = "RED";
                 }
               };
@@ -1203,9 +1269,9 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Bedrock players are not allowed.""")
-  public KickTemplate bedrockPlayersNotAllowed =
+            Kick reason: Bedrock/Floodgate players are not permitted on this Java server.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserBedrockPlayersNotAllowed =
       new KickTemplate() {
         {
           logout =
@@ -1220,16 +1286,17 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player tried to rejoin too soon after being kicked.
-            • %1$s - Time remaining""")
-  public KickTemplate cooldownAfterKickNotExpired =
+            Kick reason: Player rejoined too quickly after a previous kick (anti-spam protection).
+            • Placeholders:
+              • %1$s - Remaining cooldown time
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserCooldownAfterKickNotExpired =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "You cannot login until the %1$s cooldown expires.";
+                  text = "You cannot login until the %1$s cooldown expires!";
                   color = "RED";
                 }
               };
@@ -1238,15 +1305,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Maximum number of jailed players reached.""")
-  public KickTemplate maxJailedUsersReached =
+            Kick reason: Maximum number of players allowed in lobby/limbo has been reached.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserMaxLobbyUsersReached =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "The Queue is full. Maximum number of jailed users reached.";
+                  text = "The Queue is full. Maximum number of lobby users reached!";
                   color = "RED";
                 }
               };
@@ -1255,16 +1322,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player must rejoin after successful registration.
+            Kick reason: Player must rejoin after successful registration to log in.
             • Delay: 5 seconds""")
-  public KickTemplate reJoinAfterRegister =
+  public KickTemplate promptUserReJoinAfterRegister =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "You must re-join the server and login with your credentials.";
+                  text = "You must re-join the server and login with your credentials!";
                   color = "GREEN";
                   delaySec = 5;
                 }
@@ -1274,16 +1340,15 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Player session has expired (inactivity timeout).
+            Kick reason: Player session expired due to inactivity timeout.
             • Delay: 5 seconds""")
-  public KickTemplate sessionExpired =
+  public KickTemplate promptUserSessionExpired =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Your session has expired. Please re-login to the server.";
+                  text = "Your session has expired. Please re-login to the server!";
                   color = "WHITE";
                   delaySec = 5;
                 }
@@ -1293,19 +1358,147 @@ public class Messages {
 
   @Comment(
       """
-
-            Kick reason: Authentication timeout expired (took too long to login/register).
-            • Delay: 5 seconds
-            • %1$s - Session Time""")
-  public KickTemplate authenticationTimeoutExpired =
+            Kick reason: Authentication timeout expired (player took too long to register/login).
+            • Placeholders:
+              • %1$s - Session duration
+            • Delay: 5 seconds""")
+  public KickTemplate promptUserAuthenticationExpiredTimeout =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Authentication session has been expired after %1$s.";
+                  text = "Authentication session has been expired after %1$s!";
                   color = "RED";
                   delaySec = 5;
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player account data could not be loaded or found.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserNotFoundData =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your data could not be found. Please re-login to the server.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Targeted player's data could not be found (admin command feedback shown as kick message).
+            • Placeholders:
+              • %1$s - Username
+            • Delay: 0 seconds""")
+  public KickTemplate promptAdminUserNotFound =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "User %1$s's data could not be found. Please re-login to the server.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player exceeded the maximum allowed login attempts.
+            • Places player back into lobby/limbo.
+            • Placeholders:
+              • %1$d - Maximum allowed attempts
+              • %2$s - Cooldown duration
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserExceededLoginAttempts =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text =
+                      "You have exceeded the maximum login attempts (%1$d). Please re-join the server after %2$s.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player was forcibly kicked by an administrator (session destroyed).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserKickedByAdmin =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your session has been destroyed by an Admin!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Another client logged in with the same account (concurrent login detected).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserAnotherAccountLoggedIn =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Account with your username is already logged in the Server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player's account data has been permanently deleted.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserDataGotDeleted =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your account has been deleted from the Server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to admin as feedback): Targeted player's account has been deleted.
+            • Placeholders:
+              • %1$s - Username
+            • Delay: 0 seconds""")
+  public KickTemplate promptAdminUserDataDeleted =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "User '%1$s' account has been deleted from the Server!";
+                  color = "RED";
                 }
               };
         }
@@ -1318,10 +1511,9 @@ public class Messages {
 
     @Comment(
         """
-
-                The message shown on the disconnect/kick screen.
-                • Uses a LogoutTemplate (no title/actionbar, only logout message).
-                • Delay controls how long the message stays visible before the client fully disconnects.""")
+                Message displayed on the player's disconnect/kick screen.
+                • Uses LogoutTemplate (plain text only, no title or action bar).
+                • delaySec controls how long the message is shown before full disconnect.""")
     public LogoutTemplate logout = new LogoutTemplate();
   }
 
@@ -1330,24 +1522,21 @@ public class Messages {
 
     @Comment(
         """
-
                 Standard chat message sent to the player.
-                • Appears in the chat box.
-                • Supports delay (in ticks) before sending.""")
+                • Appears in the regular chat window.
+                • Supports a delay (in seconds) before sending.""")
     public Message message = new Message();
 
     @Comment(
         """
-
-                Title message displayed in the center of the screen.
-                • Can include a subtitle and custom fade-in/stay/fade-out timings.""")
+                Large centered title message.
+                • Can include a subtitle and custom fade timings.""")
     public Title title = new Title();
 
     @Comment(
         """
-
-                Action bar message displayed above the hotbar.
-                • Quick, non-intrusive feedback.""")
+                Small message displayed above the hotbar (action bar).
+                • Ideal for quick, unobtrusive notifications.""")
     public ActionBar actionBar = new ActionBar();
   }
 
@@ -1356,8 +1545,7 @@ public class Messages {
 
     @Comment(
         """
-
-                Delay (in seconds) before the chat message is sent.
+                Delay in seconds before sending the chat message.
                 • Default: 0 (immediate)""")
     public int delay = 0;
   }
@@ -1365,34 +1553,30 @@ public class Messages {
   @ConfigSerializable
   public static class Title extends Template {
 
-    @Comment("Optional subtitle displayed below the main title.")
+    @Comment("Optional subtitle shown below the main title.")
     public Template subtitle = new Template();
 
     @Comment(
         """
-
-                Delay (in seconds) before the title is shown.
+                Delay in seconds before the title appears.
                 • Default: 0 (immediate)""")
     public int delay = 0;
 
     @Comment(
         """
-
-                Fade-in time for the title (in seconds).
+                Fade-in duration in seconds.
                 • Default: 1 second""")
     public int fadeInSec = 1;
 
     @Comment(
         """
-
-                How long the title stays fully visible (in seconds).
+                Duration the title remains fully visible in seconds.
                 • Default: 3 seconds""")
     public int staySec = 3;
 
     @Comment(
         """
-
-                Fade-out time for the title (in seconds).
+                Fade-out duration in seconds.
                 • Default: 1 second""")
     public int fadeOutSec = 1;
   }
@@ -1402,8 +1586,7 @@ public class Messages {
 
     @Comment(
         """
-
-                Delay (in seconds) before the action bar message appears.
+                Delay in seconds before showing the action bar message.
                 • Default: 0 (immediate)""")
     public int delay = 0;
   }
@@ -1413,9 +1596,8 @@ public class Messages {
 
     @Comment(
         """
-
-                Delay (in seconds) before the client is fully disconnected after showing the kick message.
-                • Gives the player time to read the reason.
+                Delay in seconds before the client is fully disconnected after displaying the kick message.
+                • Allows the player time to read the reason.
                 • Default: 0 (immediate disconnect)""")
     public int delaySec = 0;
   }
@@ -1425,75 +1607,50 @@ public class Messages {
 
     @Comment(
         """
-
-                Text to display via multiple adapters..
+                The text content to display.
                 • Example: 'Welcome to the Server!'""")
     public String text = "";
 
     @Comment(
         """
-
-                Fonts to apply to the text.
-                • First available font in the list will be used.
-                • Default: ["minecraft", "default"] (falls back to vanilla font)""")
+                Font resources to apply (in order of preference).
+                • First available font will be used.
+                • Default: ["minecraft", "default"]""")
     public String[] font = new String[] {"minecraft", "default"};
 
     @Comment(
         """
-
                 Text color.
-                • Supports Minecraft color names (e.g., "RED", "GREEN") or hex (#RRGGBB).
+                • Accepts Minecraft color names (RED, GREEN, etc.) or hex codes (#RRGGBB).
                 • Default: GREEN""")
     public String color = "GREEN";
 
     @Comment(
         """
-
-                Strength of the text shadow/drop effect.
-                • Higher values = stronger shadow.
+                Strength of the drop shadow behind the text.
+                • Higher values produce a stronger shadow.
                 • Default: 10""")
     public int shadowStrength = 10;
 
     @Comment(
         """
-
-                Whether to render a shadow behind the text.
+                Whether to render a drop shadow behind the text.
                 • Default: true""")
     public boolean shadow = true;
 
-    @Comment(
-        """
-
-                Bold text styling.
-                • Default: false""")
+    @Comment("Apply bold styling. Default: false")
     public boolean bold = false;
 
-    @Comment(
-        """
-
-                Italic text styling.
-                • Default: false""")
+    @Comment("Apply italic styling. Default: false")
     public boolean italic = false;
 
-    @Comment(
-        """
-
-                Underlined text styling.
-                • Default: false""")
+    @Comment("Apply underline styling. Default: false")
     public boolean underline = false;
 
-    @Comment(
-        """
-
-                Strikethrough text styling.
-                • Default: false""")
+    @Comment("Apply strikethrough styling. Default: false")
     public boolean strikethrough = false;
 
-    @Comment(
-        """
-
-                Obfuscated/magic text (random characters).
-                • Default: false""")
+    @Comment("Apply obfuscated (randomly changing characters) effect. Default: false")
     public boolean obfuscate = false;
   }
 }

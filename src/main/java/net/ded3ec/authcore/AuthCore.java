@@ -2,7 +2,7 @@ package net.ded3ec.authcore;
 
 import java.nio.file.Path;
 
-import net.ded3ec.authcore.models.Configs;
+import net.ded3ec.authcore.models.Config;
 import net.ded3ec.authcore.models.Messages;
 import net.ded3ec.authcore.utils.Hooks;
 import net.fabricmc.api.ModInitializer;
@@ -15,7 +15,7 @@ public class AuthCore implements ModInitializer {
     public static final Path configPath = FabricLoader.getInstance().getConfigDir().resolve("authcore");
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    public static Configs config;
+    public static Config config;
     public static Messages messages;
 
     @Override

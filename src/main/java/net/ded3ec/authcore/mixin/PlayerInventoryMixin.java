@@ -38,7 +38,7 @@ abstract class PlayerInventoryMixin {
     // Prevent item removal if the user is in the lobby and item dropping is not allowed.
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
       // Notify the user that item dropping is not allowed.
-      Logger.toUser(false, user.handler, AuthCore.messages.dropItemNotAllowed);
+      Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
 
       // Update the player's screen handler to reflect the change.
       inventory.player.currentScreenHandler.sendContentUpdates();

@@ -83,7 +83,7 @@ public class Database {
                            );
                     """);
 
-            Logger.info("Created users database if it doesn't exist!");
+            Logger.info(true,"Created users database if it doesn't exist!");
         } catch (SQLException err) {
             Logger.error(false, "User's database connection is facing an error!", err);
         }

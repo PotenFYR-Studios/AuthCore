@@ -4,7 +4,9 @@
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=master)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
-**AuthCore** is a lightweight, server-side authentication mod for [Fabric](https://fabricmc.net/) Minecraft servers. It provides a secure login and registration system for offline-mode servers, helping prevent unauthorized access, griefing, and account impersonation.
+**AuthCore** is a lightweight, server-side authentication mod for [Fabric](https://fabricmc.net/) Minecraft servers. It
+provides a secure login and registration system for offline-mode servers, helping prevent unauthorized access, griefing,
+and account impersonation.
 
 ---
 
@@ -16,7 +18,7 @@
 - 🧍‍♂️ Optional spawn-locking until authentication
 - ⚙️ Configurable settings for timeout, kick messages, and more
 - 🔄 Support for cracked/premium account migration
-- 🔄 Live config reload with `/reloadauthCore`
+- 🔄 Live config reload with `/authcore reload`
 - 📦 Lightweight and dependency-free
 
 ---
@@ -24,7 +26,8 @@
 ## 📦 Installation
 
 1. Install [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Download the latest version of AuthCore from [Modrinth](https://modrinth.com/mod/authCore) or the [Releases](https://github.com/DawnOfDedSec/AuthCore/releases) page.
+2. Download the latest version of AuthCore from [Modrinth](https://modrinth.com/mod/authCore) or
+   the [Releases](https://github.com/DawnOfDedSec/AuthCore/releases) page.
 3. Place the `authCore-x.y.z.jar` file into your server's `mods/` folder.
 4. Start your server. A default config file will be generated in `config/authCore.json`.
 
@@ -42,16 +45,34 @@
 
 ## 🛠️ Commands
 
-| Command                 | Description                                              | Usage Example                 |
-|-------------------------|----------------------------------------------------------|-------------------------------|
-| `/register <pw> <pw>`   | Register a new password                                  | `/register hunter2 hunter2`   |
-| `/login <pw>`           | Log in with your password                                | `/login hunter2`              |
-| `/logout`               | Log out of your current session                          | `/logout`                     |
-| `/account cracked <pw>` | Convert your account to cracked mode with a new password | `/account cracked newpass123` |
-| `/account premium`      | Convert your account to premium (online-mode)            | `/account premium`            |
-| `/reloadauthCore`       | Reload AuthCore configuration and player data            | `/reloadauthCore`             |
+### User Commands
 
-> Players must register on first join and log in on subsequent joins. Admin-only commands like `/reloadauthCore` require appropriate permissions.
+| Command                      | Description                     | Usage Example                      | Permission Level |
+|------------------------------|---------------------------------|------------------------------------|------------------|
+| `/register <pw> [confirm]`   | Register a new password         | `/register hunter2 hunter2`        | 0                |
+| `/login <pw>`                | Log in with your password       | `/login hunter2`                   | 0                |
+| `/account logout`            | Log out of your current session | `/account logout`                  | 0                |
+| `/account unregister`        | Permanently remove your account | `/account unregister`              | 0                |
+| `/account password set <pw>` | Change your password            | `/account password set newpass123` | 0                |
+
+### Admin Commands
+
+| Command                                       | Description                                   | Usage Example                                          | Permission Level |
+|-----------------------------------------------|-----------------------------------------------|--------------------------------------------------------|------------------|
+| `/authcore reload`                            | Reload AuthCore configuration and player data | `/authcore reload`                                     | 3                |
+| `/authcore list players`                      | List all registered players                   | `/authcore list players`                               | 3                |
+| `/authcore list online-players`               | List premium/online-mode players              | `/authcore list online-players`                        | 3                |
+| `/authcore list offline-players`              | List cracked/offline-mode players             | `/authcore list offline-players`                       | 3                |
+| `/authcore delete player <player>`            | Permanently delete a player's account         | `/authcore delete player Steve`                        | 3                |
+| `/authcore destroy-session <player>`          | Force a player to re-authenticate             | `/authcore destroy-session Steve`                      | 3                |
+| `/authcore set-password <player> <pw>`        | Admin-forced password change                  | `/authcore set-password Steve newpass123`              | 3                |
+| `/authcore whois <username>`                  | Show detailed player info                     | `/authcore whois Steve`                                | 3                |
+| `/authcore set-mode online <player>`          | Force player to premium/online mode           | `/authcore set-mode online Steve`                      | 3                |
+| `/authcore set-mode offline <player>`         | Force player to cracked/offline mode          | `/authcore set-mode offline Steve`                     | 3                |
+| `/authcore set-spawn limbo <dim> <x> <y> <z>` | Set limbo spawn location                      | `/authcore set-spawn limbo minecraft:overworld 0 64 0` | 3                |
+
+> Players must register on first join and log in on subsequent joins. Commands require appropriate permissions (
+> LuckPerms or OP level). Admin commands require OP level 3 or higher.
 
 ---
 
@@ -90,13 +111,15 @@ Contributions are welcome! To contribute:
 4. Push to your fork: `git push origin feature/your-feature-name`
 5. Open a pull request: https://github.com/DawnOfDedSec/AuthCore/pulls
 
-Please follow the existing code style and include clear commit messages. For major changes, open an issue first to discuss what you’d like to change.
+Please follow the existing code style and include clear commit messages. For major changes, open an issue first to
+discuss what you’d like to change.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the [CC0 1.0 Universal (Public Domain)](LICENSE). You are free to use, modify, and distribute this mod without any restrictions.
+This project is licensed under the [CC0 1.0 Universal (Public Domain)](LICENSE). You are free to use, modify, and
+distribute this mod without any restrictions.
 
 ---
 

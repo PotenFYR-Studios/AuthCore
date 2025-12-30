@@ -39,8 +39,9 @@ public class Login {
                     // Check if the player has the required permissions.
                     return Permissions.check(
                         ctx.getPlayer(),
-                        AuthCore.config.commands.login.luckPermsNode,
-                        PermissionLevel.fromLevel(AuthCore.config.commands.login.permissionsLevel));
+                        AuthCore.config.commands.user.login.luckPermsNode,
+                        PermissionLevel.fromLevel(
+                            AuthCore.config.commands.user.login.permissionsLevel));
                 })
             .then(
                 // Add the "password" argument to the command.
@@ -60,21 +61,17 @@ public class Login {
       // Retrieve the player executing the command.
       ServerPlayerEntity player = source.getPlayer();
 
-      if (player == null) return 0;
+      if (player == null) return Logger.info(0, "This command can't be executed from console!");
 
       // Log the usage of the `/login` command.
-      Logger.debug(0, "{} used '/login' command in the Server!", player.getName());
+      Logger.debug(0, "{} used '/login' command in the Server!", player.getName().getString());
 
       // Retrieve the user data associated with the player.
       User user = User.users.get(player.getName().getString());
 
       // Handle the case where the user data is not found.
       if (user == null)
-        return Logger.toUser(
-            0,
-            player.networkHandler,
-            AuthCore.messages.userNotFoundData,
-            player.getName().getString());
+        return Logger.toUser(0, player.networkHandler, AuthCore.messages.promptUserNotFoundData);
       else ++user.loginAttempts;
 
       // Check if the user has exceeded the maximum login attempts.
@@ -82,26 +79,27 @@ public class Login {
         return Logger.toKick(
             0,
             player.networkHandler,
-            AuthCore.messages.exceededLoginAttempts,
+            AuthCore.messages.promptUserExceededLoginAttempts,
             AuthCore.config.session.authentication.maxLoginAttempts,
             Misc.TimeConverter.toDuration(AuthCore.config.session.cooldownAfterKickMs));
       else if (!user.isRegistered.get())
         // Inform the user if they are not registered.
-        return Logger.toUser(0, player.networkHandler, AuthCore.messages.userNotRegistered);
+        return Logger.toUser(0, player.networkHandler, AuthCore.messages.promptUserNotRegistered);
       else if (Misc.HashManager.verify(password, user.password, user.passwordEncryption)) {
         // Authenticate the user if the password matches.
 
-        Logger.debug(1, "{} have authenticated in the Server!", player.getName());
+        Logger.debug(1, "{} have authenticated in the Server!", player.getName().getString());
         user.login(player);
 
         // Notify the user of successful login.
-        return Logger.toUser(1, player.networkHandler, AuthCore.messages.userLoggedIn);
+        return Logger.toUser(
+            1, player.networkHandler, AuthCore.messages.promptUserLoggedInSuccessfully);
       } else
         // Notify the user of an incorrect password.
-        return Logger.toUser(1, player.networkHandler, AuthCore.messages.wrongPassword);
+        return Logger.toUser(1, player.networkHandler, AuthCore.messages.promptUserWrongPassword);
     } catch (Exception err) {
       // Log any errors encountered during command execution.
-      return Logger.error(0, "Faced Error in Login Command: {}", err);
+      return Logger.error(0, "Faced Error in '/login' Command: {}", err);
     }
   }
 }
