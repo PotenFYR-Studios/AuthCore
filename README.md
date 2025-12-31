@@ -1,35 +1,41 @@
 # 🔐 AuthCore – Secure Minecraft Login for Fabric Servers
 
 [![Modrinth](https://img.shields.io/modrinth/dt/authCore?color=brightgreen&label=Modrinth%20Downloads)](https://modrinth.com/mod/authCore)
+[![CurseForge](https://img.shields.io/badge/dynamic/json?url=https://api.curseforge.com/v1/mods/search?gameId=432&searchFilter=authcore&slug=authcore&token=YOUR_TOKEN_HERE)](https://www.curseforge.com/minecraft/mc-mods/authcore)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=master)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
 **AuthCore** is a lightweight, server-side authentication mod for [Fabric](https://fabricmc.net/) Minecraft servers. It
-provides a secure login and registration system for offline-mode servers, helping prevent unauthorized access, griefing,
-and account impersonation.
+provides a secure login and registration system for offline-mode servers, preventing unauthorized access, griefing, and
+account impersonation.
+
+> **Perfect for** cracked servers, public communities, and premium-hybrid setups.
 
 ---
 
 ## ✨ Features
 
-- 🔐 **Password-based authentication** for players
-- 🧾 **`/register`** and **`/login`** commands
-- 🚫 Prevents movement and interaction before login
-- 🧍‍♂️ Optional spawn-locking until authentication
-- ⚙️ Configurable settings for timeout, kick messages, and more
-- 🔄 Support for cracked/premium account migration
-- 🔄 Live config reload with `/authcore reload`
-- 📦 Lightweight and dependency-free
+- 🔐 **Password-based authentication** with secure hashing
+- 🧾 **`/register`**, **`/login`**, and **`/account`** command suite
+- 🚫 **Movement & interaction blocking** until authenticated
+- 🧍‍♂️ **Spawn-locking** with configurable limbo zones
+- 🔄 **Premium/cracked account migration** support
+- ⚙️ **Live config reload** (`/authcore reload`)
+- 📊 **Admin dashboard** commands for player management
+- 📦 **Zero dependencies** – lightweight & performant
+- 🔒 **Session management** with logout/unregister options
 
 ---
 
 ## 📦 Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Download the latest version of AuthCore from [Modrinth](https://modrinth.com/mod/authCore) or
-   the [Releases](https://github.com/DawnOfDedSec/AuthCore/releases) page.
-3. Place the `authCore-x.y.z.jar` file into your server's `mods/` folder.
-4. Start your server. A default config file will be generated in `config/authCore.json`.
+1. Install [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api)
+2. Download latest [AuthCore](https://modrinth.com/mod/authCore) from Modrinth
+   or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases)
+3. Drop `authCore-x.y.z.jar` into your `mods/` folder
+4. **Start server** – config generates automatically at `config/authCore.json`
+
+**✅ Done!** Players will need to register on first join.
 
 ---
 

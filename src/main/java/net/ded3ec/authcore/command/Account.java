@@ -241,7 +241,7 @@ public class Account {
    * <ul>
    *   <li>Ensuring the password is not blank
    *   <li>Preventing reuse if {@code allowReuse} is disabled in configuration
-   *   <li>Checking complexity requirements via {@link Security#getPasswordComplexity}
+   *   <li>Checking complexity requirements.
    * </ul>
    *
    * <p>Appropriate feedback messages are sent to the player when validation fails.
@@ -261,6 +261,6 @@ public class Account {
     else if (!AuthCore.config.passwordRules.allowReuse && newPassword.equals(oldPassword))
       return Logger.toUser(
           false, player.networkHandler, AuthCore.messages.promptUserDuplicatePassword);
-    else return (Security.getPasswordComplexity(player, newPassword));
+    else return (Security.Password.check(player, newPassword));
   }
 }

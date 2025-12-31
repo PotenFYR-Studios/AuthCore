@@ -1,0 +1,7 @@
+- :bug: commands & helpers!
+- 💥Hotfix for Movement Blocker & Logging
+- Installed Limbo Framework
+- Custom Messages Support
+- Admin & user Commands!
+- Support for Violations!
+- Custom Logger!

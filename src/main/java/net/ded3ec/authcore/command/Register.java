@@ -133,6 +133,6 @@ public class Register {
         && !password.equals(confirmPassword))
       return Logger.toUser(
           false, player.networkHandler, AuthCore.messages.promptUserPasswordDoesNotMatch);
-    else return (Security.getPasswordComplexity(player, password));
+    else return (Security.Password.check(player, password));
   }
 }

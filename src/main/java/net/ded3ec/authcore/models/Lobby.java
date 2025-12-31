@@ -17,7 +17,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
-import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -26,7 +25,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a lobby system for managing player authentication and queuing in the AuthCore mod.
@@ -51,14 +49,8 @@ public class Lobby {
   /** Scheduled task for sending reminders in restricted mode. */
   private ScheduledFuture<?> lobbyIntervalTask;
 
-  /** Block position for unregistered users in the lobby. */
-  private BlockPos lobbyRegisterPosition;
-
-  /** Block position for registered users in the lobby. */
-  private BlockPos lobbyLoginPosition;
-
   /** General lobby position for the player. */
-  private BlockPos lobbyPosition;
+  private BlockPos position;
 
   /**
    * Constructs a new Lobby instance for the given user.
@@ -79,7 +71,7 @@ public class Lobby {
     ServerPlayerEntity player = user.player.get();
 
     this.snapshot = new Snapshot(player);
-    this.teleportToLobby();
+    this.handleTeleport();
     Logger.toUser(true, user.handler, AuthCore.messages.promptUserWelcomeLobbyUser);
 
     if (AuthCore.config.lobby.timeout.enabled) this.handleTimeout();
@@ -93,14 +85,15 @@ public class Lobby {
    * registered users, to the hub location. Ensures safe teleportation by adjusting positions to
    * avoid suffocation or unsafe landing.
    */
-  public void teleportToLobby() {
+  public void handleTeleport() {
 
     MinecraftServer server = this.user.server.get();
     ServerPlayerEntity player = this.user.player.get();
     ServerWorld world = player.getEntityWorld();
     BlockPos blockPos = player.getBlockPos().toImmutable();
 
-    if (AuthCore.config.lobby.limboConfig.enabled && !this.user.isRegistered.get()) {
+    if (AuthCore.config.lobby.limboConfig.enabled
+        && (!this.user.isRegistered.get() || !AuthCore.config.lobby.limboConfig.onlyOnFirstTime)) {
       String raw = AuthCore.config.lobby.limboConfig.location.dimension.trim().toLowerCase();
       Identifier id = Identifier.of(raw);
       RegistryKey<World> key = RegistryKey.of(RegistryKeys.WORLD, id);
@@ -108,37 +101,16 @@ public class Lobby {
       world = server.getWorld(key);
       if (world == null) return;
 
-      if (this.lobbyRegisterPosition == null) {
+      if (this.position == null) {
         blockPos =
             BlockPos.ofFloored(
                 AuthCore.config.lobby.limboConfig.location.x,
                 AuthCore.config.lobby.limboConfig.location.y,
                 AuthCore.config.lobby.limboConfig.location.z);
         blockPos = this.snapshot.getTeleportPos(player, blockPos.toImmutable(), world);
-        this.lobbyRegisterPosition = blockPos.toImmutable();
-      } else blockPos = this.lobbyRegisterPosition.toImmutable();
-
-    } else if (AuthCore.config.lobby.hubConfig.enabled && this.user.isRegistered.get()) {
-      String raw = AuthCore.config.lobby.hubConfig.location.dimension.trim().toLowerCase();
-      Identifier id = Identifier.of(raw);
-      RegistryKey<World> key = RegistryKey.of(RegistryKeys.WORLD, id);
-
-      world = server.getWorld(key);
-      if (world == null) return;
-
-      if (this.lobbyLoginPosition == null) {
-        blockPos =
-            BlockPos.ofFloored(
-                AuthCore.config.lobby.hubConfig.location.x,
-                AuthCore.config.lobby.hubConfig.location.y,
-                AuthCore.config.lobby.hubConfig.location.z);
-        blockPos = this.snapshot.getTeleportPos(player, blockPos.toImmutable(), world);
-        this.lobbyLoginPosition = blockPos.toImmutable();
-      } else blockPos = this.lobbyLoginPosition.toImmutable();
+        this.position = blockPos.toImmutable();
+      } else blockPos = this.position.toImmutable();
     }
-
-    if (this.lobbyPosition != null) blockPos = this.lobbyPosition.toImmutable();
-    else this.lobbyPosition = blockPos.toImmutable();
 
     this.snapshot.teleport(player, blockPos.toImmutable(), world);
   }
@@ -230,7 +202,9 @@ public class Lobby {
                 () -> {
                   if (this.user.isActive && this.user.isInLobby.get())
                     Logger.toUser(
-                        true, this.user.handler, AuthCore.messages.promptUserRegisterCommandReminderInterval);
+                        true,
+                        this.user.handler,
+                        AuthCore.messages.promptUserRegisterCommandReminderInterval);
                 },
                 AuthCore.config.session.loginReminderIntervalMs);
       else
@@ -239,7 +213,9 @@ public class Lobby {
                 () -> {
                   if (this.user.isActive && this.user.isInLobby.get())
                     Logger.toUser(
-                        true, this.user.handler, AuthCore.messages.promptUserLoginCommandReminderInterval);
+                        true,
+                        this.user.handler,
+                        AuthCore.messages.promptUserLoginCommandReminderInterval);
                 },
                 AuthCore.config.session.loginReminderIntervalMs);
   }
@@ -280,8 +256,6 @@ public class Lobby {
 
     private final GameMode gameMode;
 
-    private final @Nullable Team team;
-
     /**
      * Creates a snapshot of the player's current state. Captures inventory, effects, health,
      * experience, position, and other attributes. Applies lobby effects such as invisibility,
@@ -316,7 +290,6 @@ public class Lobby {
       this.frozenTicks = player.getFrozenTicks();
       this.fallDistance = player.fallDistance;
       this.gameMode = player.interactionManager.getGameMode();
-      this.team = player.getScoreboardTeam();
 
       player.clearStatusEffects();
 

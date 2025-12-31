@@ -119,7 +119,7 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
       cir.cancel();
 
       Logger.toUser(false, user.handler, AuthCore.messages.promptUserPlayerMovementNotAllowed);
-      user.lobby.teleportToLobby();
+      user.lobby.handleTeleport();
     }
   }
 }

@@ -328,11 +328,23 @@ public class User {
   /**
    * Register new user for authentication with password!
    *
-   * @param work description of the update work
+   * @param reason description of the update reason
    */
-  public void update(String work) {
+  public void update(String reason) {
     db.insert(this);
-    Logger.debug(true, "{} has been updated in the database for '{}'", this.username, work);
+    Logger.debug(true, "{} has been updated in the database for '{}'", this.username, reason);
+  }
+
+  /**
+   * Delete user from cache and database!
+   *
+   * @param reason description of the delete reason
+   */
+  public void delete(String reason) {
+    User.users.remove(this.username);
+    db.remove(this);
+
+    Logger.debug(true, "{} has been deleted from the database for '{}'", this.username, reason);
   }
 
   /** Database Manager for users. */
