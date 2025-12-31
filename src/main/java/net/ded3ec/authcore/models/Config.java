@@ -44,7 +44,7 @@ public class Config {
 
   @Comment(
       """
-                  Restrictions applied to unauthenticated ("jailed") players.
+                  Restrictions applied to unauthenticated ("lobby") players.
                   • Strong restrictions improve security by limiting what unauthentic players can do.
                   • Recommended to keep most options disabled.""")
   public Lobby lobby = new Lobby();
@@ -91,12 +91,12 @@ public class Config {
 
     @Comment(
         """
-                      Permissions for the /register command.
+                      Permissions for the /load command.
                       • Required for new/cracked players to create an account.""")
     public CommandPermissions register =
         new CommandPermissions() {
           {
-            luckPermsNode = "authcore.user.register";
+            luckPermsNode = "authcore.user.load";
             permissionsLevel = 0;
           }
         };
@@ -385,7 +385,7 @@ public class Config {
 
       @Comment(
           """
-                              Allow cracked players to register using a premium (paid) username.
+                              Allow cracked players to load using a premium (paid) username.
                               • Disabling prevents username squatting.
                               • Default: false""")
       public boolean allowCrackedPremiumNames = false;
@@ -575,38 +575,27 @@ public class Config {
 
     @Comment(
         """
-                      Teleport settings after successful login (optional hub/spawn redirect).
-                      • Disabled by default.""")
-    public TeleportConfig hubConfig =
-        new TeleportConfig() {
-          {
-            enabled = false;
-          }
-        };
-
-    @Comment(
-        """
                       Dynamic login timeout adjustments based on player latency/ping.
                       • Gives high-ping players more time to authenticate.""")
     public Timeout timeout = new Timeout();
 
     @Comment(
         """
-                      Maximum number of simultaneously jailed (unauthenticated) players.
+                      Maximum number of simultaneously lobby (unauthenticated) players.
                       • Helps prevent server overload from many unauthentic connections.
                       • Default: 50""")
-    public int maxJailedUsers = 50;
+    public int maxlobbyUsers = 50;
 
     @Comment(
         """
-                      Allow jailed players to use global chat.
+                      Allow lobby players to use global chat.
                       • Usually disabled to prevent spam.
                       • Default: false""")
     public boolean allowChat = false;
 
     @Comment(
         """
-                      Allow jailed players to execute commands (except auth commands).
+                      Allow lobby players to execute commands (except auth commands).
                       • Default: false""")
     public boolean allowCommands = false;
 
@@ -614,7 +603,7 @@ public class Config {
         """
                       List of commands affected by the whitelist/blacklist logic below.
                       • Always includes core auth commands by default.""")
-    public Set<String> whitelistedCommands = Set.of("login", "register", "logout");
+    public Set<String> whitelistedCommands = Set.of("login", "load", "logout");
 
     @Comment(
         """
@@ -626,7 +615,7 @@ public class Config {
 
     @Comment(
         """
-                      Allow basic movement (walking, jumping, sprinting) while jailed.
+                      Allow basic movement (walking, jumping, sprinting) while lobby.
                       • Default: false""")
     public boolean allowMovement = false;
 
@@ -759,46 +748,46 @@ public class Config {
 
     @Comment(
         """
-                      Apply permanent blindness effect to jailed players.
+                      Apply permanent blindness effect to lobby players.
                       • Forces focus on the login/registration prompt.
                       • Default: true""")
     public boolean applyBlindnessEffect = true;
 
     @Comment(
         """
-                      Completely hide the player's inventory UI while jailed.
+                      Completely hide the player's inventory UI while lobby.
                       • Default: false""")
     public boolean hideInventory = false;
 
     @Comment(
         """
-                      Allow mobs to damage jailed players.
+                      Allow mobs to damage lobby players.
                       • Usually disabled to prevent unfair deaths.
                       • Default: false""")
     public boolean allowMobDamage = false;
 
     @Comment(
         """
-                      Force jailed players into Adventure mode.
+                      Force lobby players into Adventure mode.
                       • Prevents accidental block breaking/placing.
                       • Default: true""")
     public boolean forceAdventureMode = true;
 
     @Comment(
         """
-                      Prevent all damage to jailed players from items/projectiles.
+                      Prevent all damage to lobby players from items/projectiles.
                       • Default: true""")
     public boolean preventDamage = true;
 
     @Comment(
         """
-                      Block status effects from being applied to jailed players.
+                      Block status effects from being applied to lobby players.
                       • Default: true""")
     public boolean preventStatusEffect = true;
 
     @Comment(
         """
-                      Protect jailed players from damage by authenticated players.
+                      Protect lobby players from damage by authenticated players.
                       • Default: true""")
     public boolean preventPlayerDamage = true;
 
@@ -811,6 +800,9 @@ public class Config {
                               • For limboConfig: usually true
                               • For hubConfig: optional""")
       public boolean enabled = true;
+
+      @Comment("Only teleport the player on their first join (if enabled is true).")
+      public boolean onlyOnFirstTime = true;
 
       @Comment(
           """

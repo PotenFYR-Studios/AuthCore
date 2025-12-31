@@ -49,6 +49,9 @@ public class User {
   /** Timestamp of last authentication of user. */
   public long lastAuthenticatedMs = 0;
 
+  /** Timestamp of last registered by the user. */
+  public long registeredAtMs;
+
   /** Timestamp of last kicked by the server. */
   public long lastKickedMs;
 
@@ -227,7 +230,7 @@ public class User {
    * Register new user for authentication with password!
    *
    * @param player the server player entity
-   * @param password the password to register
+   * @param password the password to load
    */
   public void register(ServerPlayerEntity player, String password) {
     this.passwordEncryption = AuthCore.config.passwordRules.passwordHashAlgorithm;
@@ -247,6 +250,7 @@ public class User {
       this.player.get().setUuid(player.getUuid());
     }
 
+    this.registeredAtMs = System.currentTimeMillis();
     db.insert(this);
 
     if (AuthCore.config.session.authentication.allowLoginAfterRegistration) this.login(player);
@@ -328,11 +332,27 @@ public class User {
   /**
    * Register new user for authentication with password!
    *
-   * @param work description of the update work
+   * @param reason description of the update reason
    */
-  public void update(String work) {
+  public void update(String reason) {
     db.insert(this);
-    Logger.debug(true, "{} has been updated in the database for '{}'", this.username, work);
+    Logger.debug(true, "{} has been updated in the database for '{}'", this.username, reason);
+  }
+
+  /**
+   * Delete user from cache and database!
+   *
+   * @param reason description of the delete reason
+   */
+  public void delete(String reason) {
+    this.lobby.unlock();
+
+    User.users.remove(this.username);
+    db.remove(this);
+
+    this.server.get().getPlayerManager().remove(this.player.get());
+
+    Logger.debug(true, "{} has been deleted from the database for '{}'", this.username, reason);
   }
 
   /** Database Manager for users. */
@@ -371,17 +391,18 @@ public class User {
         PreparedStatement statement =
             Database.connection.prepareStatement(
                 """
-                                        INSERT OR REPLACE INTO USERS(
-                                                username,
-                                                uuid,
-                                                password,
-                                                mode,
-                                                ipAddress,
-                                                passwordEncryption,
-                                                userCreatedMs
-                                        )
-                                        VALUES(?,?,?,?,?,?,?)
-                                        """);
+                        INSERT OR REPLACE INTO USERS(
+                                username,
+                                uuid,
+                                password,
+                                mode,
+                                ipAddress,
+                                passwordEncryption,
+                                userCreatedMs,
+                                registeredMs,
+                        )
+                        VALUES(?,?,?,?,?,?,?,?)
+                        """);
 
         statement.setString(1, user.username);
         statement.setString(2, user.uuid.toString());
@@ -390,6 +411,7 @@ public class User {
         statement.setString(5, user.ipAddress);
         statement.setString(6, user.passwordEncryption);
         statement.setLong(7, user.userCreatedMs);
+        statement.setLong(8, user.registeredAtMs);
 
         statement.execute();
 
@@ -460,6 +482,7 @@ public class User {
       user.ipAddress = rs.getString("ipAddress");
       user.password = rs.getString("password");
       user.passwordEncryption = rs.getString("passwordEncryption");
+      user.registeredAtMs = rs.getLong("registeredMs");
 
       return user;
     }

@@ -9,28 +9,8 @@ public class Messages {
 
   @Comment(
       """
-            Notification sent to administrators when a player joins but is not registered.
-            • Prompts the player to use /register.
-            • Default display: Action bar in RED
-            • Placeholders:
-              • %1$s - Player username""")
-  public ColTemplate promptAdminUserNotRegistered =
-      new ColTemplate() {
-        {
-          actionBar =
-              new ActionBar() {
-                {
-                  text = "'%1$s' is not registered on the server.";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
             Message shown to a player who has not yet registered.
-            • Encourages the player to register using /register <password> <confirm-password>.
+            • Encourages the player to load using /load <password> <confirm-password>.
             • Default display: Action bar in RED""")
   public ColTemplate promptUserNotRegistered =
       new ColTemplate() {
@@ -38,8 +18,7 @@ public class Messages {
           actionBar =
               new ActionBar() {
                 {
-                  text =
-                      "You are not registered on the server. Please register again in the Server!";
+                  text = "You are not registered on the server. Please load again in the Server!";
                   color = "RED";
                 }
               };
@@ -58,47 +37,6 @@ public class Messages {
                 {
                   text = "Given password already exists!. Please try again";
                   color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Message displayed when a player's account data cannot be found on the server.
-            • Typically occurs on join if data is missing or corrupted.
-            • Default display: Title with subtitle in RED""")
-  public ColTemplate promptUserNotFound =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "User Not Found!";
-                  subtitle =
-                      new Template() {
-                        {
-                          text = "Your data is not Found on the server. Please re-join the server";
-                          color = "RED";
-                        }
-                      };
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Confirmation message shown after a player has been successfully unregistered.
-            • Default display: Action bar in GREEN""")
-  public ColTemplate promptUserUnRegisteredSuccessfully =
-      new ColTemplate() {
-        {
-          actionBar =
-              new ActionBar() {
-                {
-                  text = "You have been unregistered successfully!";
-                  color = "GREEN";
                 }
               };
         }
@@ -164,7 +102,7 @@ public class Messages {
 
   @Comment(
       """
-            Warning shown to an already authenticated player who attempts to /register or /login again.
+            Warning shown to an already authenticated player who attempts to /load or /login again.
             • Default display: Action bar in RED""")
   public ColTemplate promptUserAlreadyRegistered =
       new ColTemplate() {
@@ -290,17 +228,19 @@ public class Messages {
 
   @Comment(
       """
-            Detailed player information shown to administrators via /whois or similar command.
+            Detailed player information shown to administrators via '/authcore whois <username>' or similar command.
             • Default display: Chat message in GREEN
             • Placeholders:
               • %1$s - Username
               • %2$s - UUID
-              • %3$s - Account type
+              • %3$s - Platform type (Java/Bedrock)
               • %4$s - Mode (online/offline)
               • %5$s - IP address
               • %6$s - Status
               • %7$s - Registration date
-              • %8$s - Country""")
+              • %8$s - Country
+              • %9$s - User Creation Time
+              • %10$s - Authentication Status""")
   public ColTemplate promptAdminWhoIsUser =
       new ColTemplate() {
         {
@@ -308,7 +248,7 @@ public class Messages {
               new Message() {
                 {
                   text =
-                      "Information about '%1$s' User:\nUUID: %2$s\nType: %3$s\nMode: %4$s\nIP-Address: %5$s\nStatus: %6$s\nRegistered: %7$s\nCountry: %8$s";
+                      "Information about '%1$s':\nUUID: %2$s\nPlatform: %3$s\nMode: %4$s\nIP-Address: %5$s\nStatus: %6$s\nOffline Registered: %7$s\nCountry: %8$s\nuser Created (date): %9$s\nAuthenticated: %10$s";
                   color = "GREEN";
                 }
               };
@@ -1036,15 +976,18 @@ public class Messages {
       """
             Periodic reminder shown in the action bar to unregistered players in lobby/limbo.
             • Encourages registration.
-            • Default display: Action bar in GREEN""")
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Time Left for Timeout!""")
   public ColTemplate promptUserRegisterCommandReminderInterval =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Use the '/register' command to register yourself!";
-                  color = "GREEN";
+                  text =
+                      "Use the '/register' command to register yourself. You are left with %1$s!";
+                  color = "YELLOW";
                 }
               };
         }
@@ -1054,15 +997,18 @@ public class Messages {
       """
             Periodic reminder shown in the action bar to registered but unauthenticated players in lobby/limbo.
             • Encourages login.
-            • Default display: Action bar in GREEN""")
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Time Left for Timeout!""")
   public ColTemplate promptUserLoginCommandReminderInterval =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "Use the '/login' command to authenticate yourself!";
-                  color = "GREEN";
+                  text =
+                      "Use the '/login' command to authenticate yourself. You are left with %1$s!";
+                  color = "YELLOW";
                 }
               };
         }
@@ -1080,95 +1026,14 @@ public class Messages {
                 {
                   text = "Welcome to the Lobby!";
                   color = "GREEN";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Notification sent to administrators when attempting to change a player to a mode they are already in.
-            • Default display: Action bar in RED
-            • Placeholders:
-              • %1$s - Player username
-              • %2$s - Mode (online-mode/offline-mode)""")
-  public ColTemplate promptAdminUserIsInSameMode =
-      new ColTemplate() {
-        {
-          actionBar =
-              new ActionBar() {
-                {
-                  text = "Player '%1$s' are already in the '%2$s' mode.";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Message shown to a player after their account has been successfully transferred to offline/cracked mode.
-            • Default display: Title + subtitle (GREEN/WHITE)""")
-  public ColTemplate promptUserTransferredToCrackedAccount =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "Transferred to Cracked Account!";
-                  color = "GREEN";
                   subtitle =
                       new Template() {
                         {
                           text =
-                              "Notice: Your account has been transfer to offline-mode. Please login with the new password you provided!";
-                          color = "WHITE";
+                              "Use the '/login' OR '/register' command to authenticate yourself!";
+                          color = "GREEN";
                         }
                       };
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Message shown to a player after their account has been successfully transferred to premium/online mode.
-            • Default display: Title + subtitle (GREEN/RED)""")
-  public ColTemplate promptUserTransferredToPremiumAccount =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "Transferred to Premium Account!";
-                  color = "GREEN";
-                  subtitle =
-                      new Template() {
-                        {
-                          text =
-                              "WARNING: Your account has been transfer to online-mode. You won't be able to login with credentials and account will be treated as online account!";
-                          color = "RED";
-                        }
-                      };
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Notification sent to administrators when attempting to transfer a username that is not a valid premium account.
-            • Default display: Action bar in RED
-            • Placeholders:
-              • %1$s - Username""")
-  public ColTemplate promptAdminUsernameIsNotPremium =
-      new ColTemplate() {
-        {
-          actionBar =
-              new ActionBar() {
-                {
-                  text = "User '%1$s' isn't a online-mod account!";
-                  color = "RED";
                 }
               };
         }
@@ -1286,6 +1151,23 @@ public class Messages {
 
   @Comment(
       """
+              Confirmation message shown after a player has been successfully unregistered.
+              • Default display: Action bar in GREEN""")
+  public KickTemplate promptUserUnRegisteredSuccessfully =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "You have been unregistered successfully!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
             Kick reason: Player rejoined too quickly after a previous kick (anti-spam protection).
             • Placeholders:
               • %1$s - Remaining cooldown time
@@ -1358,7 +1240,7 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Authentication timeout expired (player took too long to register/login).
+            Kick reason: Authentication timeout expired (player took too long to load/login).
             • Placeholders:
               • %1$s - Session duration
             • Delay: 5 seconds""")
@@ -1470,23 +1352,6 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Player's account data has been permanently deleted.
-            • Delay: 0 seconds""")
-  public KickTemplate promptUserDataGotDeleted =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "Your account has been deleted from the Server!";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
             Kick reason (shown to admin as feedback): Targeted player's account has been deleted.
             • Placeholders:
               • %1$s - Username
@@ -1497,7 +1362,7 @@ public class Messages {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "User '%1$s' account has been deleted from the Server!";
+                  text = "User '%1$s' account has been deleted from the Database & Server!";
                   color = "RED";
                 }
               };

@@ -39,10 +39,10 @@ public class Hooks {
 
     CommandRegistrationCallback.EVENT.register(
         (commandDispatcher, commandRegistryAccess, environment) -> {
-          Register.register(commandDispatcher);
-          Login.register(commandDispatcher);
-          Account.register(commandDispatcher);
-          Admin.register(commandDispatcher);
+          Register.load(commandDispatcher);
+          Login.load(commandDispatcher);
+          Account.load(commandDispatcher);
+          Admin.load(commandDispatcher);
         });
   }
 

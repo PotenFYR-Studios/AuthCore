@@ -19,20 +19,20 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Handles the `/register` command for registering new players on the server. This command allows
- * players to register with a password and optionally confirm it.
+ * Handles the `/load` command for registering new players on the server. This command allows
+ * players to load with a password and optionally confirm it.
  */
 public class Register {
 
   /**
-   * Registers the `/register (password) (confirm-password)` command with the provided dispatcher.
+   * Registers the `/load (password) (confirm-password)` command with the provided dispatcher.
    *
-   * @param dispatcher The command dispatcher to register the command with. This allows the server
-   *     to recognize and handle the `/register` command.
+   * @param dispatcher The command dispatcher to load the command with. This allows the server
+   *     to recognize and handle the `/load` command.
    */
-  public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+  public static void load(CommandDispatcher<ServerCommandSource> dispatcher) {
     dispatcher.register(
-        literal("register")
+        literal("load")
             .requires(
                 (ctx) -> {
                   if (ctx.getPlayer() == null) return false;
@@ -68,7 +68,7 @@ public class Register {
   }
 
   /**
-   * Executes the `/register` command logic.
+   * Executes the `/load` command logic.
    *
    * @param source The source of the command, typically the player executing it.
    * @param password The password provided by the player.
@@ -82,7 +82,7 @@ public class Register {
 
       if (player == null) return Logger.info(0, "This command can't be executed from console!");
 
-      Logger.debug(0, "{} used '/register' command in the Server!", player.getName().getString());
+      Logger.debug(0, "{} used '/load' command in the Server!", player.getName().getString());
 
       User user = User.users.get(player.getName().getString());
 
@@ -94,7 +94,7 @@ public class Register {
         return Logger.toUser(
             0, player.networkHandler, AuthCore.messages.promptUserAlreadyRegistered);
 
-      // Validate the password and register the user if valid.
+      // Validate the password and load the user if valid.
       if (checkPassword(player, password, confirmPassword)) {
 
         Logger.debug(1, "{} has been registered to the Server!", player.getName().getString());
@@ -106,14 +106,14 @@ public class Register {
 
       return 0;
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in '/register' Command: {}", err);
+      return Logger.error(0, "Faced Error in '/load' Command: {}", err);
     }
   }
 
   /**
    * Validates the password and confirmation password (if required).
    *
-   * @param player The player attempting to register.
+   * @param player The player attempting to load.
    * @param password The password provided by the player.
    * @param confirmPassword The confirmation password provided by the player (nullable).
    * @return True if the password is valid, false otherwise.
@@ -133,6 +133,6 @@ public class Register {
         && !password.equals(confirmPassword))
       return Logger.toUser(
           false, player.networkHandler, AuthCore.messages.promptUserPasswordDoesNotMatch);
-    else return (Security.getPasswordComplexity(player, password));
+    else return (Security.Password.check(player, password));
   }
 }

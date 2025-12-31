@@ -46,24 +46,16 @@ public class Account {
    *
    * @param dispatcher the Brigadier command dispatcher provided by the Minecraft server
    */
-  public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+  public static void load(CommandDispatcher<ServerCommandSource> dispatcher) {
     dispatcher.register(
         literal("account")
             .then(
                 literal("logout")
                     .requires(
-                        (ctx) -> {
-                          if (ctx.getPlayer() == null) return false;
-                          User user = User.users.get(ctx.getPlayer().getName().getString());
-
-                          return !user.isInLobby.get()
-                              && !user.isAuthenticated.get()
-                              && Permissions.check(
-                                  ctx.getPlayer(),
-                                  AuthCore.config.commands.user.logout.luckPermsNode,
-                                  PermissionLevel.fromLevel(
-                                      AuthCore.config.commands.user.logout.permissionsLevel));
-                        })
+                        Permissions.require(
+                            AuthCore.config.commands.user.logout.luckPermsNode,
+                            PermissionLevel.fromLevel(
+                                AuthCore.config.commands.user.logout.permissionsLevel)))
                     .executes(ctx -> logoutCommand(ctx.getSource())))
             .then(
                 literal("unregister")
@@ -72,7 +64,8 @@ public class Account {
                           if (ctx.getPlayer() == null) return false;
                           User user = User.users.get(ctx.getPlayer().getName().getString());
 
-                          return !user.isInLobby.get()
+                          return user != null
+                              && user.isAuthenticated.get()
                               && user.isRegistered.get()
                               && Permissions.check(
                                   ctx.getPlayer(),
@@ -82,37 +75,35 @@ public class Account {
                         })
                     .executes(ctx -> unregisterCommand(ctx.getSource())))
             .then(
-                literal("password")
+                literal("set-password")
                     .then(
-                        literal("set")
-                            .then(
-                                argument("new-password", StringArgumentType.string())
-                                    .requires(
-                                        (ctx) -> {
-                                          if (ctx.getPlayer() == null) return false;
-                                          User user =
-                                              User.users.get(ctx.getPlayer().getName().getString());
+                        argument("new-password", StringArgumentType.string())
+                            .requires(
+                                (ctx) -> {
+                                  if (ctx.getPlayer() == null) return false;
+                                  User user = User.users.get(ctx.getPlayer().getName().getString());
 
-                                          return user.isRegistered.get()
-                                              && Permissions.check(
-                                                  ctx.getPlayer(),
-                                                  AuthCore.config
-                                                      .commands
-                                                      .user
-                                                      .changepassword
-                                                      .luckPermsNode,
-                                                  PermissionLevel.fromLevel(
-                                                      AuthCore.config
-                                                          .commands
-                                                          .user
-                                                          .changepassword
-                                                          .permissionsLevel));
-                                        })
-                                    .executes(
-                                        ctx ->
-                                            setPasswordCommand(
-                                                ctx.getSource(),
-                                                getString(ctx, "new-password")))))));
+                                  return user != null
+                                      && user.isRegistered.get()
+                                      && user.isAuthenticated.get()
+                                      && Permissions.check(
+                                          ctx.getPlayer(),
+                                          AuthCore.config
+                                              .commands
+                                              .user
+                                              .changepassword
+                                              .luckPermsNode,
+                                          PermissionLevel.fromLevel(
+                                              AuthCore.config
+                                                  .commands
+                                                  .user
+                                                  .changepassword
+                                                  .permissionsLevel));
+                                })
+                            .executes(
+                                ctx ->
+                                    setPasswordCommand(
+                                        ctx.getSource(), getString(ctx, "new-password"))))));
   }
 
   /**
@@ -152,7 +143,7 @@ public class Account {
   }
 
   /**
-   * Handles execution of the {@code /account password set <new-password>} subcommand.
+   * Handles execution of the {@code /account set-password <new-password>} subcommand.
    *
    * <p>Validates the new password against configured rules, re-hashes it using the server's chosen
    * algorithm, updates the database entry, and informs the player of the result.
@@ -169,7 +160,7 @@ public class Account {
 
       Logger.debug(
           1,
-          "{} used '/account password set' command in the Server!",
+          "{} used '/account set-password <new-password>' command in the Server!",
           player.getName().getString());
       User user = User.users.get(player.getName().getString());
 
@@ -191,7 +182,8 @@ public class Account {
 
       } else return 0;
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in '/account password set' Command: {}", err);
+      return Logger.error(
+          0, "Faced Error in '/account set-password <new-password>' Command: {}", err);
     }
   }
 
@@ -199,7 +191,7 @@ public class Account {
    * Handles execution of the {@code /account unregister} subcommand.
    *
    * <p>Removes the player's password and encryption method from the database, effectively
-   * unregistering their account. The player will be required to register again to authenticate.
+   * unregistering their account. The player will be required to load again to authenticate.
    *
    * @param source the command source (must be a player)
    * @return 1 on successful unregistration, 0 on error or invalid state
@@ -220,10 +212,11 @@ public class Account {
 
       user.password = null;
       user.passwordEncryption = null;
+      user.lastAuthenticatedMs = 0;
 
-      user.update("Unregistered");
+      user.update("Unregistered by the User");
 
-      return Logger.toUser(
+      return Logger.toKick(
           1,
           source.getPlayer().networkHandler,
           AuthCore.messages.promptUserUnRegisteredSuccessfully);
@@ -241,7 +234,7 @@ public class Account {
    * <ul>
    *   <li>Ensuring the password is not blank
    *   <li>Preventing reuse if {@code allowReuse} is disabled in configuration
-   *   <li>Checking complexity requirements via {@link Security#getPasswordComplexity}
+   *   <li>Checking complexity requirements.
    * </ul>
    *
    * <p>Appropriate feedback messages are sent to the player when validation fails.
@@ -261,6 +254,6 @@ public class Account {
     else if (!AuthCore.config.passwordRules.allowReuse && newPassword.equals(oldPassword))
       return Logger.toUser(
           false, player.networkHandler, AuthCore.messages.promptUserDuplicatePassword);
-    else return (Security.getPasswordComplexity(player, newPassword));
+    else return (Security.Password.check(player, newPassword));
   }
 }

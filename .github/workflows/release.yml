@@ -50,11 +50,11 @@ jobs:
           CHANGELOG="${{ steps.changelog.outputs.changelog }}"
           JAR_PATH=$(find mod-jar -name "*.jar" | head -n 1)
 
-          curl -X POST https://api.modrinth.com/v2/project/authify/version \
+          curl -X POST https://api.modrinth.com/v2/project/gKATUjN3/version \
             -H "Authorization: $MODRINTH_TOKEN" \
             -H "Content-Type: application/json" \
             -F "data={
-              \"name\": \"Authify v$VERSION\",
+              \"name\": \"AuthCore v$VERSION\",
               \"version_number\": \"$VERSION\",
               \"version_type\": \"release\",
               \"game_versions\": [\"1.21.11\"],

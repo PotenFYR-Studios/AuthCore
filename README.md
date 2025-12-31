@@ -1,35 +1,40 @@
 # 🔐 AuthCore – Secure Minecraft Login for Fabric Servers
 
-[![Modrinth](https://img.shields.io/modrinth/dt/authCore?color=brightgreen&label=Modrinth%20Downloads)](https://modrinth.com/mod/authCore)
+[![Modrinth](https://img.shields.io/modrinth/dt/gKATUjN3?color=brightgreen&label=Modrinth%20Downloads)](https://modrinth.com/mod/authCore)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=master)](https://github.com/DawnOfDedSec/AuthCore/actions)
+[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
 **AuthCore** is a lightweight, server-side authentication mod for [Fabric](https://fabricmc.net/) Minecraft servers. It
-provides a secure login and registration system for offline-mode servers, helping prevent unauthorized access, griefing,
-and account impersonation.
+provides a secure login and registration system for offline-mode servers, preventing unauthorized access, griefing, and
+account impersonation.
+
+> **Perfect for** cracked servers, public communities, and premium-hybrid setups.
 
 ---
 
 ## ✨ Features
 
-- 🔐 **Password-based authentication** for players
-- 🧾 **`/register`** and **`/login`** commands
-- 🚫 Prevents movement and interaction before login
-- 🧍‍♂️ Optional spawn-locking until authentication
-- ⚙️ Configurable settings for timeout, kick messages, and more
-- 🔄 Support for cracked/premium account migration
-- 🔄 Live config reload with `/authcore reload`
-- 📦 Lightweight and dependency-free
+- 🔐 **Password-based authentication** with secure hashing
+- 🧾 **`/register`**, **`/login`**, and **`/account`** command suite
+- 🚫 **Movement & interaction blocking** until authenticated
+- 🧍‍♂️ **Spawn-locking** with configurable limbo zones
+- 🔄 **Premium/cracked account migration** support
+- ⚙️ **Live config reload** (`/authcore reload`)
+- 📊 **Admin dashboard** commands for player management
+- 📦 **Zero dependencies** – lightweight & performant
+- 🔒 **Session management** with logout/unregister options
 
 ---
 
 ## 📦 Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Download the latest version of AuthCore from [Modrinth](https://modrinth.com/mod/authCore) or
-   the [Releases](https://github.com/DawnOfDedSec/AuthCore/releases) page.
-3. Place the `authCore-x.y.z.jar` file into your server's `mods/` folder.
-4. Start your server. A default config file will be generated in `config/authCore.json`.
+1. Install [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api)
+2. Download latest [AuthCore](https://modrinth.com/mod/authCore) from Modrinth
+   or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases)
+3. Drop `authCore-x.y.z.jar` into your `mods/` folder
+4. **Start server** – config generates automatically at `config/authcore/settings.conf`
+
+**✅ Done!** Players will need to register on first join.
 
 ---
 
@@ -53,7 +58,7 @@ and account impersonation.
 | `/login <pw>`                | Log in with your password       | `/login hunter2`                   | 0                |
 | `/account logout`            | Log out of your current session | `/account logout`                  | 0                |
 | `/account unregister`        | Permanently remove your account | `/account unregister`              | 0                |
-| `/account password set <pw>` | Change your password            | `/account password set newpass123` | 0                |
+| `/account set-password <pw>` | Change your password            | `/account set-password newpass123` | 0                |
 
 ### Admin Commands
 
@@ -78,14 +83,30 @@ and account impersonation.
 
 ## ⚙️ Configuration
 
-The config file is located at `config/authCore.json`. Key options include:
+The config file is located at `config/authcore/settings.conf`.
 
-- `kickTimeoutSeconds`: Time before unauthenticated players are kicked
-- `lockMovement`: Prevents movement before login
-- `lockInteraction`: Prevents block/entity interaction before login
-- `spawnOnJoin`: Teleports players to spawn until login
+📖 **Detailed Configuration Wiki**  
+For a complete guide to all available options, explanations, and best practices, check out the [Configuration Wiki](https://github.com/DawnOfDedSec/AuthCore/wiki/) – because who doesn't love a good wiki dive while tweaking server security? 🕵️‍♂️✨
 
 ## 🧪 Development
+
+### 🚀 Todo (Future Shenanigans Incoming!)
+Planned features to make AuthCore even more unbreakable (and fun) in upcoming releases:
+
+- **🛡️ Velocity Proxy Support**  
+  Full native integration with Velocity – because why stop at one server when you can secure an entire fleet? Proxy forwarding, secure sessions, and no more "wait, which server am I on again?" moments.
+
+- **🤖 Captcha Chaos**  
+  Configurable captchas (images, math puzzles, or "prove you're not a bot by typing 'I love mining diamonds'") to brutally reject script kiddies and bot armies. Sorry robots, no griefing today! 🚫
+
+- **🔐 2FA / MFA Madness**  
+  Optional two-factor authentication via authenticator apps (TOTP). Because one password is good, but making attackers cry with a second layer is *chef's kiss*.
+
+- **📧 Email OTP Mayhem**  
+  Email-based one-time passwords for registration and critical actions. Nothing says "secure" like waiting 30 seconds for that sweet, sweet code while staring at your inbox like it's a loot chest.
+
+- **⏱️ Dynamic Login Timeout Torture**  
+  Smart, escalating delays after failed login attempts (e.g., 5s → 30s → 5min → "go touch grass"). Brute-forcers will rage-quit while legit players barely notice. Because nothing's funnier than watching a bot sweat in limbo forever. 😈
 
 ### Requirements
 

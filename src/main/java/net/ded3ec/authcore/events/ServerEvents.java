@@ -73,8 +73,8 @@ public class ServerEvents {
           Misc.TimeConverter.toDuration(
               AuthCore.config.session.cooldownAfterKickMs
                   - (System.currentTimeMillis() - user.lastKickedMs)));
-    else if (AuthCore.config.lobby.maxJailedUsers > 0
-        && AuthCore.config.lobby.maxJailedUsers <= Lobby.users.size())
+    else if (AuthCore.config.lobby.maxlobbyUsers > 0
+        && AuthCore.config.lobby.maxlobbyUsers <= Lobby.users.size())
       user.kick(AuthCore.messages.promptUserMaxLobbyUsersReached);
     else user.lobby.lock(); // Lock the user in the lobby framework.
   }

@@ -22,9 +22,9 @@ public class Login {
   /**
    * Registers the `/login` command with the provided command dispatcher.
    *
-   * @param dispatcher The command dispatcher to register the command with.
+   * @param dispatcher The command dispatcher to load the command with.
    */
-  public static void register(CommandDispatcher<ServerCommandSource> dispatcher) {
+  public static void load(CommandDispatcher<ServerCommandSource> dispatcher) {
     dispatcher.register(
         literal("login")
             .requires(

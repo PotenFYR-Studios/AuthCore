@@ -79,7 +79,8 @@ public class Database {
                                mode TEXT,
                                ipAddress TEXT,
                                passwordEncryption TEXT,
-                               userCreatedMs BIGINT
+                               userCreatedMs BIGINT,
+                               registeredMs BIGINT
                            );
                     """);
 
