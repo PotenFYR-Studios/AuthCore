@@ -27,44 +27,54 @@ import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
 
 /**
- * Represents a lobby system for managing player authentication and queuing in the AuthCore mod.
- * This class handles locking players into a restricted lobby mode, teleporting them to designated
- * locations, managing timeouts, and restoring player states upon unlocking. It supports different
- * configurations for registered and unregistered users, including limbo and hub locations.
+ * Manages the lobby system for player authentication and queuing within the AuthCore mod. *
+ *
+ * <p>This class handles "locking" players into a restricted state, managing teleports to limbo or
+ * hub locations, handling session timeouts, and restoring the player's original state (Snapshot)
+ * upon successful authentication.
  */
 public class Lobby {
 
-  /** Collection of jailed users mapped by their usernames. */
+  /**
+   * A global registry of users currently restricted within a lobby instance, mapped by username.
+   */
   public static Map<String, Lobby> users = new HashMap<>();
 
-  /** Snapshot of the player's state before entering the lobby. */
+  /** The saved state of the player before they were moved into the lobby. */
   public Snapshot snapshot;
 
-  /** User model associated with this lobby instance. */
+  /** The user data model associated with this lobby session. */
   public User user;
 
-  /** Scheduled task for handling lobby session timeout. */
+  /** Task handle for the scheduled session expiration/kick. */
   private ScheduledFuture<?> lobbyTimeoutTask;
 
-  /** Scheduled task for sending reminders in restricted mode. */
+  /** Task handle for periodic login/registration reminders. */
   private ScheduledFuture<?> lobbyIntervalTask;
 
-  /** General lobby position for the player. */
+  /** The specific position within the lobby assigned to the player. */
   private BlockPos position;
 
   /**
-   * Constructs a new Lobby instance for the given user.
+   * Constructs a new Lobby instance for a specific user.
    *
-   * @param user the user associated with this lobby
+   * @param user The user to be managed by this lobby instance.
    */
   public Lobby(User user) {
     this.user = user;
   }
 
   /**
-   * Locks the player into the lobby/queue/restricted mode. This method creates a snapshot of the
-   * player's current state, teleports them to the appropriate lobby location, sends a welcome
-   * message, and initiates timeout handling if configured.
+   * Locks the player into the restricted lobby state. *
+   *
+   * <p>This method performs the following:
+   *
+   * <ul>
+   *   <li>Captures a {@link Snapshot} of the player's current state.
+   *   <li>Teleports the player to the configured lobby/limbo location.
+   *   <li>Sends a welcome prompt and initiates the timeout/reminder tasks.
+   *   <li>Registers the user in the global {@code users} map.
+   * </ul>
    */
   public void lock() {
 
@@ -80,10 +90,11 @@ public class Lobby {
   }
 
   /**
-   * Teleports the player to the appropriate lobby location based on their registration status and
-   * configuration. For unregistered users, teleports to the limbo location if enabled; for
-   * registered users, to the hub location. Ensures safe teleportation by adjusting positions to
-   * avoid suffocation or unsafe landing.
+   * Determines the target destination and teleports the player based on configuration. *
+   *
+   * <p>If Limbo is enabled and applicable (e.g., for unregistered users), it calculates a safe
+   * position in the designated dimension. It uses the snapshot logic to prevent players from
+   * spawning in walls or unsafe locations.
    */
   public void handleTeleport() {
 
@@ -116,9 +127,11 @@ public class Lobby {
   }
 
   /**
-   * Unlocks the player from the lobby/queue/restricted mode. Restores the player's previous state
-   * using the snapshot, removes them from the jailed users collection, and cancels any ongoing
-   * tasks. Only proceeds if the player is currently in lobby mode.
+   * Unlocks the player and restores them to their pre-lobby state. *
+   *
+   * <p>This removes the user from the active lobby map, cancels all background tasks
+   * (timeouts/reminders), and reverts the player's position, inventory, and status using the stored
+   * {@link Snapshot}.
    */
   public void unlock() {
     if (!this.user.isInLobby.get()) return;
@@ -135,10 +148,7 @@ public class Lobby {
     this.cancel();
   }
 
-  /**
-   * Cancels the lobby timeout and interval tasks associated with this lobby instance. Logs the
-   * cancellation for debugging purposes.
-   */
+  /** Cancels any active scheduled tasks (timeout or reminders) for this lobby session. */
   public void cancel() {
 
     if (this.lobbyIntervalTask != null) this.lobbyIntervalTask.cancel(false);
@@ -148,12 +158,11 @@ public class Lobby {
   }
 
   /**
-   * Checks if the player has moved outside their lobby position based on new coordinates. Compares
-   * the new X and Z coordinates with the player's current position to detect movement.
+   * Checks if the player has moved significantly from their restricted lobby position.
    *
-   * @param newX the new X coordinate
-   * @param newZ the new Z coordinate
-   * @return true if the player has moved in X or Z direction, false otherwise
+   * @param newX The new X coordinate from the movement packet.
+   * @param newZ The new Z coordinate from the movement packet.
+   * @return {@code true} if the player has moved on the X or Z axis; {@code false} otherwise.
    */
   public boolean isOutsideOfLobbyPos(double newX, double newZ) {
     // Movement by jailed user event detection!
@@ -165,9 +174,11 @@ public class Lobby {
   }
 
   /**
-   * Handles the timeout logic for the lobby session. Sets up a timeout task based on the player's
-   * latency and configuration, and optionally an interval task for sending reminder messages.
-   * Adjusts timeout duration according to latency thresholds.
+   * Calculates and starts the timeout and reminder tasks. *
+   *
+   * <p>The timeout duration is dynamically adjusted based on the player's current latency (ping) to
+   * prevent players with slow connections from being kicked prematurely. It also schedules periodic
+   * messages reminding the player to /login or /register.
    */
   private void handleTimeout() {
 
@@ -230,10 +241,11 @@ public class Lobby {
   }
 
   /**
-   * Represents a snapshot of a player's state before entering the lobby. This class captures
-   * various player attributes such as inventory, effects, health, position, and game mode, allowing
-   * for complete restoration upon exiting the lobby. It also applies lobby-specific effects like
-   * invisibility, blindness, and invulnerability based on configuration.
+   * Captures and restores the state of a {@link ServerPlayerEntity}. *
+   *
+   * <p>This static inner class stores inventory, health, experience, status effects, and spatial
+   * data to ensure players can be returned exactly to where they were before the authentication
+   * process started.
    */
   public static class Snapshot {
 
@@ -266,11 +278,12 @@ public class Lobby {
     private final GameMode gameMode;
 
     /**
-     * Creates a snapshot of the player's current state. Captures inventory, effects, health,
-     * experience, position, and other attributes. Applies lobby effects such as invisibility,
-     * blindness, and invulnerability if configured.
+     * Captures the current state of the player and applies lobby-specific status effects. *
      *
-     * @param player the server player entity to snapshot
+     * <p>Depending on configuration, this may hide the player's inventory and apply blindness or
+     * invisibility to keep the authentication process secure and private.
+     *
+     * @param player The player whose state should be snapshot.
      */
     public Snapshot(ServerPlayerEntity player) {
 
@@ -320,14 +333,17 @@ public class Lobby {
     }
 
     /**
-     * Resets the player to their original state captured in this snapshot. Restores inventory,
-     * effects, health, experience, position, and other attributes. Teleports the player back to
-     * their original location in the original dimension.
+     * Reverts the player to the state stored in this snapshot. *
      *
-     * @param player the server player entity to reset
+     * <p>Clears lobby status effects, restores the inventory, experience, health, and teleports the
+     * player back to their original position and dimension.
+     *
+     * @param player The player entity to restore.
      */
     public void reset(ServerPlayerEntity player) {
       MinecraftServer server = player.getEntityWorld().getServer();
+      User user = User.users.get(player.getName().getString());
+
       if (server == null) return;
 
       player.clearStatusEffects();
@@ -350,7 +366,11 @@ public class Lobby {
       ServerWorld world = server.getWorld(this.dimensionKey);
       if (world == null) return;
 
-      BlockPos pos = this.getTeleportPos(player, this.blockPos.toImmutable(), world);
+      BlockPos pos = this.blockPos;
+
+      if (user != null && (AuthCore.config.lobby.skipCombactDetection || !user.isInCombactPenalty))
+        pos = this.getTeleportPos(player, this.blockPos.toImmutable(), world);
+
       this.teleport(player, pos.toImmutable(), world);
 
       player.setHealth(health);
@@ -367,12 +387,11 @@ public class Lobby {
     }
 
     /**
-     * Teleports the player to the specified position in the given world. Adjusts the position
-     * slightly to center the player on the block.
+     * Internal helper to execute the player teleportation with consistent offsets.
      *
-     * @param player the server player entity to teleport
-     * @param pos the target block position
-     * @param world the target server world
+     * @param player The player to teleport.
+     * @param pos The target block position.
+     * @param world The target world.
      */
     private void teleport(ServerPlayerEntity player, BlockPos pos, ServerWorld world) {
       MinecraftServer server = player.getEntityWorld().getServer();
@@ -390,44 +409,61 @@ public class Lobby {
     }
 
     /**
-     * Calculates a safe teleport position for the player based on their current state and the
-     * target position. Adjusts for various player conditions like crouching, swimming, flying,
-     * etc., to prevent suffocation or unsafe landing.
+     * Calculates a safe landing position to prevent the player from suffocating or falling into the
+     * void. *
      *
-     * @param player the server player entity
-     * @param pos the initial target block position
-     * @param world the server world
-     * @return a safe block position for teleportation
+     * <p>Accounts for player state (crouching, swimming, flying) and finds appropriate ground or
+     * surface levels.
+     *
+     * @param player The player entity.
+     * @param pos The desired target position.
+     * @param world The world context.
+     * @return A {@link BlockPos} adjusted for safety.
      */
     private BlockPos getTeleportPos(ServerPlayerEntity player, BlockPos pos, ServerWorld world) {
       if (player.isSpectator()) return pos.toImmutable();
 
       BlockPos candidate = pos.toImmutable();
 
-      if (player.getPose() == EntityPose.CROUCHING) {
+      boolean playerIsAirborne =
+          player.getAbilities().flying
+              || player.isGliding()
+              || player.hasVehicle()
+              || !player.isOnGround();
+
+      boolean playerInGap =
+          (player.isGliding() || !player.isOnGround())
+              && !world.getBlockState(pos).isAir()
+              && world.getBlockState(pos.down()).isSolidBlock(world, pos.down())
+              && world.getBlockState(pos.up()).isSolidBlock(world, pos.up());
+
+      boolean playerIsInWater =
+          player.isSwimming()
+              || player.isTouchingWater()
+              || (player.getPose() == EntityPose.SWIMMING);
+
+      if (playerInGap) {
         BlockPos safe = getGroundAbove(world, candidate);
         if (safe != null) candidate = safe.up();
-      } else if (player.isSwimming()
-          || player.isTouchingWater()
-          || !(world.getBlockState(candidate).getCollisionShape(world, candidate)).isEmpty()
-          || player.getPose() == EntityPose.SWIMMING) {
+
+      } else if (player.isInsideWall() || !isBlockSafe(world, candidate)) {
+        BlockPos safe = getGroundAbove(world, candidate);
+        if (safe != null) candidate = safe.up();
+
+      } else if (player.getPose() == EntityPose.CROUCHING) {
+        BlockPos safe = getGroundAbove(world, candidate);
+        if (safe != null) candidate = safe.up();
+
+      } else if (playerIsInWater) {
         BlockPos surface = findWaterSurface(world, candidate);
         if (surface != null) candidate = surface.up();
-      } else if (player.getAbilities().flying
-          || player.isGliding()
-          || player.hasVehicle()
-          || !player.isOnGround()
-          || !(world.getBlockState(candidate).isSolidBlock(world, candidate)
-              || world.getBlockState(candidate).getBlock() != Blocks.SNOW
-              || world.getBlockState(candidate).getBlock() != Blocks.SNOW_BLOCK)
-          || !(world.getBlockState(candidate).isAir()
-              && world.getBlockState(candidate.up()).isAir())) {
 
+      } else if (playerIsAirborne) {
         BlockPos ground = getGroundBelow(world, candidate);
         if (ground != null) candidate = ground.up();
       }
 
-      if (player.isInsideWall() || isSuffocate(world, candidate)) {
+      if (player.isInsideWall() || !isBlockSafe(world, candidate)) {
         BlockPos safe = getGroundAbove(world, candidate);
         if (safe != null) candidate = safe.up();
       }
@@ -436,15 +472,14 @@ public class Lobby {
     }
 
     /**
-     * Find water surface above current position.
+     * Searches upwards for the surface of a body of water.
      *
-     * @param world the server world
-     * @param origin the origin block position
-     * @return the water surface position or null
+     * @param world The server world.
+     * @param origin The starting block position.
+     * @return The position of the water surface, or {@code null} if not found.
      */
     private BlockPos findWaterSurface(ServerWorld world, BlockPos origin) {
       BlockPos.Mutable check = origin.mutableCopy();
-
       int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, origin);
 
       while (check.getY() <= topY && world.getBlockState(check).isOf(Blocks.WATER))
@@ -455,60 +490,60 @@ public class Lobby {
     }
 
     /**
-     * Find nearest ground block below player.
+     * Searches downwards for the nearest solid ground.
      *
-     * @param world the server world
-     * @param origin the origin block position
-     * @return the ground position or null
+     * @param world The server world.
+     * @param origin The starting block position.
+     * @return The ground position, or {@code null} if the void is reached.
      */
     private BlockPos getGroundBelow(ServerWorld world, BlockPos origin) {
       BlockPos.Mutable check = origin.mutableCopy();
-      while (check.getY() > world.getBottomY()) {
+
+      while (check.getY() >= world.getBottomY()) {
         check.move(0, -1, 0);
         BlockState state = world.getBlockState(check);
-        if (state.isSolidBlock(world, check)
-            && world.getBlockState(check.up()).isAir()
-            && world.getBlockState(check.up(2)).isAir()) return check.toImmutable();
+        if (isBlockSafe(world, check)) return check.toImmutable();
       }
 
       return null;
     }
 
     /**
-     * Find nearest ground block above player.
+     * Searches upwards for the nearest solid ground.
      *
-     * @param world the server world
-     * @param origin the origin block position
-     * @return the ground position or null
+     * @param world The server world.
+     * @param origin The starting block position.
+     * @return The ground position, or {@code null} if the build limit is reached.
      */
     private BlockPos getGroundAbove(ServerWorld world, BlockPos origin) {
       BlockPos.Mutable check = origin.mutableCopy();
       int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, origin);
 
-      while (check.getY() < topY) {
+      while (check.getY() <= topY) {
         check.move(0, 1, 0);
         BlockState state = world.getBlockState(check);
-        if (state.isSolidBlock(world, check)
-            && world.getBlockState(check.up()).isAir()
-            && world.getBlockState(check.up(2)).isAir()) return check.toImmutable();
+        if (isBlockSafe(world, check)) return check.toImmutable();
       }
 
       return null;
     }
 
     /**
-     * Check if breaking/occupying this position would cause suffocation.
+     * Validates if a block position is safe for a player to stand on without suffocating or
+     * falling.
      *
-     * @param world the server world
-     * @param pos the block position
-     * @return true if suffocation would occur
+     * @param world The server world.
+     * @param pos The block position to check.
+     * @return {@code true} if the block and the two blocks above it allow for safe standing.
      */
-    private boolean isSuffocate(ServerWorld world, BlockPos pos) {
+    private boolean isBlockSafe(ServerWorld world, BlockPos pos) {
       BlockState state = world.getBlockState(pos);
-      boolean solidHere = state.isSolidBlock(world, pos);
-      boolean clearance =
-          world.getBlockState(pos.up()).isAir() && world.getBlockState(pos.up(2)).isAir();
-      return solidHere && !clearance;
+
+      return state.isSolidBlock(world, pos)
+          && world.getBlockState(pos).getBlock() == Blocks.SNOW
+          && world.getBlockState(pos).getBlock() == Blocks.SNOW_BLOCK
+          && world.getBlockState(pos.up()).isAir()
+          && world.getBlockState(pos.up(2)).isAir();
     }
   }
 }

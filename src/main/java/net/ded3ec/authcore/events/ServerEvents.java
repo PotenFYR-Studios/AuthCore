@@ -73,8 +73,8 @@ public class ServerEvents {
           Misc.TimeConverter.toDuration(
               AuthCore.config.session.cooldownAfterKickMs
                   - (System.currentTimeMillis() - user.lastKickedMs)));
-    else if (AuthCore.config.lobby.maxlobbyUsers > 0
-        && AuthCore.config.lobby.maxlobbyUsers <= Lobby.users.size())
+    else if (AuthCore.config.lobby.maxLobbyUsers > 0
+        && AuthCore.config.lobby.maxLobbyUsers <= Lobby.users.size())
       user.kick(AuthCore.messages.promptUserMaxLobbyUsersReached);
     else user.lobby.lock(); // Lock the user in the lobby framework.
   }
@@ -90,7 +90,19 @@ public class ServerEvents {
 
     if (user != null) {
       if (user.isInLobby.get()) user.lobby.unlock(); // Unlock the user from the lobby.
+
       user.isActive = false; // Mark the user as offline.
+
+      user.isInCombactPenalty =
+          user.lastCombactDetectMs > 0
+              && AuthCore.config.lobby.combactTimeout > 0
+              && ((System.currentTimeMillis() - user.lastCombactDetectMs)
+                  < AuthCore.config.lobby.combactTimeout);
+
+      if (user.isInCombactPenalty)
+        Logger.debug(true, "{} is suspicious & tried to skip death penalty!", user.username);
+
+      user.update("Player Leave Cache");
     }
   }
 
