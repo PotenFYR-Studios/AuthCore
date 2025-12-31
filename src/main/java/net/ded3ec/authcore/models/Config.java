@@ -584,7 +584,21 @@ public class Config {
                       Maximum number of simultaneously lobby (unauthenticated) players.
                       • Helps prevent server overload from many unauthentic connections.
                       • Default: 50""")
-    public int maxlobbyUsers = 50;
+    public int maxLobbyUsers = 50;
+
+    @Comment(
+        """
+                     Maximum number of simultaneously lobby (unauthenticated) players.
+                     • Helps prevent server overload from many unauthentic connections.
+                     • Default: 50""")
+    public boolean skipCombactDetection = false;
+
+    @Comment(
+        """
+                      Maximum number of simultaneously lobby (unauthenticated) players.
+                      • Helps prevent server overload from many unauthentic connections.
+                      • Default: 50""")
+    public long combactTimeout = 3 * 1000;
 
     @Comment(
         """

@@ -16,5 +16,8 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
       - name: Validate Gradle Wrapper
         run: ./gradlew wrapper --gradle-version 9.2.1 --distribution-type all

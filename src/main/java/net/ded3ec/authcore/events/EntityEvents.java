@@ -41,8 +41,7 @@ public class EntityEvents {
       @Nullable EntityHitResult entityHitResult) {
     User user = User.users.get(player.getName().getString());
 
-    if (user == null) return ActionResult.FAIL;
-    else if (user.isInLobby.get()) {
+    if (user != null && user.isInLobby.get()) {
       // Prevent attacking players if disallowed
       if (entity instanceof PlayerEntity && !AuthCore.config.lobby.allowAttackingPlayer)
         return Logger.toUser(
@@ -92,7 +91,7 @@ public class EntityEvents {
       if (entity instanceof Entity && !AuthCore.config.lobby.allowAttackEntity)
         return Logger.toUser(
             ActionResult.FAIL, user.handler, AuthCore.messages.promptUserInteractEntityNotAllowed);
-    }
+    } else if (user != null) user.lastCombactDetectMs = System.currentTimeMillis();
 
     return ActionResult.PASS;
   }
@@ -116,8 +115,7 @@ public class EntityEvents {
       @Nullable EntityHitResult entityHitResult) {
     User user = User.users.get(player.getName().getString());
 
-    if (user == null) return ActionResult.FAIL;
-    else if (user.isInLobby.get()) {
+    if (user != null && user.isInLobby.get()) {
       // Prevent interacting with players if disallowed
       if (entity instanceof PlayerEntity && !AuthCore.config.lobby.allowPlayerInteractWith)
         return Logger.toUser(
@@ -185,9 +183,7 @@ public class EntityEvents {
 
     User user = User.users.get(entity.getName().getString());
 
-    if (user == null) return false;
-    else if (user.isInLobby.get()) {
-
+    if (user != null && user.isInLobby.get()) {
       // Prevent damage from mobs if disallowed
       if (damageSource.getAttacker() instanceof MobEntity)
         return AuthCore.config.lobby.allowMobDamage;
@@ -202,7 +198,7 @@ public class EntityEvents {
 
       // Prevent all damage if disallowed
       else return !(AuthCore.config.lobby.preventDamage);
-    }
+    } else if (user != null) user.lastCombactDetectMs = System.currentTimeMillis();
 
     return true;
   }

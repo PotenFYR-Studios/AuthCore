@@ -49,6 +49,12 @@ public class User {
   /** Timestamp of last authentication of user. */
   public long lastAuthenticatedMs = 0;
 
+  /** Timestamp of last damage received to user. */
+  public long lastCombactDetectMs = 0;
+
+  /** Combact Detection of the user. */
+  public boolean isInCombactPenalty = false;
+
   /** Timestamp of last registered by the user. */
   public long registeredAtMs;
 
@@ -283,6 +289,9 @@ public class User {
       this.uuid = player.getUuid();
       this.player.get().setUuid(player.getUuid());
     }
+
+    this.isInCombactPenalty = false;
+    this.lastCombactDetectMs = 0;
 
     db.insert(this);
 
