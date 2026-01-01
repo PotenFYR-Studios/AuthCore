@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.player.PlayerEntity;
@@ -32,7 +33,9 @@ public abstract class ItemMixin {
   private void authCore$preventUse(
       World world, PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
     // Retrieve the user associated with the player.
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Cancel item usage if the user is in the lobby and block interaction is not allowed.
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowBlockInteraction) {

@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.LivingEntity;
@@ -35,7 +36,9 @@ abstract class LivingEntityMixin {
     ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
 
     // Retrieve the user associated with the player.
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Check if the user is in the lobby and handle specific status effects.
     if (user != null && user.isInLobby.get()) {
@@ -70,7 +73,9 @@ abstract class LivingEntityMixin {
     // Check if the entity is a player.
     if ((Object) this instanceof ServerPlayerEntity player) {
       // Retrieve the user associated with the player.
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       // Prevent addition of status effects for jailed users if configured.
       if (user != null && user.isInLobby.get() && AuthCore.config.lobby.preventStatusEffect) {

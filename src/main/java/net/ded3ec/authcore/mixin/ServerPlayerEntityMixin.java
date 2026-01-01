@@ -2,6 +2,7 @@ package net.ded3ec.authcore.mixin;
 
 import com.mojang.authlib.GameProfile;
 import java.util.Set;
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -47,7 +48,10 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
       boolean retainOwnership,
       CallbackInfoReturnable<ItemEntity> cir) {
     ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
-    User user = User.users.get(player.getName().getString());
+
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Changing game mode by jailed user's detection!
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
@@ -70,7 +74,10 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
   private void authCore$onChangeGameMode(
       GameMode newGameMode, CallbackInfoReturnable<Boolean> cir) {
     ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
-    User user = User.users.get(player.getName().getString());
+
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Changing game mode by jailed user's detection!
     if (user != null
@@ -108,7 +115,10 @@ abstract class ServerPlayerEntityMixin extends PlayerEntity {
       boolean resetCamera,
       CallbackInfoReturnable<Boolean> cir) {
     ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
-    User user = User.users.get(player.getName().getString());
+
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Jailed User's status oldEffects detection!
     if (user != null

@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -28,7 +29,9 @@ abstract class ServerPlayerInteractionManagerMixin {
    */
   @Inject(method = "tryBreakBlock", at = @At("HEAD"), cancellable = true)
   private void authCore$onTryBreakBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowBlockBreaking) {
       Logger.toUser(false, user.handler, AuthCore.messages.promptUserBreakBlockNotAllowed);

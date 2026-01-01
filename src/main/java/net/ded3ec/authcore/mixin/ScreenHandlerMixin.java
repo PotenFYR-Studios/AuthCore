@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.player.PlayerEntity;
@@ -31,7 +32,9 @@ abstract class ScreenHandlerMixin {
   private void authCore$onSlotClick(
       int slotIndex, int button, SlotActionType actionType, PlayerEntity player, CallbackInfo ci) {
 
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Item drop event detection.
     if (user != null

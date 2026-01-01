@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.Entity;
@@ -32,7 +33,9 @@ public abstract class EntityMixin {
     // Check if the entity is a player.
     if ((Object) this instanceof PlayerEntity player) {
       // Retrieve the user associated with the player.
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       // Current block position
       BlockPos currentPos = player.getBlockPos();

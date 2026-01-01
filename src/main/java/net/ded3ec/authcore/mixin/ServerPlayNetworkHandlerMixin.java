@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -27,7 +28,9 @@ abstract class ServerPlayNetworkHandlerMixin {
    */
   @Inject(method = "onPlayerMove", at = @At("HEAD"))
   private void authCore$onPlayerMove(PlayerMoveC2SPacket packet, CallbackInfo ci) {
-    User user = User.users.get(this.player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     if (user != null
         && user.isInLobby.get()

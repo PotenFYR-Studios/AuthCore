@@ -52,7 +52,7 @@ abstract class ServerLoginNetworkHandlerMixin {
     if (username != null && uuid != null) {
 
       boolean isPremium = username.equals(Misc.getPremiumUsername(uuid));
-      User user = User.users.get(username);
+      User user = User.getUser(username, uuid);
 
       if (isPremium && (user == null || user.isPremium)) return;
       else if (!AuthCore.config.session.authentication.offlineModeByDefault) return;

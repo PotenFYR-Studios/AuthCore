@@ -91,7 +91,7 @@ public class Config {
 
     @Comment(
         """
-                      Permissions for the /load command.
+                      Permissions for the /register command.
                       • Required for new/cracked players to create an account.""")
     public CommandPermissions register =
         new CommandPermissions() {
@@ -215,7 +215,7 @@ public class Config {
 
     @Comment(
         """
-                      Permissions for /authcore whois <username>.
+                      Permissions for /authcore whois [<username>] [<uuid>] [<player>].
                       • Shows detailed account information for a player.""")
     public CommandPermissions whoisUsername =
         new CommandPermissions() {
@@ -227,7 +227,7 @@ public class Config {
 
     @Comment(
         """
-                      Permissions for /authcore set-mode offline <player>.
+                      Permissions for /authcore set-mode offline <player> <new-password>.
                       • Forces a player into cracked/offline authentication mode.""")
     public CommandPermissions setOfflineModePlayer =
         new CommandPermissions() {
@@ -292,23 +292,39 @@ public class Config {
     @Comment(
         """
                       How long an authenticated session remains valid (in milliseconds).
-                      • Default: 1800000 ms (30 minutes)
-                      • Reasonable range: 300000–3600000 ms""")
-    public int timeoutMs = 30 * 60 * 1000;
+                      • Default: 3600000 ms (60 minutes)
+                      • Reasonable range: 1200000–10800000 ms""")
+    public int timeoutMs = 60 * 60 * 1000;
 
     @Comment(
         """
                       Cooldown period after a player is kicked for too many failed login attempts (ms).
                       • Helps prevent brute-force attacks.
-                      • Default: 60000 ms (1 minute)""")
-    public int cooldownAfterKickMs = 60 * 1000;
+                      • Default: 120000 ms (2 minute)""")
+    public int cooldownAfterKickMs = 2 * 60 * 1000;
+
+    @Comment(
+        """
+                    Skip combat detection for unauthorized players.
+                    • If true, players can disconnect without being flagged.
+                    • Default: false
+                    """)
+    public boolean skipCombatDetection = false;
+
+    @Comment(
+        """
+                    Combat detection timeout (milliseconds).
+                    • Defines how long a player is considered in combat after damage.
+                    • Default: 3000 ms (3 seconds)
+                    """)
+    public long combatTimeout = 3 * 1000;
 
     @Comment(
         """
                       Interval between login reminder messages sent to unauthenticated players (ms).
                       • Default: 8000 ms (8 seconds)
                       • Suggested: 10000–30000 ms to avoid being too spammy""")
-    public int loginReminderIntervalMs = 8 * 1000;
+    public int messageReminderIntervalMs = 8 * 1000;
 
     @Comment(
         """
@@ -350,10 +366,23 @@ public class Config {
 
       @Comment(
           """
-                              Automatically log in players with legitimate premium (Mojang) accounts without requiring a password.
+                              Allow Unique Usernames only into the Server
+                              • Default: false (Server supports multiple same username with different uuid)""")
+      public boolean lookUpByUsername = false;
+
+      @Comment(
+          """
+                              Automatically log in players with legitimate premium (Mojang) accounts without requiring a password (Note: premiumAutoRegister needs to be enabled for smooth auth for 'new' premium members!).
                               • Recommended for hybrid online/offline servers.
                               • Default: true""")
       public boolean premiumAutoLogin = true;
+
+      @Comment(
+          """
+                              Generate Random Password for legitimate premium (Mojang) accounts.
+                              • Recommended for hybrid online/offline servers.
+                              • Default: true""")
+      public boolean premiumAutoRegister = true;
 
       @Comment(
           """
@@ -392,10 +421,17 @@ public class Config {
 
       @Comment(
           """
-                              Prevent the same account from being logged in from multiple locations at once.
+                              Prevent the same account name from being registered from multiple locations at once.
                               • Recommended for security.
                               • Default: true""")
-      public boolean blockDuplicateLogin = true;
+      public boolean blockDuplicateRegister = true;
+
+      @Comment(
+          """
+                               Prevent the same account name from being authenticated from multiple locations at once.
+                               • Recommended for security.
+                               • Default: true""")
+      public boolean blockDuplicateSession = true;
     }
   }
 
@@ -588,17 +624,12 @@ public class Config {
 
     @Comment(
         """
-                     Maximum number of simultaneously lobby (unauthenticated) players.
-                     • Helps prevent server overload from many unauthentic connections.
-                     • Default: 50""")
-    public boolean skipCombactDetection = false;
-
-    @Comment(
-        """
-                      Maximum number of simultaneously lobby (unauthenticated) players.
-                      • Helps prevent server overload from many unauthentic connections.
-                      • Default: 50""")
-    public long combactTimeout = 3 * 1000;
+              Enforce operator safety.
+              • Temporarily removes OP status until authentication succeeds.
+              • Restores OP status after successful login if originally OP.
+              • Default: true
+              """)
+    public boolean safeOperators = true;
 
     @Comment(
         """
@@ -617,7 +648,7 @@ public class Config {
         """
                       List of commands affected by the whitelist/blacklist logic below.
                       • Always includes core auth commands by default.""")
-    public Set<String> whitelistedCommands = Set.of("login", "load", "logout");
+    public Set<String> whitelistedCommands = Set.of("login", "account", "register");
 
     @Comment(
         """
@@ -867,25 +898,25 @@ public class Config {
           """
                               Base login timeout for players with ping ≤ 200 ms.
                               • Default: 60000 ms (1 minute)""")
-      public int loginTimeoutMs = 60_000;
+      public int timeInMs = 2 * 60 * 1000;
 
       @Comment(
           """
                               Login timeout for players with ping > 200 ms.
                               • Default: 120000 ms (2 minutes)""")
-      public int loginTimeoutAbove200LatencyMs = 120_000;
+      public int timeoutAbove200LatencyMs = 3 * 60 * 1000;
 
       @Comment(
           """
                               Login timeout for players with ping > 400 ms.
                               • Default: 240000 ms (4 minutes)""")
-      public int loginTimeoutAbove400LatencyMs = 240_000;
+      public int timeoutAbove400LatencyMs = 4 * 60 * 1000;
 
       @Comment(
           """
                               Login timeout for players with ping > 600 ms.
                               • Default: 480000 ms (8 minutes)""")
-      public int loginTimeoutAbove600LatencyMs = 480_000;
+      public int timeoutAbove600LatencyMs = 5 * 60 * 1000;
     }
   }
 }

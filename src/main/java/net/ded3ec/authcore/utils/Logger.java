@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.utils;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.Messages;
 import net.ded3ec.authcore.models.User;
@@ -10,6 +11,7 @@ import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
+import net.minecraft.text.TextColor;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 
@@ -91,22 +93,22 @@ public class Logger {
    */
   public static <T> T toKick(
       T value, ServerPlayNetworkHandler network, Messages.KickTemplate payload, Object... args) {
-    User user = User.users.get(network.getPlayer().getName().getString());
+    UUID uuid = network.getPlayer().getUuid();
+    String username = network.getPlayer().getName().getString();
+    User user = User.getUser(username, uuid);
+    String message = String.format(payload.logout.text, args);
 
-    if (!user.isActive) return value;
-
-    Logger.toUser(false, user.handler, payload);
-
-    String message = String.format(payload.message.text, args);
+    if (user != null) Logger.toUser(false, user.handler, payload);
 
     if (payload.logout.delaySec > 0)
-      Misc.TimeManager.setTimeout(
-          () -> {
-            if (user.isActive)
-              network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
-          },
-          payload.logout.delaySec * 1000L);
-    else if (user.isActive && user.handler != null)
+      Misc.TaskScheduler.getInstance()
+          .setTimeout(
+              () -> {
+                if (user != null && user.isActive)
+                  network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
+              },
+              payload.logout.delaySec * 1000L);
+    else if (user != null && user.isActive && user.handler != null)
       network.disconnect(Text.translatable(message).setStyle(getStyle(payload.logout)));
 
     return value;
@@ -175,6 +177,16 @@ public class Logger {
       style = style.withColor(Formatting.DARK_GRAY);
     else if (payload.color.equalsIgnoreCase("white")) style = style.withColor(Formatting.WHITE);
 
+    // Hex colors (#RRGGBB)
+    if (payload.color.startsWith("#") && payload.color.length() == 7) {
+      try {
+        int rgb = Integer.parseInt(payload.color.substring(1), 16);
+        style = style.withColor(TextColor.fromRgb(rgb));
+
+      } catch (NumberFormatException err) {
+        Logger.error(false, "Faced error in SetColor Function:", payload.color);
+      }
+    }
     return style;
   }
 
@@ -212,11 +224,21 @@ public class Logger {
    */
   private static void sendMessage(
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
-    User user = User.users.get(network.getPlayer().getName().getString());
-
+    UUID uuid = network.getPlayer().getUuid();
+    String username = network.getPlayer().getName().getString();
+    User user = User.getUser(username, uuid);
     String message = String.format(payload.message.text, args);
 
-    if (user.isActive)
+    if (payload.message.delay > 0)
+      Misc.TaskScheduler.getInstance()
+          .setTimeout(
+              () -> {
+                if (user != null && user.isActive)
+                  network.player.sendMessage(
+                      Text.translatable(message).setStyle(getStyle(payload.message)), false);
+              },
+              payload.message.delay);
+    else if (user != null && user.isActive)
       network.player.sendMessage(
           Text.translatable(message).setStyle(getStyle(payload.message)), false);
   }
@@ -231,30 +253,58 @@ public class Logger {
    */
   private static void sendTitle(
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
-    User user = User.users.get(network.getPlayer().getName().getString());
-
-    if (!user.isActive) return;
-
+    UUID uuid = network.getPlayer().getUuid();
+    String username = network.getPlayer().getName().getString();
+    User user = User.getUser(username, uuid);
     String titleMessage = String.format(payload.title.text, args);
 
-    network.sendPacket(
-        new TitleS2CPacket(
-            Text.translatable(titleMessage).setStyle(getStyleWithShadow(payload.title))));
+    if (payload.title.delay > 0) {
+      Misc.TaskScheduler.getInstance()
+          .setTimeout(
+              () -> {
+                if (!(user != null && user.isActive && user.handler != null)) return;
+                network.sendPacket(
+                    new TitleS2CPacket(
+                        Text.translatable(titleMessage)
+                            .setStyle(getStyleWithShadow(payload.title))));
 
-    if (!payload.title.subtitle.text.isBlank()) {
-      String subtitleMessage = String.format(payload.title.subtitle.text, args);
+                if (!payload.title.subtitle.text.isBlank()) {
+                  String subtitleMessage = String.format(payload.title.subtitle.text, args);
+
+                  network.sendPacket(
+                      new SubtitleS2CPacket(
+                          Text.translatable(subtitleMessage)
+                              .setStyle(getStyleWithShadow(payload.title.subtitle))));
+                }
+
+                network.sendPacket(
+                    new TitleFadeS2CPacket(
+                        Math.abs(payload.title.fadeInSec * (int) Misc.TpsMeter.get()),
+                        Math.abs(payload.title.staySec * (int) Misc.TpsMeter.get()),
+                        Math.abs(payload.title.fadeOutSec * (int) Misc.TpsMeter.get())));
+              },
+              payload.title.delay);
+
+    } else if (user != null && user.isActive && user.handler != null) {
+      network.sendPacket(
+          new TitleS2CPacket(
+              Text.translatable(titleMessage).setStyle(getStyleWithShadow(payload.title))));
+
+      if (!payload.title.subtitle.text.isBlank()) {
+        String subtitleMessage = String.format(payload.title.subtitle.text, args);
+
+        network.sendPacket(
+            new SubtitleS2CPacket(
+                Text.translatable(subtitleMessage)
+                    .setStyle(getStyleWithShadow(payload.title.subtitle))));
+      }
 
       network.sendPacket(
-          new SubtitleS2CPacket(
-              Text.translatable(subtitleMessage)
-                  .setStyle(getStyleWithShadow(payload.title.subtitle))));
+          new TitleFadeS2CPacket(
+              Math.abs(payload.title.fadeInSec * (int) Misc.TpsMeter.get()),
+              Math.abs(payload.title.staySec * (int) Misc.TpsMeter.get()),
+              Math.abs(payload.title.fadeOutSec * (int) Misc.TpsMeter.get())));
     }
-
-    network.sendPacket(
-        new TitleFadeS2CPacket(
-            Math.abs(payload.title.fadeInSec * (int) Misc.TpsMeter.get()),
-            Math.abs(payload.title.staySec * (int) Misc.TpsMeter.get()),
-            Math.abs(payload.title.fadeOutSec * (int) Misc.TpsMeter.get())));
   }
 
   /**
@@ -266,12 +316,21 @@ public class Logger {
    */
   private static void sendActionBar(
       ServerPlayNetworkHandler network, Messages.ColTemplate payload, Object... args) {
-
-    User user = User.users.get(network.getPlayer().getName().getString());
-
+    UUID uuid = network.getPlayer().getUuid();
+    String username = network.getPlayer().getName().getString();
+    User user = User.getUser(username, uuid);
     String message = String.format(payload.actionBar.text, args);
 
-    if (user.isActive)
+    if (payload.actionBar.delay > 0)
+      Misc.TaskScheduler.getInstance()
+          .setTimeout(
+              () -> {
+                if (user != null && user.isActive)
+                  network.player.sendMessage(
+                      Text.translatable(message).setStyle(getStyle(payload.actionBar)), true);
+              },
+              payload.actionBar.delay);
+    else if (user != null && user.isActive)
       network.player.sendMessage(
           Text.translatable(message).setStyle(getStyle(payload.actionBar)), true);
   }

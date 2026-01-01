@@ -12,6 +12,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import java.util.UUID;
+
 /**
  * A mixin class for the CommandManager to restrict command execution based on the user's lobby
  * status and the server's configuration.
@@ -37,7 +39,9 @@ public abstract class CommandManagerMixin {
 
     // Check if the player is in the lobby and restrict commands accordingly.
     if (player != null) {
-      User user = User.users.get(player.getName().getString());
+        UUID uuid = player.getUuid();
+        String username = player.getName().getString();
+        User user = User.getUser(username, uuid);
 
       if (user.isInLobby.get()) {
 

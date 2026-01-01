@@ -36,8 +36,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-entity-events-v1:${project.fabric_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-entity-events-v1:${project.fabric_api_version}"
 
     // MySQL Driver
     modImplementation include("com.mysql:mysql-connector-j:${mysql_version}")

@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.events;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -24,14 +25,17 @@ public class BlockEvents {
    */
   public static ActionResult onBlockUsage(
       PlayerEntity player, World world, Hand hand, BlockHitResult blockHitResult) {
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Prevent block interaction if the user is in the lobby and block interaction is disallowed
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowBlockInteraction) {
       player.currentScreenHandler.sendContentUpdates();
       player.playerScreenHandler.updateToClient();
 
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseBlockNotAllowed);
+      return Logger.toUser(
+          ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseBlockNotAllowed);
     } else return ActionResult.PASS;
   }
 
@@ -45,15 +49,19 @@ public class BlockEvents {
    *     allowed, otherwise ActionResult.PASS.
    */
   public static ActionResult onItemUsage(PlayerEntity player, World world, Hand hand) {
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Prevent item usage if the user is in the lobby and item usage is disallowed
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemUse)
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseItemNotAllowed);
+      return Logger.toUser(
+          ActionResult.FAIL, user.handler, AuthCore.messages.promptUserUseItemNotAllowed);
 
     // Prevent item moving if the user is in the lobby and item moving is disallowed
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemMoving)
-      return Logger.toUser(ActionResult.FAIL, user.handler, AuthCore.messages.promptUserShiftItemNotAllowed);
+      return Logger.toUser(
+          ActionResult.FAIL, user.handler, AuthCore.messages.promptUserShiftItemNotAllowed);
 
     return ActionResult.PASS;
   }
