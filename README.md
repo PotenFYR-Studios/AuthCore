@@ -2,9 +2,10 @@
 
 ### The Fortress Framework for Fabric Servers.
 
-[![Modrinth](https://img.shields.io/modrinth/dt/gKATUjN3?color=brightgreen&label=Downloads)](https://modrinth.com/mod/authCore)
-[![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore)](LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main)](https://github.com/DawnOfDedSec/AuthCore/actions)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/gKATUjN3?style=for-the-badge&label=Modrinth&color=green)](https://modrinth.com/mod/authCore)
+[![CurseForge Downloads](https://img.shields.io/curseforge/dt/1417839?style=for-the-badge&label=CurseForge&color=orange)](https://www.curseforge.com/minecraft/mc-mods/authcore)
+[![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore?style=for-the-badge)](LICENSE)
+[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main&style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
 **AuthCore** is a high-performance, server-side login framework designed for **large-scale Fabric 1.21+ environments**.
 While other mods just check a password, AuthCore manages the entire lifecycle of a player's session—securing the server
