@@ -10,7 +10,7 @@ public class Messages {
   @Comment(
       """
             Message shown to a player who has not yet registered.
-            • Encourages the player to load using /load <password> <confirm-password>.
+            • Encourages the player to register using /register <password> <confirm-password>.
             • Default display: Action bar in RED""")
   public ColTemplate promptUserNotRegistered =
       new ColTemplate() {
@@ -18,7 +18,7 @@ public class Messages {
           actionBar =
               new ActionBar() {
                 {
-                  text = "You are not registered on the server. Please load again in the Server!";
+                  text = "You are not registered on the server. Please register again in the Server!";
                   color = "RED";
                 }
               };
@@ -102,7 +102,7 @@ public class Messages {
 
   @Comment(
       """
-            Warning shown to an already authenticated player who attempts to /load or /login again.
+            Warning shown to an already authenticated player who attempts to /register or /login again.
             • Default display: Action bar in RED""")
   public ColTemplate promptUserAlreadyRegistered =
       new ColTemplate() {
@@ -268,7 +268,7 @@ public class Messages {
           actionBar =
               new ActionBar() {
                 {
-                  text = "User %1$s's mode has been set %2$ successfully!";
+                  text = "User %1$s's mode has been set %2$s successfully!";
                   color = "GREEN";
                 }
               };
@@ -278,14 +278,20 @@ public class Messages {
   @Comment(
       """
             Confirmation sent to administrators after updating the limbo/lobby spawn location.
-            • Default display: Action bar in GREEN""")
+            • Default display: Action bar in GREEN
+            • Placeholders:
+              • %1$s - Dimension
+              • %2$s - X Coordinate
+              • %3$s - Y Coordinate
+              • %4$s - Z Coordinate""")
   public ColTemplate promptAdminSpawnLocationUpdated =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "New Spawn Location for Limbo has been configured!";
+                  text =
+                      "New Spawn Location for Limbo has been configured with World: %1$s | X Coordinate: %2$s | Y Coordinate: %3$s | Z Coordinate: %4$s";
                   color = "GREEN";
                 }
               };
@@ -304,6 +310,56 @@ public class Messages {
                 {
                   text = "Password field <password> cannot be empty!";
                   color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Prompt shown when a premium account is detected and auto-login succeeds.
+            • Default display: Title in GREEN with subtitle
+            """)
+  public ColTemplate promptUserPremiumAutoLogin =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Premium Account Detected!";
+                  color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Enjoy! Your account has been auto-logged in to the Server!";
+                          color = "GREEN";
+                        }
+                      };
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Prompt shown when an active session is resumed successfully.
+            • Default display: Title in GREEN with subtitle
+            """)
+  public ColTemplate promptUserSessionResumed =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Active Session Detected!";
+                  color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Enjoy! Your session has been resumed into the Server!";
+                          color = "GREEN";
+                        }
+                      };
                 }
               };
         }
@@ -354,11 +410,18 @@ public class Messages {
   public ColTemplate promptUserUpperCaseNotPresent =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
-                  text = "Password must contain between %1$d - %2$d uppercase letter!";
+                  text = "Violation Detected!";
                   color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Password must contain between %1$d - %2$d uppercase letter!";
+                          color = "RED";
+                        }
+                      };
                 }
               };
         }
@@ -374,11 +437,18 @@ public class Messages {
   public ColTemplate promptUserLowerCaseNotPresent =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
-                  text = "Password must contain between %1$d - %2$d lowercase letter";
+                  text = "Violation Detected!";
                   color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Password must contain between %1$d - %2$d lowercase letter";
+                          color = "RED";
+                        }
+                      };
                 }
               };
         }
@@ -394,11 +464,18 @@ public class Messages {
   public ColTemplate promptUserDigitNotPresent =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
-                  text = "Password must contain between %1$d - %2$d digits";
+                  text = "Violation Detected!";
                   color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Password must contain between %1$d - %2$d digits";
+                          color = "RED";
+                        }
+                      };
                 }
               };
         }
@@ -414,11 +491,18 @@ public class Messages {
   public ColTemplate promptUserPasswordLengthIssue =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
-                  text = "Password length should be between %1$d - %2$d!";
+                  text = "Violation Detected!";
                   color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Password length should be between %1$d - %2$d!";
+                          color = "RED";
+                        }
+                      };
                 }
               };
         }
@@ -1081,24 +1165,6 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Player attempted simultaneous login from multiple locations.
-            • Displayed on the disconnect screen.
-            • Delay: 0 seconds""")
-  public KickTemplate promptUserDuplicateLoginNotAllowed =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "Duplicate logins are not allowed on the server!";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
             Kick reason: Player logged in from a different IP than their active session.
             • Security protection against session hijacking.
             • Delay: 0 seconds""")
@@ -1109,6 +1175,26 @@ public class Messages {
               new LogoutTemplate() {
                 {
                   text = "Login from a different IP address is not allowed!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+           Kick reason: Player's data has been deleted from the server/database.
+           • Request based interaction with User!.
+           • Placeholders:
+              • %1$s - Data Source (deleted from!)
+           • Delay: 0 seconds""")
+  public KickTemplate promptUserDataDeleted =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your Data has been deleted! From the %1$s!";
                   color = "RED";
                 }
               };
@@ -1240,7 +1326,7 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Authentication timeout expired (player took too long to load/login).
+            Kick reason: Authentication timeout expired (player took too long to /register OR /login).
             • Placeholders:
               • %1$s - Session duration
             • Delay: 5 seconds""")
@@ -1279,7 +1365,7 @@ public class Messages {
       """
             Kick reason: Targeted player's data could not be found (admin command feedback shown as kick message).
             • Placeholders:
-              • %1$s - Username
+              • %1$s - Username | UUID (Unique ID)
             • Delay: 0 seconds""")
   public KickTemplate promptAdminUserNotFound =
       new KickTemplate() {
@@ -1287,7 +1373,8 @@ public class Messages {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "User %1$s's data could not be found. Please re-login to the server.";
+                  text =
+                      "User %1$s's data could not be found. Please tell them to register to the server.";
                   color = "RED";
                 }
               };
@@ -1335,15 +1422,32 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Another client logged in with the same account (concurrent login detected).
+            Kick reason: Another client logged in with the same account (concurrent login/session detected).
             • Delay: 0 seconds""")
-  public KickTemplate promptUserAnotherAccountLoggedIn =
+  public KickTemplate promptUserAnotherAccountSession =
       new KickTemplate() {
         {
           logout =
               new LogoutTemplate() {
                 {
                   text = "Account with your username is already logged in the Server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Another client registering with the same account (concurrent register detected).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserAnotherAccountIsRegistering =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Account with your username is already registering in the Server!";
                   color = "RED";
                 }
               };
@@ -1363,6 +1467,43 @@ public class Messages {
               new LogoutTemplate() {
                 {
                   text = "User '%1$s' account has been deleted from the Database & Server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+           Kick reason (shown to user as feedback): User's account has been deleted.
+           • Placeholders:
+             • %1$s - Mode Type (online-mode/offline-mode)
+           • Delay: 0 seconds""")
+  public KickTemplate promptUserModeUpdated =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your mode has been changed to %1$s by an Admin!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): UUID of the Premium user is different from the database!.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserPremiumDifferentUUID =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text =
+                      "Your Authentication Token is invalid! Player with the same name is already present in the server!";
                   color = "RED";
                 }
               };
@@ -1504,7 +1645,7 @@ public class Messages {
     public boolean shadow = true;
 
     @Comment("Apply bold styling. Default: false")
-    public boolean bold = false;
+    public boolean bold = true;
 
     @Comment("Apply italic styling. Default: false")
     public boolean italic = false;

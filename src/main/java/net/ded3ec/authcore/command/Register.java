@@ -6,6 +6,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
+import java.util.UUID;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
@@ -19,33 +20,38 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Handles the `/load` command for registering new players on the server. This command allows
- * players to load with a password and optionally confirm it.
+ * Handles the `/register` command for registering new players on the server. This command allows
+ * players to register with a password and optionally confirm it.
  */
 public class Register {
 
   /**
-   * Registers the `/load (password) (confirm-password)` command with the provided dispatcher.
+   * Registers the `/register (password) (confirm-password)` command with the provided dispatcher.
    *
-   * @param dispatcher The command dispatcher to load the command with. This allows the server
-   *     to recognize and handle the `/load` command.
+   * @param dispatcher The command dispatcher to load the command with. This allows the server to
+   *     recognize and handle the `/register` command.
    */
   public static void load(CommandDispatcher<ServerCommandSource> dispatcher) {
     dispatcher.register(
-        literal("load")
+        literal("register")
             .requires(
                 (ctx) -> {
                   if (ctx.getPlayer() == null) return false;
-                  User user = User.users.get(ctx.getPlayer().getName().getString());
+
+                  UUID uuid = ctx.getPlayer().getUuid();
+                  String username = ctx.getPlayer().getName().getString();
+                  User user = User.getUser(username, uuid);
 
                   // Ensures the player is in the lobby and not already registered.
-                  if (!(user.isInLobby.get() && !user.isRegistered.get())) return false;
-                  else
-                    return Permissions.check(
-                        ctx.getPlayer(),
-                        AuthCore.config.commands.user.register.luckPermsNode,
-                        PermissionLevel.fromLevel(
-                            AuthCore.config.commands.user.register.permissionsLevel));
+                  return user != null
+                      && user.isInLobby.get()
+                      && !user.isAuthenticated.get()
+                      && !user.isRegistered.get()
+                      && Permissions.check(
+                          ctx.getPlayer(),
+                          AuthCore.config.commands.user.register.luckPermsNode,
+                          PermissionLevel.fromLevel(
+                              AuthCore.config.commands.user.register.permissionsLevel));
                 })
             .then(
                 argument("password", string())
@@ -68,7 +74,7 @@ public class Register {
   }
 
   /**
-   * Executes the `/load` command logic.
+   * Executes the `/register` command logic.
    *
    * @param source The source of the command, typically the player executing it.
    * @param password The password provided by the player.
@@ -82,9 +88,11 @@ public class Register {
 
       if (player == null) return Logger.info(0, "This command can't be executed from console!");
 
-      Logger.debug(0, "{} used '/load' command in the Server!", player.getName().getString());
+      Logger.debug(0, "{} used '/register' command in the Server!", player.getName().getString());
 
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       // Handle cases where the user data is not found or the user is already registered.
       if (user == null)
@@ -106,7 +114,7 @@ public class Register {
 
       return 0;
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in '/load' Command: {}", err);
+      return Logger.error(0, "Faced Error in '/register' Command: ", err);
     }
   }
 

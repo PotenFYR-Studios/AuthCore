@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.events;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -39,7 +40,9 @@ public class EntityEvents {
       Hand hand,
       Entity entity,
       @Nullable EntityHitResult entityHitResult) {
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     if (user != null && user.isInLobby.get()) {
       // Prevent attacking players if disallowed
@@ -113,7 +116,9 @@ public class EntityEvents {
       Hand hand,
       Entity entity,
       @Nullable EntityHitResult entityHitResult) {
-    User user = User.users.get(player.getName().getString());
+    UUID uuid = player.getUuid();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     if (user != null && user.isInLobby.get()) {
       // Prevent interacting with players if disallowed
@@ -181,7 +186,9 @@ public class EntityEvents {
   public static boolean onEntityDamage(LivingEntity entity, DamageSource damageSource, float v) {
     if (!(entity instanceof ServerPlayerEntity)) return true;
 
-    User user = User.users.get(entity.getName().getString());
+    UUID uuid = entity.getUuid();
+    String username = entity.getName().getString();
+    User user = User.getUser(username, uuid);
 
     if (user != null && user.isInLobby.get()) {
       // Prevent damage from mobs if disallowed

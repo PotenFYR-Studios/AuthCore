@@ -6,6 +6,7 @@ import static net.minecraft.server.command.CommandManager.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import java.util.UUID;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
@@ -52,17 +53,29 @@ public class Account {
             .then(
                 literal("logout")
                     .requires(
-                        Permissions.require(
-                            AuthCore.config.commands.user.logout.luckPermsNode,
-                            PermissionLevel.fromLevel(
-                                AuthCore.config.commands.user.logout.permissionsLevel)))
+                        (ctx) -> {
+                          if (ctx.getPlayer() == null) return false;
+                          UUID uuid = ctx.getPlayer().getUuid();
+                          String username = ctx.getPlayer().getName().getString();
+                          User user = User.getUser(username, uuid);
+
+                          return user != null
+                              && user.isActive
+                              && Permissions.check(
+                                  ctx.getPlayer(),
+                                  AuthCore.config.commands.user.logout.luckPermsNode,
+                                  PermissionLevel.fromLevel(
+                                      AuthCore.config.commands.user.logout.permissionsLevel));
+                        })
                     .executes(ctx -> logoutCommand(ctx.getSource())))
             .then(
                 literal("unregister")
                     .requires(
                         (ctx) -> {
                           if (ctx.getPlayer() == null) return false;
-                          User user = User.users.get(ctx.getPlayer().getName().getString());
+                          UUID uuid = ctx.getPlayer().getUuid();
+                          String username = ctx.getPlayer().getName().getString();
+                          User user = User.getUser(username, uuid);
 
                           return user != null
                               && user.isAuthenticated.get()
@@ -81,7 +94,9 @@ public class Account {
                             .requires(
                                 (ctx) -> {
                                   if (ctx.getPlayer() == null) return false;
-                                  User user = User.users.get(ctx.getPlayer().getName().getString());
+                                  UUID uuid = ctx.getPlayer().getUuid();
+                                  String username = ctx.getPlayer().getName().getString();
+                                  User user = User.getUser(username, uuid);
 
                                   return user != null
                                       && user.isRegistered.get()
@@ -124,12 +139,12 @@ public class Account {
       Logger.debug(
           0, "{} used '/account logout' command in the Server!", player.getName().getString());
 
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       if (user == null)
         return Logger.toKick(0, player.networkHandler, AuthCore.messages.promptUserNotFoundData);
-      else if (!user.isRegistered.get())
-        return Logger.toUser(0, player.networkHandler, AuthCore.messages.promptUserNotRegistered);
 
       Logger.debug(1, "{}'s session has been destroyed!", player.getName().getString());
       Logger.toUser(1, player.networkHandler, AuthCore.messages.promptUserLoggedOut);
@@ -138,7 +153,7 @@ public class Account {
       return 1;
 
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in '/account logout' Command: {}", err);
+      return Logger.error(0, "Faced Error in '/account logout' Command: ", err);
     }
   }
 
@@ -162,7 +177,10 @@ public class Account {
           1,
           "{} used '/account set-password <new-password>' command in the Server!",
           player.getName().getString());
-      User user = User.users.get(player.getName().getString());
+
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       if (!user.isRegistered.get())
         return Logger.toUser(0, player.networkHandler, AuthCore.messages.promptUserNotRegistered);
@@ -183,7 +201,7 @@ public class Account {
       } else return 0;
     } catch (Exception err) {
       return Logger.error(
-          0, "Faced Error in '/account set-password <new-password>' Command: {}", err);
+          0, "Faced Error in '/account set-password <new-password>' Command: ", err);
     }
   }
 
@@ -205,16 +223,18 @@ public class Account {
       Logger.debug(
           1, "{} used '/account unregister' command in the Server!", player.getName().getString());
 
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+      Object uniqueId = username != null ? username : (uuid != null ? uuid : "Empty String!");
 
-      if (!user.isRegistered.get())
+      if (user == null)
+        return Logger.toUser(
+            0, player.networkHandler, AuthCore.messages.promptAdminUserNotFound, uniqueId);
+      else if (!user.isRegistered.get())
         return Logger.toUser(0, player.networkHandler, AuthCore.messages.promptUserNotRegistered);
 
-      user.password = null;
-      user.passwordEncryption = null;
-      user.lastAuthenticatedMs = 0;
-
-      user.update("Unregistered by the User");
+      user.delete("Unregistered by the User", false);
 
       return Logger.toKick(
           1,
@@ -222,7 +242,7 @@ public class Account {
           AuthCore.messages.promptUserUnRegisteredSuccessfully);
 
     } catch (Exception err) {
-      return Logger.error(0, "Faced Error in '/account unregister' Command: {}", err);
+      return Logger.error(0, "Faced Error in '/account unregister' Command: ", err);
     }
   }
 

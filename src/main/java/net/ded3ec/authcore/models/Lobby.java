@@ -1,15 +1,13 @@
 package net.ded3ec.authcore.models;
 
-import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ScheduledFuture;
+import java.util.*;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.utils.Logger;
 import net.ded3ec.authcore.utils.Misc;
+import net.minecraft.block.*;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.command.permission.LeveledPermissionPredicate;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
@@ -47,10 +45,10 @@ public class Lobby {
   public User user;
 
   /** Task handle for the scheduled session expiration/kick. */
-  private ScheduledFuture<?> lobbyTimeoutTask;
+  private int lobbyTimeoutTask;
 
   /** Task handle for periodic login/registration reminders. */
-  private ScheduledFuture<?> lobbyIntervalTask;
+  private int lobbyIntervalTask;
 
   /** The specific position within the lobby assigned to the player. */
   private BlockPos position;
@@ -151,8 +149,8 @@ public class Lobby {
   /** Cancels any active scheduled tasks (timeout or reminders) for this lobby session. */
   public void cancel() {
 
-    if (this.lobbyIntervalTask != null) this.lobbyIntervalTask.cancel(false);
-    if (this.lobbyTimeoutTask != null) this.lobbyTimeoutTask.cancel(false);
+    Misc.TaskScheduler.getInstance().stopTask(this.lobbyIntervalTask);
+    Misc.TaskScheduler.getInstance().stopTask(this.lobbyTimeoutTask);
 
     Logger.debug(false, "{}'s Lobby interval and timeout has been cancelled!", this.user.username);
   }
@@ -182,62 +180,66 @@ public class Lobby {
    */
   private void handleTimeout() {
 
-    int loginTimeoutMs = AuthCore.config.lobby.timeout.loginTimeoutMs;
+    int loginTimeoutMs = AuthCore.config.lobby.timeout.timeInMs;
 
     if (user.handler.getLatency() >= 600)
-      loginTimeoutMs = AuthCore.config.lobby.timeout.loginTimeoutAbove600LatencyMs;
+      loginTimeoutMs = AuthCore.config.lobby.timeout.timeoutAbove600LatencyMs;
     else if (user.handler.getLatency() >= 400)
-      loginTimeoutMs = AuthCore.config.lobby.timeout.loginTimeoutAbove400LatencyMs;
+      loginTimeoutMs = AuthCore.config.lobby.timeout.timeoutAbove400LatencyMs;
     else if (user.handler.getLatency() >= 200)
-      loginTimeoutMs = AuthCore.config.lobby.timeout.loginTimeoutAbove200LatencyMs;
+      loginTimeoutMs = AuthCore.config.lobby.timeout.timeoutAbove200LatencyMs;
 
     int _loginTimeoutMs = loginTimeoutMs;
-    long lockingMs = System.currentTimeMillis();
 
     if (loginTimeoutMs > 0)
       this.lobbyTimeoutTask =
-          Misc.TimeManager.setTimeout(
-              () -> {
-                if (user.isActive && this.user.isInLobby.get())
-                  Logger.toKick(
-                      false,
-                      this.user.handler,
-                      AuthCore.messages.promptUserAuthenticationExpiredTimeout,
-                      Misc.TimeConverter.toDuration(_loginTimeoutMs));
-              },
-              loginTimeoutMs);
+          Misc.TaskScheduler.getInstance()
+              .setTimeout(
+                  () -> {
+                    if (user.isActive && this.user.isInLobby.get())
+                      Logger.toKick(
+                          false,
+                          this.user.handler,
+                          AuthCore.messages.promptUserAuthenticationExpiredTimeout,
+                          Misc.TimeConverter.toDuration(_loginTimeoutMs));
+                  },
+                  loginTimeoutMs);
 
-    if (AuthCore.config.session.loginReminderIntervalMs > 0)
+    long endIntervalMs = System.currentTimeMillis() + loginTimeoutMs;
+
+    if (AuthCore.config.session.messageReminderIntervalMs > 0)
       if (!user.isRegistered.get())
         this.lobbyIntervalTask =
-            Misc.TimeManager.setInterval(
-                () -> {
-                  if (this.user.isActive && this.user.isInLobby.get())
-                    Logger.toUser(
-                        true,
-                        this.user.handler,
-                        AuthCore.messages.promptUserRegisterCommandReminderInterval,
-                        _loginTimeoutMs > 0
-                            ? Misc.TimeConverter.toDuration(
-                                System.currentTimeMillis() - (lockingMs + _loginTimeoutMs))
-                            : "Infinite");
-                },
-                AuthCore.config.session.loginReminderIntervalMs);
+            Misc.TaskScheduler.getInstance()
+                .setInterval(
+                    () -> {
+                      if (this.user.isActive && this.user.isInLobby.get())
+                        Logger.toUser(
+                            true,
+                            this.user.handler,
+                            AuthCore.messages.promptUserRegisterCommandReminderInterval,
+                            _loginTimeoutMs > 0
+                                ? Misc.TimeConverter.toDuration(
+                                    endIntervalMs - System.currentTimeMillis())
+                                : "Infinite");
+                    },
+                    AuthCore.config.session.messageReminderIntervalMs);
       else
         this.lobbyIntervalTask =
-            Misc.TimeManager.setInterval(
-                () -> {
-                  if (this.user.isActive && this.user.isInLobby.get())
-                    Logger.toUser(
-                        true,
-                        this.user.handler,
-                        AuthCore.messages.promptUserLoginCommandReminderInterval,
-                        _loginTimeoutMs > 0
-                            ? Misc.TimeConverter.toDuration(
-                                System.currentTimeMillis() - (lockingMs + _loginTimeoutMs))
-                            : "Infinite");
-                },
-                AuthCore.config.session.loginReminderIntervalMs);
+            Misc.TaskScheduler.getInstance()
+                .setInterval(
+                    () -> {
+                      if (this.user.isActive && this.user.isInLobby.get())
+                        Logger.toUser(
+                            true,
+                            this.user.handler,
+                            AuthCore.messages.promptUserLoginCommandReminderInterval,
+                            _loginTimeoutMs > 0
+                                ? Misc.TimeConverter.toDuration(
+                                    endIntervalMs - System.currentTimeMillis())
+                                : "Infinite");
+                    },
+                    AuthCore.config.session.messageReminderIntervalMs);
   }
 
   /**
@@ -277,6 +279,10 @@ public class Lobby {
 
     private final GameMode gameMode;
 
+    private final boolean operator;
+
+    private LeveledPermissionPredicate permissions;
+
     /**
      * Captures the current state of the player and applies lobby-specific status effects. *
      *
@@ -286,6 +292,7 @@ public class Lobby {
      * @param player The player whose state should be snapshot.
      */
     public Snapshot(ServerPlayerEntity player) {
+      MinecraftServer server = player.getEntityWorld().getServer();
 
       this.blockPos = player.getBlockPos();
       this.dimensionKey = player.getEntityWorld().getRegistryKey();
@@ -313,6 +320,12 @@ public class Lobby {
       this.fallDistance = player.fallDistance;
       this.gameMode = player.interactionManager.getGameMode();
 
+      if (server != null) {
+        this.operator = server.getPlayerManager().isOperator(player.getPlayerConfigEntry());
+
+        this.permissions = server.getPlayerManager().getServer().getOpPermissionLevel();
+      } else this.operator = false;
+
       player.clearStatusEffects();
 
       if (AuthCore.config.lobby.invisibleUnauthorized)
@@ -330,6 +343,9 @@ public class Lobby {
         player.setInvulnerable(true);
         player.setHealth(player.getMaxHealth());
       }
+
+      if (server != null && this.operator && AuthCore.config.lobby.safeOperators)
+        server.getPlayerManager().removeFromOperators(player.getPlayerConfigEntry());
     }
 
     /**
@@ -342,7 +358,9 @@ public class Lobby {
      */
     public void reset(ServerPlayerEntity player) {
       MinecraftServer server = player.getEntityWorld().getServer();
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       if (server == null) return;
 
@@ -368,7 +386,7 @@ public class Lobby {
 
       BlockPos pos = this.blockPos;
 
-      if (user != null && (AuthCore.config.lobby.skipCombactDetection || !user.isInCombactPenalty))
+      if (user != null && (AuthCore.config.session.skipCombatDetection || !user.isInCombactPenalty))
         pos = this.getTeleportPos(player, this.blockPos.toImmutable(), world);
 
       this.teleport(player, pos.toImmutable(), world);
@@ -384,6 +402,14 @@ public class Lobby {
       player.setFrozenTicks(frozenTicks);
       player.fallDistance = fallDistance;
       player.changeGameMode(gameMode);
+
+      if (this.operator)
+        server
+            .getPlayerManager()
+            .addToOperators(
+                player.getPlayerConfigEntry(),
+                Optional.ofNullable(this.permissions),
+                Optional.of(true));
     }
 
     /**
@@ -442,7 +468,7 @@ public class Lobby {
               || player.isTouchingWater()
               || (player.getPose() == EntityPose.SWIMMING);
 
-      if (playerInGap) {
+      if (playerInGap || player.isInsideWall() || !isBlockSafe(world, candidate)) {
         BlockPos safe = getGroundAbove(world, candidate);
         if (safe != null) candidate = safe.up();
 
@@ -501,7 +527,6 @@ public class Lobby {
 
       while (check.getY() >= world.getBottomY()) {
         check.move(0, -1, 0);
-        BlockState state = world.getBlockState(check);
         if (isBlockSafe(world, check)) return check.toImmutable();
       }
 
@@ -521,7 +546,6 @@ public class Lobby {
 
       while (check.getY() <= topY) {
         check.move(0, 1, 0);
-        BlockState state = world.getBlockState(check);
         if (isBlockSafe(world, check)) return check.toImmutable();
       }
 
@@ -539,9 +563,26 @@ public class Lobby {
     private boolean isBlockSafe(ServerWorld world, BlockPos pos) {
       BlockState state = world.getBlockState(pos);
 
-      return state.isSolidBlock(world, pos)
-          && world.getBlockState(pos).getBlock() == Blocks.SNOW
-          && world.getBlockState(pos).getBlock() == Blocks.SNOW_BLOCK
+      // Check if the block has a solid collision shape or is otherwise standable
+      boolean stableBlockState =
+          state.isSolidBlock(world, pos)
+              || state.getBlock() instanceof LeavesBlock
+              || state.getBlock() instanceof CarpetBlock
+              || state.getBlock() instanceof ScaffoldingBlock
+              || state.getBlock() instanceof SlimeBlock
+              || state.getBlock() instanceof HoneyBlock
+              || state.getBlock() instanceof FenceBlock
+              || state.getBlock() instanceof WallBlock
+              || state.getBlock() instanceof LadderBlock
+              || state.getBlock() instanceof VineBlock
+              || state.getBlock() instanceof BigDripleafBlock
+              || state.getBlock() instanceof SmallDripleafBlock;
+
+      return (state.isSolidBlock(world, pos)
+              || stableBlockState
+              || !state.getCollisionShape(world, pos).isEmpty()
+              || world.getBlockState(pos).getBlock() == Blocks.SNOW
+              || world.getBlockState(pos).getBlock() == Blocks.SNOW_BLOCK)
           && world.getBlockState(pos.up()).isAir()
           && world.getBlockState(pos.up(2)).isAir();
     }

@@ -1,85 +1,104 @@
 # 🔐 AuthCore
-### Stop Griefers, Start Gaming.
+
+### The Fortress Framework for Fabric Servers.
 
 [![Modrinth](https://img.shields.io/modrinth/dt/gKATUjN3?color=brightgreen&label=Downloads)](https://modrinth.com/mod/authCore)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
-**AuthCore** is a lightweight, server-side bodyguard for your [Fabric](https://fabricmc.net/) server. It keeps out the "Steve" imposters and ensures your players' accounts stay as safe as a diamond block under Bedrock.
+**AuthCore** is a high-performance, server-side login framework designed for **large-scale Fabric 1.21+ environments**.
+While other mods just check a password, AuthCore manages the entire lifecycle of a player's session—securing the server
+against bot attacks, griefing attempts during login, and session hijacking.
 
-> **Ideal for:** Cracked servers, public communities, and anyone tired of people logging in as "Notch" to burn down spawn.
-
----
-
-## ✨ Why AuthCore?
-
-- 🔐 **Military-Grade Paranoia:** Secure password hashing (no plain-text leaks here!).
-- 🚫 **The "You Shall Not Pass" Protocol:** Blocks movement, chat, and interaction until they log in.
-- 🧍‍♂️ **Limbo Purgatory:** Lock unauthenticated players in a configurable spawn box.
-- 🔄 **Hybrid Harmony:** Support for both Premium and "Budget-Friendly" (cracked) accounts.
-- ⚙️ **Hot-Swapping:** Reload configs live, because restarting servers is so 2012.
-- 📦 **Zero Bloat:** Lightweight enough to run on a potato.
+> **Ideal for:** Massive SMPs, Public Community Servers, and Hybrid Networks demanding 20 TPS.
 
 ---
 
-## 📦 Getting Started
+## 🏢 Enterprise-Grade Features
 
-1. Grab [Fabric Loader](https://fabricmc.net/use/) and [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Download AuthCore from [Modrinth](https://modrinth.com/mod/authCore) or [GitHub](https://github.com/DawnOfDedSec/AuthCore/releases).
-3. Toss the `.jar` into your `mods/` folder.
-4. **Boot it up.** Find your settings at `config/authcore/settings.conf`.
+Designed for server owners who need absolute control. Here is how AuthCore’s configuration translates to real-world
+server benefits.
 
-**✅ Done!** Your server is now officially harder to enter than a VIP club.
-
----
-
-## ✅ Compatibility
-
-| Version | Loader | Status       |
-|:--------|:-------|:-------------|
-| 1.21.x  | 0.15+  | ✅ Rock Solid |
+| ⚙️ Configuration / Features                                                                                     | 🚀 Benefits for Minecraft Server                                                                                                                                                              |
+|:----------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Hermetic Limbo State**<br>*(Blocks: Breaking, Placing, Item Use, Drops, Movement, Chat, Commands)*            | **Zero-Grief Lobby.**<br>Unauthenticated players are effectively ghosts. They cannot spam chat, ruin spawn, steal items, or generate chunk updates that lag the server.                       |
+| **Granular Entity Protection**<br>*(Separately blocks attacks on: Players, Hostiles, Animals, Pets, Villagers)* | **Spawn Integrity.**<br>Prevents malicious users from logging in just to kill the community pet or trade-lock villagers before they even authenticate.                                        |
+| **Smart Session Management**<br>*(IP Locking, Session Timeouts, Re-login Windows)*                              | **Anti-Hijacking.**<br>If a player disconnects, their session is saved briefly for quick rejoins. However, if a *different* IP tries to join, the gate slams shut. Prevents session stealing. |
+| **Hybrid Authentication**<br>*(Premium Auto-Login & Cracked Support)*                                           | **Frictionless UX.**<br>Paid Minecraft users (`online-mode`) skip the password prompt entirely. Cracked users are securely sandboxed. Best of both worlds.                                    |
+| **Brute-Force Mitigation**<br>*(Max Login Attempts, Kick Cooldowns, Proxy Blocking)*                            | **DDoS/Bot Resilience.**<br>Automatically purges bad actors guessing passwords. Built-in Proxy/VPN checks reduce bot traffic without needing external firewalls.                              |
+| **UX-First Feedback**<br>*(Titles, Subtitles, Action Bars, Chat - All Configurable)*                            | **Professional Polish.**<br>Don't spam the chat box. Use clean **Title Screens** and **Action Bars** to guide users, keeping the chat clean for actual players.                               |
+| **Password Complexity Logic**<br>*(Regex: Min Length, Upper/Lower, Digits)*                                     | **Security Compliance.**<br>Force your admins and VIPs to use real passwords, not "12345", reducing the risk of social engineering hacks.                                                     |
 
 ---
 
-## 🛠️ Commands
+## 🚀 Getting Started
 
-### For the Plebeians (Players)
-| Command               | What it does         | Example                                    |
-|:----------------------|:---------------------|:-------------------------------------------|
-| `/register <pw>`      | Create your identity | `/register 12345` (Please don't use 12345) |
-| `/login <pw>`         | Prove it's you       | `/login hunter2`                           |
-| `/account logout`     | Walk away safely     | `/account logout`                          |
-| `/account unregister` | Delete your life     | `/account unregister`                      |
-
-### For the Gods (Admins)
-| Command                     | Description                       | Level |
-|:----------------------------|:----------------------------------|:------|
-| `/authcore reload`          | Fix your config mistakes live     | 3     |
-| `/authcore whois <user>`    | Play private investigator         | 3     |
-| `/authcore delete <user>`   | The "Nuclear Option" for accounts | 3     |
-| `/authcore set-mode online` | Force them to be legit            | 3     |
-| `/authcore set-spawn limbo` | Decide where the "unlogged" rot   | 3     |
+1. **Install Prerequisites:** Grab [Fabric Loader](https://fabricmc.net/use/)
+   and [Fabric API](https://modrinth.com/mod/fabric-api).
+2. **Download:** Get the latest `authcore-x.x.x.jar` from [Modrinth](https://modrinth.com/mod/authCore)
+   or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases).
+3. **Install:** Drop the `.jar` into your server's `mods/` folder.
+4. **Run:** Start the server. The configuration file will generate at `config/authcore/settings.conf`.
 
 ---
 
-## 🧪 Future Shenanigans
+# 🛠️ Command Reference
 
-We aren't done yet. Our roadmap is filled with features to make hackers cry:
+### 👤 Player Commands
 
-- 🛡️ **Velocity Support:** Because managing one server is never enough.
-- 🤖 **Captcha Chaos:** Force bots to solve math or identify "all squares with traffic lights."
-- 🔐 **2FA / MFA:** Make them pull out their phones to play block game.
-- ⏱️ **Login Torture:** Increasing wait times for failed attempts. 5 seconds... 30 seconds... 5 years...
+*Basic commands available to everyone.*
+
+| Command         | Usage                                       | Description                                                     |
+|:----------------|:--------------------------------------------|:----------------------------------------------------------------|
+| **Register**    | `/register <password> [<confirm-password>]` | Create an identity. Confirmation required if enabled in config. |
+| **Login**       | `/login <password>`                         | Authenticate credentials and release the Limbo state.           |
+| **Logout**      | `/account logout`                           | Manually end session (force password on next join).             |
+| **Change Pass** | `/account set-password <new-password>`      | Update credentials securely.                                    |
+| **Unregister**  | `/account unregister`                       | Self-service account deletion (GDPR compliance).                |
+
+### 👮 Admin Commands
+
+*Requires OP or Permission Level 3+.*
+
+| Command              | Usage                                                | Description                                               |
+|:---------------------|:-----------------------------------------------------|:----------------------------------------------------------|
+| **Reload**           | `/authcore reload`                                   | Hot-swaps `settings.conf` and messages without a restart. |
+| **List Players**     | `/authcore list players`                             | Lists all registered player usernames.                    |
+| **List Online**      | `/authcore list online-players`                      | Lists all premium (online-mode) players.                  |
+| **List Offline**     | `/authcore list offline-players`                     | Lists all cracked (offline-mode) players.                 |
+| **Delete Player**    | `/authcore delete player <player>`                   | Wipes player data from the DB. The "Nuclear Option".      |
+| **Destroy Sess**     | `/authcore destroy-session <player>`                 | Destroys a session and disconnects the user immediately.  |
+| **WhoIs**            | `/authcore whois <username>  <uuid> <player>`        | Displays UUID, IP, Reg Date, Last Login, and Auth Mode.   |
+| **Set Password**     | `/authcore set-password <player> <new-password>`     | Administrative password reset.                            |
+| **Set Mode Online**  | `/authcore set-mode online <player>`                 | Toggles specific users to Premium validation.             |
+| **Set Mode Offline** | `/authcore set-mode offline <player> <new-password>` | Toggles specific users to Cracked validation.             |
+| **Set Spawn**        | `/authcore set-spawn limbo <x> <y> <z>`              | Sets the precise X/Y/Z for the Limbo spawn.               |
+
+---
+
+## 📝 Roadmap (Todo)
+
+- [ ] **Velocity / BungeeCord Plugin:** A dedicated upstream plugin for network-wide auth handling.
+- [ ] **2FA / MFA Support:** Integration with TOTP apps (Google Auth) for Staff accounts. 📱
+- [ ] **Visual Captchas:** Map-based or inventory-based CAPTCHA to stop advanced bots. 🤖
+- [ ] **Database SQL Support:** MySQL/MariaDB/PostgreSQL support for syncing data across multiple backend servers. 🗄️
+- [ ] **Web Panel:** A lightweight HTML interface for admins to manage users externally.
+- [ ] **Progressive Punishment:** Exponential cooldowns (`5s` -> `30s` -> `5m`) for failed password attempts.
 
 ---
 
 ## 🛠️ Dev Corner
 
 **Building from source (if you're brave):**
-- Java 21+ & Gradle 10+
+
+- Requirements: Java 21+ & Gradle 8+
+
 ```bash
+# Clone the repo
 git clone [https://github.com/DawnOfDedSec/AuthCore.git](https://github.com/DawnOfDedSec/AuthCore.git)
 cd AuthCore
+
+# Build the jar
 ./gradlew build
 ```
 

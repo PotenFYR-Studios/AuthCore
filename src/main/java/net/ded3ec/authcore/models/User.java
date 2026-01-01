@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ScheduledFuture;
 import java.util.function.Supplier;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.utils.Database;
@@ -21,12 +20,13 @@ import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
 
 /** User model class for the AuthCore! */
 public class User {
 
   /** Collection of users. */
-  public static Map<String, User> users = new HashMap<>();
+  public static Map<UUID, User> users = new HashMap<>();
 
   /** UUID value of the minecraft player. */
   public UUID uuid;
@@ -59,7 +59,10 @@ public class User {
   public long registeredAtMs;
 
   /** Timestamp of last kicked by the server. */
-  public long lastKickedMs;
+  public long lastKickedMs = 0;
+
+  /** Count of kicked user by the server. */
+  public int kickAttempts = 0;
 
   /** Network handler managed in minecraft api. */
   public ServerPlayNetworkHandler handler;
@@ -173,7 +176,7 @@ public class User {
   public int loginAttempts = 0;
 
   /** Session Timeout timer task instance! */
-  private ScheduledFuture<?> sessionTimeoutId;
+  private int sessionTimeoutId;
 
   /**
    * User Instance creation with starter values.
@@ -189,7 +192,7 @@ public class User {
     this.userCreatedMs = userCreatedMs;
     this.isPremium = premium;
 
-    User.users.put(this.username, this);
+    User.users.put(this.uuid, this);
   }
 
   /** Load user configuration and initialization of user model! */
@@ -201,7 +204,47 @@ public class User {
     ArrayList<User> dbUsers = db.fetchAll();
 
     if (dbUsers != null && !dbUsers.isEmpty())
-      dbUsers.forEach(ctx -> User.users.put(ctx.username, ctx));
+      dbUsers.forEach(ctx -> User.users.put(ctx.uuid, ctx));
+  }
+
+  /**
+   * Retrieves a {@link User} instance based on either username or UUID, depending on the
+   * authentication configuration.
+   *
+   * <p>If {@code lookUpByUsername} is enabled, this method searches through all registered users
+   * and returns the one whose internal {@code username} field matches the provided {@code
+   * username}. This enforces uniqueness by username rather than UUID.
+   *
+   * <p>If {@code lookUpByUsername} is disabled, the method first looks up the user by their {@code
+   * uuid} key in the {@code User.users} map. If no user is found for the given UUID, it falls back
+   * to searching by username.
+   *
+   * @param username the username string to match against {@link User#username}
+   * @param uuid the unique identifier used as a key in {@code User.users}
+   * @return the matching {@link User} if found; otherwise {@code null}
+   */
+  public static @Nullable User getUser(String username, UUID uuid) {
+    if (AuthCore.config.session.authentication.lookUpByUsername) return getUserByUsername(username);
+
+    User tempUser = User.users.get(uuid);
+    return (tempUser == null) ? getUserByUsername(username) : tempUser;
+  }
+
+  /**
+   * Searches through all registered users and returns the one whose internal {@code username} field
+   * matches the provided {@code username}.
+   *
+   * <p>This method is typically used when {@code lookUpByUsername} is enabled, or as a fallback
+   * when UUID lookup fails.
+   *
+   * @param username the username string to match against {@link User#username}
+   * @return the matching {@link User} if found; otherwise {@code null}
+   */
+  public static @Nullable User getUserByUsername(String username) {
+    for (User user : User.users.values())
+      if (user != null && username.equals(user.username)) return user;
+
+    return null;
   }
 
   /**
@@ -240,8 +283,8 @@ public class User {
    */
   public void register(ServerPlayerEntity player, String password) {
     this.passwordEncryption = AuthCore.config.passwordRules.passwordHashAlgorithm;
-    this.password =
-        Misc.HashManager.hash(AuthCore.config.passwordRules.passwordHashAlgorithm, password);
+    this.password = Misc.HashManager.hash(this.passwordEncryption, password);
+
     this.ipAddress = player.getIp();
 
     if (!this.uuid.equals(player.getUuid())) {
@@ -257,9 +300,12 @@ public class User {
     }
 
     this.registeredAtMs = System.currentTimeMillis();
+
     db.insert(this);
 
-    if (AuthCore.config.session.authentication.allowLoginAfterRegistration) this.login(player);
+    if (AuthCore.config.session.authentication.allowLoginAfterRegistration
+        || (this.isPremium && AuthCore.config.session.authentication.premiumAutoLogin))
+      this.login(player);
     else if (this.isInLobby.get()) {
       this.lobby.unlock();
       Logger.toKick(false, this.handler, AuthCore.messages.promptUserReJoinAfterRegister);
@@ -275,6 +321,8 @@ public class User {
 
     this.loginAttempts = 0;
     this.lastAuthenticatedMs = System.currentTimeMillis();
+    this.lastKickedMs = 0;
+    this.kickAttempts = 0;
 
     if (this.isInLobby.get()) this.lobby.unlock();
 
@@ -297,14 +345,16 @@ public class User {
 
     if (AuthCore.config.session.enableSessions)
       this.sessionTimeoutId =
-          Misc.TimeManager.setTimeout(
-              () -> {
-                if (AuthCore.config.session.enableSessions
-                    && AuthCore.config.session.kickAfterSessionTimeout
-                    && this.isAuthenticated.get())
-                  Logger.toKick(false, this.handler, AuthCore.messages.promptUserSessionExpired);
-              },
-              AuthCore.config.session.timeoutMs);
+          Misc.TaskScheduler.getInstance()
+              .setTimeout(
+                  () -> {
+                    if (AuthCore.config.session.enableSessions
+                        && AuthCore.config.session.kickAfterSessionTimeout
+                        && this.isAuthenticated.get())
+                      Logger.toKick(
+                          false, this.handler, AuthCore.messages.promptUserSessionExpired);
+                  },
+                  AuthCore.config.session.timeoutMs);
 
     Logger.debug(true, "{} have been logged in successfully!", this.username);
   }
@@ -317,8 +367,7 @@ public class User {
   public void logout(Messages.KickTemplate payload) {
     this.lastAuthenticatedMs = 0;
 
-    if (this.sessionTimeoutId != null) this.sessionTimeoutId.cancel(false);
-
+    Misc.TaskScheduler.getInstance().stopTask(this.sessionTimeoutId);
     Logger.debug(true, "{}'s session has been terminated!", this.username);
 
     if (this.isActive) Logger.toKick(false, this.handler, payload);
@@ -332,6 +381,7 @@ public class User {
    */
   public void kick(Messages.KickTemplate payload, Object... args) {
     this.lastKickedMs = System.currentTimeMillis();
+    ++this.kickAttempts;
 
     Logger.debug(true, "{} has been kicked/logout from the Server", this.username);
 
@@ -345,6 +395,7 @@ public class User {
    */
   public void update(String reason) {
     db.insert(this);
+
     Logger.debug(true, "{} has been updated in the database for '{}'", this.username, reason);
   }
 
@@ -353,15 +404,22 @@ public class User {
    *
    * @param reason description of the delete reason
    */
-  public void delete(String reason) {
-    this.lobby.unlock();
+  public void delete(String reason, boolean delFromServer) {
+    if (this.isInLobby.get()) this.lobby.unlock();
 
-    User.users.remove(this.username);
+    if (this.isActive)
+      this.kick(AuthCore.messages.promptUserDataDeleted, delFromServer ? "Server" : "Database");
+
+    User.users.remove(this.uuid);
     db.remove(this);
 
-    this.server.get().getPlayerManager().remove(this.player.get());
-
-    Logger.debug(true, "{} has been deleted from the database for '{}'", this.username, reason);
+    if (delFromServer) {
+      this.server.get().getPlayerManager().remove(this.player.get());
+      Logger.debug(
+          true, "{}'s Data has been deleted from the Server for '{}'", this.username, reason);
+    } else
+      Logger.debug(
+          true, "{} has been deleted from the database & caches for '{}'", this.username, reason);
   }
 
   /** Database Manager for users. */
@@ -408,7 +466,7 @@ public class User {
                                 ipAddress,
                                 passwordEncryption,
                                 userCreatedMs,
-                                registeredMs,
+                                registeredMs
                         )
                         VALUES(?,?,?,?,?,?,?,?)
                         """);

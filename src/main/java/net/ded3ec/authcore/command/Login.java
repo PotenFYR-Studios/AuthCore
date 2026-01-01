@@ -6,6 +6,7 @@ import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
+import java.util.UUID;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
@@ -31,17 +32,20 @@ public class Login {
                 (ctx) -> {
                   // Ensure the player exists and meets the conditions to use the command.
                   if (ctx.getPlayer() == null) return false;
-                  User user = User.users.get(ctx.getPlayer().getName().getString());
+                  UUID uuid = ctx.getPlayer().getUuid();
+                  String username = ctx.getPlayer().getName().getString();
+                  User user = User.getUser(username, uuid);
 
-                  // Check if the user is in the lobby and registered.
-                  if (!(user.isInLobby.get() && user.isRegistered.get())) return false;
-                  else
-                    // Check if the player has the required permissions.
-                    return Permissions.check(
-                        ctx.getPlayer(),
-                        AuthCore.config.commands.user.login.luckPermsNode,
-                        PermissionLevel.fromLevel(
-                            AuthCore.config.commands.user.login.permissionsLevel));
+                  // Check if the player has the required permissions.
+                  return user != null
+                      && user.isInLobby.get()
+                      && !user.isAuthenticated.get()
+                      && user.isRegistered.get()
+                      && Permissions.check(
+                          ctx.getPlayer(),
+                          AuthCore.config.commands.user.login.luckPermsNode,
+                          PermissionLevel.fromLevel(
+                              AuthCore.config.commands.user.login.permissionsLevel));
                 })
             .then(
                 // Add the "password" argument to the command.
@@ -67,7 +71,9 @@ public class Login {
       Logger.debug(0, "{} used '/login' command in the Server!", player.getName().getString());
 
       // Retrieve the user data associated with the player.
-      User user = User.users.get(player.getName().getString());
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
 
       // Handle the case where the user data is not found.
       if (user == null)
@@ -99,7 +105,7 @@ public class Login {
         return Logger.toUser(1, player.networkHandler, AuthCore.messages.promptUserWrongPassword);
     } catch (Exception err) {
       // Log any errors encountered during command execution.
-      return Logger.error(0, "Faced Error in '/login' Command: {}", err);
+      return Logger.error(0, "Faced Error in '/login' Command: ", err);
     }
   }
 }

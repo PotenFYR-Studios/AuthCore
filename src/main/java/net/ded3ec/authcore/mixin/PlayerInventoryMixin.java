@@ -1,5 +1,6 @@
 package net.ded3ec.authcore.mixin;
 
+import java.util.UUID;
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -33,7 +34,9 @@ abstract class PlayerInventoryMixin {
     PlayerInventory inventory = (PlayerInventory) (Object) this;
 
     // Retrieve the user associated with the player.
-    User user = User.users.get(inventory.player.getName().getString());
+    UUID uuid = inventory.player.getUuid();
+    String username = inventory.player.getName().getString();
+    User user = User.getUser(username, uuid);
 
     // Prevent item removal if the user is in the lobby and item dropping is not allowed.
     if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {

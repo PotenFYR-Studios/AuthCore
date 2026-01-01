@@ -1,49 +1,86 @@
-# 📜 Changelog - Fabric Server-Side Authentication Mod 🛡️
+## [1.0.0-alpha.1] - 2026-01-01
 
-### 🔒 A shiny, secure, and slightly sarcastic authentication mod for Fabric servers!
+### 🚀 The "Total Control" Update
 
-We've been hard at work turning this mod from "it works... mostly" into something you can actually trust with your precious player logins. Buckle up — here's what's new! 🚀
+This update introduces a complete overhaul of the configuration system, allowing server owners to customize every single
+interaction, message, and restriction within the authentication lifecycle.
+
+### ✨ New Features
+
+* **Granular Limbo Restrictions:**
+    * Separated entity interaction blocking into specific categories: `Hostile`, `Neutral`, `Friendly`, `Animal`, and
+      `Player`.
+    * Added specific flags for `Block Breaking`, `Block Placing`, `Item Usage`, `Item Dropping`, and
+      `Inventory Movement`.
+    * Added `Mounting` restriction for rideable entities (horses, boats, pigs).
+    * *Benefit:* You can now allow players to walk around spawn but prevent them from punching villagers or stealing
+      crops while unlogged.
+* **Hybrid Authentication Mode:**
+    * Added native support for **Premium (Online-Mode)** auto-login alongside **Cracked** accounts.
+    * Implemented UUID spoofing protection: `prompt-user-premium-different-u-u-i-d` kicks players if a cracked client
+      tries to join with a username registered as Premium in the database.
+* **Proxy Forwarding Support:**
+    * Added `proxy-mode` configuration.
+    * Server now correctly parses real IPs from Velocity/BungeeCord, enabling accurate session management and IP bans on
+      networks.
+* **Password Complexity Logic:**
+    * Added configurable requirements for:
+        * Minimum/Maximum Length.
+        * Minimum Uppercase letters.
+        * Minimum Lowercase letters.
+        * Minimum Digits.
+    * Added distinct error messages for each violation (e.g., `prompt-user-digit-not-present`).
+
+### ⚙️ Configuration & Messages
+
+* **Triple-Format Messaging System:**
+    * Every single event now supports three simultaneous display methods:
+        1. **Chat:** Standard text with hex color support.
+        2. **Title/Subtitle:** Large screen overlays with customizable fade-in/out times.
+        3. **Action Bar:** Subtle text above the hotbar.
+* **New Message Keys:**
+    * `prompt-user-welcome-lobby-user`: Customizable title shown immediately upon joining the Limbo world.
+    * `prompt-user-session-resumed`: Feedback when a player rejoins quickly and skips auth.
+    * `prompt-user-premium-auto-login`: VIP recognition message for premium users.
+* **Periodic Reminders:**
+    * Added `prompt-user-register-command-reminder-interval` and `prompt-user-login-command-reminder-interval` to nag
+      players who sit AFK without authenticating.
+
+### 🛡️ Security
+
+* **Anti-Bot & Anti-VPN:**
+    * Added `prompt-user-proxy-not-allowed`: Native kick reason when a VPN/Proxy is detected.
+    * Added `prompt-user-exceeded-login-attempts`: Temporarily bans/cooldowns IP addresses that fail passwords multiple
+      times.
+* **Session Hijacking Protection:**
+    * Added `prompt-user-different-ip-login-not-allowed`: If a valid session exists, but a connection comes from a *new*
+      IP, the connection is rejected immediately.
+    * Added `prompt-user-another-account-session`: Kicks the active session if a valid login comes from a new client (
+      configurable).
+
+### 🛠️ Commands
+
+* Added `/authcore whois <player>`: Displays detailed info including UUID, Platform (Java/Bedrock), IP, and Registration
+  Date.
+* Added `/authcore setmode <player> <online/offline>`: Allows admins to manually toggle a specific user's authentication
+  method.
+* Added `/authcore setspawn`: Updates the exact location where unauthenticated players are sent (Limbo).
 
 ---
 
-### 🐛 Bug Fixes & Hotfixes
-- **:bug: Fixed commands & helpers!**  
-  No more cryptic errors when typing commands. They now behave like well-trained pets instead of feral cats. 🐱
+## [1.0.0-alpha.1] - 2026-01-01
 
-- **💥 Hotfix for Movement Blocker & Logging**  
-  Players were occasionally getting stuck in limbo (literally). Movement blocker now works properly, and logging no longer silently fails like that one friend who says "I'm fine" but clearly isn't. 😅
+### 🎉 Initial Release
 
----
+* Core authentication framework for Fabric.
+* Basic `/login` and `/register` commands.
+* Flatfile (JSON) database storage.
+* Argon2 password hashing.
+* Basic session management.
 
-### 🏗️ New Features & Improvements
+### 🐛 Bug Fixes
 
-- **🛠️ Installed Limbo Framework**  
-  Welcome to the void! Players now get gracefully sent to a custom limbo dimension during authentication. Perfect for that dramatic "are you worthy?" vibe. ⛩️
-
-- **💬 Custom Messages Support**  
-  Say goodbye to boring default messages! Now you can customize every login prompt, kick reason, and success message. Make your server sound friendly, strict, or just plain chaotic — your call! 🎭  
-  _Example: "Welcome back, legendary builder... or are you an impostor? 👀"_
-
-- **👮 Admin & User Commands!**  
-  Full suite of commands added:
-    - `/login <password>` – For the peasants (players)
-    - `/register <password>` – First-time? Claim your identity!
-    - `/authcore reload` – Admins only: Reload config without restarting (because who has time for that?)
-    - `/authcore set-password <player> <new-password>` – When someone "forgot" their password for the 50th time 🙄
-    - And more! Power corrupts... use wisely.
-
-- **⚠️ Support for Violations!**  
-  Track failed login attempts, suspicious behavior, and repeated offenses. Configure thresholds and automatic bans/kicks. The mod now judges players harder than a hardcore PvP veteran. ⚖️
-
-- **📝 Custom Logger!**  
-  Beautiful, color-coded, fully configurable logging. See who logged in, who failed (and how badly), and when someone tried to brute-force their way in. Now with timestamps, player UUIDs, and IP tracking.  
-  _Because nothing says "security" like a detailed audit trail of someone's 47 failed password guesses. 🔍😂_
-
----
-
-### 🎉 Final Words
-This update brings the mod from "functional prototype" to "**production-ready with style**". Your server will now authenticate players faster, safer, and with significantly more personality.
-
-Thanks for using this mod! Keep your passwords strong, your configs backed up, and your players... well, hopefully not too sneaky. 😏
-
-— _The Dev Who Clearly Had Too Much Coffee ☕_
+* Fixed an issue where "Time Left" placeholders in reminder messages were not calculating correctly.
+* Fixed a race condition where two players registering the same name simultaneously could corrupt the flatfile
+  database (`prompt-user-another-account-is-registering`).
+* Corrected color formatting for `RED` and `GREEN` in default Action Bar presets.
