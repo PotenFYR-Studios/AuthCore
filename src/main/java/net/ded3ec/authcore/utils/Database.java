@@ -20,6 +20,7 @@ public class Database {
 
     /**
      * Connect to the database (mySQL/SQLite).
+     *
      * @return true if connection is successful, false otherwise
      */
     public static boolean connect() {
@@ -37,9 +38,7 @@ public class Database {
             } catch (SQLException err) {
                 return Logger.error(false, "Mysql database connection is facing an error while connecting to database: {}", err.getLocalizedMessage());
             }
-        }
-
-        else {
+        } else {
             try {
                 if (connection != null && !connection.isClosed()) return true;
 
@@ -84,7 +83,7 @@ public class Database {
                            );
                     """);
 
-            Logger.info(true,"Created users database if it doesn't exist!");
+            Logger.info(true, "Created users database if it doesn't exist!");
         } catch (SQLException err) {
             Logger.error(false, "User's database connection is facing an error!", err);
         }

@@ -1,6 +1,7 @@
 package net.ded3ec.authcore.mixin;
 
 import java.util.UUID;
+
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
@@ -18,24 +19,24 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MobEntity.class)
 abstract class MobEntityMixin {
 
-  /**
-   * Prevents mobs from targeting players who are in the lobby. This is determined by checking the
-   * player's lobby status.
-   *
-   * @param target The entity that the mob is attempting to target.
-   * @param ci The callback information to control the method execution.
-   */
-  @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
-  private void authCore$disableAggression(LivingEntity target, CallbackInfo ci) {
-    // Check if the target is a player.
-    if (target instanceof ServerPlayerEntity) {
-      // Retrieve the user associated with the player.
-      UUID uuid = target.getUuid();
-      String username = target.getName().getString();
-      User user = User.getUser(username, uuid);
+    /**
+     * Prevents mobs from targeting players who are in the lobby. This is determined by checking the
+     * player's lobby status.
+     *
+     * @param target The entity that the mob is attempting to target.
+     * @param ci     The callback information to control the method execution.
+     */
+    @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
+    private void authCore$disableAggression(LivingEntity target, CallbackInfo ci) {
+        // Check if the target is a player.
+        if (target instanceof ServerPlayerEntity) {
+            // Retrieve the user associated with the player.
+            UUID uuid = target.getUuid();
+            String username = target.getName().getString();
+            User user = User.getUser(username, uuid);
 
-      // Cancel mob targeting if the user is in the lobby.
-      if (user != null && user.isInLobby.get()) ci.cancel();
+            // Cancel mob targeting if the user is in the lobby.
+            if (user != null && user.isInLobby.get()) ci.cancel();
+        }
     }
-  }
 }

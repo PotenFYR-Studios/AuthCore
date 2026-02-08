@@ -1,6 +1,7 @@
 package net.ded3ec.authcore.mixin;
 
 import java.util.UUID;
+
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.minecraft.entity.ItemEntity;
@@ -18,25 +19,25 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntity.class)
 public class ItemEntityMixin {
 
-  /**
-   * Prevents players in the lobby from picking up items if the server's configuration disallows
-   * item pickup for jailed users.
-   *
-   * @param player The player attempting to pick up the item.
-   * @param ci The callback information to control the method execution.
-   */
-  @Inject(method = "onPlayerCollision", at = @At("HEAD"), cancellable = true)
-  private void authCore$onPlayerPickup(PlayerEntity player, CallbackInfo ci) {
-    // Retrieve the user associated with the player.
-    UUID uuid = player.getUuid();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+    /**
+     * Prevents players in the lobby from picking up items if the server's configuration disallows
+     * item pickup for jailed users.
+     *
+     * @param player The player attempting to pick up the item.
+     * @param ci     The callback information to control the method execution.
+     */
+    @Inject(method = "onPlayerCollision", at = @At("HEAD"), cancellable = true)
+    private void authCore$onPlayerPickup(PlayerEntity player, CallbackInfo ci) {
+        // Retrieve the user associated with the player.
+        UUID uuid = player.getUuid();
+        String username = player.getName().getString();
+        User user = User.getUser(username, uuid);
 
-    // Cancel item pickup if the user is in the lobby and item pickup is not allowed.
-    if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemPickup) {
-      ci.cancel(); // Cancel the item pickup event.
-      player.currentScreenHandler.sendContentUpdates(); // Update the player's screen handler.
-      player.playerScreenHandler.updateToClient(); // Sync the screen handler with the client.
+        // Cancel item pickup if the user is in the lobby and item pickup is not allowed.
+        if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemPickup) {
+            ci.cancel(); // Cancel the item pickup event.
+            player.currentScreenHandler.sendContentUpdates(); // Update the player's screen handler.
+            player.playerScreenHandler.updateToClient(); // Sync the screen handler with the client.
+        }
     }
-  }
 }

@@ -1,6 +1,7 @@
 package net.ded3ec.authcore.mixin;
 
 import java.util.UUID;
+
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -19,36 +20,36 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(PlayerInventory.class)
 abstract class PlayerInventoryMixin {
 
-  /**
-   * Prevents players in the lobby from removing items from their inventory if the server's
-   * configuration disallows item dropping for jailed users.
-   *
-   * @param slot The inventory slot from which the item is being removed.
-   * @param amount The amount of the item being removed.
-   * @param cir The callback information to control the method execution.
-   */
-  @Inject(method = "removeStack", at = @At("HEAD"), cancellable = true)
-  private void authCore$onRemoveStack(int slot, int amount, CallbackInfoReturnable<ItemStack> cir) {
+    /**
+     * Prevents players in the lobby from removing items from their inventory if the server's
+     * configuration disallows item dropping for jailed users.
+     *
+     * @param slot   The inventory slot from which the item is being removed.
+     * @param amount The amount of the item being removed.
+     * @param cir    The callback information to control the method execution.
+     */
+    @Inject(method = "removeStack", at = @At("HEAD"), cancellable = true)
+    private void authCore$onRemoveStack(int slot, int amount, CallbackInfoReturnable<ItemStack> cir) {
 
-    // Cast the current object to PlayerInventory.
-    PlayerInventory inventory = (PlayerInventory) (Object) this;
+        // Cast the current object to PlayerInventory.
+        PlayerInventory inventory = (PlayerInventory) (Object) this;
 
-    // Retrieve the user associated with the player.
-    UUID uuid = inventory.player.getUuid();
-    String username = inventory.player.getName().getString();
-    User user = User.getUser(username, uuid);
+        // Retrieve the user associated with the player.
+        UUID uuid = inventory.player.getUuid();
+        String username = inventory.player.getName().getString();
+        User user = User.getUser(username, uuid);
 
-    // Prevent item removal if the user is in the lobby and item dropping is not allowed.
-    if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
-      // Notify the user that item dropping is not allowed.
-      Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
+        // Prevent item removal if the user is in the lobby and item dropping is not allowed.
+        if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
+            // Notify the user that item dropping is not allowed.
+            Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
 
-      // Update the player's screen handler to reflect the change.
-      inventory.player.currentScreenHandler.sendContentUpdates();
-      inventory.player.playerScreenHandler.updateToClient();
+            // Update the player's screen handler to reflect the change.
+            inventory.player.currentScreenHandler.sendContentUpdates();
+            inventory.player.playerScreenHandler.updateToClient();
 
-      // Return an empty ItemStack to prevent the item from being removed.
-      cir.setReturnValue(ItemStack.EMPTY);
+            // Return an empty ItemStack to prevent the item from being removed.
+            cir.setReturnValue(ItemStack.EMPTY);
+        }
     }
-  }
 }
