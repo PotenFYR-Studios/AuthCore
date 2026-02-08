@@ -1,8 +1,10 @@
 package net.ded3ec.authcore.mixin;
 
 import com.mojang.authlib.GameProfile;
+
 import java.util.Set;
 import java.util.UUID;
+
 import net.ded3ec.authcore.AuthCore;
 import net.ded3ec.authcore.models.User;
 import net.ded3ec.authcore.utils.Logger;
@@ -19,117 +21,99 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/** Server Player Entity Handler for AuthCore in Minecraft Functions/Events! */
+/**
+ * Server Player Entity Handler for AuthCore in Minecraft Functions/Events!
+ */
 @Mixin(ServerPlayerEntity.class)
 abstract class ServerPlayerEntityMixin extends PlayerEntity {
 
-  /**
-   * Mixin class instance shadowing.
-   *
-   * @param world the world
-   * @param profile the game profile
-   */
-  public ServerPlayerEntityMixin(World world, GameProfile profile) {
-    super(world, profile);
-  }
-
-  /**
-   * Prevents dropping items for users in the lobby if configured.
-   *
-   * @param stack the item stack being dropped
-   * @param throwRandomly whether the item is thrown randomly
-   * @param retainOwnership whether ownership is retained
-   * @param cir callback info returnable
-   */
-  @Inject(method = "dropItem", at = @At("HEAD"), cancellable = true)
-  private void preventDrop(
-      ItemStack stack,
-      boolean throwRandomly,
-      boolean retainOwnership,
-      CallbackInfoReturnable<ItemEntity> cir) {
-    ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
-
-    UUID uuid = player.getUuid();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
-
-    // Changing game mode by jailed user's detection!
-    if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
-      Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
-
-      player.currentScreenHandler.sendContentUpdates();
-      player.playerScreenHandler.updateToClient();
-
-      cir.setReturnValue(null);
+    /**
+     * Mixin class instance shadowing.
+     *
+     * @param world   the world
+     * @param profile the game profile
+     */
+    public ServerPlayerEntityMixin(World world, GameProfile profile) {
+        super(world, profile);
     }
-  }
 
-  /**
-   * Handles game mode changes for authenticated users.
-   *
-   * @param newGameMode the new game mode
-   * @param cir callback info returnable
-   */
-  @Inject(method = "changeGameMode", at = @At("HEAD"), cancellable = true)
-  private void authCore$onChangeGameMode(
-      GameMode newGameMode, CallbackInfoReturnable<Boolean> cir) {
-    ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
+    /**
+     * Prevents dropping items for users in the lobby if configured.
+     *
+     * @param stack           the item stack being dropped
+     * @param throwRandomly   whether the item is thrown randomly
+     * @param retainOwnership whether ownership is retained
+     * @param cir             callback info returnable
+     */
+    @Inject(method = "dropItem", at = @At("HEAD"), cancellable = true)
+    private void preventDrop(ItemStack stack, boolean throwRandomly, boolean retainOwnership, CallbackInfoReturnable<ItemEntity> cir) {
+        ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
 
-    UUID uuid = player.getUuid();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+        UUID uuid = player.getUuid();
+        String username = player.getName().getString();
+        User user = User.getUser(username, uuid);
 
-    // Changing game mode by jailed user's detection!
-    if (user != null
-        && user.isInLobby.get()
-        && AuthCore.config.lobby.forceAdventureMode
-        && newGameMode != GameMode.ADVENTURE) {
+        // Changing game mode by jailed user's detection!
+        if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowItemDrop) {
+            Logger.toUser(false, user.handler, AuthCore.messages.promptUserDropItemNotAllowed);
 
-      Logger.toUser(false, user.handler, AuthCore.messages.promptUserChangeGameModeNotAllowed);
-      cir.setReturnValue(false);
+            player.currentScreenHandler.sendContentUpdates();
+            player.playerScreenHandler.updateToClient();
+
+            cir.setReturnValue(null);
+        }
     }
-  }
 
-  /**
-   * Prevents teleportation for users in the lobby if movement is not allowed.
-   *
-   * @param world the target server world
-   * @param destX destination x coordinate
-   * @param destY destination y coordinate
-   * @param destZ destination z coordinate
-   * @param flags position flags
-   * @param yaw yaw angle
-   * @param pitch pitch angle
-   * @param resetCamera whether to reset camera
-   * @param cir callback info returnable
-   */
-  @Inject(method = "teleport", at = @At("HEAD"), cancellable = true)
-  private void authCore$onTeleport(
-      ServerWorld world,
-      double destX,
-      double destY,
-      double destZ,
-      Set<PositionFlag> flags,
-      float yaw,
-      float pitch,
-      boolean resetCamera,
-      CallbackInfoReturnable<Boolean> cir) {
-    ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
+    /**
+     * Handles game mode changes for authenticated users.
+     *
+     * @param newGameMode the new game mode
+     * @param cir         callback info returnable
+     */
+    @Inject(method = "changeGameMode", at = @At("HEAD"), cancellable = true)
+    private void authCore$onChangeGameMode(GameMode newGameMode, CallbackInfoReturnable<Boolean> cir) {
+        ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
 
-    UUID uuid = player.getUuid();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+        UUID uuid = player.getUuid();
+        String username = player.getName().getString();
+        User user = User.getUser(username, uuid);
 
-    // Jailed User's status oldEffects detection!
-    if (user != null
-        && user.isInLobby.get()
-        && !AuthCore.config.lobby.allowMovement
-        && user.lobby.isOutsideOfLobbyPos(destX, destZ)) {
-      cir.setReturnValue(false);
-      cir.cancel();
+        // Changing game mode by jailed user's detection!
+        if (user != null && user.isInLobby.get() && AuthCore.config.lobby.forceAdventureMode && newGameMode != GameMode.ADVENTURE) {
 
-      Logger.toUser(false, user.handler, AuthCore.messages.promptUserPlayerMovementNotAllowed);
-      user.lobby.handleTeleport();
+            Logger.toUser(false, user.handler, AuthCore.messages.promptUserChangeGameModeNotAllowed);
+            cir.setReturnValue(false);
+        }
     }
-  }
+
+    /**
+     * Prevents teleportation for users in the lobby if movement is not allowed.
+     *
+     * @param world       the target server world
+     * @param destX       destination x coordinate
+     * @param destY       destination y coordinate
+     * @param destZ       destination z coordinate
+     * @param flags       position flags
+     * @param yaw         yaw angle
+     * @param pitch       pitch angle
+     * @param resetCamera whether to reset camera
+     * @param cir         callback info returnable
+     */
+    @Inject(method = "teleport", at = @At("HEAD"), cancellable = true)
+    private void authCore$onTeleport(ServerWorld world, double destX, double destY, double destZ, Set<PositionFlag> flags, float yaw, float pitch, boolean resetCamera, CallbackInfoReturnable<Boolean> cir) {
+        ServerPlayerEntity player = (ServerPlayerEntity) (Object) this;
+
+        UUID uuid = player.getUuid();
+        String username = player.getName().getString();
+        User user = User.getUser(username, uuid);
+
+        // Jailed User's status oldEffects detection!
+        if (user != null && user.isInLobby.get() && !AuthCore.config.lobby.allowMovement && user.lobby.isOutsideOfLobbyPos(destX, destZ)) {
+            cir.setReturnValue(false);
+            cir.cancel();
+
+            Logger.toUser(false, user.handler, AuthCore.messages.promptUserPlayerMovementNotAllowed);
+            user.lobby.handleTeleport();
+        }
+    }
 }

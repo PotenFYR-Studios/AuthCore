@@ -12,54 +12,65 @@ import net.fabricmc.fabric.api.event.player.*;
 import net.fabricmc.fabric.api.message.v1.ServerMessageEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 
-/** Utility class for registering hooks, commands, and events in AuthCore. */
+/**
+ * Utility class for registering hooks, commands, and events in AuthCore.
+ */
 public class Hooks {
-  /** Registers all hooks, commands, and events. */
-  public static void register() {
+    /**
+     * Registers all hooks, commands, and events.
+     */
+    public static void register() {
 
-    registerUtils();
-    registerHelpers();
-    registerCommands();
-    registerEvents();
-  }
+        registerUtils();
+        registerHelpers();
+        registerCommands();
+        registerEvents();
+    }
 
-  /** Registers helper components, such as loading user data. */
-  private static void registerHelpers() {
-    User.load();
-  }
+    /**
+     * Registers helper components, such as loading user data.
+     */
+    private static void registerHelpers() {
+        User.load();
+    }
 
-  /** Registers utility components, such as configuration initialization. */
-  private static void registerUtils() {
+    /**
+     * Registers utility components, such as configuration initialization.
+     */
+    private static void registerUtils() {
 
-    HoconConf.initialize();
-  }
+        HoconConf.initialize();
+    }
 
-  /** Registers commands for the mod. */
-  private static void registerCommands() {
+    /**
+     * Registers commands for the mod.
+     */
+    private static void registerCommands() {
 
-    CommandRegistrationCallback.EVENT.register(
-        (commandDispatcher, commandRegistryAccess, environment) -> {
-          Register.load(commandDispatcher);
-          Login.load(commandDispatcher);
-          Account.load(commandDispatcher);
-          Admin.load(commandDispatcher);
+        CommandRegistrationCallback.EVENT.register((commandDispatcher, commandRegistryAccess, environment) -> {
+            Register.load(commandDispatcher);
+            Login.load(commandDispatcher);
+            Account.load(commandDispatcher);
+            Admin.load(commandDispatcher);
         });
-  }
+    }
 
-  /** Registers event listeners for server and player events. */
-  private static void registerEvents() {
+    /**
+     * Registers event listeners for server and player events.
+     */
+    private static void registerEvents() {
 
-    ServerPlayConnectionEvents.JOIN.register(ServerEvents::onPlayerJoin);
-    ServerPlayConnectionEvents.DISCONNECT.register(ServerEvents::onPlayerLeave);
-    ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(ServerEvents::onAllowChatMessage);
-    ServerTickEvents.END_SERVER_TICK.register(ServerEvents::onEndServerTick);
+        ServerPlayConnectionEvents.JOIN.register(ServerEvents::onPlayerJoin);
+        ServerPlayConnectionEvents.DISCONNECT.register(ServerEvents::onPlayerLeave);
+        ServerMessageEvents.ALLOW_CHAT_MESSAGE.register(ServerEvents::onAllowChatMessage);
+        ServerTickEvents.END_SERVER_TICK.register(ServerEvents::onEndServerTick);
 
-    UseBlockCallback.EVENT.register(BlockEvents::onBlockUsage);
-    UseItemCallback.EVENT.register(BlockEvents::onItemUsage);
+        UseBlockCallback.EVENT.register(BlockEvents::onBlockUsage);
+        UseItemCallback.EVENT.register(BlockEvents::onItemUsage);
 
-    UseEntityCallback.EVENT.register(EntityEvents::onEntityUse);
-    AttackEntityCallback.EVENT.register(EntityEvents::onEntityAttack);
-    ServerLivingEntityEvents.ALLOW_DAMAGE.register(EntityEvents::onEntityDamage);
-    ServerLivingEntityEvents.ALLOW_DEATH.register(EntityEvents::onEntityDamage);
-  }
+        UseEntityCallback.EVENT.register(EntityEvents::onEntityUse);
+        AttackEntityCallback.EVENT.register(EntityEvents::onEntityAttack);
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register(EntityEvents::onEntityDamage);
+        ServerLivingEntityEvents.ALLOW_DEATH.register(EntityEvents::onEntityDamage);
+    }
 }
