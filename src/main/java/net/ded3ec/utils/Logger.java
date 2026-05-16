@@ -22,8 +22,8 @@ public class Logger {
 
   private final org.slf4j.Logger logger;
 
-  public Logger(String type) {
-    this.logger = LoggerFactory.getLogger("authcore" + ":" + type);
+  public Logger(String MOD_ID) {
+    this.logger = LoggerFactory.getLogger(MOD_ID);
   }
 
   /**
@@ -78,7 +78,7 @@ public class Logger {
    * @return the returnValue
    */
   public <T> T toUser(
-          T value, ServerPlayNetworkHandler connection, Messages.ColTemplate payload, Object... args) {
+      T value, ServerPlayNetworkHandler connection, Messages.ColTemplate payload, Object... args) {
 
     if (!payload.message.text.isBlank()) sendMessage(connection, payload, args);
 
@@ -208,10 +208,8 @@ public class Logger {
    */
   private Style setFont(Messages.Template payload, Style style) {
     return style.withFont(
-           new StyleSpriteSource.Font(Identifier.of(payload.font[0], payload.font[1]))
-    );
+        new StyleSpriteSource.Font(Identifier.of(payload.font[0], payload.font[1])));
   }
-
 
   /**
    * Setting up Shadow with Strength for Text.
