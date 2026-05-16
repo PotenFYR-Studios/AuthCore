@@ -286,6 +286,13 @@ public class Config {
 
     @Comment(
         """
+        Server operation mode.
+        • Accepted values: "online", "offline"
+        • Default: online""")
+    public String serverMode = "online";
+
+    @Comment(
+        """
                 Authentication behaviour and security options.
                 • Most options should stay at secure defaults unless you have a specific reason to change them.""")
     public Authentication authentication = new Authentication();
@@ -398,13 +405,6 @@ public class Config {
                     • Disabling improves security by blocking many bot attacks.
                     • Default: false""")
       public boolean allowProxyUsers = false;
-
-      @Comment(
-          """
-                    Treat unknown usernames as offline-mode by default.
-                    • Typical setting for hybrid-mode servers.
-                    • Default: false""")
-      public boolean allowOfflineModePlayers = false;
 
       @Comment(
           """

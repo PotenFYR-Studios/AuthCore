@@ -1,6 +1,8 @@
 package net.ded3ec.mixin;
 
 import com.mojang.authlib.GameProfile;
+
+import java.util.Objects;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -48,7 +50,7 @@ abstract class ServerLoginNetworkHandlerMixin {
     if (user != null && user.isPremium) return;
 
     // 2. Offline-mode disabled? → let vanilla handle it
-    if (!AuthCoreServer.config.session.authentication.allowOfflineModePlayers) return;
+    if (!(Objects.equals(AuthCoreServer.config.session.serverMode, "offline"))) return;
 
     // 3. Bedrock restriction
     if (!AuthCoreServer.config.session.authentication.allowBedrockPlayers

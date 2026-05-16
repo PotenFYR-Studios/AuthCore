@@ -1,5 +1,6 @@
 package net.ded3ec.events;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -21,7 +22,7 @@ public class ServerEvents {
 
   /** Player join handler */
   public static void onPlayerJoin(
-          ServerPlayNetworkHandler connection, PacketSender sender, MinecraftServer server) {
+      ServerPlayNetworkHandler connection, PacketSender sender, MinecraftServer server) {
 
     ServerPlayerEntity player = connection.player;
 
@@ -52,7 +53,7 @@ public class ServerEvents {
               uuid,
               username,
               System.currentTimeMillis(),
-              !AuthCoreServer.config.session.authentication.allowOfflineModePlayers
+              (Objects.equals(AuthCoreServer.config.session.serverMode, "online"))
                   || username.equals(McApiManager.getPremiumUsername(uuid)));
 
     // Establish connection

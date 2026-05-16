@@ -41,7 +41,7 @@ public class AuthCoreServer implements DedicatedServerModInitializer {
     LOGGER.info(null,"");
     LOGGER.info(null," Version      : {}", "1.0.0-alpha.2");
     LOGGER.info(null," Minecraft    : 1.21.11");
-    LOGGER.info(null," Offline Mode : {}", config.session.authentication.allowOfflineModePlayers ? "Enabled" : "Disabled");
+    LOGGER.info(null," Server Mode : {}", config.session.serverMode);
     LOGGER.info(null,"-------------------------------------------------");
   }
 }
