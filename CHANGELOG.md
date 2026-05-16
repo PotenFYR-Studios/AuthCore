@@ -16,8 +16,8 @@ interaction, message, and restriction within the authentication lifecycle.
     * *Benefit:* You can now allow players to walk around spawn but prevent them from punching villagers or stealing
       crops while unlogged.
 * **Hybrid Authentication Mode:**
-    * Added native support for **Premium (Online-Mode)** auto-login alongside **Cracked** accounts.
-    * Implemented UUID spoofing protection: `prompt-user-premium-different-u-u-i-d` kicks players if a cracked client
+    * Added native support for **Premium (Online-Mode)** auto-login alongside **Offline-Mode** accounts.
+    * Implemented UUID spoofing protection: `prompt-user-premium-different-u-u-i-d` kicks players if a offline-mode client
       tries to join with a username registered as Premium in the database.
 * **Proxy Forwarding Support:**
     * Added `proxy-mode` configuration.

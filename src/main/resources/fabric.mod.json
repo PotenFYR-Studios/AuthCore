@@ -15,19 +15,16 @@
   "icon": "assets/authCore/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": [
-      "net.ded3ec.authcore.AuthCore"
-    ],
-    "fabric-datagen": [
-      "net.ded3ec.authcore.AuthCoreDataGenerator"
+    "server": [
+      "net.ded3ec.AuthCoreServer"
     ]
   },
   "mixins": [
-    "authcore.mixins.json"
+    "authcore.server.mixins.json"
   ],
   "depends": {
-    "fabricloader": "*",
-    "minecraft": "~1.21.11",
+    "fabricloader": ">=0.18.4",
+    "minecraft": ">=1.21.1",
     "java": ">=21",
     "fabric-api": "*"
   },

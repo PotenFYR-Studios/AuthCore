@@ -2,7 +2,7 @@
 
 ### The Fortress Framework for Fabric Servers.
 
-[![Modrinth Downloads](https://img.shields.io/modrinth/dt/gKATUjN3?style=for-the-badge&label=Modrinth&color=green)](https://modrinth.com/mod/authCore)
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/qs5rvacf?style=for-the-badge&label=Modrinth&color=green)](https://modrinth.com/mod/authCore)
 [![CurseForge Downloads](https://img.shields.io/curseforge/dt/1417839?style=for-the-badge&label=CurseForge&color=orange)](https://www.curseforge.com/minecraft/mc-mods/authcore)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore?style=for-the-badge)](LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main&style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/actions)
@@ -49,13 +49,13 @@ server benefits.
 
 *Basic commands available to everyone.*
 
-| Command         | Usage                                       | Description                                                     |
-|:----------------|:--------------------------------------------|:----------------------------------------------------------------|
-| **Register**    | `/register <password> [<confirm-password>]` | Create an identity. Confirmation required if enabled in config. |
-| **Login**       | `/login <password>`                         | Authenticate credentials and release the Limbo state.           |
-| **Logout**      | `/account logout`                           | Manually end session (force password on next join).             |
-| **Change Pass** | `/account set-password <new-password>`      | Update credentials securely.                                    |
-| **Unregister**  | `/account unregister`                       | Self-service account deletion (GDPR compliance).                |
+| Command         | Usage                                                             | Description                                                                |
+|:----------------|:------------------------------------------------------------------|:---------------------------------------------------------------------------|
+| **Register**    | `/register <password> [<confirm-password> <2fa-code>] <2fa-code>` | Create an identity. Confirmation required & 2fa Code if enabled in config. |
+| **Login**       | `/login <password>`                                               | Authenticate credentials and release the Limbo state.                      |
+| **Logout**      | `/account logout`                                                 | Manually end session (force password on next join).                        |
+| **Change Pass** | `/account set-password <new-password>`                            | Update credentials securely.                                               |
+| **Unregister**  | `/account unregister`                                             | Self-service account deletion (GDPR compliance).                           |
 
 ### 👮 Admin Commands
 
@@ -80,7 +80,7 @@ server benefits.
 ## 📝 Roadmap (Todo)
 
 - [ ] **Velocity / BungeeCord Plugin:** A dedicated upstream plugin for network-wide auth handling.
-- [ ] **2FA / MFA Support:** Integration with TOTP apps (Google Auth) for Staff accounts. 📱
+- [x] **2FA Support:** Integration with TOTP apps (Google Auth) for User accounts. 📱
 - [ ] **Visual Captcha:** Map-based or inventory-based CAPTCHA to stop advanced bots. 🤖
 - [ ] **Database SQL Support:** MySQL/MariaDB/PostgreSQL support for syncing data across multiple backend servers. 🗄️
 - [ ] **Web Panel:** A lightweight HTML interface for admins to manage users externally.
@@ -92,7 +92,7 @@ server benefits.
 
 **Building from source (if you're brave):**
 
-- Requirements: Java 21+ & Gradle 8+
+- Requirements: Java 25+ & Gradle 8+
 
 ```bash
 # Clone the repo
