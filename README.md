@@ -613,8 +613,8 @@ with **two jars built from the same source**:
 
 | Jar | Versions | Why two jars? |
 |:----|:---------|:--------------|
-| `authcore-<v>.jar` (**universal**) | **1.16.0 – 1.21.11** | Obfuscated era: compiled at Java 16 level (major 60), remapped to stable **intermediary** names at build time — one jar runs on every obfuscated version, server and client. |
-| `authcore-<v>-26x.jar` | **26.1+** | Minecraft 26.1+ is **unobfuscated** (Mojang released readable code; **intermediary no longer exists** — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). This jar is compiled from the Mojang-mapped source (`src/modern/java`) at Java 25 level. |
+| `authcore-yarn-<v>.jar` (**universal**) | **1.16.0 – 1.21.11** | Obfuscated era: compiled at Java 16 level (major 60), remapped to stable **intermediary** names at build time — one jar runs on every obfuscated version, server and client. |
+| `authcore-mojang-<v>.jar` | **26.1+** | Minecraft 26.1+ is **unobfuscated** (Mojang released readable code; **intermediary no longer exists** — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). This jar is compiled from the Mojang-mapped source (`src/modern/java`) at Java 25 level. |
 
 - **How it works** — version-specific APIs are isolated behind `net.ded3ec.compat` (reflection
   bridges) and version-stable mixins. Fragile mixins are `required:false` — if a future version
