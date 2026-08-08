@@ -7,8 +7,9 @@ All notable changes to AuthCore, from the first alpha to the current release.
 ## [1.0.0] - 2026-08-09
 
 ### 🎯 Universal single-jar architecture (1.16.x - 26.x)
-- **One jar for every Minecraft version** - the per-version source sets (`src/modern` / `src/legacy`)
-  are gone. Everything lives in `src/main` with the `net.ded3ec.compat` reflection layer and
+- **One source, every Minecraft version** - the old per-version source sets are gone; version
+  variants live under `src/` (`src/main/java` + `src/client/java` = classic yarn code,
+  `src/modern/java` = Mojang 26.x code) behind the `net.ded3ec.compat` reflection layer and
   version-stable mixin targets. Verified by compiling the identical source against **1.16.5,
   1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (all green), with a per-push CI matrix.
 - **Universal mixins**: login hello (reflects over `getProfile()` vs `name()/profileId()`, plus
@@ -40,7 +41,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   gradle-validate / dependency-audit / multi-version-check / release) were merged into a
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
-- **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
+- **Repository restructure**: version variants now live under src/ (src/main/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code); the standalone 26x/ Gradle project is gone - one uild.gradle, one wrapper and one loom version build both jars via -Pmodern=true.\n- **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
   intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
   source (`src/mojang26x`, `26x/` Gradle project, loom 1.16.x, Java 25, no mappings):
   `authcore-1.0.0-26x.jar` for **26.1+** servers/clients. The classic universal jar covers

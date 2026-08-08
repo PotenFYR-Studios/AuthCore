@@ -38,3 +38,11 @@ hs_err_*.log
 replay_*.log
 *.hprof
 *.jfr
+
+# IDE / OS
+bin/
+run/.settings/
+
+# security test harness
+tools/security-tests/out/
+tools/security-tests/result.txt

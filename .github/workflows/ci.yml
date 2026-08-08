@@ -129,11 +129,10 @@ jobs:
           path: build/libs/authcore-*.jar
 
   # ------------------------------------------------------------------
-  # 26.x jar: Minecraft 26.1+ is UNOBFUSCATED (Mojang names at runtime, no
-  # intermediary), so it needs its own build from the migrated Mojang-named
-  # source in src/mojang26x (built by the standalone 26x/ Gradle project,
-  # loom 1.16.x, Java 25). This is a SEPARATE jar from the classic universal
-  # jar (1.16 - 1.21.11) - the two name-spaces cannot coexist in one jar.
+  # 26.x jar (-Pmodern): Minecraft 26.1+ is UNOBFUSCATED (Mojang names at runtime, no
+  # intermediary), so the same build script compiles the Mojang-named source in
+  # src/modern/java with Java 25 into authcore-26x-*.jar - a SEPARATE jar from the
+  # classic universal jar (1.16 - 1.21.11); the two name-spaces cannot coexist in one jar.
   # ------------------------------------------------------------------
   jar26x:
     runs-on: ubuntu-latest
@@ -148,7 +147,7 @@ jobs:
           java-version: '25'
 
       - name: Make gradlew executable
-        run: chmod +x ./gradlew ./26x/gradlew
+        run: chmod +x ./gradlew
 
       - name: Verify Minecraft 26.2 ecosystem
         run: |
@@ -158,12 +157,11 @@ jobs:
             && echo "OK fabric-api 0.156.0+26.2" || { echo "FAIL fabric-api"; exit 1; }
 
       - name: Build AuthCore 26.x jar (Mojang names, Java 25)
-        run: ./gradlew clean build
-        working-directory: 26x
+        run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
 
       - name: Verify 26.x jar properties
         run: |
-          JAR=$(ls 26x/build/libs/authcore-*.jar | grep -v sources | grep -v client | head -1)
+          JAR=$(ls build/libs/authcore-26x-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
@@ -177,7 +175,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: authcore-26x
-          path: 26x/build/libs/authcore-*.jar
+          path: build/libs/authcore-26x-*.jar
 
   # ------------------------------------------------------------------
   # Quality: gradle check + wrapper validation on the default target
@@ -251,14 +249,13 @@ jobs:
             25
 
       - name: Make gradlew executable
-        run: chmod +x ./gradlew ./26x/gradlew
+        run: chmod +x ./gradlew
 
       - name: Build universal release jar (1.16 - 1.21.11)
         run: ./gradlew clean build
 
       - name: Build 26.x release jar (26.1+)
-        run: ./gradlew clean build
-        working-directory: 26x
+        run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
@@ -285,6 +282,6 @@ jobs:
           name: AuthCore ${{ steps.changelog.outputs.version }}
           body_path: release-notes.md
           files: |
-            build/libs/authcore-*.jar
-            26x/build/libs/authcore-*.jar
+            build/libs/authcore-1.0.0.jar
+            build/libs/authcore-26x-1.0.0.jar
           draft: true
