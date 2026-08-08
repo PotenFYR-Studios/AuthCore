@@ -6,141 +6,157 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+// ------------------------------------------------------------------
+// Build modes (ONE build script for the whole 1.16.x - 26.x range):
+//
+//   classic (default):  yarn-named source in src/main/java (+ src/client/java).
+//                       Universal jar, compiled at Java 16 level, remapped to stable
+//                       intermediary names -> runs on EVERY obfuscated version 1.16 - 1.21.11
+//                       (servers AND clients), see -Puniversal=false for per-version builds.
+//
+//   modern (-Pmodern=true): Mojang-named source in src/modern/java (Minecraft 26.1+ is
+//                       unobfuscated - no intermediary, no mappings). Java 25. Produces the
+//                       separate 26.x jar.
+// ------------------------------------------------------------------
+ext.modern = (project.findProperty('modern') ?: 'false').toString() == 'true'
+ext.universalBuild = !modern && (project.findProperty('universal') ?: 'true').toString() == 'true'
+
 base {
-    archivesName = project.archives_base_name
+    archivesName = project.ext.modern ? 'authcore-26x' : project.archives_base_name
 }
 
-// ------------------------------------------------------------------
-// Per-version toolchain derivation. The CI matrix only overrides
-// minecraft_version / yarn_mappings / loader_version / fabric_api_version;
-// everything below is derived automatically so no version can be forgotten.
-// ------------------------------------------------------------------
-def derivedRelease = 21
-def derivedMixinLevel = 'JAVA_21'
+ext.mcVersion = modern ? '26.2' : project.minecraft_version
+ext.loaderVersion = modern ? '0.19.3' : project.loader_version
+ext.apiVersion = modern ? '0.156.0+26.2' : project.fabric_api_version
 
-def v = project.minecraft_version
-if (v != null) {
-    if (v.startsWith("26")) {
-        // Minecraft 26.x requires Java 25
-        derivedRelease = 25
-        derivedMixinLevel = 'JAVA_25'
-    } else {
+// Java release + mixin compatibility level, derived from the target Minecraft version.
+ext.javaRelease = 16
+ext.mixinCompatibilityLevel = 'JAVA_16'
+
+if (modern) {
+    javaRelease = 25
+    mixinCompatibilityLevel = 'JAVA_25'
+} else if (!universalBuild) {
+    def v = mcVersion
+    if (v != null && !v.startsWith("26")) {
         def m = (v =~ /^1\.(\d+)\.(\d+).*$/)
         if (m) {
             int minor = Integer.parseInt(m.group(1))
             int patch = Integer.parseInt(m.group(2))
             if (minor >= 21 || (minor == 20 && patch >= 5)) {
-                derivedRelease = 21
-                derivedMixinLevel = 'JAVA_21'
+                javaRelease = 21
+                mixinCompatibilityLevel = 'JAVA_21'
             } else if (minor >= 17) {
-                derivedRelease = 17
-                derivedMixinLevel = 'JAVA_17'
-            } else {
-                derivedRelease = 16
-                derivedMixinLevel = 'JAVA_16'
+                javaRelease = 17
+                mixinCompatibilityLevel = 'JAVA_17'
             }
         }
     }
 }
 
-def javaRelease = Integer.parseInt((project.findProperty('java_release') ?: derivedRelease).toString())
-def mixinCompatibilityLevel = project.findProperty('mixin_compatibility_level') ?: derivedMixinLevel
-
-// ------------------------------------------------------------------
-// Universal single-jar mode (default ON).
-// The jar is built ONCE against the default minecraft_version (gradle.properties) and runs on
-// every supported Minecraft version - 1.16.x through 26.x - on servers AND clients:
-//   - classes are compiled at Java 16 level (major 60) so they load on every JVM from
-//     Java 16 (the 1.16.x requirement) up to Java 25 (required by 26.x)
-//   - fabric.mod.json declares environment "*" + client entrypoint + client mixins, so the
-//     same jar works as a server mod and as a client mod
-//   - version-stable mixins (required:false where signatures differ) + runtime fallbacks in
-//     net.ded3ec.compat keep behaviour working even where a mixin cannot apply
-// Set `-Puniversal=false` to produce a per-version jar (used by the CI verification matrix).
-// ------------------------------------------------------------------
-def universalBuild = (project.findProperty('universal') ?: 'true').toString() == 'true'
-if (universalBuild) {
-    javaRelease = 16
-    mixinCompatibilityLevel = 'JAVA_16'
-}
-
+// For the unobfuscated 26.x target loom must not try to remap/deobfuscate anything.
+// NOTE: pass `-Pfabric.loom.disableObfuscation=true` together with -Pmodern=true (loom reads
+// this project property during minecraft setup - see docs/26x.md for the exact command).
 
 repositories {
-    // Add repositories to retrieve artifacts from in here.
-    // You should only use this when depending on other mods because
-    // Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-    // See https://docs.gradle.org/current/userguide/declaring_repositories.html
-    // for more information about repositories.
-
     mavenCentral()
     maven {
         url = uri("https://repo.opencollab.dev/main/")
     }
 }
 
-dependencies {
-    // To change the versions see the gradle.properties file
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+// ------------------------------------------------------------------
+// Source layout: version variants live under src/ next to each other.
+//   src/main/java     classic yarn server code (1.16 - 1.21.11)
+//   src/client/java   classic yarn client companion
+//   src/modern/java   Mojang-named code for 26.1+ (server + client)
+//   src/main/resources     classic fabric.mod.json + mixin configs + assets
+//   src/modern/resources   26.x fabric.mod.json (mixins/assets are shared)
+// ------------------------------------------------------------------
+sourceSets {
+    main {
+        if (modern) {
+            java {
+                srcDirs = ['src/modern/java']
+            }
+            resources {
+                srcDir 'src/modern/resources'
+                srcDir 'src/main/resources'
+            }
+        }
+    }
+    if (!modern) {
+        client {
+            java {
+                srcDir 'src/client/java'
+            }
+            compileClasspath += sourceSets.main.compileClasspath
+            compileClasspath += sourceSets.main.output
+        }
+    }
+}
 
-    // Mappings: yarn by default. For Minecraft versions without yarn (e.g. 26.x) set
-    // mappings_type=mojmap (or leave yarn_mappings blank) to use official Mojang mappings.
-    // The jar is remapped to stable intermediary names at build time, so it loads on every
-    // version whose intermediary names are compatible - 1.16.x through 26.x are supported.
-    if (project.findProperty('mappings_type') == 'mojmap' || project.yarn_mappings.isBlank()) {
-        mappings loom.officialMojangMappings()
-    } else {
+dependencies {
+    minecraft "com.mojang:minecraft:${mcVersion}"
+
+    if (!modern) {
+        // Yarn mappings; the built jar is remapped to stable intermediary names so ONE jar
+        // runs on every obfuscated version (1.16 - 1.21.11).
         mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     }
 
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-
-    // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-entity-events-v1:${project.fabric_api_version}"
+    if (modern) {
+        // Unobfuscated 26.x: loom's mod* configurations do not exist (no remapping).
+        implementation "net.fabricmc:fabric-loader:${loaderVersion}"
+        implementation "net.fabricmc.fabric-api:fabric-api:${apiVersion}"
+    } else {
+        modImplementation "net.fabricmc:fabric-loader:${loaderVersion}"
+        modImplementation "net.fabricmc.fabric-api:fabric-api:${apiVersion}"
+        modImplementation "net.fabricmc.fabric-api:fabric-entity-events-v1:${apiVersion}"
+    }
 
     // MySQL Driver
     implementation(include("com.mysql:mysql-connector-j:${mysql_version}"))
-
     // SQLite Driver
     implementation(include("org.xerial:sqlite-jdbc:${sqlite_version}"))
-
     // PostgreSQL Driver (optional - enable in config)
     implementation(include("org.postgresql:postgresql:${postgres_version}"))
-
     // Redis client for network-wide session/ban sync (optional - enable in config)
     implementation(include("redis.clients:jedis:${jedis_version}"))
     implementation(include("org.apache.commons:commons-pool2:${commons_pool2_version}"))
-
     // BouncyCastle: self-signed certificate generation for the HTTPS web panel
     implementation(include("org.bouncycastle:bcpkix-jdk18on:${bouncycastle_version}"))
     implementation(include("org.bouncycastle:bcprov-jdk18on:${bouncycastle_version}"))
-
     // Gson for JSON (JDK HttpClient is used for HTTP - no external HTTP library needed)
     implementation(include("com.google.code.gson:gson:${project.gson_version}"))
-
     // Configurate core + dependencies (HOCON config files)
     implementation(include("net.kyori:option:1.1.0"))
     implementation(include("io.leangen.geantyref:geantyref:1.3.13"))
     implementation(include("org.jetbrains.kotlin:kotlin-stdlib:${project.kotlin_version}"))
     implementation(include("org.spongepowered:configurate-core:${project.configurate_core_version}"))
     implementation(include("org.spongepowered:configurate-hocon:${project.configurate_hocon_version}"))
-
     // Password4j for password hashing (argon2/bcrypt/scrypt/pbkdf2)
     implementation(include("com.password4j:password4j:${project.password4j_version}"))
-
     // Floodgate API by GeyserMC (compileOnly, not shaded)
     compileOnly("org.geysermc.floodgate:api:${project.floodgate_version}")
-
     // LuckPerms API (compileOnly, not shaded)
     compileOnly("net.luckperms:api:5.4")
-
     // 2FA Library (TOTP - RFC 6238)
     implementation(include("com.j256.two-factor-auth:two-factor-auth:1.3"))
 }
 
 processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     inputs.property "version", project.version
     inputs.property "mixin_compatibility_level", mixinCompatibilityLevel
+
+    // For the 26.x build, loom prepends src/main/resources to the resource dirs during its
+    // setup; re-order afterwards so the 26.x fabric.mod.json wins the duplicate resolution.
+    if (modern) {
+        afterEvaluate {
+            sourceSets.main.resources.srcDirs = ['src/modern/resources', 'src/main/resources']
+        }
+    }
 
     filesMatching("fabric.mod.json") {
         expand "version": inputs.properties.version
@@ -155,30 +171,12 @@ processResources {
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = javaRelease
-}
-
-// ------------------------------------------------------------------
-// Client login-screen companion (auto-included in the universal jar).
-// The client classes only COMPILE against targets with the screen APIs (1.20.2+); on older
-// targets the universal jar still loads everywhere because the client mixins are required:false
-// and the client entrypoint is fully reflection-guarded (see ClientAuthCore).
-// ------------------------------------------------------------------
-
-sourceSets {
-    client {
-        java {
-            srcDir 'src/client/java'
-        }
-        compileClasspath += sourceSets.main.compileClasspath
-        compileClasspath += sourceSets.main.output
-    }
-}
-
-// Version gate: the client screen APIs (DrawContext, CookieStorage etc.) exist on 1.20.2+
+// The client login-screen companion is bundled in the jar. Its classes only compile against
+// targets with the screen APIs (1.20.2+ on the classic line); the modern tree (26.1+) carries
+// its own client code in src/modern/java, so nothing extra is needed there.
 def clientCompanionSupported() {
-    def v = project.minecraft_version
+    if (modern) return false
+    def v = mcVersion
     if (v == null) return false
     if (v.startsWith("26")) return true
     def m = (v =~ /^1\.(\d+)\.(\d+).*$/)
@@ -188,69 +186,42 @@ def clientCompanionSupported() {
     return minor > 20 || (minor == 20 && patch >= 2)
 }
 
-// ------------------------------------------------------------------
-// The universal jar: main code + client companion (when the target can compile it).
-// fabric.mod.json is already the universal form (environment "*" + client entrypoint +
-// client mixins), so the same jar runs on servers and clients of every version.
-// ------------------------------------------------------------------
-
-tasks.register('compileAuthClientJava', JavaCompile) {
-    source = sourceSets.client.java
-    classpath = sourceSets.client.compileClasspath
-    destinationDirectory = file("build/classes/java/client")
-    options.release = javaRelease
-    options.encoding = 'UTF-8'
-    onlyIf { clientCompanionSupported() }
-    dependsOn compileJava
-}
-
-tasks.named('jar') {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    if (clientCompanionSupported()) {
-        from(file("build/classes/java/client"))
+if (!modern) {
+    tasks.register('compileAuthClientJava', JavaCompile) {
+        source = sourceSets.client.java
+        classpath = sourceSets.client.compileClasspath
+        destinationDirectory = file("build/classes/java/client")
+        options.release = javaRelease
+        options.encoding = 'UTF-8'
+        onlyIf { clientCompanionSupported() }
+        dependsOn compileJava
     }
-    dependsOn compileAuthClientJava
-}
 
-// Legacy client-classifier jar kept for compatibility (same universal content)
-tasks.register('clientJar', Jar) {
-    archiveClassifier = 'client'
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from sourceSets.main.output
-    if (clientCompanionSupported()) {
-        from(file("build/classes/java/client"))
+    tasks.named('jar') {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        if (clientCompanionSupported()) {
+            from(file("build/classes/java/client"))
+        }
+        dependsOn compileAuthClientJava
     }
-    from processResources.outputs
-    dependsOn compileAuthClientJava
 }
 
-assemble.dependsOn clientJar
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = javaRelease
+}
 
 tasks.withType(JavaExec).configureEach {
     jvmArgs '--enable-native-access=ALL-UNNAMED'
 }
 
-
 java {
-    // Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-    // if it is present.
-    // If you remove this line, sources will not be generated.
     withSourcesJar()
-
-    // Version-agnostic: the toolchain below will try to use the configured JDK release.
-    // To build for older Minecraft versions, see VERSIONS.md and adjust gradle.properties.
     sourceCompatibility = JavaVersion.toVersion(javaRelease)
     targetCompatibility = JavaVersion.toVersion(javaRelease)
 }
 
-// Multi-version support:
-// - Change `minecraft_version`, `yarn_mappings`, `loader_version` and `fabric_api_version`
-//   in gradle.properties (or via the CI matrix), then run `gradlew build`.
-// - The mod compiles against 1.16.0 through 26.x. Java release and mixin compatibility
-//   level are derived from the Minecraft version automatically; version-specific APIs are
-//   isolated behind the net.ded3ec.compat reflection layer.
-compileJava {
-    options.release = javaRelease
+tasks.withType(AbstractArchiveTask).configureEach {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 jar {

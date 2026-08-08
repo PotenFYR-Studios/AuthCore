@@ -614,7 +614,7 @@ with **two jars built from the same source**:
 | Jar | Versions | Why two jars? |
 |:----|:---------|:--------------|
 | `authcore-<v>.jar` (**universal**) | **1.16.0 – 1.21.11** | Obfuscated era: compiled at Java 16 level (major 60), remapped to stable **intermediary** names at build time — one jar runs on every obfuscated version, server and client. |
-| `authcore-<v>-26x.jar` | **26.1+** | Minecraft 26.1+ is **unobfuscated** (Mojang released readable code; **intermediary no longer exists** — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). This jar is compiled from the Mojang-mapped source (`src/mojang26x`) at Java 25 level. |
+| `authcore-<v>-26x.jar` | **26.1+** | Minecraft 26.1+ is **unobfuscated** (Mojang released readable code; **intermediary no longer exists** — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). This jar is compiled from the Mojang-mapped source (`src/modern/java`) at Java 25 level. |
 
 - **How it works** — version-specific APIs are isolated behind `net.ded3ec.compat` (reflection
   bridges) and version-stable mixins. Fragile mixins are `required:false` — if a future version
@@ -628,7 +628,7 @@ with **two jars built from the same source**:
   and the 26.x jar, compiles the identical source against **1.16.5, 1.17.1, 1.18.2, 1.19.4,
   1.20.6 and 1.21.11**, runs the security test suite, and drafts a GitHub **Release** with both
   jars on `v*` tags.
-- **Keep both sources in sync** — `src/main/java` (yarn names) and `src/mojang26x/java` (Mojang
+- **Keep both sources in sync** — `src/main/java` (yarn names) and `src/modern/java` (Mojang
   names) are the same code in two name-spaces; see [`docs/26x.md`](docs/26x.md) for how they are
   kept in sync and how to migrate.
 - **Startup banner warning** — when the running game version is not in the tested set, AuthCore
