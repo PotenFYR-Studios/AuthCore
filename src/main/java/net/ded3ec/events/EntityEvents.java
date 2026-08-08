@@ -1,5 +1,10 @@
 package net.ded3ec.events;
 
+import net.ded3ec.models.Config;
+import net.ded3ec.models.Lobby;
+import net.ded3ec.models.Messages;
+import net.ded3ec.util.Logger;
+
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -14,10 +19,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.SpawnGroup;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
-import net.minecraft.entity.passive.AbstractHorseEntity;
-import net.minecraft.entity.passive.CamelEntity;
 import net.minecraft.entity.passive.PigEntity;
-import net.minecraft.entity.passive.StriderEntity;
 import net.minecraft.entity.vehicle.BoatEntity;
 import net.minecraft.entity.vehicle.MinecartEntity;
 
@@ -83,12 +85,7 @@ public class EntityEvents {
             AuthCoreServer.messages.promptUserAttackNeutralMobsNotAllowed);
 
       // Prevent attacking mountable entities
-      if ((entity instanceof BoatEntity
-              || entity instanceof MinecartEntity
-              || entity instanceof AbstractHorseEntity
-              || entity instanceof CamelEntity
-              || entity instanceof PigEntity
-              || entity instanceof StriderEntity)
+      if (net.ded3ec.compat.Compat.isMountable(entity)
           && !AuthCoreServer.config.lobby.allowAttackMountableEntity)
         return AuthCoreServer.LOGGER.toUser(
             ActionResult.FAIL,
@@ -156,12 +153,7 @@ public class EntityEvents {
             user.connection,
             AuthCoreServer.messages.promptUserInteractNeutralMobsNotAllowed);
 
-      if ((entity instanceof BoatEntity
-              || entity instanceof MinecartEntity
-              || entity instanceof AbstractHorseEntity
-              || entity instanceof CamelEntity
-              || entity instanceof PigEntity
-              || entity instanceof StriderEntity)
+      if (net.ded3ec.compat.Compat.isMountable(entity)
           && !AuthCoreServer.config.lobby.allowMountableInteractWith)
         return AuthCoreServer.LOGGER.toUser(
             ActionResult.FAIL,

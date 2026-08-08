@@ -1,0 +1,121 @@
+name: Multi-Version Compatibility Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "1.16.5"
+            mc: "1.16.5"
+            yarn: "1.16.5+build.10"
+            loader: "0.14.24"
+            fabric_api: "0.42.0+1.16"
+          - name: "1.17.1"
+            mc: "1.17.1"
+            yarn: "1.17.1+build.65"
+            loader: "0.14.24"
+            fabric_api: "0.46.1+1.17"
+          - name: "1.18.2"
+            mc: "1.18.2"
+            yarn: "1.18.2+build.4"
+            loader: "0.14.24"
+            fabric_api: "0.77.0+1.18.2"
+          - name: "1.19.4"
+            mc: "1.19.4"
+            yarn: "1.19.4+build.5"
+            loader: "0.15.11"
+            fabric_api: "0.87.2+1.19.4"
+          - name: "1.20.6"
+            mc: "1.20.6"
+            yarn: "1.20.6+build.4"
+            loader: "0.15.11"
+            fabric_api: "0.97.2+1.20.6"
+          - name: "1.21.11"
+            mc: "1.21.11"
+            yarn: "1.21.11+build.4"
+            loader: "0.18.4"
+            fabric_api: "0.141.3+1.21.11"
+          - name: "26.x (mappings check)"
+            mc: "26.2"
+            yarn: ""
+            loader: "0.19.3"
+            fabric_api: "0.156.0+26.2"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ matrix.name }}-${{ hashFiles('**/*.gradle*') }}
+          restore-keys: gradle-${{ matrix.name }}
+
+      - name: Verify target exists on the Fabric Maven
+        run: |
+          curl -fsS https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/maven-metadata.xml | grep -q "${{ matrix.fabric_api }}" \
+            && echo "OK: fabric-api ${{ matrix.fabric_api }} exists" \
+            || echo "WARN: fabric-api ${{ matrix.fabric_api }} not found on maven.fabricmc.net (version list may be stale)"
+
+      - name: Configure gradle.properties for ${{ matrix.name }}
+        run: |
+          sed -i \
+            -e 's/^minecraft_version=.*/minecraft_version=${{ matrix.mc }}/' \
+            -e 's/^yarn_mappings=.*/yarn_mappings=${{ matrix.yarn }}/' \
+            -e 's/^loader_version=.*/loader_version=${{ matrix.loader }}/' \
+            -e 's/^fabric_api_version=.*/fabric_api_version=${{ matrix.fabric_api }}/' \
+            gradle.properties
+          if [ -z "${{ matrix.yarn }}" ]; then
+            # 26.x has no yarn mappings yet - use official Mojang mappings (mojmap)
+            echo 'mappings_type=mojmap' >> gradle.properties
+            echo "mappings_type=mojmap" >> $GITHUB_ENV
+          fi
+          cat gradle.properties | grep -E 'minecraft_version|yarn_mappings|loader_version|fabric_api|mappings_type'
+
+      - name: Build AuthCore for ${{ matrix.name }}
+        continue-on-error: true
+        id: build
+        run: ./gradlew clean build 2>&1 | tee build-${{ matrix.name }}.log; exit ${PIPESTATUS[0]}
+
+      - name: Report result for ${{ matrix.name }}
+        run: |
+          if [ "${{ steps.build.outcome }}" == "success" ]; then
+            echo "✅ ${{ matrix.name }}: BUILD PASSED"
+            echo "PASS" > result-${{ matrix.name }}.txt
+          else
+            echo "❌ ${{ matrix.name }}: BUILD FAILED"
+            grep -E "error:" build-${{ matrix.name }}.log | head -20 || echo "(no compile errors found - see full log)"
+            echo "FAIL" > result-${{ matrix.name }}.txt
+          fi
+
+      - name: Upload logs on failure
+        if: steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.name }}
+          path: build-${{ matrix.name }}.log
+
+  summary:
+    runs-on: ubuntu-latest
+    needs: matrix
+    if: always()
+    steps:
+      - name: Print overall matrix results
+        run: echo "Matrix finished - see the individual job results above. 26.x is expected to fail on mixins until yarn/official-mapping adaptation lands (mojmap build attempted)."

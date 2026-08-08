@@ -1,16 +1,24 @@
 package net.ded3ec.command;
 
+import net.ded3ec.models.Config;
+import net.ded3ec.models.Lobby;
+import net.ded3ec.security.Security;
+import net.ded3ec.security.SecurityLog;
+import net.ded3ec.util.Logger;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import net.ded3ec.AuthCoreServer;
+import net.ded3ec.models.Messages;
 import net.ded3ec.models.User;
-import net.ded3ec.utils.Encrypter;
-import net.ded3ec.utils.TimeManager;
-import net.ded3ec.utils.HoconConf;
-import net.ded3ec.utils.McApiManager;
+import net.ded3ec.util.Database;
+import net.ded3ec.security.Encrypter;
+import net.ded3ec.util.TimeManager;
+import net.ded3ec.util.HoconConf;
+import net.ded3ec.network.McApiManager;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.command.argument.UuidArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
@@ -46,16 +54,14 @@ public class Admin {
         literal("authcore")
             .requires(
                 ctx ->
-                    McApiManager.PermissionUtil.has(
-                        ctx.getPlayer(),
+                    McApiManager.PermissionUtil.hasForSource(                        ctx,
                         AuthCoreServer.config.commands.admin.reload.luckPermsNode,
                         AuthCoreServer.config.commands.admin.reload.permissionsLevel))
             .then(
                 literal("reload")
                     .requires(
                         ctx ->
-                            McApiManager.PermissionUtil.has(
-                                ctx.getPlayer(),
+                            McApiManager.PermissionUtil.hasForSource(                                ctx,
                                 AuthCoreServer.config.commands.admin.reload.luckPermsNode,
                                 AuthCoreServer.config.commands.admin.reload.permissionsLevel))
                     .executes(ctx -> reloadCommand(ctx.getSource())))
@@ -65,8 +71,7 @@ public class Admin {
                         literal("players")
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -82,8 +87,7 @@ public class Admin {
                         literal("online-players")
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -99,8 +103,7 @@ public class Admin {
                         literal("offline-players")
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -120,8 +123,7 @@ public class Admin {
                                 argument("player", EntityArgumentType.player())
                                     .requires(
                                         ctx ->
-                                            McApiManager.PermissionUtil.has(
-                                                ctx.getPlayer(),
+                                            McApiManager.PermissionUtil.hasForSource(                                                ctx,
                                                 AuthCoreServer.config
                                                     .commands
                                                     .admin
@@ -143,8 +145,7 @@ public class Admin {
                         argument("player", EntityArgumentType.player())
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -168,8 +169,7 @@ public class Admin {
                                 argument("new-password", StringArgumentType.string())
                                     .requires(
                                         ctx ->
-                                            McApiManager.PermissionUtil.has(
-                                                ctx.getPlayer(),
+                                            McApiManager.PermissionUtil.hasForSource(                                                ctx,
                                                 AuthCoreServer.config
                                                     .commands
                                                     .admin
@@ -193,8 +193,7 @@ public class Admin {
                         argument("username", StringArgumentType.string())
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -216,8 +215,7 @@ public class Admin {
                         argument("uuid", UuidArgumentType.uuid())
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -239,8 +237,7 @@ public class Admin {
                         argument("player", EntityArgumentType.player())
                             .requires(
                                 ctx ->
-                                    McApiManager.PermissionUtil.has(
-                                        ctx.getPlayer(),
+                                    McApiManager.PermissionUtil.hasForSource(                                        ctx,
                                         AuthCoreServer.config
                                             .commands
                                             .admin
@@ -266,8 +263,7 @@ public class Admin {
                                 argument("player", EntityArgumentType.player())
                                     .requires(
                                         ctx ->
-                                            McApiManager.PermissionUtil.has(
-                                                ctx.getPlayer(),
+                                            McApiManager.PermissionUtil.hasForSource(                                                ctx,
                                                 AuthCoreServer.config
                                                     .commands
                                                     .admin
@@ -291,8 +287,7 @@ public class Admin {
                                         argument("new-password", StringArgumentType.string())
                                             .requires(
                                                 ctx ->
-                                                    McApiManager.PermissionUtil.has(
-                                                        ctx.getPlayer(),
+                                                    McApiManager.PermissionUtil.hasForSource(                                                        ctx,
                                                         AuthCoreServer.config
                                                             .commands
                                                             .admin
@@ -322,8 +317,7 @@ public class Admin {
                                                 argument("z-cord", DoubleArgumentType.doubleArg())
                                                     .requires(
                                                         ctx ->
-                                                            McApiManager.PermissionUtil.has(
-                                                                ctx.getPlayer(),
+                                                            McApiManager.PermissionUtil.hasForSource(                                                                ctx,
                                                                 AuthCoreServer.config
                                                                     .commands
                                                                     .admin
@@ -334,16 +328,357 @@ public class Admin {
                                                                     .admin
                                                                     .setSpawnLocation
                                                                     .permissionsLevel))
-                                                    .executes(
-                                                        ctx ->
-                                                            SetLimboSpawnLocationCommand(
-                                                                ctx.getSource(),
-                                                                DoubleArgumentType.getDouble(
-                                                                    ctx, "x-cord"),
-                                                                DoubleArgumentType.getDouble(
-                                                                    ctx, "y-cord"),
-                                                                DoubleArgumentType.getDouble(
-                                                                    ctx, "z-cord")))))))));
+                                                     .executes(
+                                                         ctx ->
+                                                             SetLimboSpawnLocationCommand(
+                                                                 ctx.getSource(),
+                                                                 DoubleArgumentType.getDouble(
+                                                                     ctx, "x-cord"),
+                                                                 DoubleArgumentType.getDouble(
+                                                                      ctx, "y-cord"),
+                                                                 DoubleArgumentType.getDouble(
+                                                                      ctx, "z-cord"))))))))
+            .then(
+                literal("backup")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .executes(ctx -> backupDatabaseCommand(ctx.getSource())))
+            .then(
+                literal("export")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .executes(ctx -> exportUsersCommand(ctx.getSource())))
+            .then(
+                literal("resetpw")
+                    .then(
+                        argument("player", EntityArgumentType.player())
+                            .then(
+                                argument("new-password", StringArgumentType.string())
+                                    .requires(
+                                        ctx ->
+                                            McApiManager.PermissionUtil.hasForSource(
+                                                ctx,
+                                                AuthCoreServer.config.commands.admin.setPlayerPassword.luckPermsNode,
+                                                AuthCoreServer.config.commands.admin.setPlayerPassword.permissionsLevel))
+                                    .executes(
+                                        ctx ->
+                                            setPlayerNewPasswordCommand(
+                                                ctx.getSource(),
+                                                EntityArgumentType.getPlayer(ctx, "player"),
+                                                StringArgumentType.getString(
+                                                    ctx, "new-password"))))))
+            .then(
+                literal("maintenance")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .then(
+                        literal("on")
+                            .executes(ctx -> maintenanceCommand(ctx.getSource(), true)))
+                    .then(
+                        literal("off")
+                            .executes(ctx -> maintenanceCommand(ctx.getSource(), false))))
+            .then(
+                literal("validate")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .executes(ctx -> validateConfigCommand(ctx.getSource())))
+            .then(
+                literal("history")
+                    .then(
+                        argument("player", EntityArgumentType.player())
+                            .requires(
+                                ctx ->
+                                    McApiManager.PermissionUtil.hasForSource(
+                                        ctx,
+                                        AuthCoreServer.config.commands.admin.whoisUsername.luckPermsNode,
+                                        AuthCoreServer.config.commands.admin.whoisUsername.permissionsLevel))
+                             .executes(
+                                 ctx ->
+                                     loginHistoryCommand(
+                                         ctx.getSource(),
+                                         EntityArgumentType.getPlayer(ctx, "player"))))));
+  }
+
+  /**
+   * Creates a backup copy of the local SQLite database (MySQL/PostgreSQL users get a console
+   * notice instead - use the DB tooling of the respective server).
+   *
+   * @param source the command source (player or console)
+   * @return 1 on success, 0 on failure
+   */
+  private static int backupDatabaseCommand(ServerCommandSource source) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+
+      if (player != null)
+        AuthCoreServer.LOGGER.debug(
+            1, "{} used '/authcore backup' command in the Server!", player.getName().getString());
+
+      if (Database.dialect != Database.Dialect.SQLITE) {
+        String message =
+            "Database backup is only supported for SQLite. Use your "
+                + Database.dialect
+                + " server's own backup tooling.";
+        return sendPlainMessage(source, player, message);
+      }
+
+      java.nio.file.Path dbFile =
+          AuthCoreServer.configPath.resolve("database").resolve(AuthCoreServer.config.database.sqlite);
+      java.nio.file.Path backupDir = AuthCoreServer.configPath.resolve("backups");
+      java.nio.file.Files.createDirectories(backupDir);
+
+      String stamp =
+          new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date());
+      java.nio.file.Path backup = backupDir.resolve("authcore-" + stamp + ".db");
+
+      java.nio.file.Files.copy(dbFile, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+      net.ded3ec.security.SecurityLog.log("DB_BACKUP", "Created " + backup);
+
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptAdminBackupDone, backup);
+      return AuthCoreServer.LOGGER.info(1, "Database backup created: {}", backup);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(
+          0, "Faced Error in '/authcore backup' Command: ", err);
+    }
+  }
+
+  /**
+   * Shows the recent login history for a player.
+   *
+   * @param source the command source
+   * @param target the target player
+   * @return 1 on success, 0 on failure
+   */
+  private static int loginHistoryCommand(ServerCommandSource source, ServerPlayerEntity target) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+
+      UUID uuid = target.getUuid();
+      User user = User.getUser(target.getName().getString(), uuid);
+
+      if (user == null) {
+        String message = "User '" + target.getName().getString() + "' is not in the AuthCore cache.";
+        return sendPlainMessage(source, player, message);
+      }
+
+      java.util.ArrayList<String> history = User.fetchLoginHistory(uuid, 10);
+      String detail =
+          history.isEmpty()
+              ? "No login history recorded yet."
+              : String.join("\n", history);
+
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(
+            1,
+            player.networkHandler,
+            AuthCoreServer.messages.promptAdminLoginHistory,
+            user.username,
+            detail);
+      return AuthCoreServer.LOGGER.info(
+          1, "Login history for '{}':\n{}", user.username, detail);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(
+          0, "Faced Error in '/authcore history' Command: ", err);
+    }
+  }
+
+  /**
+   * Exports all user accounts to a JSON file in the backups directory (works with every
+   * database backend).
+   *
+   * @param source the command source (player or console)
+   * @return 1 on success, 0 on failure
+   */
+  private static int exportUsersCommand(ServerCommandSource source) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+
+      if (player != null)
+        AuthCoreServer.LOGGER.debug(
+            1, "{} used '/authcore export' command in the Server!", player.getName().getString());
+
+      com.google.gson.JsonArray list = new com.google.gson.JsonArray();
+      for (User u : User.users.values()) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("uuid", u.uuid.toString());
+        o.addProperty("username", u.username);
+        o.addProperty("email", u.email);
+        o.addProperty("nickname", u.nickname);
+        o.addProperty("mode", u.isPremium ? "online-mode" : "offline-mode");
+        o.addProperty("ip", u.ipAddress);
+        o.addProperty("country", u.country.get());
+        o.addProperty("registered", u.isRegistered.get());
+        o.addProperty("registeredAtMs", u.registeredAtMs);
+        o.addProperty("userCreatedMs", u.userCreatedMs);
+        o.addProperty("risk", u.riskScore);
+        o.addProperty("locked", u.isLocked());
+        list.add(o);
+      }
+
+      java.nio.file.Path backupDir = AuthCoreServer.configPath.resolve("backups");
+      java.nio.file.Files.createDirectories(backupDir);
+      String stamp =
+          new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date());
+      java.nio.file.Path out = backupDir.resolve("users-export-" + stamp + ".json");
+      java.nio.file.Files.writeString(
+          out, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(list));
+
+      net.ded3ec.security.SecurityLog.log("DB_EXPORT", "Exported " + list.size() + " users to " + out);
+
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptAdminBackupDone, out);
+      return AuthCoreServer.LOGGER.info(
+          1, "Exported {} user(s) to {}", list.size(), out);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(
+          0, "Faced Error in '/authcore export' Command: ", err);
+    }
+  }
+
+  /**
+   * Toggles maintenance mode (blocks all joins with a custom message).
+   *
+   * @param source the command source
+   * @param enabled whether maintenance should be on or off
+   * @return 1 on success, 0 on failure
+   */
+  private static int maintenanceCommand(ServerCommandSource source, boolean enabled) {
+    try {
+      AuthCoreServer.config.session.maintenance.enabled = enabled;
+      net.ded3ec.util.HoconConf.saveConfig();
+
+      String msgText = enabled ? "Maintenance mode ENABLED - joins are blocked." : "Maintenance mode disabled.";
+      ServerPlayerEntity player = source.getPlayer();
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(1, player.networkHandler, new Messages.ColTemplate() {
+          {
+            message.text = msgText;
+            message.color = enabled ? "YELLOW" : "GREEN";
+          }
+        });
+      return AuthCoreServer.LOGGER.info(1, msgText);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore maintenance' Command: ", err);
+    }
+  }
+
+  /**
+   * Validates the current configuration and reports problems (ports, algorithms, database,
+   * webhooks).
+   *
+   * @param source the command source
+   * @return 1 on success, 0 on failure
+   */
+  private static int validateConfigCommand(ServerCommandSource source) {
+    try {
+      StringBuilder report = new StringBuilder("AuthCore configuration validation:\n");
+      int issues = 0;
+
+      // Language
+      String lang = AuthCoreServer.config.language;
+      java.util.Set<String> known =
+          java.util.Set.of("en", "zh", "es", "de", "fr", "pt", "ru");
+      if (lang == null || lang.isBlank()) { report.append("  [WARN] language is empty (falls back to en)\n"); issues++; }
+      else if (!known.contains(lang.toLowerCase())) report.append("  [INFO] language '" + lang + "' is custom (messages-" + lang + ".conf expected)\n");
+
+      // Password hashing
+      String algo = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+      java.util.Set<String> algos = java.util.Set.of("argon2", "bcrypt", "scrypt", "pbkdf2", "sha-256", "sha-512");
+      if (!algos.contains(algo == null ? "" : algo.toLowerCase())) {
+        report.append("  [ERROR] password-hash-algorithm '" + algo + "' is invalid\n");
+        issues++;
+      }
+
+      // Ports
+      int panelPort = AuthCoreServer.config.session.webPanel.port;
+      if (panelPort <= 0 || panelPort > 65535) { report.append("  [ERROR] web-panel.port out of range\n"); issues++; }
+      if (AuthCoreServer.config.session.honeypot.enabled
+          && (AuthCoreServer.config.session.honeypot.port <= 0 || AuthCoreServer.config.session.honeypot.port > 65535)) {
+        report.append("  [ERROR] honeypot.port out of range\n");
+        issues++;
+      }
+
+      // Database
+      if (AuthCoreServer.config.database.mysql.enabled
+          && (AuthCoreServer.config.database.mysql.host.isBlank()
+              || AuthCoreServer.config.database.mysql.database.isBlank())) {
+        report.append("  [ERROR] MySQL enabled but host/database missing\n");
+        issues++;
+      }
+      if (AuthCoreServer.config.database.postgres.enabled
+          && (AuthCoreServer.config.database.postgres.host.isBlank()
+              || AuthCoreServer.config.database.postgres.database.isBlank())) {
+        report.append("  [ERROR] PostgreSQL enabled but host/database missing\n");
+        issues++;
+      }
+
+      // Web panel
+      if (AuthCoreServer.config.session.webPanel.enabled) {
+        String token = AuthCoreServer.config.session.webPanel.token;
+        String tokenFile = AuthCoreServer.config.session.webPanel.tokenFile;
+        if ((token == null || token.isBlank()) && (tokenFile == null || tokenFile.isBlank()))
+          report.append("  [ERROR] web panel enabled but no token/token-file set - panel will NOT start\n");
+      }
+
+      // Webhook
+      if (net.ded3ec.network.Webhook.isEnabled()) {
+        String url = AuthCoreServer.config.session.security.webhookUrl;
+        if (!url.startsWith("https://") && !url.startsWith("http://"))
+          report.append("  [WARN] webhook-url does not look like a URL\n");
+      }
+
+      // Server mode
+      String mode = AuthCoreServer.config.session.serverMode;
+      if (!"online".equalsIgnoreCase(mode) && !"offline".equalsIgnoreCase(mode)) {
+        report.append("  [ERROR] session.server-mode must be 'online' or 'offline'\n");
+        issues++;
+      }
+
+      report.append("Validation finished with " + issues + " issue(s).");
+      final String finalReport = report.toString();
+      final boolean hasIssues = issues > 0;
+
+      ServerPlayerEntity player = source.getPlayer();
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(1, player.networkHandler, new Messages.ColTemplate() {
+          {
+            message.text = finalReport;
+            message.color = hasIssues ? "RED" : "GREEN";
+          }
+        });
+      return AuthCoreServer.LOGGER.info(1, finalReport);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore validate' Command: ", err);
+    }
+  }
+
+  /** Sends a plain red chat message to a player, or logs it to the console. */
+  private static int sendPlainMessage(ServerCommandSource source, ServerPlayerEntity player, String text) {    Messages.ColTemplate template = new Messages.ColTemplate();
+    template.message.text = text;
+    template.message.color = "RED";
+
+    if (player != null) return AuthCoreServer.LOGGER.toUser(0, player.networkHandler, template);
+    return AuthCoreServer.LOGGER.info(0, text);
   }
 
   /**
@@ -414,10 +749,11 @@ public class Admin {
       if (user == null && sourcePlayer != null)
         return AuthCoreServer.LOGGER.toUser(
             0, sourcePlayer.networkHandler, AuthCoreServer.messages.promptUserNotFoundData);
-      else if (user == null)
+      else       if (user == null)
         return AuthCoreServer.LOGGER.info(
             0, "User '{}' not Found in the database!", player.getName().getString());
 
+      user.kick(AuthCoreServer.messages.promptUserDataDeleted, "Server");
       user.delete("Deleted User Data By an Administrator!", true);
 
       if (sourcePlayer != null)
@@ -425,7 +761,7 @@ public class Admin {
             0,
             sourcePlayer.networkHandler,
             AuthCoreServer.messages.promptAdminUserDataDeleted,
-            sourcePlayer.getName().getString());
+            player.getName().getString());
       else
         return AuthCoreServer.LOGGER.info(
             0,

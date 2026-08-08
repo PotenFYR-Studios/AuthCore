@@ -1,5 +1,13 @@
 package net.ded3ec.command;
 
+import net.ded3ec.models.Config;
+import net.ded3ec.models.Lobby;
+import net.ded3ec.models.Messages;
+import net.ded3ec.network.EmailSender;
+import net.ded3ec.network.Webhook;
+import net.ded3ec.security.SecurityLog;
+import net.ded3ec.util.Database;
+
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static net.minecraft.server.command.CommandManager.argument;
 import static net.minecraft.server.command.CommandManager.literal;
@@ -9,10 +17,10 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import java.util.UUID;
 import net.ded3ec.AuthCoreServer;
 import net.ded3ec.models.User;
-import net.ded3ec.utils.Encrypter;
-import net.ded3ec.utils.Logger;
-import net.ded3ec.utils.McApiManager;
-import net.ded3ec.utils.Security;
+import net.ded3ec.security.Encrypter;
+import net.ded3ec.util.Logger;
+import net.ded3ec.network.McApiManager;
+import net.ded3ec.security.Security;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.apache.commons.lang3.StringUtils;
@@ -53,15 +61,16 @@ public class Account {
                 literal("logout")
                     .requires(
                         (ctx) -> {
-                          if (ctx.getPlayer() == null) return false;
-                          UUID uuid = ctx.getPlayer().getUuid();
-                          String username = ctx.getPlayer().getName().getString();
+                          ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                          if (player == null) return false;
+                          UUID uuid = player.getUuid();
+                          String username = player.getName().getString();
                           User user = User.getUser(username, uuid);
 
                           return user != null
                               && user.isActive
                               && McApiManager.PermissionUtil.has(
-                                  ctx.getPlayer(),
+                                  player,
                                   AuthCoreServer.config.commands.user.logout.luckPermsNode,
                                   AuthCoreServer.config.commands.user.logout.permissionsLevel);
                         })
@@ -70,16 +79,17 @@ public class Account {
                 literal("unregister")
                     .requires(
                         (ctx) -> {
-                          if (ctx.getPlayer() == null) return false;
-                          UUID uuid = ctx.getPlayer().getUuid();
-                          String username = ctx.getPlayer().getName().getString();
+                          ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                          if (player == null) return false;
+                          UUID uuid = player.getUuid();
+                          String username = player.getName().getString();
                           User user = User.getUser(username, uuid);
 
                           return user != null
                               && user.isAuthenticated.get()
                               && user.isRegistered.get()
                               && McApiManager.PermissionUtil.has(
-                                  ctx.getPlayer(),
+                                  player,
                                   AuthCoreServer.config.commands.user.unregister.luckPermsNode,
                                   AuthCoreServer.config.commands.user.unregister.permissionsLevel);
                         })
@@ -90,16 +100,17 @@ public class Account {
                         argument("new-password", StringArgumentType.string())
                             .requires(
                                 (ctx) -> {
-                                  if (ctx.getPlayer() == null) return false;
-                                  UUID uuid = ctx.getPlayer().getUuid();
-                                  String username = ctx.getPlayer().getName().getString();
+                                  ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUuid();
+                                  String username = player.getName().getString();
                                   User user = User.getUser(username, uuid);
 
                                   return user != null
                                       && user.isRegistered.get()
                                       && user.isAuthenticated.get()
                                       && McApiManager.PermissionUtil.has(
-                                          ctx.getPlayer(),
+                                          player,
                                           AuthCoreServer.config
                                               .commands
                                               .user
@@ -114,7 +125,332 @@ public class Account {
                             .executes(
                                 ctx ->
                                     setPasswordCommand(
-                                        ctx.getSource(), getString(ctx, "new-password"))))));
+                                        ctx.getSource(), getString(ctx, "new-password")))))
+            .then(
+                literal("codes")
+                    .requires(
+                        (ctx) -> {
+                          ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                          if (player == null) return false;
+                          UUID uuid = player.getUuid();
+                          String username = player.getName().getString();
+                          User user = User.getUser(username, uuid);
+
+                          return user != null
+                              && user.isRegistered.get()
+                              && McApiManager.PermissionUtil.has(
+                                  player,
+                                  AuthCoreServer.config.commands.user.logout.luckPermsNode,
+                                  AuthCoreServer.config.commands.user.logout.permissionsLevel);
+                        })
+                    .executes(ctx -> recoveryCodesCommand(ctx.getSource())))
+            .then(
+                literal("email")
+                    .then(
+                        argument("address", StringArgumentType.string())
+                            .requires(
+                                (ctx) -> {
+                                  ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUuid();
+                                  String username = player.getName().getString();
+                                  User user = User.getUser(username, uuid);
+
+                                  return user != null
+                                      && user.isAuthenticated.get()
+                                      && user.isRegistered.get()
+                                      && McApiManager.PermissionUtil.has(
+                                          player,
+                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
+                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
+                                })
+                            .executes(
+                                ctx ->
+                                    setEmailCommand(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "address")))))
+            .then(
+                literal("nickname")
+                    .then(
+                        argument("name", StringArgumentType.string())
+                            .requires(
+                                (ctx) -> {
+                                  ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUuid();
+                                  String username = player.getName().getString();
+                                  User user = User.getUser(username, uuid);
+
+                                  return user != null
+                                      && user.isAuthenticated.get()
+                                      && user.isRegistered.get()
+                                      && McApiManager.PermissionUtil.has(
+                                          player,
+                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
+                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
+                                })
+                            .executes(
+                                ctx ->
+                                    setNicknameCommand(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "name")))))
+            .then(
+                literal("recover")
+                    .then(
+                        argument("email", StringArgumentType.string())
+                            .requires(
+                                (ctx) -> {
+                                  ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUuid();
+                                  String username = player.getName().getString();
+                                  User user = User.getUser(username, uuid);
+
+                                  return user != null
+                                      && user.isRegistered.get()
+                                      && !user.isAuthenticated.get()
+                                      && McApiManager.PermissionUtil.has(
+                                          player,
+                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
+                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
+                                })
+                            .executes(
+                                ctx ->
+                                    recoveryRequestCommand(
+                                        ctx.getSource(),
+                                        StringArgumentType.getString(ctx, "email")))
+                            .then(
+                                argument("code", StringArgumentType.string())
+                                    .then(
+                                        argument("new-password", StringArgumentType.string())
+                                            .executes(
+                                                ctx ->
+                                                    recoveryCompleteCommand(
+                                                        ctx.getSource(),
+                                                        StringArgumentType.getString(ctx, "email"),
+                                                        StringArgumentType.getString(ctx, "code"),
+                                                        StringArgumentType.getString(
+                                                            ctx, "new-password"))))))));
+  }
+
+  /**
+   * Sets the player's display nickname.
+   *
+   * @param source the command source (must be a player)
+   * @param name the new nickname
+   * @return 1 on success, 0 on failure
+   */
+  private static int setNicknameCommand(ServerCommandSource source, String name) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      String trimmed = name.trim();
+      if (trimmed.length() < 2 || trimmed.length() > 24 || trimmed.matches(".*\\s+.*")) {
+        net.ded3ec.security.SecurityLog.log("NICKNAME_INVALID", player.getName().getString() + " tried to set invalid nickname");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserEmailInvalid);
+      }
+
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      user.nickname = trimmed;
+      user.update("Nickname set");
+
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.networkHandler, AuthCoreServer.messages.promptUserNicknameSet, trimmed);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account nickname' Command: ", err);
+    }
+  }
+
+  /**
+   * Sets the account email (used for login alerts and password recovery).
+   *
+   * @param source the command source (must be a player)
+   * @param address the email address
+   * @return 1 on success, 0 on failure
+   */
+  private static int setEmailCommand(ServerCommandSource source, String address) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      if (!net.ded3ec.security.Security.EmailRecovery.isValidEmail(address)) {
+        net.ded3ec.security.SecurityLog.log("EMAIL_INVALID", username + " tried to set invalid email");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserEmailInvalid);
+      }
+
+      user.email = address.trim().toLowerCase(java.util.Locale.ROOT);
+      user.update("Email set");
+      net.ded3ec.security.SecurityLog.log("EMAIL_SET", username + " set email " + user.email);
+
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.networkHandler, AuthCoreServer.messages.promptUserEmailSet, user.email);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account email' Command: ", err);
+    }
+  }
+
+  /**
+   * Requests a password recovery code by email. Only works for players in the lobby (they
+   * forgot their password).
+   *
+   * @param source the command source (must be a player)
+   * @param email the registered email address
+   * @return 1 on success, 0 on failure
+   */
+  private static int recoveryRequestCommand(ServerCommandSource source, String email) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      String username = player.getName().getString();
+      User user = User.getUser(username, player.getUuid());
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      // Never reveal whether an email matches: always respond the same way.
+      String normalized = email.trim().toLowerCase(java.util.Locale.ROOT);
+      boolean matches = user.email != null && user.email.equalsIgnoreCase(normalized);
+
+      if (matches && net.ded3ec.network.EmailSender.isEnabled()) {
+        String code = net.ded3ec.security.Security.EmailRecovery.generateCode(normalized);
+        if (code != null) {
+          net.ded3ec.network.EmailSender.sendAsync(
+              user.email,
+              "AuthCore - Password recovery",
+              "Your AuthCore recovery code is: " + code + "\n"
+                  + "Use it within 15 minutes:\n"
+                  + "/account recover <email> <code> <new-password>\n\n"
+                  + "If you did not request this, you can ignore this email.");
+          net.ded3ec.security.SecurityLog.log("RECOVERY_SENT", username + " requested a recovery code");
+        }
+      }
+
+      return AuthCoreServer.LOGGER.toUser(
+          1,
+          player.networkHandler,
+          AuthCoreServer.messages.promptUserEmailRecoverySent,
+          email);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account recover' Command: ", err);
+    }
+  }
+
+  /**
+   * Completes password recovery with the emailed code.
+   *
+   * @param source the command source (must be a player)
+   * @param email the registered email address
+   * @param code the recovery code from the email
+   * @param newPassword the new password
+   * @return 1 on success, 0 on failure
+   */
+  private static int recoveryCompleteCommand(
+      ServerCommandSource source, String email, String code, String newPassword) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      String username = player.getName().getString();
+      User user = User.getUser(username, player.getUuid());
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      String normalized = email.trim().toLowerCase(java.util.Locale.ROOT);
+      boolean matches = user.email != null && user.email.equalsIgnoreCase(normalized);
+
+      if (!matches || !net.ded3ec.security.Security.EmailRecovery.verifyCode(normalized, code)) {
+        net.ded3ec.security.SecurityLog.log(
+            "RECOVERY_FAILED", username + " provided a wrong recovery code");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserRecoveryInvalid);
+      }
+
+      if (StringUtils.isBlank(newPassword))
+        return AuthCoreServer.LOGGER.toUser(
+            0, player.networkHandler, AuthCoreServer.messages.promptUserPasswordIsBlank);
+
+      // Validate against the password policy (message shown to the player on failure)
+      if (!net.ded3ec.security.Security.Password.check(player, newPassword)) return 0;
+
+      user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+      user.password = net.ded3ec.security.Encrypter.hash(user.passwordEncryption, newPassword);
+      user.loginAttempts = 0;
+      user.authSecret = null; // 2FA secret must be re-set up after recovery
+      user.update("Password recovered via email");
+
+      net.ded3ec.security.SecurityLog.log(
+          "RECOVERY_COMPLETED", username + " recovered their password via email");
+      net.ded3ec.network.Webhook.sendEmbed(
+          "Password Recovered",
+          "**" + username + "** recovered their password via email code.",
+          0x2ECC71);
+
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.networkHandler, AuthCoreServer.messages.promptUserRecoveryCompleted);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account recover' Command: ", err);
+    }
+  }
+
+  /**
+   * Displays the player's backup recovery codes (used for account recovery).
+   *
+   * @param source the command source (must be a player)
+   * @return 1 on success, 0 on failure
+   */
+  private static int recoveryCodesCommand(ServerCommandSource source) {
+    try {
+      ServerPlayerEntity player = source.getPlayer();
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      UUID uuid = player.getUuid();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      String codes = user.recoveryCodes;
+      if (codes == null || codes.isBlank()) {
+        codes = net.ded3ec.security.Security.RecoveryCodes.generate(8);
+        user.recoveryCodes = codes;
+        user.update("Generated recovery codes");
+      }
+
+      net.ded3ec.security.SecurityLog.log("RECOVERY_CODES_VIEWED", username);
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.networkHandler, AuthCoreServer.messages.promptUserRecoveryCodes, codes);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account codes' Command: ", err);
+    }
   }
 
   /**
@@ -141,8 +477,8 @@ public class Account {
       User user = User.getUser(username, uuid);
 
       if (user == null)
-        return AuthCoreServer.LOGGER.toKick(
-            0, player.networkHandler, AuthCoreServer.messages.promptUserNotFoundData);
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
 
       AuthCoreServer.LOGGER.debug(
           1, "{}'s session has been destroyed!", player.getName().getString());
@@ -246,7 +582,6 @@ public class Account {
 
       return AuthCoreServer.LOGGER.toKick(
           1, player.networkHandler, AuthCoreServer.messages.promptUserUnRegisteredSuccessfully);
-
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account unregister' Command: ", err);
     }

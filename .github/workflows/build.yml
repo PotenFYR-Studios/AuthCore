@@ -1,4 +1,4 @@
-name: 🛠️ Build Fabric Mod
+name: ÃƒÂ°Ã…Â¸Ã¢â‚¬ÂºÃ‚Â ÃƒÂ¯Ã‚Â¸Ã‚Â Build Fabric Mod
 
 on:
   push:
@@ -31,9 +31,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build mod
+      - name: Build mod (modern target)
         run: ./gradlew build
 
+      - name: Run security & business-logic tests
+        run: pwsh -File tools/security-tests/run-tests.ps1
+
+      - name: Verify universal source against Minecraft 1.16.5
+        run: |
+          ./gradlew build
+          # Rebuild the identical source against the legacy target to prove universal compatibility
+          sed -i 's/minecraft_version=1.21.11/minecraft_version=1.16.5/; s|yarn_mappings=1.21.11+build.4|yarn_mappings=1.16.5+build.10|; s/loader_version=0.18.4/loader_version=0.14.24/; s/fabric_api_version=0.141.3+1.21.11/fabric_api_version=0.42.0+1.16/' gradle.properties
+          ./gradlew clean build
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:

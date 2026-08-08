@@ -1,0 +1,57 @@
+name: Client Companion Build Check
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  client-build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mc: ["1.20.6", "1.21.11"]
+        include:
+          - mc: "1.20.6"
+            yarn: "1.20.6+build.4"
+            loader: "0.15.11"
+            fabric_api: "0.97.2+1.20.6"
+          - mc: "1.21.11"
+            yarn: "1.21.11+build.4"
+            loader: "0.18.4"
+            fabric_api: "0.141.3+1.21.11"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Configure gradle.properties for client build (${{ matrix.mc }})
+        run: |
+          sed -i \
+            -e 's/^minecraft_version=.*/minecraft_version=${{ matrix.mc }}/' \
+            -e 's/^yarn_mappings=.*/yarn_mappings=${{ matrix.yarn }}/' \
+            -e 's/^loader_version=.*/loader_version=${{ matrix.loader }}/' \
+            -e 's/^fabric_api_version=.*/fabric_api_version=${{ matrix.fabric_api }}/' \
+            gradle.properties
+
+      - name: Build client-included jar (-Pclient_build=true)
+        continue-on-error: true
+        id: client
+        run: ./gradlew clean build -Pclient_build=true 2>&1 | tee client-${{ matrix.mc }}.log; exit ${PIPESTATUS[0]}
+
+      - name: Report client build result for ${{ matrix.mc }}
+        run: |
+          if [ "${{ steps.client.outcome }}" == "success" ]; then
+            echo "✅ Client companion ${{ matrix.mc }}: BUILD PASSED"
+          else
+            echo "❌ Client companion ${{ matrix.mc }}: BUILD FAILED (client companion requires 1.19.4+ APIs)"
+            grep -E "error:" client-${{ matrix.mc }}.log | head -15 || true
+          fi

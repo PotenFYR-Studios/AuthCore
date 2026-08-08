@@ -1,6 +1,5 @@
 package net.ded3ec.mixin;
 
-import java.util.Set;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -11,9 +10,7 @@ import net.fabricmc.api.Environment;
 
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameMode;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,6 +19,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+/**
+ * Player guard mixins shared by every Minecraft version: item dropping and game-mode changes are
+ * blocked while a player is in the auth lobby. (Teleport restriction lives in the
+ * version-specific {@code ServerPlayerTeleportMixin}.)
+ */
 @Environment(EnvType.SERVER)
 @Mixin(ServerPlayerEntity.class)
 abstract class ServerPlayerMixin {
@@ -78,40 +80,6 @@ abstract class ServerPlayerMixin {
 
       cir.setReturnValue(false);
       cir.cancel();
-    }
-  }
-
-  /** Prevent teleportation for jailed/lobby users. */
-  @Inject(method = "teleport", at = @At("HEAD"), cancellable = true)
-  private void authCore$onTeleport(
-      ServerWorld world,
-      double destX,
-      double destY,
-      double destZ,
-      Set<PositionFlag> flags,
-      float yaw,
-      float pitch,
-      boolean resetCamera,
-      CallbackInfoReturnable<Boolean> cir) {
-
-    ServerPlayerEntity player = self();
-
-    UUID uuid = player.getUuid();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
-
-    if (user != null
-        && user.isInLobby.get()
-        && !AuthCoreServer.config.lobby.allowMovement
-        && user.lobby.isOutsideOfLobbyPos(destX, destZ)) {
-
-      cir.setReturnValue(false);
-      cir.cancel();
-
-      AuthCoreServer.LOGGER.toUser(
-          false, user.connection, AuthCoreServer.messages.promptUserPlayerMovementNotAllowed);
-
-      user.lobby.handleTeleport();
     }
   }
 }

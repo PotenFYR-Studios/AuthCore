@@ -1,5 +1,10 @@
 package net.ded3ec.mixin;
 
+import net.ded3ec.models.Config;
+import net.ded3ec.models.Lobby;
+import net.ded3ec.models.Messages;
+import net.ded3ec.util.Logger;
+
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
