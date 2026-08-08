@@ -1,10 +1,11 @@
 name: CI
 
 # ONE workflow, THREE jobs - minimal notifications:
-#   build   - builds BOTH jars (authcore-yarn for 1.16-1.21.11, authcore-mojang for 26.1+),
+#   build   - builds BOTH jars (authcore-classic for 1.16-1.21.11, authcore-modern for 26.1+),
 #             verifies them and runs the security test suite
 #   matrix  - single job that compiles the source against 1.16.5 ... 1.21.11
-#   release - on v* tags: builds both jars, drafts+publishes a GitHub Release with them
+#   release - on v* tags: builds both jars and publishes/updates the GitHub Release with them
+#             (re-running the same tag UPDATES the existing release + assets + changelog body)
 
 on:
   push:
@@ -35,12 +36,17 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build classic universal jar (yarn, 1.16 - 1.21.11)
+      - name: Build classic universal jar (1.16 - 1.21.11)
         run: ./gradlew clean build
+
+      - name: Stage classic jars (before the modern build cleans build/)
+        run: |
+          mkdir -p release
+          cp build/libs/authcore-classic-*.jar release/
 
       - name: Verify classic jar
         run: |
-          JAR=$(ls build/libs/authcore-yarn-*.jar | grep -v sources | head -1)
+          JAR=$(ls release/authcore-classic-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0"' && echo "OK declares 1.16.0+"
@@ -48,14 +54,17 @@ jobs:
           [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (Java 16, runs on any newer JVM)" || { echo "FAIL major $MAJOR"; exit 1; }
           unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
 
-      - name: Build 26.x jar (mojang, 26.1+)
-        run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
+      - name: Build 26.x jar (26.1+)
+        run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
+      - name: Stage modern jars
+        run: cp build/libs/authcore-modern-*.jar release/
+
       - name: Verify 26.x jar
         run: |
-          JAR=$(ls build/libs/authcore-mojang-*.jar | grep -v sources | head -1)
+          JAR=$(ls release/authcore-modern-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
@@ -71,9 +80,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: authcore-jars
-          path: |
-            build/libs/authcore-yarn-*.jar
-            build/libs/authcore-mojang-*.jar
+          path: release/*.jar
 
   matrix:
     runs-on: ubuntu-latest
@@ -146,13 +153,21 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build classic jar (yarn, 1.16 - 1.21.11)
+      - name: Build classic jar (1.16 - 1.21.11)
         run: ./gradlew clean build
 
-      - name: Build 26.x jar (mojang, 26.1+)
-        run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
+      - name: Stage classic jars
+        run: |
+          mkdir -p release
+          cp build/libs/authcore-classic-*.jar release/
+
+      - name: Build 26.x jar (26.1+)
+        run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
+
+      - name: Stage modern jars
+        run: cp build/libs/authcore-modern-*.jar release/
 
       - name: Extract changelog section for this version
         id: changelog
@@ -170,13 +185,16 @@ jobs:
           echo "--- release notes ---"
           cat release-notes.md
 
-      - name: Create GitHub Release with both jars
+      - name: Create or update GitHub Release with both jars
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: AuthCore ${{ github.ref_name }}
           body_path: release-notes.md
           files: |
-            build/libs/authcore-yarn-1.0.0.jar
-            build/libs/authcore-mojang-1.0.0.jar
+            release/authcore-classic-*.jar
+            release/authcore-modern-*.jar
           draft: false
+          update_release_body: true
+          overwrite: true
+          fail_on_unmatched_files: false

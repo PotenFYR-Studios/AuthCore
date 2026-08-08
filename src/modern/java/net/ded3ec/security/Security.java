@@ -241,7 +241,10 @@ public class Security {
         return false;
       }
 
-      if (input != null && entry.code.equalsIgnoreCase(input.trim())) {
+      if (input != null
+          && java.security.MessageDigest.isEqual(
+              entry.code.toUpperCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8),
+              input.trim().toUpperCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
         pending.remove(playerId);
         return true;
       }
@@ -385,6 +388,8 @@ public class Security {
   public static class EmailRecovery {
 
     private static final long CODE_TTL_MS = 15 * 60 * 1000L;
+    private static final long COOLDOWN_MS = 60 * 1000L;
+    private static final int MAX_ATTEMPTS = 5;
     private static final int MAX_PENDING = 256;
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -404,8 +409,14 @@ public class Security {
       purgeExpired();
       if (pending.size() >= MAX_PENDING) pending.clear();
 
+      // Anti-spam: at most one code per email per cooldown window
+      String key = normalize(email);
+      long now = System.currentTimeMillis();
+      CodeEntry existing = pending.get(key);
+      if (existing != null && now - existing.createdAtMs < COOLDOWN_MS) return null;
+
       String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-      pending.put(normalize(email), new CodeEntry(code));
+      pending.put(key, new CodeEntry(code));
       return code;
     }
 
@@ -417,14 +428,27 @@ public class Security {
     public static boolean verifyCode(String email, String code) {
       if (email == null || code == null) return false;
 
-      CodeEntry entry = pending.get(normalize(email));
+      String key = normalize(email);
+      CodeEntry entry = pending.get(key);
       if (entry == null || entry.isExpired()) {
-        pending.remove(normalize(email));
+        pending.remove(key);
         return false;
       }
 
-      pending.remove(normalize(email));
-      return entry.code.equals(code.trim());
+      // Anti-brute-force: a code may only be tried a few times before it is revoked
+      if (entry.attempts >= MAX_ATTEMPTS) {
+        pending.remove(key);
+        return false;
+      }
+
+      entry.attempts++;
+      boolean matches =
+          java.security.MessageDigest.isEqual(
+              entry.code.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+              code.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+      if (matches) pending.remove(key);
+      return matches;
     }
 
     /** Basic email format check. */
@@ -447,10 +471,13 @@ public class Security {
     private static final class CodeEntry {
       final String code;
       final long expiresAtMs;
+      final long createdAtMs;
+      int attempts;
 
       CodeEntry(String code) {
         this.code = code;
-        this.expiresAtMs = System.currentTimeMillis() + CODE_TTL_MS;
+        this.createdAtMs = System.currentTimeMillis();
+        this.expiresAtMs = createdAtMs + CODE_TTL_MS;
       }
 
       boolean isExpired() {

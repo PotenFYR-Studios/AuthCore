@@ -113,6 +113,21 @@ public class AuthCoreSecurityTests {
     check("code generated", code != null && code.matches("\\d{6}"));
     check("verify accepts with different email case", Security.EmailRecovery.verifyCode("player@example.com", code));
     check("code consumed after use", !Security.EmailRecovery.verifyCode("Player@Example.com", code));
+
+    // Anti-abuse: cooldown between code generations for the same email
+    String first = Security.EmailRecovery.generateCode("cooldown@example.com");
+    check("first code generated", first != null);
+    check("second code blocked by cooldown", Security.EmailRecovery.generateCode("Cooldown@Example.com") == null);
+
+    // Anti-brute-force: a code is revoked after a few wrong attempts
+    String guarded = Security.EmailRecovery.generateCode("guard@example.com");
+    check("guarded code generated", guarded != null);
+    check("wrong attempt 1 rejected", !Security.EmailRecovery.verifyCode("guard@example.com", "000000"));
+    check("wrong attempt 2 rejected", !Security.EmailRecovery.verifyCode("guard@example.com", "000001"));
+    check("wrong attempt 3 rejected", !Security.EmailRecovery.verifyCode("guard@example.com", "000002"));
+    check("wrong attempt 4 rejected", !Security.EmailRecovery.verifyCode("guard@example.com", "000003"));
+    check("wrong attempt 5 rejected", !Security.EmailRecovery.verifyCode("guard@example.com", "000004"));
+    check("code revoked after max attempts", !Security.EmailRecovery.verifyCode("guard@example.com", guarded));
   }
 
   private static void testRateLimiter() {
