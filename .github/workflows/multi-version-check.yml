@@ -92,25 +92,25 @@ jobs:
       - name: Build AuthCore for ${{ matrix.name }}
         continue-on-error: true
         id: build
-        run: ./gradlew clean build 2>&1 | tee build-${{ matrix.name }}.log; exit ${PIPESTATUS[0]}
+        run: ./gradlew clean build 2>&1 | tee "build-${{ matrix.name }}.log"; exit ${PIPESTATUS[0]}
 
       - name: Report result for ${{ matrix.name }}
         run: |
           if [ "${{ steps.build.outcome }}" == "success" ]; then
             echo "✅ ${{ matrix.name }}: BUILD PASSED"
-            echo "PASS" > result-${{ matrix.name }}.txt
+            echo "PASS" > "result-${{ matrix.name }}.txt"
           else
             echo "❌ ${{ matrix.name }}: BUILD FAILED"
-            grep -E "error:" build-${{ matrix.name }}.log | head -20 || echo "(no compile errors found - see full log)"
-            echo "FAIL" > result-${{ matrix.name }}.txt
+            grep -E "error:" "build-${{ matrix.name }}.log" | head -20 || echo "(no compile errors found - see full log)"
+            echo "FAIL" > "result-${{ matrix.name }}.txt"
           fi
 
       - name: Upload logs on failure
         if: steps.build.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-${{ matrix.name }}
-          path: build-${{ matrix.name }}.log
+          name: 'build-log-${{ matrix.name }}'
+          path: 'build-${{ matrix.name }}.log'
 
   summary:
     runs-on: ubuntu-latest

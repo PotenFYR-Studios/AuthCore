@@ -45,7 +45,7 @@ jobs:
       - name: Build client-included jar (-Pclient_build=true)
         continue-on-error: true
         id: client
-        run: ./gradlew clean build -Pclient_build=true 2>&1 | tee client-${{ matrix.mc }}.log; exit ${PIPESTATUS[0]}
+        run: ./gradlew clean build -Pclient_build=true 2>&1 | tee "client-${{ matrix.mc }}.log"; exit ${PIPESTATUS[0]}
 
       - name: Report client build result for ${{ matrix.mc }}
         run: |
@@ -53,5 +53,5 @@ jobs:
             echo "✅ Client companion ${{ matrix.mc }}: BUILD PASSED"
           else
             echo "❌ Client companion ${{ matrix.mc }}: BUILD FAILED (client companion requires 1.19.4+ APIs)"
-            grep -E "error:" client-${{ matrix.mc }}.log | head -15 || true
+            grep -E "error:" "client-${{ matrix.mc }}.log" | head -15 || true
           fi
