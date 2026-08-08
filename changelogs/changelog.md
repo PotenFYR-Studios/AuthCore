@@ -9,21 +9,21 @@ All notable changes to AuthCore, from the first alpha to the current release.
 ### 🎯 Universal single-jar architecture (1.16.x - 26.x)
 - **One jar for every Minecraft version** - the per-version source sets (`src/modern` / `src/legacy`)
   are gone. Everything lives in `src/main` with the `net.ded3ec.compat` reflection layer and
-  version-stable mixin targets. Verified by compiling the identical source against **1.16.5 and
-  1.21.11** (both green).
+  version-stable mixin targets. Verified by compiling the identical source against **1.16.5,
+  1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (all green), with a per-push CI matrix.
 - **Universal mixins**: login hello (reflects over `getProfile()` vs `name()/profileId()`, plus
   authlib's `getName()/getId()` vs record `name()/id()`), handshake proxy forwarding (record
   accessor vs private field), chat restriction (single mixin covering `onGameMessage` /
   `onChatMessage` / `handleChatMessage`).
 - **`FabricHooks`** registers commands (API v1/v2), item-use and damage events reflectively -
   missing fabric APIs are skipped gracefully.
-- `fabric.mod.json` declares `minecraft >=1.16.0`, `java >=16` - the same jar runs standalone or
-  behind **Velocity / BungeeCord** (proxy support is config-driven).
+- `fabric.mod.json` declares `minecraft >=1.16.0`, `java >=16`, `environment "*"` - the same jar
+  runs on servers AND clients, standalone or behind **Velocity / BungeeCord**.
 - Version-independent features (commands, config, database, security, web panel, email, Redis)
   work unchanged on every version.
-- **Client companion auto-detection**: on 1.19.4+ target builds the jar now also includes the
-  client login-screen companion (auto-login GUI, optional for players - the server works
-  without it via normal `/login`). Targets below 1.19.4 build the server-only jar.
+- **Client companion always included**: the universal jar bundles the client login-screen
+  companion (auto-login GUI) for 1.20.2+ clients. The companion is fully reflection-guarded,
+  so the jar loads safely on older clients (1.16 - 1.20.1) and simply skips the screen there.
 - If the client cannot send the auto-login command (e.g. signed-chat restrictions), the player
   gets an in-chat hint with the exact command to type instead of failing silently.
 - **Limbo tick re-assert guards**: every tick the lobby re-applies the blindness/invisibility
@@ -33,8 +33,19 @@ All notable changes to AuthCore, from the first alpha to the current release.
   time, not only in the command `requires` predicate.
 - **Migration guide**: new `docs/migration.md` covers automatic config/messages/database/password
   migration from any previous version, what changed, and a manual checklist.
-- **Release automation**: tag-triggered GitHub workflow builds both jars, extracts the changelog
-  section for the tag and drafts a release with the artifacts.
+- **Release automation**: tag-triggered GitHub workflow (`ci.yml` - the ONLY workflow now)
+  builds the universal jar, extracts the changelog section for the tag and drafts a release
+  with the jar attached.
+- **One workflow, honest CI**: all previous workflows (build / client-check / lint-test /
+  gradle-validate / dependency-audit / multi-version-check / release) were merged into a
+  single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
+  versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
+- **26.x status (honest)**: the Fabric ecosystem publishes no yarn/mojmap/hashed mappings for
+  26.x yet, so no fabric mod can compile against 26.2 today. 26.x support is delivered by the
+  universal jar's Java-16 class files (run on Java 25), intermediary-stable references and
+  required:false mixins with tick-guard fallbacks; a dedicated CI job verifies the 26.2
+  ecosystem + jar properties, and compile-verification will be added automatically once
+  mappings exist.
 
 ### 🚀 Performance for 100k+ users
 - **Lazy user loading** - users are fetched from the database on demand (join/login/whois)

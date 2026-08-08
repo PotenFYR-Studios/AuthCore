@@ -10,6 +10,60 @@ base {
     archivesName = project.archives_base_name
 }
 
+// ------------------------------------------------------------------
+// Per-version toolchain derivation. The CI matrix only overrides
+// minecraft_version / yarn_mappings / loader_version / fabric_api_version;
+// everything below is derived automatically so no version can be forgotten.
+// ------------------------------------------------------------------
+def derivedRelease = 21
+def derivedMixinLevel = 'JAVA_21'
+
+def v = project.minecraft_version
+if (v != null) {
+    if (v.startsWith("26")) {
+        // Minecraft 26.x requires Java 25
+        derivedRelease = 25
+        derivedMixinLevel = 'JAVA_25'
+    } else {
+        def m = (v =~ /^1\.(\d+)\.(\d+).*$/)
+        if (m) {
+            int minor = Integer.parseInt(m.group(1))
+            int patch = Integer.parseInt(m.group(2))
+            if (minor >= 21 || (minor == 20 && patch >= 5)) {
+                derivedRelease = 21
+                derivedMixinLevel = 'JAVA_21'
+            } else if (minor >= 17) {
+                derivedRelease = 17
+                derivedMixinLevel = 'JAVA_17'
+            } else {
+                derivedRelease = 16
+                derivedMixinLevel = 'JAVA_16'
+            }
+        }
+    }
+}
+
+def javaRelease = Integer.parseInt((project.findProperty('java_release') ?: derivedRelease).toString())
+def mixinCompatibilityLevel = project.findProperty('mixin_compatibility_level') ?: derivedMixinLevel
+
+// ------------------------------------------------------------------
+// Universal single-jar mode (default ON).
+// The jar is built ONCE against the default minecraft_version (gradle.properties) and runs on
+// every supported Minecraft version - 1.16.x through 26.x - on servers AND clients:
+//   - classes are compiled at Java 16 level (major 60) so they load on every JVM from
+//     Java 16 (the 1.16.x requirement) up to Java 25 (required by 26.x)
+//   - fabric.mod.json declares environment "*" + client entrypoint + client mixins, so the
+//     same jar works as a server mod and as a client mod
+//   - version-stable mixins (required:false where signatures differ) + runtime fallbacks in
+//     net.ded3ec.compat keep behaviour working even where a mixin cannot apply
+// Set `-Puniversal=false` to produce a per-version jar (used by the CI verification matrix).
+// ------------------------------------------------------------------
+def universalBuild = (project.findProperty('universal') ?: 'true').toString() == 'true'
+if (universalBuild) {
+    javaRelease = 16
+    mixinCompatibilityLevel = 'JAVA_16'
+}
+
 
 repositories {
     // Add repositories to retrieve artifacts from in here.
@@ -84,25 +138,9 @@ dependencies {
     implementation(include("com.j256.two-factor-auth:two-factor-auth:1.3"))
 }
 
-// ------------------------------------------------------------------
-// Optional client login-screen companion (1.19.4+ client support):
-//   default = server-only universal jar
-//   `gradlew build -Pclient_build=true` adds the client entrypoint, client mixins and
-//   the client classes to the same jar (client-side login screen + auto-login).
-// ------------------------------------------------------------------
-sourceSets {
-    if (project.findProperty('client_build') == 'true') {
-        main {
-            java {
-                srcDir 'src/client/java'
-            }
-        }
-    }
-}
-
 processResources {
     inputs.property "version", project.version
-    inputs.property "mixin_compatibility_level", project.mixin_compatibility_level
+    inputs.property "mixin_compatibility_level", mixinCompatibilityLevel
 
     filesMatching("fabric.mod.json") {
         expand "version": inputs.properties.version
@@ -117,38 +155,15 @@ processResources {
     }
 }
 
-// Patches the processed fabric.mod.json in place so the universal jar auto-detects client
-// support: environment "*" + client entrypoint + client mixins (when the target supports it).
-tasks.register('patchClientModJson') {
-    dependsOn processResources
-    def target = file("$buildDir/resources/main/fabric.mod.json")
-    inputs.file(target)
-    outputs.file(target)
-    onlyIf { clientCompanionSupported() }
-    doLast {
-        def json = target.text
-        json = json
-            .replace('"environment": "server",', '"environment": "*",')
-            .replace(
-                '"server": [\n      "net.ded3ec.AuthCoreServer"\n    ]\n  },',
-                '"server": [\n      "net.ded3ec.AuthCoreServer"\n    ],\n    "client": [\n      "net.ded3ec.client.ClientAuthCore"\n    ]\n  },')
-            .replace(
-                '"authcore.server.mixins.json"\n  ],',
-                '"authcore.server.mixins.json",\n    "authcore.client.mixins.json"\n  ],')
-        target.text = json
-    }
-}
-
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = Integer.parseInt(project.java_release)
+    it.options.release = javaRelease
 }
 
 // ------------------------------------------------------------------
-// Client login-screen companion (auto-detected per target).
-// The final jar is UNIVERSAL: on 1.19.4+ builds the client classes + client entrypoint
-// + client mixins are bundled (fabric.mod.json environment "*"); on older targets the
-// client companion cannot compile (screen APIs) and the jar stays server-only.
-// The same jar works on a server, on a client, and behind Velocity/BungeeCord.
+// Client login-screen companion (auto-included in the universal jar).
+// The client classes only COMPILE against targets with the screen APIs (1.20.2+); on older
+// targets the universal jar still loads everywhere because the client mixins are required:false
+// and the client entrypoint is fully reflection-guarded (see ClientAuthCore).
 // ------------------------------------------------------------------
 
 sourceSets {
@@ -161,7 +176,7 @@ sourceSets {
     }
 }
 
-// Version gate: the client screen APIs (DrawContext etc.) exist on 1.19.4+
+// Version gate: the client screen APIs (DrawContext, CookieStorage etc.) exist on 1.20.2+
 def clientCompanionSupported() {
     def v = project.minecraft_version
     if (v == null) return false
@@ -170,39 +185,40 @@ def clientCompanionSupported() {
     if (!m) return false
     int minor = Integer.parseInt(m.group(1))
     int patch = Integer.parseInt(m.group(2))
-    return minor > 19 || (minor == 19 && patch >= 4)
+    return minor > 20 || (minor == 20 && patch >= 2)
 }
 
+// ------------------------------------------------------------------
+// The universal jar: main code + client companion (when the target can compile it).
+// fabric.mod.json is already the universal form (environment "*" + client entrypoint +
+// client mixins), so the same jar runs on servers and clients of every version.
+// ------------------------------------------------------------------
+
 tasks.register('compileAuthClientJava', JavaCompile) {
-    dependsOn patchClientModJson
     source = sourceSets.client.java
     classpath = sourceSets.client.compileClasspath
     destinationDirectory = file("build/classes/java/client")
-    options.release = Integer.parseInt(project.java_release)
+    options.release = javaRelease
     options.encoding = 'UTF-8'
     onlyIf { clientCompanionSupported() }
     dependsOn compileJava
 }
 
-// The universal jar: main code + (when supported) client classes. The fabric.mod.json is
-// already client-included by processResources (auto-detected per target version).
 tasks.named('jar') {
-    dependsOn patchClientModJson
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from(file("build/classes/java/client")) {
-        onlyIf { clientCompanionSupported() }
+    if (clientCompanionSupported()) {
+        from(file("build/classes/java/client"))
     }
     dependsOn compileAuthClientJava
 }
 
 // Legacy client-classifier jar kept for compatibility (same universal content)
 tasks.register('clientJar', Jar) {
-    dependsOn patchClientModJson
     archiveClassifier = 'client'
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from sourceSets.main.output
-    from(file("build/classes/java/client")) {
-        onlyIf { clientCompanionSupported() }
+    if (clientCompanionSupported()) {
+        from(file("build/classes/java/client"))
     }
     from processResources.outputs
     dependsOn compileAuthClientJava
@@ -223,19 +239,18 @@ java {
 
     // Version-agnostic: the toolchain below will try to use the configured JDK release.
     // To build for older Minecraft versions, see VERSIONS.md and adjust gradle.properties.
-    sourceCompatibility = JavaVersion.toVersion(project.java_release)
-    targetCompatibility = JavaVersion.toVersion(project.java_release)
+    sourceCompatibility = JavaVersion.toVersion(javaRelease)
+    targetCompatibility = JavaVersion.toVersion(javaRelease)
 }
 
 // Multi-version support:
-// - Change `minecraft_version`, `yarn_mappings`, `loader_version`, `fabric_api_version`,
-//   `java_release` and `mixin_compatibility_level` in gradle.properties, then run `gradlew build`.
-// - The mod is designed to compile against 1.16.0 through 1.21.x (and newer 1.x versions).
-//   Version-specific APIs are isolated behind the compatibility layer in
-//   net.ded3ec.utils.McApiManager.PermissionUtil (permission checks) and the mixins are
-//   configured to use the Java level required by the target Minecraft version.
+// - Change `minecraft_version`, `yarn_mappings`, `loader_version` and `fabric_api_version`
+//   in gradle.properties (or via the CI matrix), then run `gradlew build`.
+// - The mod compiles against 1.16.0 through 26.x. Java release and mixin compatibility
+//   level are derived from the Minecraft version automatically; version-specific APIs are
+//   isolated behind the net.ded3ec.compat reflection layer.
 compileJava {
-    options.release = Integer.parseInt(project.java_release)
+    options.release = javaRelease
 }
 
 jar {

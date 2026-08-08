@@ -49,8 +49,8 @@ cp authcore-1.0.0.jar mods/
 
 | Area | Change |
 |:-----|:-------|
-| **Universal jar** | One jar now serves **Minecraft 1.16.x – 26.x**, standalone or behind Velocity/BungeeCord. No more per-version builds. |
-| **Client companion (optional)** | The jar auto-detects: on 1.19.4+ targets it includes the client login-screen companion (players *may* install it on the client for the auto-login GUI — it is **optional**, the server works without it via normal `/login`). |
+| **Universal jar** | One jar now serves **Minecraft 1.16.x – 26.x** on **servers AND clients**, standalone or behind Velocity/BungeeCord. No more per-version builds. |
+| **Client companion (included)** | The universal jar ships `environment: "*"` with the client login-screen companion built in (1.20.2+ clients). On older clients it loads safely and skips the screen. Players do not need anything extra — login/registration work with normal chat commands on any version. |
 | **Performance** | Users are loaded lazily from the DB (great for 100k+ registered accounts). New `cache-max-users` option (default 20000) tunes memory. |
 | **New security features** | Maintenance mode, honeypot, password history, fast-rejoin alert, readonly web token, migration suspension — all disabled by default unless you enable them. |
 | **Logging** | New `logging { show-banner, show-summary, show-untested-version-warning }` options. |

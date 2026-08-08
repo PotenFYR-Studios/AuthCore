@@ -8,13 +8,21 @@ import java.nio.file.Path;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ClientPlayNetworkHandler;
+import net.minecraft.text.Text;
 
 /**
- * Client companion for AuthCore (client-included build, Minecraft 1.19.4+).
+ * Client companion for AuthCore - bundled in the SAME universal jar (environment "*").
  *
  * <p>Shows a custom username/password login screen before connecting to servers that run
  * AuthCore, then automatically executes {@code /login} (or {@code /register}) after joining.
+ *
+ * <p>Version-safety: this class only references classes that exist on every supported
+ * Minecraft version (1.16.x - 26.x). Version-specific types (CookieStorage etc.) are only
+ * touched via reflection, so loading the class on an old client is always safe - the
+ * companion simply deactivates itself where the screen APIs do not exist (1.20.1 and older),
+ * and auto-login keeps working everywhere via the version-stable {@code sendChatMessage}.
  *
  * <p>Configuration lives in {@code config/authcore-client.json}:
  *
@@ -50,35 +58,80 @@ public final class ClientAuthCore implements ClientModInitializer {
 
   @Override
   public void onInitializeClient() {
+    // The login screen APIs (CookieStorage etc.) only exist on 1.20.2+. On older clients the
+    // companion stays inert (no screen, no command) but the jar itself loads without issues.
+    if (!clientSupported()) return;
     loadConfig();
     registerAuthClientCommand();
   }
 
+  /** Whether this client build has the APIs needed by the companion (1.20.2+). */
+  public static boolean clientSupported() {
+    try {
+      Class.forName("net.minecraft.client.network.CookieStorage");
+      return true;
+    } catch (Throwable notPresent) {
+      return false;
+    }
+  }
+
   private void registerAuthClientCommand() {
     try {
-      net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback.EVENT.register(
-          (dispatcher, registryAccess) -> {
-            var command =
-                net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.literal("authclient")
-                    .executes(
-                        context -> {
-                          ServerContext ctx = lastServer;
-                          if (ctx == null) {
-                            context.getSource()
-                                .sendFeedback(
-                                    net.minecraft.text.Text.literal(
-                                        "AuthCore: no server to log in to yet. Join a server first."));
-                            return 0;
-                          }
-                          MinecraftClient.getInstance().setScreen(
-                              new LoginScreen(
-                                  null, ctx.address, ctx.info, ctx.quickPlay, ctx.cookieStorage));
-                          return 1;
-                        });
-            dispatcher.register(command);
-          });
-    } catch (Exception err) {
+      // net.fabricmc.fabric.api.client.command.v2 - loaded reflectively so the class body
+      // never resolves fabric-api classes on old clients (see class javadoc)
+      Class<?> callback =
+          Class.forName("net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback");
+      Class<?> command = Class.forName("com.mojang.brigadier.Command");
+      Class<?> manager = Class.forName("net.fabricmc.fabric.api.client.command.v2.ClientCommandManager");
+
+      Object event = callback.getField("EVENT").get(null);
+
+      Object node = buildAuthClientCommandNode(command, manager);
+      if (node != null) {
+        // Register via a proxy for the callback interface; the interface is resolved at
+        // runtime from the fabric-api present on this client version.
+        Object registration =
+            java.lang.reflect.Proxy.newProxyInstance(
+                callback.getClassLoader(),
+                new Class<?>[] {callback},
+                (proxy, method, args) -> {
+                  if (method.getName().equals("register")) {
+                    Object dispatcherArg = args[0];
+                    Class<?> commandNode = Class.forName("com.mojang.brigadier.tree.CommandNode");
+                    dispatcherArg
+                        .getClass()
+                        .getMethod("register", commandNode)
+                        .invoke(dispatcherArg, node);
+                  }
+                  return null;
+                });
+        event.getClass().getMethod("register", callback).invoke(event, registration);
+      }
+    } catch (Throwable err) {
       // client command API not available on this version
+    }
+  }
+
+  /** Builds the /authclient command node reflectively; returns null when unsupported. */
+  private static Object buildAuthClientCommandNode(Class<?> command, Class<?> manager) {
+    try {
+      Object run =
+          java.lang.reflect.Proxy.newProxyInstance(
+              command.getClassLoader(),
+              new Class<?>[] {command},
+              (proxy, method, args) -> {
+                if (method.getName().equals("run")) {
+                  ServerContext ctx = lastServer;
+                  if (ctx == null) return 0;
+                  openLoginScreen(null, MinecraftClient.getInstance(), ctx);
+                  return 1;
+                }
+                return null;
+              });
+      Object literal = manager.getMethod("literal", String.class).invoke(null, "authclient");
+      return literal.getClass().getMethod("executes", command).invoke(literal, run);
+    } catch (Throwable ignored) {
+      return null; // command API shape differs - skip the command
     }
   }
 
@@ -115,6 +168,34 @@ public final class ClientAuthCore implements ClientModInitializer {
     return false;
   }
 
+  /**
+   * Opens the AuthCore login screen for the server the player is about to join. Called from
+   * {@code ConnectScreenMixin}; only ever invoked on clients where the screen APIs exist.
+   */
+  public static void openLoginScreen(
+      Screen parent, MinecraftClient client, Object address, Object info,
+      boolean quickPlay, Object cookieStorage) {
+    try {
+      Class<?> ls = Class.forName("net.ded3ec.client.LoginScreen");
+      java.lang.reflect.Constructor<?> ctor =
+          ls.getConstructor(
+              Screen.class,
+              Class.forName("net.minecraft.client.network.ServerAddress"),
+              Class.forName("net.minecraft.client.network.ServerInfo"),
+              boolean.class,
+              Class.forName("net.minecraft.client.network.CookieStorage"));
+      client.setScreen((Screen) ctor.newInstance(parent, address, info, quickPlay, cookieStorage));
+    } catch (Throwable err) {
+      // screen API unavailable - connect normally without the login screen
+    }
+  }
+
+  /** Convenience overload used by /authclient (no parent screen). */
+  public static void openLoginScreen(Screen parent, MinecraftClient client, ServerContext ctx) {
+    openLoginScreen(
+        parent, client, ctx.address, ctx.info, ctx.quickPlay, ctx.cookieStorage);
+  }
+
   /** Called from the client mixin after the player joins the world. */
   public static void onJoined(ClientPlayNetworkHandler handler) {
     PendingLogin login = pending;
@@ -132,15 +213,17 @@ public final class ClientAuthCore implements ClientModInitializer {
               MinecraftClient.getInstance().execute(
                   () -> {
                     try {
-                      // Primary path: auto-login command
+                      // sendChatMessage(String) exists on every supported version (1.16 - 26.x)
                       handler.sendChatMessage(command);
-                    } catch (Exception fallbackErr) {
-                      // Fallback: the client cannot send the command (e.g. signed-chat
-                      // restrictions) - tell the player to type it manually
-                      MinecraftClient.getInstance().player.sendMessage(
-                          net.minecraft.text.Text.literal(
-                              "[AuthCore] Auto-login unavailable - please type: " + command),
-                          false);
+                    } catch (Throwable fallbackErr) {
+                      // The client cannot send the command (e.g. signed-chat restrictions) -
+                      // tell the player to type it manually
+                      MinecraftClient.getInstance()
+                          .player
+                          .sendMessage(
+                              Text.literal(
+                                  "[AuthCore] Auto-login unavailable - please type: " + command),
+                              false);
                     }
                   });
             },
@@ -161,18 +244,19 @@ public final class ClientAuthCore implements ClientModInitializer {
     }
   }
 
-  /** Server connection context captured by the mixin (used by /authclient). */
+  /**
+   * Server connection context captured by the mixin (used by /authclient). Fields are typed as
+   * {@link Object} so the class loads on every Minecraft version - the mixin only ever fills
+   * them on clients where the concrete types exist.
+   */
   public static final class ServerContext {
-    public final net.minecraft.client.network.ServerAddress address;
-    public final net.minecraft.client.network.ServerInfo info;
+    public final Object address;
+    public final Object info;
     public final boolean quickPlay;
-    public final net.minecraft.client.network.CookieStorage cookieStorage;
+    public final Object cookieStorage;
 
     public ServerContext(
-        net.minecraft.client.network.ServerAddress address,
-        net.minecraft.client.network.ServerInfo info,
-        boolean quickPlay,
-        net.minecraft.client.network.CookieStorage cookieStorage) {
+        Object address, Object info, boolean quickPlay, Object cookieStorage) {
       this.address = address;
       this.info = info;
       this.quickPlay = quickPlay;

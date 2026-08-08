@@ -6,7 +6,7 @@
 [![CurseForge Downloads](https://img.shields.io/curseforge/dt/1417839?style=for-the-badge&label=CurseForge&color=orange)](https://www.curseforge.com/minecraft/mc-mods/authcore)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/changelogs/changelog.md)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE)
-[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/build.yml?branch=main&style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/actions)
+[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/actions)
 
 **AuthCore** is a login & security mod for **Fabric servers**. It puts every player through a
 secure authentication flow the moment they join — blocking bots, griefers, account thieves, and
@@ -561,12 +561,12 @@ Everything is documented in depth:
 
 ## 🖥️ Client Companion (Login Screen)
 
-> ⚡ **Optional build.** The default universal jar ships `environment: server` only, so it runs
-> on dedicated servers as-is. To also get the **client-side login screen**, build the jar with
-> `-Pclient_build=true` — the companion requires a **1.19.4+ client** (the server jar itself
-> runs 1.16.0+). The optional client companion is verified by the
-> [`client-check.yml`](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/client-check.yml)
-> workflow against 1.20.6 and 1.21.11 on every push.
+> ⚡ **Included in the universal jar.** The jar ships `environment: "*"` — it runs on dedicated
+> servers AND as a client mod, on **every supported version (1.16.0 – 26.x)**. The client-side
+> **login screen** requires a **1.20.2+ client** (the screen/cookie APIs); on older clients the
+> jar loads safely and simply skips the screen (auto-login after joining still works via chat).
+> Every push is verified by the single [`ci.yml`](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)
+> workflow (source compiles against 1.16.5 … 1.21.11, server + client where supported).
 
 The companion is installed on the **client** too and shows a custom
 **username/password login screen** before connecting to protected servers, then auto-runs
@@ -599,48 +599,49 @@ cd AuthCore
 **One universal jar (1.16.0 – 26.x):** there are no per-version builds and no version-gated
 source sets (`src/modern` / `src/legacy` are gone). Everything lives in `src/main`; version
 differences are handled by the `net.ded3ec.compat` reflection layer and version-stable mixin
-targets. The jar is compiled with `--release 16` and declares `minecraft: >=1.16.0` in
-`fabric.mod.json`, so the **same jar** runs on 1.16.0 through 26.x, standalone or behind
-Velocity/BungeeCord.
+targets. The jar is compiled with `--release 16` and declares `minecraft: >=1.16.0` and
+`environment: "*"` in `fabric.mod.json`, so the **same jar** runs on servers and clients of
+1.16.0 through 26.x, standalone or behind Velocity/BungeeCord.
 
-**Build the client companion too (optional):**
-
-```bash
-./gradlew build -Pclient_build=true   # adds the client login-screen companion (needs 1.19.4+ client APIs)
-```
-
-Without the flag the jar ships server-only, exactly like the release jar on Modrinth.
+> The client login-screen companion is **already in the jar** (1.20.2+ clients; older clients
+> skip it safely). No extra build flag needed.
 
 ## 🔮 Multi-Version Compatibility
 
 AuthCore is built to **outlive the tested range** — one jar, every Minecraft version from
-**1.16.x to 26.x**:
+**1.16.x to 26.x**, on servers AND clients:
 
 - **How it works** — all version-specific APIs are isolated behind `net.ded3ec.compat`
   (reflection bridges for text components, packets, registries, OP/whitelist handling, …) and
   version-stable mixins that list every known method descriptor. Fragile mixins
   (`ServerHandshakeNetworkHandlerMixin`, `ServerLoginNetworkHandlerMixin`,
   `ServerPlayNetworkHandlerChatMixin`) are declared `required:false` — if a future version
-  changes a signature, the mixin simply doesn't apply instead of crashing the server.
-- **CI matrix (`.github/workflows/multi-version-check.yml`)** — every push and PR runs the
-  build against **1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (pass/fail + per-version
-  build logs uploaded on failure), **and attempts 26.2** with **official Mojang mappings**
-  (yarn doesn't cover 26.x yet) via `mappings_type=mojmap` in `gradle.properties`. The 26.2 job
-  is expected to be the one that needs attention as mixin targets re-map — the matrix reports
-  it instead of hiding it.
-- **`.github/workflows/build.yml`** — the release gate: double build (1.21.11 shipped target +
-  1.16.5) plus the security test suite on every push to `main`.
-- **`.github/workflows/client-check.yml`** — verifies the optional `-Pclient_build=true`
-  companion against 1.20.6 and 1.21.11.
+  changes a signature, the mixin simply doesn't apply instead of crashing the server (tick
+  re-assert guards in the lobby keep the security invariants intact).
+- **One universal jar** — built once, classes compiled at **Java 16 level** (major 60), so the
+  same jar loads on every JVM from Java 16 (1.16.x servers) through Java 25 (required by 26.x).
+  `fabric.mod.json` declares `environment: "*"` + the client entrypoint, so it is one file for
+  server mods, client mods and proxy environments.
+- **Single CI workflow (`.github/workflows/ci.yml`)** — every push/PR compiles the identical
+  source against **1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (server + client
+  companion where the screen APIs exist), builds and uploads the universal jar, runs the
+  security test suite, and drafts a GitHub **Release** with the jar on `v*` tags.
+- **26.x status (honest)** — the Fabric ecosystem publishes **no mappings (yarn/mojmap/hashed)
+  for 26.x yet**, so *no* fabric mod source can currently compile against 26.2 — including
+  ours. 26.x support is delivered by design: Java-16 class files run on Java 25, the jar's
+  bytecode targets stable **intermediary** names that the loader remaps at runtime, and
+  fragile mixins degrade gracefully. The `26x` CI job verifies the 26.2 ecosystem (Minecraft,
+  loader 0.19.3, fabric-api 0.156.0+26.2) and the jar's compatibility properties every push;
+  **compile-verification is added automatically once mappings exist**. Test on a staging 26.2
+  server before production rollout.
 - **Startup banner warning** — when the running game version is not in the tested set,
   AuthCore logs a **warning banner** and keeps working; it never refuses to load. You can
-  silence it with `logging.show-untested-version-warning = false`. Test in a staging
-  environment before rolling out to production on an untested version.
+  silence it with `logging.show-untested-version-warning = false`.
 
 ## 🧪 Security Testing
 
 The security & business-logic core ships with a **standalone test suite** (no Minecraft
-needed): `tools/security-tests/` — **57 checks** covering password hashing round-trips for all
+needed): `tools/security-tests/` — **58 checks** covering password hashing round-trips for all
 6 algorithms, unique per-hash salts, captcha lifecycle, email recovery codes, the rate limiter,
 proxy IP parsing, device fingerprints and time formatting. Run it after a build:
 
