@@ -40,12 +40,13 @@ All notable changes to AuthCore, from the first alpha to the current release.
   gradle-validate / dependency-audit / multi-version-check / release) were merged into a
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
-- **26.x status (honest)**: the Fabric ecosystem publishes no yarn/mojmap/hashed mappings for
-  26.x yet, so no fabric mod can compile against 26.2 today. 26.x support is delivered by the
-  universal jar's Java-16 class files (run on Java 25), intermediary-stable references and
-  required:false mixins with tick-guard fallbacks; a dedicated CI job verifies the 26.2
-  ecosystem + jar properties, and compile-verification will be added automatically once
-  mappings exist.
+- **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
+  intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
+  source (`src/mojang26x`, `26x/` Gradle project, loom 1.16.x, Java 25, no mappings):
+  `authcore-1.0.0-26x.jar` for **26.1+** servers/clients. The classic universal jar covers
+  **1.16.0 - 1.21.11**. Both jars carry the client login-screen companion (`environment "*"`),
+  and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
+  `docs/26x.md` for the migration/sync workflow.
 
 ### 🚀 Performance for 100k+ users
 - **Lazy user loading** - users are fetched from the database on demand (join/login/whois)

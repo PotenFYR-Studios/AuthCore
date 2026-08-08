@@ -129,59 +129,55 @@ jobs:
           path: build/libs/authcore-*.jar
 
   # ------------------------------------------------------------------
-  # 26.x ecosystem check: Minecraft 26.2 / fabric-loader / fabric-api 26.2
-  # exist, and the universal jar is 26.x-ready. NOTE: the Fabric ecosystem
-  # publishes NO mappings (yarn/mojmap/hashed) for 26.x yet, so no source
-  # can compile against 26.2 at this time - 26.x support is provided by the
-  # universal jar's Java-16 class files + intermediary-stable mixins, and
-  # must be runtime-verified on a 26.2 server.
+  # 26.x jar: Minecraft 26.1+ is UNOBFUSCATED (Mojang names at runtime, no
+  # intermediary), so it needs its own build from the migrated Mojang-named
+  # source in src/mojang26x (built by the standalone 26x/ Gradle project,
+  # loom 1.16.x, Java 25). This is a SEPARATE jar from the classic universal
+  # jar (1.16 - 1.21.11) - the two name-spaces cannot coexist in one jar.
   # ------------------------------------------------------------------
   26x:
     runs-on: ubuntu-latest
-    needs: universal
-    if: always()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify Minecraft 26.2 exists
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew ./26x/gradlew
+
+      - name: Verify Minecraft 26.2 ecosystem
         run: |
           curl -fsS https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | grep -q '"id": "26.2"' \
-            && echo "OK Minecraft 26.2 is the latest release" || { echo "FAIL: 26.2 not found in version manifest"; exit 1; }
-
-      - name: Verify fabric-loader 0.19.3 and fabric-api 0.156.0+26.2 exist
-        run: |
-          curl -fsSI https://maven.fabricmc.net/net/fabricmc/fabric-loader/0.19.3/fabric-loader-0.19.3.pom | grep -q "200" \
-            && echo "OK fabric-loader 0.19.3" || { echo "FAIL loader"; exit 1; }
+            && echo "OK Minecraft 26.2 is the latest release" || { echo "FAIL: 26.2 not found"; exit 1; }
           curl -fsSI https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.156.0+26.2/fabric-api-0.156.0+26.2.pom | grep -q "200" \
             && echo "OK fabric-api 0.156.0+26.2" || { echo "FAIL fabric-api"; exit 1; }
 
-      - name: Verify no mappings are published for 26.2 (why compile-check is impossible)
-        run: |
-          Y=$(curl -fsS https://maven.fabricmc.net/net/fabricmc/yarn/maven-metadata.xml | grep -c '<version>26') || true
-          echo "yarn versions matching 26.*: $Y"
-          if [ "$Y" -eq 0 ]; then
-            echo "OK: no yarn for 26.x - compile verification against 26.2 is impossible for ANY fabric mod today (26.x support is runtime/intermediary-based)"
-          fi
+      - name: Build AuthCore 26.x jar (Mojang names, Java 25)
+        run: ./gradlew clean build
+        working-directory: 26x
 
-      - name: Verify the universal jar is 26.x-ready
-        uses: actions/download-artifact@v4
-        with:
-          name: authcore-universal
-          path: universal
-
-      - name: Inspect jar compatibility properties
+      - name: Verify 26.x jar properties
         run: |
-          JAR=$(ls universal/authcore-*.jar | grep -v sources | grep -v client | head -1)
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK loads on server and client"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0"' && echo "OK declares 1.16.0+"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=16"' && echo "OK declares Java 16+"
+          JAR=$(ls 26x/build/libs/authcore-*.jar | grep -v sources | grep -v client | head -1)
+          echo "jar: $JAR"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=25"' && echo "OK declares Java 25"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
-          [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR runs on Java 16 (1.16.x) through Java 25 (26.x)" || { echo "FAIL major"; exit 1; }
-          unzip -l "$JAR" | grep -q 'net/ded3ec/compat/Compat.class' && echo "OK runtime compat layer present"
-          echo ""
-          echo "26.x status: runtime-supported by design (intermediary-stable mixins + Compat fallbacks)."
-          echo "Compile-verification will be added here automatically once yarn/mojmap mappings exist for 26.x."
+          [ "$MAJOR" -eq 69 ] && echo "OK class major $MAJOR (Java 25)" || { echo "FAIL major $MAJOR"; exit 1; }
+          unzip -l "$JAR" | grep -q 'authcore.server.mixins.json' && echo "OK server mixins config"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
+
+      - name: Upload 26.x jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: authcore-26x
+          path: 26x/build/libs/authcore-*.jar
 
   # ------------------------------------------------------------------
   # Quality: gradle check + wrapper validation on the default target
@@ -246,17 +242,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 + JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: |
+            21
+            25
 
       - name: Make gradlew executable
-        run: chmod +x ./gradlew
+        run: chmod +x ./gradlew ./26x/gradlew
 
-      - name: Build universal release jar
+      - name: Build universal release jar (1.16 - 1.21.11)
         run: ./gradlew clean build
+
+      - name: Build 26.x release jar (26.1+)
+        run: ./gradlew clean build
+        working-directory: 26x
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
       - name: Extract changelog section for this version
         id: changelog
@@ -282,4 +286,5 @@ jobs:
           body_path: release-notes.md
           files: |
             build/libs/authcore-*.jar
+            26x/build/libs/authcore-*.jar
           draft: true
