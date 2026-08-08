@@ -9,7 +9,7 @@ group = project.maven_group
 // ------------------------------------------------------------------
 // Build modes (ONE build script for the whole 1.16.x - 26.x range):
 //
-//   classic (default):  yarn-named source in src/main/java (+ src/client/java).
+//   classic (default):  yarn-named source in src/classic/java (+ src/client/java).
 //                       Universal jar, compiled at Java 16 level, remapped to stable
 //                       intermediary names -> runs on EVERY obfuscated version 1.16 - 1.21.11
 //                       (servers AND clients), see -Puniversal=false for per-version builds.
@@ -22,9 +22,9 @@ ext.modern = (project.findProperty('modern') ?: 'false').toString() == 'true'
 ext.universalBuild = !modern && (project.findProperty('universal') ?: 'true').toString() == 'true'
 
 base {
-    // yarn  = classic build (1.16 - 1.21.11, yarn mappings)   -> authcore-yarn-<v>.jar
-    // mojang = 26.x build (26.1+, Mojang/unobfuscated names)   -> authcore-mojang-<v>.jar
-    archivesName = project.ext.modern ? 'authcore-mojang' : 'authcore-yarn'
+    // classic = 1.16 - 1.21.11 (yarn mappings)  -> authcore-classic-<v>.jar
+    // modern  = 26.1+ (Mojang/unobfuscated)      -> authcore-modern-<v>.jar
+    archivesName = project.ext.modern ? 'authcore-modern' : 'authcore-classic'
 }
 
 ext.mcVersion = modern ? '26.2' : project.minecraft_version
@@ -69,10 +69,10 @@ repositories {
 
 // ------------------------------------------------------------------
 // Source layout: version variants live under src/ next to each other.
-//   src/main/java     classic yarn server code (1.16 - 1.21.11)
+//   src/classic/java     classic yarn server code (1.16 - 1.21.11)
 //   src/client/java   classic yarn client companion
 //   src/modern/java   Mojang-named code for 26.1+ (server + client)
-//   src/main/resources     classic fabric.mod.json + mixin configs + assets
+//   src/classic/resources     classic fabric.mod.json + mixin configs + assets
 //   src/modern/resources   26.x fabric.mod.json (mixins/assets are shared)
 // ------------------------------------------------------------------
 sourceSets {
@@ -83,7 +83,14 @@ sourceSets {
             }
             resources {
                 srcDir 'src/modern/resources'
-                srcDir 'src/main/resources'
+                srcDir 'src/classic/resources'
+            }
+        } else {
+            java {
+                srcDirs = ['src/classic/java']
+            }
+            resources {
+                srcDir 'src/classic/resources'
             }
         }
     }
@@ -152,11 +159,11 @@ processResources {
     inputs.property "version", project.version
     inputs.property "mixin_compatibility_level", mixinCompatibilityLevel
 
-    // For the 26.x build, loom prepends src/main/resources to the resource dirs during its
+    // For the 26.x build, loom prepends src/classic/resources to the resource dirs during its
     // setup; re-order afterwards so the 26.x fabric.mod.json wins the duplicate resolution.
     if (modern) {
         afterEvaluate {
-            sourceSets.main.resources.srcDirs = ['src/modern/resources', 'src/main/resources']
+            sourceSets.main.resources.srcDirs = ['src/modern/resources', 'src/classic/resources']
         }
     }
 

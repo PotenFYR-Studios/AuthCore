@@ -211,17 +211,26 @@ public final class WebPanel {
     try {
       String provided = extractToken(exchange);
 
-      // Full token
-      boolean fullAccess = token.equals(provided);
+      // Brute-force guard: after repeated failed token attempts from one source IP, the
+      // panel rejects further requests from that IP for a lockout window.
+      if (isLockedOut(exchange)) {
+        respond(exchange, 429, error("Too many failed attempts - try again later"));
+        return;
+      }
+
+      // Constant-time comparisons (no timing side-channel on the token)
+      boolean fullAccess = constantTimeEquals(token, provided);
       // Read-only token (view data, no actions)
       String readOnly = AuthCoreServer.config.session.webPanel.readonlyToken;
       boolean readOnlyAccess =
-          readOnly != null && !readOnly.isBlank() && readOnly.equals(provided);
+          readOnly != null && !readOnly.isBlank() && constantTimeEquals(readOnly, provided);
 
       if (!fullAccess && !readOnlyAccess) {
+        recordFailedAttempt(exchange);
         respond(exchange, 401, error("Unauthorized - send 'Authorization: Bearer <token>'"));
         return;
       }
+      recordSuccess(exchange);
 
       String path = exchange.getRequestURI().getPath();
       String method = exchange.getRequestMethod();
@@ -258,8 +267,10 @@ public final class WebPanel {
 
       respond(exchange, 404, error("Not found"));
     } catch (Exception err) {
+      // Never leak internal details to the client
+      AuthCoreServer.LOGGER.debug(null, "Web panel request failed:", err);
       try {
-        respond(exchange, 500, error("Internal error: " + err.getMessage()));
+        respond(exchange, 500, error("Internal server error"));
       } catch (Exception ignored) {
         // response already failed
       }
@@ -273,9 +284,65 @@ public final class WebPanel {
       String header = exchange.getRequestHeaders().getFirst("Authorization");
       if (header == null) return false;
       String expected = "Bearer " + token;
-      return expected.equals(header.trim()) || token.equals(header.trim());
+      return constantTimeEquals(expected, header.trim()) || constantTimeEquals(token, header.trim());
     } catch (Exception err) {
       return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // Constant-time token comparison + per-IP brute-force lockout
+  // ------------------------------------------------------------------
+
+  /** Constant-time comparison of two strings (timing-attack safe). */
+  private static boolean constantTimeEquals(String a, String b) {
+    if (a == null || b == null) return false;
+    return java.security.MessageDigest.isEqual(
+        a.getBytes(StandardCharsets.UTF_8), b.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private static final int MAX_ATTEMPTS = 5;
+  private static final long LOCKOUT_MS = 60_000L;
+  private static final java.util.Map<String, long[]> FAILED_ATTEMPTS = new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static boolean isLockedOut(HttpExchange exchange) {
+    String ip = clientIp(exchange);
+    long[] entry = FAILED_ATTEMPTS.get(ip);
+    if (entry == null) return false;
+    long now = System.currentTimeMillis();
+    // Reset the counter once the lockout window has passed
+    if (entry[1] != 0L && now > entry[1]) {
+      FAILED_ATTEMPTS.remove(ip);
+      return false;
+    }
+    return entry[0] >= MAX_ATTEMPTS;
+  }
+
+  private static void recordFailedAttempt(HttpExchange exchange) {
+    String ip = clientIp(exchange);
+    long now = System.currentTimeMillis();
+    FAILED_ATTEMPTS.compute(
+        ip,
+        (k, entry) -> {
+          if (entry == null) return new long[] {1, 0L};
+          // Keep counting only within the same lockout window
+          if (entry[1] != 0L || now - entry[0] > LOCKOUT_MS) return new long[] {1, 0L};
+          long[] next = {entry[0] + 1, 0L};
+          if (next[0] >= MAX_ATTEMPTS) next[1] = now + LOCKOUT_MS;
+          return next;
+        });
+  }
+
+  private static void recordSuccess(HttpExchange exchange) {
+    FAILED_ATTEMPTS.remove(clientIp(exchange));
+  }
+
+  private static String clientIp(HttpExchange exchange) {
+    try {
+      var addr = exchange.getRemoteAddress();
+      return addr == null || addr.getAddress() == null ? "unknown" : addr.getAddress().getHostAddress();
+    } catch (Exception err) {
+      return "unknown";
     }
   }
 
