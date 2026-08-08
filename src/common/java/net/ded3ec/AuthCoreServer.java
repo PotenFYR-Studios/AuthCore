@@ -30,10 +30,12 @@ public class AuthCoreServer implements DedicatedServerModInitializer {
 
   /**
    * Dedicated daemon thread pool for off-main-thread I/O (GeoIP lookups etc.). Daemon threads do
-   * not keep the JVM alive and never block the server tick loop.
+   * not keep the JVM alive and never block the server tick loop. Bounded (fixed size) so a burst
+   * of lookups can never spawn unbounded threads on a production server.
    */
   public static final ExecutorService IO_EXECUTOR =
-      Executors.newCachedThreadPool(
+      Executors.newFixedThreadPool(
+          4,
           runnable -> {
             Thread thread = new Thread(runnable, "AuthCore-IO");
             thread.setDaemon(true);

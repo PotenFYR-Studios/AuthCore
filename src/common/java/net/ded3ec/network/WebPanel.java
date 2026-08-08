@@ -89,13 +89,21 @@ public final class WebPanel {
       }
 
       server.createContext("/", exchange -> handle(exchange, tokenHolder[0]));
+      // Bounded executor: an admin panel must never spawn unbounded threads under load.
+      // CallerRuns back-pressures onto the HttpServer dispatcher when saturated.
       server.setExecutor(
-          java.util.concurrent.Executors.newCachedThreadPool(
+          new java.util.concurrent.ThreadPoolExecutor(
+              2,
+              8,
+              60L,
+              java.util.concurrent.TimeUnit.SECONDS,
+              new java.util.concurrent.LinkedBlockingQueue<>(64),
               runnable -> {
                 Thread thread = new Thread(runnable, "AuthCore-WebPanel");
                 thread.setDaemon(true);
                 return thread;
-              }));
+              },
+              new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()));
       server.start();
     } catch (Exception err) {
       AuthCoreServer.LOGGER.error(
