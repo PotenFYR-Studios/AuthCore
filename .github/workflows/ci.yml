@@ -1,11 +1,10 @@
 name: CI
 
-# ONE workflow for everything:
-#   - builds THE universal jar (server + client, 1.16.x - 26.x) and runs the test suite
-#   - verifies the identical source compiles against every supported Minecraft version
-#     (1.16.5 ... 1.21.11; 26.x has no published mappings yet - see the 26x job)
-#   - drafts a GitHub Release with the jar on tag pushes (v*)
-#   - manual jobs: dependency report, wrapper validation
+# ONE workflow, THREE jobs - minimal notifications:
+#   build   - builds BOTH jars (authcore-yarn for 1.16-1.21.11, authcore-mojang for 26.1+),
+#             verifies them and runs the security test suite
+#   matrix  - single job that compiles the source against 1.16.5 ... 1.21.11
+#   release - on v* tags: builds both jars, drafts+publishes a GitHub Release with them
 
 on:
   push:
@@ -19,147 +18,42 @@ permissions:
   contents: write
 
 jobs:
-  # ------------------------------------------------------------------
-  # THE universal jar: built once against the default target (gradle.properties),
-  # Java-16 class files, environment "*" (server + client), uploaded as artifact.
-  # ------------------------------------------------------------------
-  universal:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 21 + JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '21'
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-universal-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-universal-
+          java-version: |
+            21
+            25
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build universal jar (server + client companion)
+      - name: Build classic universal jar (yarn, 1.16 - 1.21.11)
         run: ./gradlew clean build
 
-      - name: Verify universal jar properties
+      - name: Verify classic jar
         run: |
-          JAR=$(ls build/libs/authcore-*.jar | grep -v sources | grep -v client | head -1)
+          JAR=$(ls build/libs/authcore-yarn-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK environment=*"
-          unzip -p "$JAR" fabric.mod.json | grep -q 'net.ded3ec.client.ClientAuthCore' && echo "OK client entrypoint"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client classes bundled"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0"' && echo "OK declares 1.16.0+"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
-          [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (runs on Java 16 -> 25)" || { echo "FAIL class major $MAJOR > 60"; exit 1; }
+          [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (Java 16, runs on any newer JVM)" || { echo "FAIL major $MAJOR"; exit 1; }
+          unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
 
-      - name: Run security & business-logic tests
-        run: pwsh -File tools/security-tests/run-tests.ps1
-
-      - name: Upload universal jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: authcore-universal
-          path: build/libs/authcore-*.jar
-
-  # ------------------------------------------------------------------
-  # Source-compatibility matrix: the SAME source compiled against every
-  # supported Minecraft version. Client companion compiles automatically
-  # where the screen APIs exist (1.20.2+). Honest failures (no masking).
-  # ------------------------------------------------------------------
-  matrix:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: '1.16.5', mc: '1.16.5',  yarn: '1.16.5+build.10',  loader: '0.14.24', api: '0.42.0+1.16' }
-          - { name: '1.17.1', mc: '1.17.1',  yarn: '1.17.1+build.65',  loader: '0.14.24', api: '0.46.1+1.17' }
-          - { name: '1.18.2', mc: '1.18.2',  yarn: '1.18.2+build.4',   loader: '0.14.24', api: '0.77.0+1.18.2' }
-          - { name: '1.19.4', mc: '1.19.4',  yarn: '1.19.4+build.2',   loader: '0.15.11', api: '0.87.2+1.19.4' }
-          - { name: '1.20.6', mc: '1.20.6',  yarn: '1.20.6+build.3',   loader: '0.15.11', api: '0.100.8+1.20.6' }
-          - { name: '1.21.11', mc: '1.21.11', yarn: '1.21.11+build.6', loader: '0.18.4',  api: '0.141.3+1.21.11' }
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Cache Gradle
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ matrix.name }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ matrix.name }}
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Configure gradle.properties for ${{ matrix.name }}
-        run: |
-          sed -i \
-            -e 's/^minecraft_version=.*/minecraft_version=${{ matrix.mc }}/' \
-            -e 's/^yarn_mappings=.*/yarn_mappings=${{ matrix.yarn }}/' \
-            -e 's/^loader_version=.*/loader_version=${{ matrix.loader }}/' \
-            -e 's/^fabric_api_version=.*/fabric_api_version=${{ matrix.api }}/' \
-            gradle.properties
-          grep -E 'minecraft_version|yarn_mappings|loader_version|fabric_api_version' gradle.properties
-
-      - name: Compile AuthCore against ${{ matrix.name }}
-        run: ./gradlew clean build -Puniversal=false
-
-      - name: Upload per-version verification jar
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: authcore-${{ matrix.name }}
-          path: build/libs/authcore-*.jar
-
-  # ------------------------------------------------------------------
-  # 26.x jar (-Pmodern): Minecraft 26.1+ is UNOBFUSCATED (Mojang names at runtime, no
-  # intermediary), so the same build script compiles the Mojang-named source in
-  # src/modern/java with Java 25 into authcore-mojang-*.jar - a SEPARATE jar from the
-  # classic universal jar (1.16 - 1.21.11); the two name-spaces cannot coexist in one jar.
-  # ------------------------------------------------------------------
-  jar26x:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '25'
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Verify Minecraft 26.2 ecosystem
-        run: |
-          curl -fsS https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | grep -q '"id": "26.2"' \
-            && echo "OK Minecraft 26.2 is the latest release" || { echo "FAIL: 26.2 not found"; exit 1; }
-          curl -fsSI https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.156.0+26.2/fabric-api-0.156.0+26.2.pom | grep -q "200" \
-            && echo "OK fabric-api 0.156.0+26.2" || { echo "FAIL fabric-api"; exit 1; }
-
-      - name: Build AuthCore 26.x jar (Mojang names, Java 25)
+      - name: Build 26.x jar (mojang, 26.1+)
         run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
-      - name: Verify 26.x jar properties
+      - name: Verify 26.x jar
         run: |
           JAR=$(ls build/libs/authcore-mojang-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
@@ -168,19 +62,20 @@ jobs:
           unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=25"' && echo "OK declares Java 25"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
           [ "$MAJOR" -eq 69 ] && echo "OK class major $MAJOR (Java 25)" || { echo "FAIL major $MAJOR"; exit 1; }
-          unzip -l "$JAR" | grep -q 'authcore.server.mixins.json' && echo "OK server mixins config"
           unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
 
-      - name: Upload 26.x jar
+      - name: Run security & business-logic tests
+        run: pwsh -File tools/security-tests/run-tests.ps1
+
+      - name: Upload both jars
         uses: actions/upload-artifact@v4
         with:
-          name: authcore-mojang
-          path: build/libs/authcore-mojang-*.jar
+          name: authcore-jars
+          path: |
+            build/libs/authcore-yarn-*.jar
+            build/libs/authcore-mojang-*.jar
 
-  # ------------------------------------------------------------------
-  # Quality: gradle check + wrapper validation on the default target
-  # ------------------------------------------------------------------
-  quality:
+  matrix:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -195,44 +90,44 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Run Gradle checks
-        run: ./gradlew check
+      - name: Compile the source against every supported version
+        run: |
+          failures=()
+          for row in \
+            "1.16.5 1.16.5+build.10 0.14.24 0.42.0+1.16" \
+            "1.17.1 1.17.1+build.65 0.14.24 0.46.1+1.17" \
+            "1.18.2 1.18.2+build.4 0.14.24 0.77.0+1.18.2" \
+            "1.19.4 1.19.4+build.2 0.15.11 0.87.2+1.19.4" \
+            "1.20.6 1.20.6+build.3 0.15.11 0.100.8+1.20.6" \
+            "1.21.11 1.21.11+build.6 0.18.4 0.141.3+1.21.11"; do
+            read -r mc yarn loader api <<< "$row"
+            sed -i \
+              -e "s/^minecraft_version=.*/minecraft_version=$mc/" \
+              -e "s/^yarn_mappings=.*/yarn_mappings=$yarn/" \
+              -e "s/^loader_version=.*/loader_version=$loader/" \
+              -e "s/^fabric_api_version=.*/fabric_api_version=$api/" \
+              gradle.properties
+            echo "== compiling against Minecraft $mc =="
+            if ./gradlew clean build -Puniversal=false > "build-$mc.log" 2>&1; then
+              echo "PASS $mc"
+            else
+              echo "FAIL $mc"
+              grep -E "error:" "build-$mc.log" | head -10 || true
+              failures+=("$mc")
+            fi
+          done
+          if [ ${#failures[@]} -gt 0 ]; then
+            echo "Compile failures: ${failures[*]}"
+            exit 1
+          fi
 
-      - name: Validate Gradle wrapper
-        run: ./gradlew wrapper --gradle-version 9.6.1 --distribution-type all
-
-  # ------------------------------------------------------------------
-  # Manual: dependency report (workflow_dispatch)
-  # ------------------------------------------------------------------
-  dependencies:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Run Gradle dependencies
-        run: ./gradlew dependencies > dependencies.txt
-
-      - name: Upload dependency report
+      - name: Upload logs on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-report
-          path: dependencies.txt
+          name: matrix-logs
+          path: build-*.log
 
-  # ------------------------------------------------------------------
-  # Release: tag push (v*) -> build the universal jar, extract the changelog
-  # section for this tag, draft a GitHub Release with the jar attached.
-  # ------------------------------------------------------------------
   release:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -251,10 +146,10 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build universal release jar (1.16 - 1.21.11)
+      - name: Build classic jar (yarn, 1.16 - 1.21.11)
         run: ./gradlew clean build
 
-      - name: Build 26.x release jar (26.1+)
+      - name: Build 26.x jar (mojang, 26.1+)
         run: ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
@@ -275,13 +170,13 @@ jobs:
           echo "--- release notes ---"
           cat release-notes.md
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release with both jars
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: AuthCore ${{ steps.changelog.outputs.version }}
+          name: AuthCore ${{ github.ref_name }}
           body_path: release-notes.md
           files: |
             build/libs/authcore-yarn-1.0.0.jar
             build/libs/authcore-mojang-1.0.0.jar
-          draft: true
+          draft: false
