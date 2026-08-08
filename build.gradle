@@ -22,7 +22,9 @@ ext.modern = (project.findProperty('modern') ?: 'false').toString() == 'true'
 ext.universalBuild = !modern && (project.findProperty('universal') ?: 'true').toString() == 'true'
 
 base {
-    archivesName = project.ext.modern ? 'authcore-26x' : project.archives_base_name
+    // yarn  = classic build (1.16 - 1.21.11, yarn mappings)   -> authcore-yarn-<v>.jar
+    // mojang = 26.x build (26.1+, Mojang/unobfuscated names)   -> authcore-mojang-<v>.jar
+    archivesName = project.ext.modern ? 'authcore-mojang' : 'authcore-yarn'
 }
 
 ext.mcVersion = modern ? '26.2' : project.minecraft_version

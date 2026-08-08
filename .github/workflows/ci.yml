@@ -131,7 +131,7 @@ jobs:
   # ------------------------------------------------------------------
   # 26.x jar (-Pmodern): Minecraft 26.1+ is UNOBFUSCATED (Mojang names at runtime, no
   # intermediary), so the same build script compiles the Mojang-named source in
-  # src/modern/java with Java 25 into authcore-26x-*.jar - a SEPARATE jar from the
+  # src/modern/java with Java 25 into authcore-mojang-*.jar - a SEPARATE jar from the
   # classic universal jar (1.16 - 1.21.11); the two name-spaces cannot coexist in one jar.
   # ------------------------------------------------------------------
   jar26x:
@@ -161,7 +161,7 @@ jobs:
 
       - name: Verify 26.x jar properties
         run: |
-          JAR=$(ls build/libs/authcore-26x-*.jar | grep -v sources | head -1)
+          JAR=$(ls build/libs/authcore-mojang-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
@@ -174,8 +174,8 @@ jobs:
       - name: Upload 26.x jar
         uses: actions/upload-artifact@v4
         with:
-          name: authcore-26x
-          path: build/libs/authcore-26x-*.jar
+          name: authcore-mojang
+          path: build/libs/authcore-mojang-*.jar
 
   # ------------------------------------------------------------------
   # Quality: gradle check + wrapper validation on the default target
@@ -282,6 +282,6 @@ jobs:
           name: AuthCore ${{ steps.changelog.outputs.version }}
           body_path: release-notes.md
           files: |
-            build/libs/authcore-1.0.0.jar
-            build/libs/authcore-26x-1.0.0.jar
+            build/libs/authcore-yarn-1.0.0.jar
+            build/libs/authcore-mojang-1.0.0.jar
           draft: true
