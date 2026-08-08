@@ -79,7 +79,7 @@ sourceSets {
     main {
         if (modern) {
             java {
-                srcDirs = ['src/modern/java']
+                srcDirs = ['src/common/java', 'src/modern/java']
             }
             resources {
                 srcDir 'src/modern/resources'
@@ -87,7 +87,7 @@ sourceSets {
             }
         } else {
             java {
-                srcDirs = ['src/classic/java']
+                srcDirs = ['src/common/java', 'src/classic/java']
             }
             resources {
                 srcDir 'src/classic/resources'

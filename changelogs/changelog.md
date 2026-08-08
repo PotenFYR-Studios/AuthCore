@@ -41,7 +41,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   gradle-validate / dependency-audit / multi-version-check / release) were merged into a
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
-- **Repository restructure**: version variants live under src/ (src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code); the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
+- **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
 - **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
   intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
   source (`src/modern/java`, `-Pmodern=true`, loom 1.16.x, Java 25, no mappings):
