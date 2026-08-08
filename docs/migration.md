@@ -49,7 +49,7 @@ cp authcore-1.0.0.jar mods/
 
 | Area | Change |
 |:-----|:-------|
-| **Universal jar** | One jar now serves **Minecraft 1.16.x – 26.x** on **servers AND clients**, standalone or behind Velocity/BungeeCord. No more per-version builds. |
+| **Universal jar + 26.x jar** | Two jars from the same source: uthcore-<v>.jar covers **1.16.0 – 1.21.11** (intermediary era, Java 16 class files), uthcore-<v>-26x.jar covers **26.1+** (unobfuscated Mojang names, Java 25). Both run on servers AND clients, standalone or behind Velocity/BungeeCord. |
 | **Client companion (included)** | The universal jar ships `environment: "*"` with the client login-screen companion built in (1.20.2+ clients). On older clients it loads safely and skips the screen. Players do not need anything extra — login/registration work with normal chat commands on any version. |
 | **Performance** | Users are loaded lazily from the DB (great for 100k+ registered accounts). New `cache-max-users` option (default 20000) tunes memory. |
 | **New security features** | Maintenance mode, honeypot, password history, fast-rejoin alert, readonly web token, migration suspension — all disabled by default unless you enable them. |

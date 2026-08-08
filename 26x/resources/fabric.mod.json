@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "authcore",
+  "version": "${version}",
+  "name": "AuthCore",
+  "description": "AuthCore is a universal authentication framework for Fabric - this build targets Minecraft 26.1+ (unobfuscated, Mojang names). One jar for servers AND clients, behind Velocity/BungeeCord or standalone. Secure player registration and login workflows on offline-mode servers!",
+  "authors": [
+    "Ded3ec"
+  ],
+  "contact": {
+    "homepage": "https://github.com/DawnOfDedSec/AuthCore",
+    "sources": "https://github.com/DawnOfDedSec/AuthCore"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/authcore/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "server": [
+      "net.ded3ec.AuthCoreServer"
+    ],
+    "client": [
+      "net.ded3ec.client.ClientAuthCore"
+    ]
+  },
+  "mixins": [
+    "authcore.server.mixins.json",
+    "authcore.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": ">=26.1",
+    "java": ">=25"
+  },
+  "suggests": {
+    "fabric-api": "*"
+  }
+}

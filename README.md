@@ -608,35 +608,32 @@ targets. The jar is compiled with `--release 16` and declares `minecraft: >=1.16
 
 ## 🔮 Multi-Version Compatibility
 
-AuthCore is built to **outlive the tested range** — one jar, every Minecraft version from
-**1.16.x to 26.x**, on servers AND clients:
+AuthCore supports **every Minecraft version from 1.16.x to 26.x**, on servers AND clients,
+with **two jars built from the same source**:
 
-- **How it works** — all version-specific APIs are isolated behind `net.ded3ec.compat`
-  (reflection bridges for text components, packets, registries, OP/whitelist handling, …) and
-  version-stable mixins that list every known method descriptor. Fragile mixins
-  (`ServerHandshakeNetworkHandlerMixin`, `ServerLoginNetworkHandlerMixin`,
-  `ServerPlayNetworkHandlerChatMixin`) are declared `required:false` — if a future version
-  changes a signature, the mixin simply doesn't apply instead of crashing the server (tick
-  re-assert guards in the lobby keep the security invariants intact).
-- **One universal jar** — built once, classes compiled at **Java 16 level** (major 60), so the
-  same jar loads on every JVM from Java 16 (1.16.x servers) through Java 25 (required by 26.x).
-  `fabric.mod.json` declares `environment: "*"` + the client entrypoint, so it is one file for
-  server mods, client mods and proxy environments.
-- **Single CI workflow (`.github/workflows/ci.yml`)** — every push/PR compiles the identical
-  source against **1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (server + client
-  companion where the screen APIs exist), builds and uploads the universal jar, runs the
-  security test suite, and drafts a GitHub **Release** with the jar on `v*` tags.
-- **26.x status (honest)** — the Fabric ecosystem publishes **no mappings (yarn/mojmap/hashed)
-  for 26.x yet**, so *no* fabric mod source can currently compile against 26.2 — including
-  ours. 26.x support is delivered by design: Java-16 class files run on Java 25, the jar's
-  bytecode targets stable **intermediary** names that the loader remaps at runtime, and
-  fragile mixins degrade gracefully. The `26x` CI job verifies the 26.2 ecosystem (Minecraft,
-  loader 0.19.3, fabric-api 0.156.0+26.2) and the jar's compatibility properties every push;
-  **compile-verification is added automatically once mappings exist**. Test on a staging 26.2
-  server before production rollout.
-- **Startup banner warning** — when the running game version is not in the tested set,
-  AuthCore logs a **warning banner** and keeps working; it never refuses to load. You can
-  silence it with `logging.show-untested-version-warning = false`.
+| Jar | Versions | Why two jars? |
+|:----|:---------|:--------------|
+| `authcore-<v>.jar` (**universal**) | **1.16.0 – 1.21.11** | Obfuscated era: compiled at Java 16 level (major 60), remapped to stable **intermediary** names at build time — one jar runs on every obfuscated version, server and client. |
+| `authcore-<v>-26x.jar` | **26.1+** | Minecraft 26.1+ is **unobfuscated** (Mojang released readable code; **intermediary no longer exists** — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). This jar is compiled from the Mojang-mapped source (`src/mojang26x`) at Java 25 level. |
+
+- **How it works** — version-specific APIs are isolated behind `net.ded3ec.compat` (reflection
+  bridges) and version-stable mixins. Fragile mixins are `required:false` — if a future version
+  changes a signature, the mixin skips instead of crashing (tick re-assert guards in the lobby
+  keep the security invariants intact). The universal jar's bytecode targets stable intermediary
+  names; the 26.x jar uses the game's own (Mojang) names.
+- **The client login-screen companion is bundled in both jars** (`environment: "*"`). It needs
+  the screen APIs (1.20.2+ on the classic line; native on 26.x) — older clients load safely and
+  simply skip the screen; auto-login after joining works everywhere via chat.
+- **Single CI workflow (`.github/workflows/ci.yml`)** — every push/PR: builds the universal jar
+  and the 26.x jar, compiles the identical source against **1.16.5, 1.17.1, 1.18.2, 1.19.4,
+  1.20.6 and 1.21.11**, runs the security test suite, and drafts a GitHub **Release** with both
+  jars on `v*` tags.
+- **Keep both sources in sync** — `src/main/java` (yarn names) and `src/mojang26x/java` (Mojang
+  names) are the same code in two name-spaces; see [`docs/26x.md`](docs/26x.md) for how they are
+  kept in sync and how to migrate.
+- **Startup banner warning** — when the running game version is not in the tested set, AuthCore
+  logs a **warning banner** and keeps working. Silence it with
+  `logging.show-untested-version-warning = false`.
 
 ## 🧪 Security Testing
 
