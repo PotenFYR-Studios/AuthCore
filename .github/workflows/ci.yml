@@ -135,7 +135,7 @@ jobs:
   # loom 1.16.x, Java 25). This is a SEPARATE jar from the classic universal
   # jar (1.16 - 1.21.11) - the two name-spaces cannot coexist in one jar.
   # ------------------------------------------------------------------
-  26x:
+  jar26x:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
