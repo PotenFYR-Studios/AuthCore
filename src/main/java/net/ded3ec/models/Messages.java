@@ -1,5 +1,9 @@
 package net.ded3ec.models;
 
+import net.ded3ec.AuthCoreServer;
+import net.ded3ec.security.Security;
+import net.ded3ec.util.Database;
+
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Comment;
 
@@ -556,6 +560,362 @@ public class Messages {
                           color = "RED";
                         }
                       };
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Setup message shown to players when 2FA (TOTP) support is enabled.
+             • Chat message in BLUE
+             • Placeholders:
+               • %1$s - QR/OTP setup URL""")
+  public ColTemplate promptUser2faSetup =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text =
+                      "2FA is enabled on this server! Scan the QR code with your authenticator app (e.g. Google Authenticator, Authy, Microsoft Authenticator): %1$s";
+                  color = "BLUE";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Generic error shown when a login/register attempt cannot be matched to an account.
+             • Deliberately identical to the wrong-password message to avoid account enumeration.
+             • Default display: Title in RED""")
+  public ColTemplate promptUserInvalidCredentials =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Invalid Credentials!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Captcha challenge shown to lobby players when captcha protection is enabled.
+             • Chat message in YELLOW
+             • Placeholders:
+               • %1$s - The captcha code to type with /login or /register""")
+  public ColTemplate promptUserCaptchaRequired =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Captcha: type the code %1$s as the last argument of /login or /register!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when a wrong captcha code is provided.
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserCaptchaWrong =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Wrong captcha code! Please try again.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when an account is temporarily locked after too many failed logins.
+             • Placeholders:
+               • %1$s - Remaining lock duration
+             • Default display: Title in RED""")
+  public ColTemplate promptUserAccountLocked =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Account Locked!";
+                  color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Too many failed attempts. Try again in %1$s.";
+                          color = "RED";
+                        }
+                      };
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shows the account's backup recovery codes.
+             • Placeholders:
+               • %1$s - Comma separated recovery codes
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserRecoveryCodes =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your backup recovery codes: %1$s - store them somewhere safe!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shows the recent login history for a player (admin command).
+             • Placeholders:
+               • %1$s - Username
+               • %2$s - Multi-line login history
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptAdminLoginHistory =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Login history for '%1$s':\n%2$s";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Confirmation shown after a successful database backup (admin command).
+             • Placeholders:
+               • %1$s - Backup file path
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptAdminBackupDone =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Database backup created: %1$s";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Confirmation shown after the account email was set.
+             • Placeholders:
+               • %1$s - The email address
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserEmailSet =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your email has been set to %1$s - it will be used for login alerts and password recovery.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when an invalid email address is provided.
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserEmailInvalid =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "That does not look like a valid email address!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown after requesting a password recovery code (never reveals whether the email
+             matched an account).
+             • Placeholders:
+               • %1$s - The email address
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserEmailRecoverySent =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "If %1$s is registered to your account, a recovery code has been sent to it.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when a recovery code is wrong or expired.
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserRecoveryInvalid =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Invalid or expired recovery code! Request a new one with /account recover.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Confirmation shown after the password was recovered via email code.
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserRecoveryCompleted =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your password has been recovered! You can now log in with your new password.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when a command is used too quickly again (command cooldown).
+             • Placeholders:
+               • %1$s - Remaining wait time
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserCommandCooldown =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Please wait %1$s before using that command again!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Confirmation shown after the display nickname was set.
+             • Placeholders:
+               • %1$s - The new nickname
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserNicknameSet =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your nickname has been set to %1$s!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Discord link code shown to the player (Discord account linking).
+             • Placeholders:
+               • %1$s - The link code to send to the server's Discord bot
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserDiscordLinkCode =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Discord link code: %1$s - send it to the server's Discord bot to link your account (valid 10 minutes)!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when the account is already linked to a Discord account.
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserDiscordAlreadyLinked =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Your account is already linked to a Discord account! Use /discord unlink first.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown when the account is not linked to any Discord account.
+             • Default display: Action bar in RED""")
+  public ColTemplate promptUserDiscordNotLinked =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Your account is not linked to a Discord account! Use /discord link first.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Confirmation shown after the Discord link was removed.
+             • Default display: Chat message in GREEN""")
+  public ColTemplate promptUserDiscordUnlinked =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your Discord link has been removed!";
+                  color = "GREEN";
                 }
               };
         }

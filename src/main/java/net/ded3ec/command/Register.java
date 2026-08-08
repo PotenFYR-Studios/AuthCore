@@ -1,5 +1,12 @@
 package net.ded3ec.command;
 
+import net.ded3ec.models.Config;
+import net.ded3ec.models.Lobby;
+import net.ded3ec.models.Messages;
+import net.ded3ec.network.Webhook;
+import net.ded3ec.security.SecurityLog;
+import net.ded3ec.util.Logger;
+
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;
 import static net.minecraft.server.command.CommandManager.argument;
@@ -9,8 +16,9 @@ import com.mojang.brigadier.CommandDispatcher;
 import java.util.UUID;
 import net.ded3ec.AuthCoreServer;
 import net.ded3ec.models.User;
-import net.ded3ec.utils.McApiManager;
-import net.ded3ec.utils.Security;
+import net.ded3ec.network.McApiManager;
+import net.ded3ec.security.Security;
+import net.ded3ec.util.TimeManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.apache.commons.lang3.StringUtils;
@@ -34,10 +42,11 @@ public class Register {
         literal("register")
             .requires(
                 (ctx) -> {
-                  if (ctx.getPlayer() == null) return false;
+                  ServerPlayerEntity player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                  if (player == null) return false;
 
-                  UUID uuid = ctx.getPlayer().getUuid();
-                  String username = ctx.getPlayer().getName().getString();
+                  UUID uuid = player.getUuid();
+                  String username = player.getName().getString();
                   User user = User.getUser(username, uuid);
 
                   // Ensures the player is in the lobby and not already registered.
@@ -46,7 +55,7 @@ public class Register {
                       && !user.isAuthenticated.get()
                       && !user.isRegistered.get()
                       && McApiManager.PermissionUtil.has(
-                          ctx.getPlayer(),
+                          player,
                           AuthCoreServer.config.commands.user.register.luckPermsNode,
                           AuthCoreServer.config.commands.user.register.permissionsLevel);
                 })
@@ -55,7 +64,7 @@ public class Register {
                     .executes(
                         ctx ->
                             registerCommand(
-                                ctx.getSource(), getString(ctx, "password"), null, null))
+                                ctx.getSource(), getString(ctx, "password"), null, null, null))
                     .then(
                         argument("confirm-password", string())
                             .requires(
@@ -70,6 +79,7 @@ public class Register {
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         getString(ctx, "confirm-password"),
+                                        null,
                                         null))
                             .then(
                                 // Add the "2fa-code" argument to the command.
@@ -80,7 +90,19 @@ public class Register {
                                                 ctx.getSource(),
                                                 getString(ctx, "password"),
                                                 getString(ctx, "confirm-password"),
-                                                getString(ctx, "2fa-code")))))
+                                                getString(ctx, "2fa-code"),
+                                                null))
+                                    .then(
+                                        // Add the "captcha-code" argument to the command.
+                                        argument("captcha-code", string())
+                                            .executes(
+                                                ctx ->
+                                                    registerCommand(
+                                                        ctx.getSource(),
+                                                        getString(ctx, "password"),
+                                                        getString(ctx, "confirm-password"),
+                                                        getString(ctx, "2fa-code"),
+                                                        getString(ctx, "captcha-code"))))))
                     .then(
                         // Add the "2fa-code" argument to the command.
                         argument("2fa-code", string())
@@ -90,7 +112,30 @@ public class Register {
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         null,
-                                        getString(ctx, "2fa-code"))))));
+                                        getString(ctx, "2fa-code"),
+                                        null))
+                            .then(
+                                // Add the "captcha-code" argument to the command.
+                                argument("captcha-code", string())
+                                    .executes(
+                                        ctx ->
+                                            registerCommand(
+                                                ctx.getSource(),
+                                                getString(ctx, "password"),
+                                                null,
+                                                getString(ctx, "2fa-code"),
+                                                getString(ctx, "captcha-code")))))
+                    .then(
+                        // Add the "captcha-code" argument to the command.
+                        argument("captcha-code", string())
+                            .executes(
+                                ctx ->
+                                    registerCommand(
+                                        ctx.getSource(),
+                                        getString(ctx, "password"),
+                                        null,
+                                        null,
+                                        getString(ctx, "captcha-code"))))));
   }
 
   /**
@@ -106,12 +151,21 @@ public class Register {
       ServerCommandSource source,
       @NotNull String password,
       @Nullable String confirmPassword,
-      String authCode) {
+      String authCode,
+      String captchaCode) {
     try {
       ServerPlayerEntity player = source.getPlayer();
 
       if (player == null)
         return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      // Command cooldown (anti-spam)
+      if (!net.ded3ec.security.RateLimiter.tryAcquire(
+          "cmd:register:" + player.getUuid(),
+          1,
+          AuthCoreServer.config.session.rateLimit.commandCooldownMs))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
 
       AuthCoreServer.LOGGER.debug(
           0, "{} used '/register' command in the Server!", player.getName().getString());
@@ -122,12 +176,40 @@ public class Register {
 
       // Handle cases where the user data is not found or the user is already registered.
       if (user == null)
-        return AuthCoreServer.LOGGER.toKick(
-            0, player.networkHandler, AuthCoreServer.messages.promptUserNotFoundData);
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.networkHandler, AuthCoreServer.messages.promptUserInvalidCredentials);
 
       if (user.isRegistered.get())
         return AuthCoreServer.LOGGER.toUser(
             0, player.networkHandler, AuthCoreServer.messages.promptUserAlreadyRegistered);
+
+      // Defense in depth: re-verify the command prerequisites at execution time
+      if (!user.isInLobby.get() || user.isAuthenticated.get())
+        return AuthCoreServer.LOGGER.toUser(
+            0, player.networkHandler, AuthCoreServer.messages.promptUserAlreadyRegistered);
+
+      // Account lock check (persistent auto-lock after repeated failed logins)
+      if (AuthCoreServer.config.session.accountLock.enabled && user.isLocked()) {
+        long remainingMs = user.lockUntilMs - System.currentTimeMillis();
+        return AuthCoreServer.LOGGER.toUser(
+            1,
+            player.networkHandler,
+            AuthCoreServer.messages.promptUserAccountLocked,
+            TimeManager.toDuration(Math.max(remainingMs, 1000)));
+      }
+
+      // Captcha verification (bot protection)
+      if (AuthCoreServer.config.lobby.captcha.enabled) {
+        if (captchaCode == null)
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.networkHandler, AuthCoreServer.messages.promptUserCaptchaRequired, "?");
+        if (!Security.CaptchaManager.verify(uuid, captchaCode)) {
+          net.ded3ec.security.SecurityLog.log(
+              "REGISTER_CAPTCHA_FAIL", username + " failed the captcha");
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.networkHandler, AuthCoreServer.messages.promptUserCaptchaWrong);
+        }
+      }
 
       // Validate the password and load the user if valid.
       if (checkPassword(player, password, confirmPassword)) {
@@ -146,6 +228,10 @@ public class Register {
             1, player.networkHandler, AuthCoreServer.messages.promptUserRegisteredSuccessfully);
 
         user.register(player, password);
+
+        net.ded3ec.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIp());
+        net.ded3ec.network.Webhook.send(
+            ":white_check_mark: **" + username + "** registered on the server.");
         return 1;
       }
 

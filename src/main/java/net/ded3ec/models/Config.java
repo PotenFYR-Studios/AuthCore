@@ -1,5 +1,11 @@
 package net.ded3ec.models;
 
+import net.ded3ec.network.ProxySupport;
+import net.ded3ec.network.Webhook;
+import net.ded3ec.network.WebPanel;
+import net.ded3ec.security.Security;
+import net.ded3ec.util.Database;
+
 import java.util.Set;
 
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
@@ -16,11 +22,38 @@ public class Config {
 
   @Comment(
       """
+            Language/locale used for player-facing messages.
+            • "en" → messages.conf
+            • "zh" → messages-zh.conf (简体中文)
+            • "es" → messages-es.conf (Español)
+            • "de" → messages-de.conf (Deutsch)
+            • "fr" → messages-fr.conf (Français)
+            • "pt" → messages-pt.conf (Português)
+            • "ru" → messages-ru.conf (Русский)
+            • A bundled locale file is extracted automatically on first start.
+            • Default: "en\"""")
+  public String language = "en";
+
+  @Comment(
+      """
             Enables detailed debug logging to the console.
             • Useful for troubleshooting issues.
             • Recommended: false in production to reduce log spam.
             • Default: false""")
   public boolean debugMode = false;
+
+  @Comment(
+      """
+            Logging customization.""")
+  public LoggingConfig logging = new LoggingConfig();
+
+  @Comment(
+      """
+            In-memory user cache size (lazy-loaded from the DB).
+            • Larger = fewer DB queries, more memory. Online users are never evicted.
+            • For 500k+ registered accounts keep this modest (e.g. 10000).
+            • Default: 20000""")
+  public int cacheMaxUsers = 20000;
 
   @Comment(
       """
@@ -282,6 +315,19 @@ public class Config {
   }
 
   @ConfigSerializable
+  public static class LoggingConfig {
+
+    @Comment("Show the ASCII startup banner. Default: true")
+    public boolean showBanner = true;
+
+    @Comment("Show the version/security summary at startup. Default: true")
+    public boolean showSummary = true;
+
+    @Comment("Warn when running on an untested Minecraft version. Default: true")
+    public boolean showUntestedVersionWarning = true;
+  }
+
+  @ConfigSerializable
   public static class Session {
 
     @Comment(
@@ -434,13 +480,491 @@ public class Config {
                     • Default: true""")
       public boolean blockDuplicateRegister = true;
 
-      @Comment(
-          """
+    @Comment(
+        """
                     Prevent the same account name from being authenticated from multiple locations at once.
                     • Recommended for security.
                     • Default: true""")
-      public boolean blockDuplicateSession = true;
-    }
+    public boolean blockDuplicateSession = true;
+
+    @Comment(
+        """
+                    Automatically assign a LuckPerms group to newly registered accounts.
+                    • Empty = disabled.
+                    • Example: "member""")
+    public String autoLuckPermsGroup = "";
+
+    @Comment(
+        """
+                    Bind Bedrock (Geyser/Floodgate) accounts to their XUID.
+                    • On join, the player's XUID must match the stored one or they are kicked.
+                    • Default: false""")
+    public boolean bindBedrockXuid = false;
+
+    @Comment(
+        """
+                    Strict premium (online-mode) API handling.
+                    • false = when the Mojang API is unreachable, premium checks degrade gracefully
+                      and NO player is blocked (recommended - avoids locking out legit premium users
+                      during Mojang outages).
+                    • true = legacy behavior; the premium-name restriction is enforced even when the
+                      API cannot be reached.
+                    • Default: false""")
+    public boolean premiumApiStrict = false;
+  }
+
+  @Comment(
+      """
+                Combat-log punishment: what happens when a player disconnects shortly after
+                being in combat (e.g. to avoid dying).
+                • killOnDisconnect kills the player entity on logout while still in the combat
+                  window. Disabled by default for fairness.""")
+  public CombatLogConfig combatLog = new CombatLogConfig();
+
+  @Comment(
+      """
+                Progressive punishment: exponentially increasing kick cooldowns for repeated
+                failed authentication (e.g. 5s -> 30s -> 5m).""")
+  public ProgressivePunishmentConfig progressivePunishment = new ProgressivePunishmentConfig();
+
+  @Comment(
+      """
+                Automatic account locking after repeated failed logins (persisted to the database).""")
+  public AccountLockConfig accountLock = new AccountLockConfig();
+
+  @Comment(
+      """
+                Login intelligence: detects new IPs / new countries for an account and can alert
+                admins (webhook + security log) or block.""")
+  public IntelligenceConfig intelligence = new IntelligenceConfig();
+
+  @Comment(
+      """
+                Trusted players: accounts that authenticated successfully are trusted for a while
+                and can skip the captcha challenge on rejoins.""")
+  public TrustedConfig trusted = new TrustedConfig();
+
+  @Comment(
+      """
+                Auto-whitelist: successfully registered accounts are added to the vanilla
+                whitelist automatically.""")
+  public AutoWhitelistConfig autoWhitelist = new AutoWhitelistConfig();
+
+  @Comment(
+      """
+                Shadow-ban mode: security blocks (e.g. new-country blocking) use a generic
+                "connection lost" disconnect instead of revealing the security reason.""")
+  public ShadowBanConfig shadowBan = new ShadowBanConfig();
+
+  @ConfigSerializable
+  public static class TrustedConfig {
+
+    @Comment("Enable the trusted-player system. Default: true")
+    public boolean enabled = true;
+
+    @Comment(
+        """
+                How long a successful login marks the account as trusted (hours).
+                • Trusted players skip the captcha on rejoins.
+                • Default: 24""")
+    public int bypassCaptchaHours = 24;
+  }
+
+  @ConfigSerializable
+  public static class AutoWhitelistConfig {
+
+    @Comment(
+        """
+                Add registered accounts to the vanilla whitelist automatically.
+                • Only applies while the server whitelist is enabled.
+                • Default: false""")
+    public boolean enabled = false;
+  }
+
+  @ConfigSerializable
+  public static class ShadowBanConfig {
+
+    @Comment("Enable shadow-ban behavior. Default: false")
+    public boolean enabled = false;
+
+    @Comment("Disconnect reason shown to shadow-banned players. Default: \"Connection lost\"")
+    public String disconnectReason = "Connection lost";
+  }
+
+  @Comment(
+      """
+                Security events: optional Discord webhook and on-disk security log file.""")
+  public SecurityConfig security = new SecurityConfig();
+
+  @Comment(
+      """
+                Per-IP rate limiting to mitigate bot login floods.""")
+  public RateLimitConfig rateLimit = new RateLimitConfig();
+
+  @Comment(
+      """
+                Maintenance mode: temporarily block all joins with a custom message.
+                • Useful for updates, backups or security incidents.
+                • Toggle at runtime with /authcore maintenance on|off.""")
+  public MaintenanceConfig maintenance = new MaintenanceConfig();
+
+  @Comment(
+      """
+                Fake-server honeypot: an additional listening port that logs and auto-bans every
+                IP that connects to it (attackers scanning for open ports).""")
+  public HoneypotConfig honeypot = new HoneypotConfig();
+
+  @Comment(
+      """
+                Automated database backups (independent from the /authcore backup command).""")
+  public BackupConfig backup = new BackupConfig();
+
+  @ConfigSerializable
+  public static class MaintenanceConfig {
+
+    @Comment("Enable maintenance mode. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Kick reason shown to players while maintenance mode is active.
+                • Default: Server is under maintenance! Please check back later.""")
+    public String kickMessage = "Server is under maintenance! Please check back later.";
+  }
+
+  @ConfigSerializable
+  public static class HoneypotConfig {
+
+    @Comment("Enable the honeypot listener. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Port the honeypot listens on (any connection = attacker).
+                • Default: 25599""")
+    public int port = 25599;
+  }
+
+  @ConfigSerializable
+  public static class BackupConfig {
+
+    @Comment(
+        """
+                Automatic backup interval in hours (0 = disabled).
+                • SQLite: full file copy to config/authcore/backups/.
+                • MySQL/PostgreSQL: the export command is recommended instead.
+                • Default: 0 (disabled)""")
+    public int intervalHours = 0;
+
+    @Comment("Maximum number of automatic backups kept (oldest are deleted). Default: 10")
+    public int keep = 10;
+  }
+
+  @Comment(
+      """
+                Proxy support (Velocity / BungeeCord networks).
+                • bungeecord-style forwarding is parsed from the handshake so the real client
+                  IP is used for GeoIP, sessions, rate limits and intelligence.
+                • Enable only when your network runs a proxy in IP-forwarding mode.""")
+  public ProxySupportConfig proxySupport = new ProxySupportConfig();
+
+  @Comment(
+      """
+                Built-in web admin panel (lightweight HTML interface).
+                • Serves read-only stats + player lists + admin actions over HTTP.
+                • Keep the host at 127.0.0.1 and use an SSH tunnel or reverse proxy!
+                • A token is mandatory when enabled.""")
+  public WebPanelConfig webPanel = new WebPanelConfig();
+
+  @Comment(
+      """
+                Email notifications & account recovery (SMTP).
+                • Sends login alerts for new IPs/countries and recovery codes for
+                  forgotten passwords via /account recover.""")
+  public EmailConfig email = new EmailConfig();
+
+  @ConfigSerializable
+  public static class ProxySupportConfig {
+
+    @Comment(
+        """
+                Enable proxy IP-forwarding support.
+                • Default: false""")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Forwarding protocol:
+                • "auto"       - detect (BungeeCord legacy format ip\\0uuid\\0properties)
+                • "bungeecord" - BungeeCord (or Velocity legacy) IP forwarding
+                • "velocity"   - Velocity modern forwarding (real IP is delivered natively on
+                  recent protocol versions; this setting enables the legacy parse as fallback)
+                • Default: "auto\"""")
+    public String protocol = "auto";
+
+    @Comment(
+        """
+                Velocity modern forwarding shared secret (optional).
+                • Used to verify forwarded payloads when the protocol carries them.
+                • Default: "" (disabled)""")
+    public String velocitySecret = "";
+  }
+
+  @ConfigSerializable
+  public static class WebPanelConfig {
+
+    @Comment("Enable the web admin panel. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Interface to bind to.
+                • "127.0.0.1" = local only (recommended - tunnel to it)
+                • "0.0.0.0"   = exposed on all interfaces (NOT recommended without a token)
+                • Default: "127.0.0.1\"""")
+    public String host = "127.0.0.1";
+
+    @Comment("Panel port (HTTP). Default: 25570")
+    public int port = 25570;
+
+    @Comment(
+        """
+                Serve the panel over HTTPS.
+                • When no keystore is configured, a self-signed certificate is generated
+                  automatically on first start (config/authcore/panel-keystore.p12) and its
+                  fingerprint is printed in the console.
+                • Default: false""")
+    public boolean httpsEnabled = false;
+
+    @Comment("HTTPS port. Default: 25571")
+    public int httpsPort = 25571;
+
+    @Comment(
+        """
+                Path to a custom PKCS12/JKS keystore (optional).
+                • When empty, the auto-generated self-signed keystore is used.
+                • Example: "/etc/authcore/panel.p12\"""")
+    public String httpsKeystore = "";
+
+    @Comment("Password of the custom keystore (ignored for the auto-generated one).")
+    public String httpsKeystorePassword = "";
+
+    @Comment(
+        """
+                Access token (required). Send it as "Authorization: Bearer <token>".
+                • Generate one, e.g.: openssl rand -hex 16
+                • Default: "" (panel will not start)""")
+    public String token = "";
+
+    @Comment(
+        """
+                Path to a file containing the access token (optional).
+                • Useful for provisioning; the token file wins over the inline token.
+                • Default: "" (disabled)""")
+    public String tokenFile = "";
+
+    @Comment(
+        """
+                Optional read-only token: requests authenticated with this token can view data
+                but cannot run actions (kick, delete, set-password, link...).
+                • Default: "" (disabled)""")
+    public String readonlyToken = "";
+  }
+
+  @ConfigSerializable
+  public static class EmailConfig {
+
+    @Comment("Enable SMTP email features. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                SMTP server host.
+                • Example: "smtp.gmail.com\"""")
+    public String host = "";
+
+    @Comment(
+        """
+                SMTP server port.
+                • 587 (STARTTLS) or 465 (implicit SSL).
+                • Default: 587""")
+    public int port = 587;
+
+    @Comment("SMTP username (usually the full email address).")
+    public String username = "";
+
+    @Comment("SMTP password / app password.")
+    public String password = "";
+
+    @Comment("From address shown in sent emails.")
+    public String from = "";
+
+    @Comment(
+        """
+                Use implicit SSL (port 465). When false, STARTTLS is used (port 587).
+                • Default: false""")
+    public boolean useSsl = false;
+
+    @Comment(
+        """
+                Send a login alert email when an account logs in from a new IP or country.
+                • Default: true""")
+    public boolean alertOnNewLogin = true;
+  }
+
+  @ConfigSerializable
+  public static class CombatLogConfig {
+
+    @Comment("Enable combat-log punishment. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Kill the player entity when they disconnect while still inside the combat window.
+                • Only the entity is removed; inventory/XP still drop on the ground.
+                • Default: false""")
+    public boolean killOnDisconnect = false;
+  }
+
+  @ConfigSerializable
+  public static class ProgressivePunishmentConfig {
+
+    @Comment("Enable exponential kick cooldowns. Default: false")
+    public boolean enabled = false;
+
+    @Comment("Base cooldown in milliseconds for the first offense. Default: 5000 (5 seconds)")
+    public long baseCooldownMs = 5_000;
+
+    @Comment(
+        """
+                Cooldown growth factor per offense. A value of 6 roughly yields 5s -> 30s -> 3m.
+                • Default: 6""")
+    public double multiplier = 6.0;
+
+    @Comment("Maximum cooldown cap in milliseconds. Default: 300000 (5 minutes)")
+    public long maxCooldownMs = 5 * 60 * 1000;
+  }
+
+  @ConfigSerializable
+  public static class AccountLockConfig {
+
+    @Comment("Enable automatic account locking. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Failed logins before the account is locked. Default: 8")
+    public int maxFailedLogins = 8;
+
+    @Comment("How long the account stays locked in milliseconds. Default: 600000 (10 minutes)")
+    public long lockDurationMs = 10 * 60 * 1000;
+  }
+
+  @ConfigSerializable
+  public static class IntelligenceConfig {
+
+    @Comment("Enable login intelligence (new IP / country detection). Default: true")
+    public boolean enabled = true;
+
+    @Comment("Alert admins (webhook + security log) on login from a new IP. Default: true")
+    public boolean alertOnNewIp = true;
+
+    @Comment("Alert admins on login from a new country. Default: true")
+    public boolean alertOnNewCountry = true;
+
+    @Comment(
+        """
+                Block logins from a new country (anti account-sharing; use with caution).
+                • Default: false""")
+    public boolean blockOnNewCountry = false;
+
+    @Comment(
+        """
+                Risk score threshold (0-100) above which admins are alerted on login.
+                • Default: 60""")
+    public int alertRiskThreshold = 60;
+  }
+
+  @ConfigSerializable
+  public static class SecurityConfig {
+
+    @Comment(
+        """
+                Discord webhook URL for login/security events (join, login, failed login, lockouts,
+                suspicious logins). Leave empty to disable.
+                • Example: "https://discord.com/api/webhooks/..." """)
+    public String webhookUrl = "";
+
+    @Comment(
+        """
+                Optional separate webhook for registration announcements (used by Discord bots
+                for role sync). Falls back to webhook-url when empty.""")
+    public String roleSyncWebhookUrl = "";
+
+    @Comment(
+        """
+                Additional generic webhook URLs (Slack, Telegram, custom) that receive the same
+                events as the Discord webhook.
+                • Example: ["https://hooks.slack.com/services/..."]
+                • Default: [] (disabled)""")
+    public java.util.Set<String> extraWebhookUrls = java.util.Set.of();
+
+    @Comment(
+        """
+                File name (in the config directory) for the security event log.
+                • Set to "" to disable.
+                • Default: "security.log\"""")
+    public String logFile = "security.log";
+
+    @Comment(
+        """
+                Maximum size of the security log before it is rotated (bytes).
+                • Rotated files are kept as security.log.1, .2, .3.
+                • Default: 5242880 (5 MB)""")
+    public long logMaxBytes = 5 * 1024 * 1024;
+
+    @Comment(
+        """
+                File (in the config directory) with per-IP allow/deny rules.
+                • Format: one rule per line: "allow 1.2.3.4" or "deny 5.6.7.8"
+                • Lines starting with # are comments.
+                • Default: "ip-rules.conf\"""")
+    public String ipRulesFile = "ip-rules.conf";
+  }
+
+  @ConfigSerializable
+  public static class RateLimitConfig {
+
+    @Comment("Enable per-IP join/login rate limiting. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Maximum joins per IP within the window. Default: 10")
+    public int maxJoinsPerWindow = 10;
+
+    @Comment("Rate-limit window in milliseconds. Default: 60000 (1 minute)")
+    public long windowMs = 60 * 1000;
+
+    @Comment("Kick message shown when the join rate limit is exceeded. Default: empty = generic")
+    public String overLimitMessage = "Too many connections from your address. Please wait a moment!";
+
+    @Comment(
+        """
+                Alert when a player rejoins extremely fast after disconnecting (bot pattern).
+                • Alert-only (no kick) - webhook + security log.
+                • Default: false""")
+    public boolean alertOnFastRejoin = false;
+
+    @Comment(
+        """
+                Minimum disconnect-to-rejoin window for the fast-rejoin alert (ms).
+                • Default: 500""")
+    public long fastRejoinWindowMs = 500;
+
+    @Comment(
+        """
+                Minimum delay between two /login or /register executions per player (ms).
+                • Prevents command spam.
+                • Default: 1000""")
+    public long commandCooldownMs = 1000;
+  }
   }
 
   @ConfigSerializable
@@ -521,6 +1045,13 @@ public class Config {
                   - "md5"      : Insecure – do not use""")
     public String passwordHashAlgorithm = "argon2";
 
+    @Comment(
+        """
+                Password history: how many previous passwords are remembered and blocked
+                from reuse (0 = disabled).
+                • Default: 5""")
+    public int historySize = 5;
+
     @ConfigSerializable
     public static class PasswordRule {
 
@@ -555,11 +1086,24 @@ public class Config {
                 • Default: "authCore-db.sqlite\"""")
     public String sqlite = "authCore-db.sqlite";
 
-    @Comment(
-        """
-                MySQL/MariaDB remote database configuration.
-                • Use for larger servers or when sharing data across multiple instances.""")
-    public mysqlDatabase mysql = new mysqlDatabase();
+  @Comment(
+      """
+            MySQL/MariaDB remote database configuration.
+            • Use for larger servers or when sharing data across multiple instances.""")
+  public mysqlDatabase mysql = new mysqlDatabase();
+
+  @Comment(
+      """
+            PostgreSQL remote database configuration.
+            • Alternative to MySQL for larger setups. Requires the PostgreSQL server to exist.""")
+  public postgresDatabase postgres = new postgresDatabase();
+
+  @Comment(
+      """
+            Redis configuration for network-wide session & ban synchronization.
+            • Optional: enables cross-server duplicate login detection and shared ban lists.
+            • Requires a reachable Redis server.""")
+  public redisDatabase redis = new redisDatabase();
   }
 
   @ConfigSerializable
@@ -582,8 +1126,8 @@ public class Config {
         """
                 MySQL server port.
                 • Standard MySQL port is 3306.
-                • Default here: 3364 (change if needed)""")
-    public int port = 3364;
+                • Default here: 3306""")
+    public int port = 3306;
 
     @Comment(
         """
@@ -606,6 +1150,65 @@ public class Config {
                 • Recommended for remote databases.
                 • Default: false""")
     public boolean ssl = false;
+  }
+
+  @ConfigSerializable
+  public static class postgresDatabase {
+
+    @Comment(
+        """
+                Enable PostgreSQL instead of SQLite/MySQL.
+                • Requires correct credentials and a reachable server.
+                • Default: false""")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                PostgreSQL server host address.
+                • Example: "localhost" or "db.example.com\"""")
+    public String host = "";
+
+    @Comment("PostgreSQL server port. Standard port is 5432. Default: 5432")
+    public int port = 5432;
+
+    @Comment("Database/schema name.")
+    public String database = "";
+
+    @Comment("Database username.")
+    public String username = "";
+
+    @Comment("Database password (stored in plain text - protect the config file).")
+    public String password = "";
+
+    @Comment(
+        """
+                Use SSL/TLS encryption for the database connection.
+                • Default: false""")
+    public boolean ssl = false;
+  }
+
+  @ConfigSerializable
+  public static class redisDatabase {
+
+    @Comment(
+        """
+                Enable Redis session & ban synchronization.
+                • Default: false""")
+    public boolean enabled = false;
+
+    @Comment("Redis server host address. Example: \"localhost\"")
+    public String host = "localhost";
+
+    @Comment("Redis server port. Default: 6379")
+    public int port = 6379;
+
+    @Comment(
+        """
+                Redis password (empty if authentication is disabled).""")
+    public String password = "";
+
+    @Comment("Redis logical database index. Default: 0")
+    public int database = 0;
   }
 
   @ConfigSerializable
@@ -651,6 +1254,33 @@ public class Config {
                 Allow lobby players to execute commands (except auth commands).
                 • Default: false""")
     public boolean allowCommands = false;
+
+    @Comment(
+        """
+                Captcha protection for bots attempting to register/login.
+                • When enabled, the lobby shows a captcha code and /login & /register require it
+                  as an extra argument.
+                • Default: false""")
+    public CaptchaConfig captcha = new CaptchaConfig();
+
+    @Comment(
+        """
+                Rotating server announcements shown to authenticated players.
+                • Each entry is shown for announcement-interval-sec, then the next one.
+                • Supports %player% placeholder.
+                • Default: [] (disabled)""")
+    public java.util.List<String> announcements = new java.util.ArrayList<>();
+
+    @Comment(
+        """
+                Seconds between rotating announcements.
+                • Default: 600 (10 minutes)""")
+    public int announcementIntervalSec = 600;
+
+    @Comment(
+        """
+                Server announcement shown to authenticated players on join.""")
+    public AnnouncementConfig announcement = new AnnouncementConfig();
 
     @Comment(
         """
@@ -843,6 +1473,39 @@ public class Config {
                 Protect lobby players from damage by authenticated players.
                 • Default: true""")
     public boolean preventPlayerDamage = true;
+
+    @ConfigSerializable
+    public static class CaptchaConfig {
+
+      @Comment("Enable captcha for registration/login. Default: false")
+      public boolean enabled = false;
+
+      @Comment("Captcha code length. Default: 5")
+      public int length = 5;
+
+      @Comment("Captcha code validity in milliseconds. Default: 60000 (1 minute)")
+      public long ttlMs = 60 * 1000;
+
+      @Comment(
+          """
+                    Disable the captcha automatically while the server TPS is below this value
+                    (0 = never disable). Prevents captcha annoyance during lag spikes.
+                    • Default: 0""")
+      public double disableWhenTpsBelow = 0;
+  }
+
+  @ConfigSerializable
+  public static class AnnouncementConfig {
+
+    @Comment("Show a server announcement to authenticated players on join. Default: false")
+    public boolean enabled = false;
+
+    @Comment(
+        """
+                Announcement text. Supports %player% placeholder.
+                • Default: "" (empty)""")
+    public String text = "";
+  }
 
     @ConfigSerializable
     public static class TeleportConfig {

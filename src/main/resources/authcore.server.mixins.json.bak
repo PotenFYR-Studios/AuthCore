@@ -1,0 +1,27 @@
+{
+  "required": true,
+  "package": "net.ded3ec.mixin",
+  "compatibilityLevel": "${mixin_compatibility_level}",
+  "mixins": [
+    "ClientConnectionAccessor",
+    "EntityMixin",
+    "InventoryMixin",
+    "ItemEntityMixin",
+    "ItemMixin",
+    "LivingEntityMixin",
+    "ServerPlayerMixin",
+    "CommandManagerMixin",
+    "MobEntityMixin",
+    "ScreenHandlerMixin",
+    "ServerHandshakeNetworkHandlerMixin",
+    "ServerLoginNetworkHandlerMixin",
+    "ServerPlayerInteractionManagerMixin",
+    "ServerPlayNetworkHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

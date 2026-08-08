@@ -1,27 +1,26 @@
 package net.ded3ec.models;
 
-import java.net.URI;
+import net.ded3ec.util.Logger;
+import net.ded3ec.util.Registry;
+
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import net.ded3ec.AuthCoreServer;
-import net.ded3ec.utils.TimeManager;
-import net.ded3ec.utils.Security;
-import net.ded3ec.utils.TaskScheduler;
+import net.ded3ec.util.TimeManager;
+import net.ded3ec.security.Security;
+import net.ded3ec.util.TaskScheduler;
+import net.ded3ec.util.TpsManager;
 import net.minecraft.block.*;
-import net.minecraft.command.permission.LeveledPermissionPredicate;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
+import net.ded3ec.compat.Compat;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.Heightmap;
@@ -37,9 +36,10 @@ import net.minecraft.world.World;
 public class Lobby {
 
   /**
-   * A global registry of users currently restricted within a lobby instance, mapped by username.
+   * A global registry of users currently restricted within a lobby instance, mapped by username
+   * (thread-safe; accessed from netty and server threads).
    */
-  public static Map<String, Lobby> users = new HashMap<>();
+  public static Map<String, Lobby> users = new ConcurrentHashMap<>();
 
   /** The saved state of the player before they were moved into the lobby. */
   public Snapshot snapshot;
@@ -88,30 +88,37 @@ public class Lobby {
     if (AuthCoreServer.config.lobby.timeout.enabled) this.handleTimeout();
     Lobby.users.put(this.user.username, this);
 
-    // Handle 2FA
-    if (!user.isRegistered.get() && AuthCoreServer.config.session.authentication.allowTOTPSupport && user.authSecret == null) {
+    // Handle 2FA: generate a TOTP secret and send the setup link on first join
+    if (!user.isRegistered.get()
+        && AuthCoreServer.config.session.authentication.allowTOTPSupport
+        && user.authSecret == null) {
       user.authSecret = Security.TOTPManager.getSecret();
       String qrURL = Security.TOTPManager.getQrUrl(user.username, user.authSecret);
 
-      user.player
-          .get()
-          .sendMessage(
-              Text.literal(
-                      "You need to Register 2FA QR with your Mobile Authenticator App like (Microsoft Authenticator/Authy/Google Authenticator): ")
-                  .styled(
-                      style ->
-                          style
-                              .withColor(Formatting.BLUE) // aqua
-                              .withBold(true))
-                  .append(
-                      Text.literal("[QR Image]")
-                          .styled(
-                              style ->
-                                  style
-                                      .withColor(0x55FFFF) // aqua
-                                      .withUnderline(true)
-                                      .withBold(true)
-                                      .withClickEvent(new ClickEvent.OpenUrl(URI.create(qrURL))))));
+      AuthCoreServer.LOGGER.toUser(
+          true, user.connection, AuthCoreServer.messages.promptUser2faSetup, qrURL);
+    }
+
+    // Captcha challenge against bot registration/login attempts.
+    // Skipped when: the account is trusted, or TPS is too low (config).
+    boolean captchaEnabled = AuthCoreServer.config.lobby.captcha.enabled;
+    boolean trustedBypass =
+        AuthCoreServer.config.session.trusted.enabled
+            && user.trustedUntilMs > System.currentTimeMillis();
+    boolean tpsBypass =
+        AuthCoreServer.config.lobby.captcha.disableWhenTpsBelow > 0
+            && TpsManager.get() < AuthCoreServer.config.lobby.captcha.disableWhenTpsBelow;
+
+    if (captchaEnabled && !trustedBypass && !tpsBypass) {
+      String code =
+          Security.CaptchaManager.generate(
+              user.uuid,
+              AuthCoreServer.config.lobby.captcha.length,
+              AuthCoreServer.config.lobby.captcha.ttlMs);
+      user.captchaVerified = false;
+
+      AuthCoreServer.LOGGER.toUser(
+          true, user.connection, AuthCoreServer.messages.promptUserCaptchaRequired, code);
     }
   }
 
@@ -126,7 +133,7 @@ public class Lobby {
 
     MinecraftServer server = this.user.server.get();
     ServerPlayerEntity player = this.user.player.get();
-    ServerWorld world = player.getEntityWorld();
+    ServerWorld world = (ServerWorld) player.getEntityWorld();
     BlockPos blockPos = player.getBlockPos();
 
     // Limbo logic
@@ -140,15 +147,15 @@ public class Lobby {
       Identifier id = Identifier.tryParse(raw);
       if (id == null) return;
 
-      RegistryKey<World> worldKey = RegistryKey.of(RegistryKeys.WORLD, id);
+      Object worldKey = net.ded3ec.compat.Compat.worldKey(id);
 
-      world = server.getWorld(worldKey);
+      world = net.ded3ec.compat.Compat.getWorld(server, worldKey);
       if (world == null) return;
 
       if (this.position == null) {
 
         blockPos =
-            BlockPos.ofFloored(
+            net.ded3ec.compat.Compat.blockPosFloored(
                 AuthCoreServer.config.lobby.limboConfig.location.x,
                 AuthCoreServer.config.lobby.limboConfig.location.y,
                 AuthCoreServer.config.lobby.limboConfig.location.z);
@@ -223,11 +230,11 @@ public class Lobby {
 
     int loginTimeoutMs = AuthCoreServer.config.lobby.timeout.timeInMs;
 
-    if (user.connection.getLatency() >= 600)
+    if (net.ded3ec.compat.Compat.getLatency(user.player.get()) >= 600)
       loginTimeoutMs = AuthCoreServer.config.lobby.timeout.timeoutAbove600LatencyMs;
-    else if (user.connection.getLatency() >= 400)
+    else if (net.ded3ec.compat.Compat.getLatency(user.player.get()) >= 400)
       loginTimeoutMs = AuthCoreServer.config.lobby.timeout.timeoutAbove400LatencyMs;
-    else if (user.connection.getLatency() >= 200)
+    else if (net.ded3ec.compat.Compat.getLatency(user.player.get()) >= 200)
       loginTimeoutMs = AuthCoreServer.config.lobby.timeout.timeoutAbove200LatencyMs;
 
     int _loginTimeoutMs = loginTimeoutMs;
@@ -303,7 +310,7 @@ public class Lobby {
     private final BlockPos blockPos;
     private final float health;
 
-    private final RegistryKey<World> dimensionKey;
+    private final Object dimensionKey;
 
     private final int fireTicks;
     private final int frozenTicks;
@@ -312,7 +319,7 @@ public class Lobby {
     private final GameMode gameMode;
 
     private final boolean operator;
-    private LeveledPermissionPredicate opPermissionLevel;
+    private int opPermissionLevel = 0;
 
     /** Captures the current state of the player and applies lobby-specific status effects. */
     public Snapshot(ServerPlayerEntity player) {
@@ -321,7 +328,7 @@ public class Lobby {
 
       // --- POSITION & DIMENSION ---
       this.blockPos = player.getBlockPos();
-      this.dimensionKey = player.getEntityWorld().getRegistryKey();
+      this.dimensionKey = net.ded3ec.compat.Compat.worldRegistryKey(player.getEntityWorld());
 
       // --- EFFECTS ---
       this.effects = new ArrayList<>(player.getStatusEffects());
@@ -329,7 +336,7 @@ public class Lobby {
       // --- INVENTORY ---
       this.inventory = new ArrayList<>();
       if (AuthCoreServer.config.lobby.hideInventory) {
-        PlayerInventory inv = player.getInventory();
+        PlayerInventory inv = net.ded3ec.compat.Compat.getInventory(player);
         for (int i = 0; i < inv.size(); i++) {
           ItemStack stack = inv.getStack(i);
           this.inventory.add(stack.copy());
@@ -348,17 +355,17 @@ public class Lobby {
 
       // --- FIRE / FREEZE / FALL ---
       this.fireTicks = player.getFireTicks();
-      this.frozenTicks = player.getFrozenTicks();
+      this.frozenTicks = net.ded3ec.compat.Compat.getFrozenTicks(player);
       this.fallDistance = (float) player.fallDistance;
 
       // --- GAMEMODE ---
       this.gameMode = player.interactionManager.getGameMode();
 
       // --- OPERATOR STATUS ---
-      this.operator = server.getPlayerManager().isOperator(player.getPlayerConfigEntry());
+      this.operator = net.ded3ec.compat.Compat.isOperator(server, player);
 
       if (this.operator)
-        this.opPermissionLevel = server.getPermissionLevel(player.getPlayerConfigEntry());
+        this.opPermissionLevel = net.ded3ec.compat.Compat.getOperatorLevel(server, player);
 
       // --- CLEAR EFFECTS ---
       player.clearStatusEffects();
@@ -381,7 +388,7 @@ public class Lobby {
 
       // --- SAFE OPERATORS ---
       if (this.operator && AuthCoreServer.config.lobby.safeOperators)
-        server.getPlayerManager().removeFromOperators(player.getPlayerConfigEntry());
+        net.ded3ec.compat.Compat.removeFromOperators(server, player);
     }
 
     /**
@@ -400,7 +407,7 @@ public class Lobby {
 
       // --- RESTORE INVENTORY ---
       if (AuthCoreServer.config.lobby.hideInventory && inventory != null && !inventory.isEmpty()) {
-        PlayerInventory inv = player.getInventory();
+        PlayerInventory inv = net.ded3ec.compat.Compat.getInventory(player);
         inv.clear();
 
         for (int i = 0; i < inventory.size(); i++) inv.setStack(i, inventory.get(i).copy());
@@ -412,7 +419,7 @@ public class Lobby {
         player.addStatusEffect(new StatusEffectInstance(effect));
 
       // --- RESTORE DIMENSION ---
-      ServerWorld world = server.getWorld(this.dimensionKey);
+      ServerWorld world = net.ded3ec.compat.Compat.getWorld(server, this.dimensionKey);
       if (world == null) return;
 
       this.teleport(player, this.blockPos, world);
@@ -429,20 +436,15 @@ public class Lobby {
 
       // --- RESTORE FIRE / FREEZE / FALL ---
       player.setFireTicks(fireTicks);
-      player.setFrozenTicks(frozenTicks);
+      net.ded3ec.compat.Compat.setFrozenTicks(player, frozenTicks);
       player.fallDistance = fallDistance;
 
       // --- RESTORE GAMEMODE ---
-      player.changeGameMode(gameMode);
+      net.ded3ec.compat.Compat.changeGameMode(player, gameMode);
 
       // --- RESTORE OPERATOR STATUS ---
       if (this.operator)
-        server
-            .getPlayerManager()
-            .addToOperators(
-                player.getPlayerConfigEntry(),
-                Optional.of(this.opPermissionLevel),
-                Optional.of(true));
+        net.ded3ec.compat.Compat.addToOperators(server, player, this.opPermissionLevel);
     }
 
     /**
@@ -453,15 +455,14 @@ public class Lobby {
      * @param world The target world.
      */
     private void teleport(ServerPlayerEntity player, BlockPos pos, ServerWorld world) {
-      player.teleport(
+      net.ded3ec.compat.Compat.teleport(
+          player,
           world,
           pos.getX() + 0.5,
           pos.getY() + 0.5,
           pos.getZ() + 0.5,
-          Set.of(),
-          player.getYaw(),
-          player.getPitch(),
-          false);
+          net.ded3ec.compat.Compat.getYaw(player),
+          net.ded3ec.compat.Compat.getPitch(player));
     }
 
     /**
@@ -479,13 +480,13 @@ public class Lobby {
       BlockPos candidate = pos;
 
       boolean airborne =
-          player.getAbilities().flying
-              || player.isGliding()
+          net.ded3ec.compat.Compat.getAbilities(player).flying
+              || net.ded3ec.compat.Compat.isGliding(player)
               || player.hasVehicle()
               || !player.isOnGround();
 
       boolean inGap =
-          (player.isGliding() || !player.isOnGround())
+          (net.ded3ec.compat.Compat.isGliding(player) || !player.isOnGround())
               && !world.getBlockState(pos).isAir()
               && world.getBlockState(pos.down()).isOpaque()
               && world.getBlockState(pos.up()).isOpaque();
@@ -562,7 +563,7 @@ public class Lobby {
     private BlockPos getGroundBelow(ServerWorld world, BlockPos origin) {
       BlockPos.Mutable check = origin.mutableCopy();
 
-      while (check.getY() >= world.getBottomY() && world.getBlockState(check.down()).isAir()) {
+      while (check.getY() >= net.ded3ec.compat.Compat.getBottomY(world) && world.getBlockState(check.down()).isAir()) {
         check.move(0, -1, 0);
 
         if (isBlockSafe(world, check)) return check.toImmutable();
@@ -613,8 +614,7 @@ public class Lobby {
               || state.getBlock() instanceof WallBlock
               || state.getBlock() instanceof LadderBlock
               || state.getBlock() instanceof VineBlock
-              || state.getBlock() instanceof BigDripleafBlock
-              || state.getBlock() instanceof SmallDripleafBlock
+              || net.ded3ec.compat.Compat.isDripleaf(state)
               || state.isOf(Blocks.SNOW)
               || state.isOf(Blocks.SNOW_BLOCK)
               || !state.getCollisionShape(world, pos).isEmpty();

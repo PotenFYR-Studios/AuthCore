@@ -1,13 +1,11 @@
 package net.ded3ec.mixin;
 
-import com.mojang.authlib.GameProfile;
 
 import java.util.Objects;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
-import net.ded3ec.models.User;
-import net.ded3ec.utils.McApiManager;
+import net.ded3ec.network.McApiManager;
 
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -15,7 +13,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 import net.minecraft.network.packet.c2s.login.LoginHelloC2SPacket;
 import net.minecraft.server.network.ServerLoginNetworkHandler;
-import net.minecraft.text.Text;
+
 import net.minecraft.util.Formatting;
 
 import org.spongepowered.asm.mixin.Mixin;
@@ -24,64 +22,104 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/**
+ * Universal login interception (1.16 - 26.x).
+ *
+ * <p>Reads the profile from the hello packet via reflection because the packet shape changed
+ * across versions ({@code getProfile()} on 1.16, {@code name()}/{@code profileId()} on 1.19.3+).
+ * Enforces the bedrock restriction and leaves offline-mode handling to vanilla - on 1.16-1.20.4
+ * vanilla offline servers accept the profile without session verification, on 1.21.x the modern
+ * offline flow handles the rest.
+ */
 @Environment(EnvType.SERVER)
 @Mixin(ServerLoginNetworkHandler.class)
 abstract class ServerLoginNetworkHandlerMixin {
 
   @Shadow
-  public abstract void disconnect(Text reason);
-
-  @Shadow
-  abstract void startVerify(GameProfile profile);
+  public abstract void disconnect(net.minecraft.text.Text reason);
 
   @Inject(method = "onHello", at = @At("HEAD"), cancellable = true)
   private void authCore$handleHello(LoginHelloC2SPacket packet, CallbackInfo ci) {
+    String username = readName(packet);
+    UUID uuid = readProfileId(packet);
 
-    String username = packet.name();
-    UUID uuid = packet.profileId();
+    if (username == null || uuid == null) return;
 
-    // 1.1 Premium check (normal offline parse)
+    // Only intercept clients that use the offline-mode UUID convention
     if (!UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes()).equals(uuid)) return;
 
-    // 1.2 Premium check (normal Mojang auth)
-    if (username.equals(McApiManager.getPremiumUsername(uuid))) return;
-
-    User user = User.getUser(username, uuid);
-    if (user != null && user.isPremium) return;
-
-    // 2. Offline-mode disabled? → let vanilla handle it
+    // Offline-mode handling disabled in the config -> let vanilla handle it
     if (!(Objects.equals(AuthCoreServer.config.session.serverMode, "offline"))) return;
 
-    // 3. Bedrock restriction
+    // Bedrock restriction
     if (!AuthCoreServer.config.session.authentication.allowBedrockPlayers
         && McApiManager.isBedrockPlayer(uuid)) {
 
       this.disconnect(
-          Text.literal(AuthCoreServer.messages.promptUserBedrockPlayersNotAllowed.logout.text)
+          net.ded3ec.compat.Compat.text(
+                  AuthCoreServer.messages.promptUserBedrockPlayersNotAllowed.logout.text)
               .styled(style -> style.withColor(Formatting.RED)));
-
       ci.cancel();
       return;
     }
 
-    // 4. Cancel vanilla Mojang authentication entirely
-    ci.cancel();
-
-    // 5. Floodgate requirement
+    // Floodgate requirement
     if (AuthCoreServer.config.session.authentication.allowBedrockPlayers
         && !FabricLoader.getInstance().isModLoaded("floodgate")) {
 
-      this.disconnect(Text.literal("Authentication Failed: Floodgate is not installed!"));
+      this.disconnect(net.ded3ec.compat.Compat.text("Authentication Failed: Floodgate is not installed!"));
+      ci.cancel();
       return;
     }
 
     AuthCoreServer.LOGGER.debug(
         "Detected offline-mode player \"{}(uuid: {})\" sending hello packet", username, uuid);
+  }
 
-    // 6. Create offline GameProfile
-    GameProfile profile = new GameProfile(uuid, username);
+  /** Reads the profile name from the hello packet (version-agnostic). */
+  private static String readName(LoginHelloC2SPacket packet) {
+    Object profile = readProfile(packet);
+    if (profile != null) {
+      for (String m : new String[] {"name", "getName"}) {
+        String value = invokeString(profile, m);
+        if (value != null) return value;
+      }
+    }
+    return invokeString(packet, "name");
+  }
 
-    // 7. Finalize login (1.21+)
-    this.startVerify(profile);
+  /** Reads the profile id from the hello packet (version-agnostic). */
+  private static UUID readProfileId(LoginHelloC2SPacket packet) {
+    Object profile = readProfile(packet);
+    if (profile != null) {
+      for (String m : new String[] {"id", "getId"}) {
+        Object value = invoke(profile, m);
+        if (value instanceof UUID u) return u;
+      }
+    }
+    Object value = invoke(packet, "profileId");
+    return value instanceof UUID u ? u : null;
+  }
+
+  /** Reads the GameProfile from the hello packet (getProfile() on 1.16). */
+  private static Object readProfile(LoginHelloC2SPacket packet) {
+    try {
+      return packet.getClass().getMethod("getProfile").invoke(packet);
+    } catch (ReflectiveOperationException e) {
+      return null;
+    }
+  }
+
+  private static String invokeString(Object target, String method) {
+    Object value = invoke(target, method);
+    return value instanceof String s ? s : null;
+  }
+
+  private static Object invoke(Object target, String method) {
+    try {
+      return target.getClass().getMethod(method).invoke(target);
+    } catch (ReflectiveOperationException e) {
+      return null;
+    }
   }
 }
