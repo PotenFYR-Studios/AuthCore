@@ -365,6 +365,59 @@ public final class Compat {
   }
 
   /**
+   * Sends a custom payload (plugin message) to the player's client. Uses the
+   * {@code CustomPayloadS2CPacket(Identifier, PacketByteBuf)} constructor which exists on every
+   * supported version (1.16 - 26.x) and never throws on failure - interop is best-effort.
+   *
+   * @param player the player to send to
+   * @param channel the channel name, e.g. {@code "authcore:auth"}
+   * @param data the raw payload bytes
+   */
+  public static void sendCustomPayload(
+      net.minecraft.server.network.ServerPlayerEntity player, String channel, byte[] data) {
+    try {
+      if (player == null || channel == null || data == null || player.networkHandler == null)
+        return;
+
+      // Identifier for the channel (Identifier.tryParse on modern, new Identifier(String) on 1.16)
+      Object identifier = null;
+      try {
+        Class<?> idClass = Class.forName("net.minecraft.util.Identifier");
+        Method tryParse = idClass.getMethod("tryParse", String.class);
+        identifier = tryParse.invoke(null, channel);
+      } catch (ReflectiveOperationException ignored) {
+        // tryParse not present on this version
+      }
+      if (identifier == null) {
+        Class<?> idClass = Class.forName("net.minecraft.util.Identifier");
+        identifier = idClass.getConstructor(String.class).newInstance(channel);
+      }
+
+      // PacketByteBuf wrapping a raw ByteBuf
+      Object buf =
+          Class.forName("net.minecraft.network.PacketByteBuf")
+              .getConstructor(io.netty.buffer.ByteBuf.class)
+              .newInstance(io.netty.buffer.Unpooled.buffer(data.length));
+      Method writeBytes =
+          buf.getClass().getMethod("writeBytes", byte[].class);
+      writeBytes.invoke(buf, (Object) data);
+
+      // CustomPayloadS2CPacket(Identifier, PacketByteBuf) - kept as a compat constructor on
+      // every version, so this single path covers 1.16 through 26.x.
+      Object packet =
+          Class.forName("net.minecraft.network.packet.s2c.play.CustomPayloadS2CPacket")
+              .getConstructor(
+                  Class.forName("net.minecraft.util.Identifier"),
+                  Class.forName("net.minecraft.network.PacketByteBuf"))
+              .newInstance(identifier, buf);
+
+      sendPacket(player.networkHandler, packet);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // interop is best-effort - never break gameplay
+    }
+  }
+
+  /**
    * Sends the title/subtitle/fade packets. Uses the split packet API on 1.17+ and the combined
    * {@code TitleS2CPacket(Action, Text)} API on 1.16.
    */

@@ -193,6 +193,65 @@ forwarding format is identical for BungeeCord and Velocity-legacy, so `auto` wor
 
 ---
 
+## 🚀 Velocity Modern Identity Forwarding (Fabric server)
+
+With `player-info-forwarding-mode = "modern"` in `velocity.toml`, the proxy forwards the REAL
+client identity (UUID + username, HMAC-signed) in a login-phase plugin message
+(`velocity:player_info`). AuthCore handles this on the FABRIC SERVER:
+
+1. Set `session.proxy-support.velocity-secret` to the same `forwarding-secret` from
+   `velocity.toml` (no secret configured -> forwarding is skipped safely).
+2. AuthCore registers a `ServerLoginNetworking` receiver (fabric-api, reflectively - missing
+   APIs are skipped) that verifies the HMAC-SHA256 and applies the forwarded UUID/username to
+   the login profile - players keep their real identity instead of the offline UUID.
+
+```hocon
+session {
+  proxy-support {
+    enabled = true
+    protocol = "velocity"
+    velocity-secret = "REPLACE_WITH_FORWARDING_SECRET"   # same as velocity.toml [advanced] forwarding-secret
+  }
+}
+```
+
+> ⚠️ Velocity MODERN forwards identity only - NOT the client IP. If you need the real IP for
+> GeoIP / login intelligence / IP-bound sessions, use **legacy** mode (the IP travels in the
+> handshake and is parsed automatically with `protocol = "auto"`).
+
+---
+
+## 🤝 Interop with OTHER mods (different auth mod on the backend)
+
+If a backend server runs a DIFFERENT authentication mod, AuthCore can still participate
+network-wide: it broadcasts auth-state changes as lightweight plugin messages so other mods
+can react (or so the admin can mix and match). `session.interop` (default on):
+
+```hocon
+session {
+  interop {
+    enabled = true
+    channel = "authcore:auth"   # custom Fabric channel - other mods can listen
+    bungee-channel = true       # also broadcast on bungeecord:main (subchannel "AuthCore")
+  }
+}
+```
+
+Broadcasts happen on join/login/register/logout/kick/unregister:
+`AUTH_CHANGED|<uuid>|<username>|<1|0>` (ASCII). Other Fabric mods listen on `authcore:auth`;
+proxy-side plugins listen on `bungeecord:main` (`AuthCore` subchannel).
+
+---
+
+## 🗂️ Separate config files per role
+
+| Role | File |
+|:-----|:-----|
+| Server (Fabric, behind the proxy) | `config/authcore/settings.conf` |
+| Client companion | `config/authcore-client.json` |
+| Database (optional override) | `config/authcore/database.conf` (only the `database { }` block, merged over settings.conf) |
+
+---
 ## 🛡️ Resilience & Build Notes
 
 ### 🧩 Version-Fragile Mixins (`required:false`)

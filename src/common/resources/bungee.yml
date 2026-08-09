@@ -1,0 +1,5 @@
+name: AuthCore
+version: 1.0.0
+main: net.ded3ec.proxy.BungeeEntry
+author: Ded3ec
+description: Network auth-state bridge - tracks which players authenticated on AuthCore backends.

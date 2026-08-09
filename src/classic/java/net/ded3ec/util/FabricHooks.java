@@ -152,4 +152,105 @@ public final class FabricHooks {
       // entity damage events not available on this fabric-api version
     }
   }
+
+  /**
+   * Registers the Velocity MODERN forwarding receiver (fabric-api ServerLoginNetworking).
+   *
+   * <p>With {@code player-info-forwarding-mode = "modern"} in {@code velocity.toml}, the proxy
+   * sends a {@code velocity:player_info} login-phase plugin message containing the real client
+   * identity (HMAC-signed with the shared secret). When a valid secret is configured this
+   * receiver verifies the HMAC and applies the forwarded UUID/username to the login profile.
+   * Registered reflectively so fabric-api version differences never break the mod.
+   */
+  public static void registerVelocityForwarding() {
+    try {
+      var cfg = net.ded3ec.AuthCoreServer.config;
+      if (cfg == null || !cfg.session.proxySupport.enabled) return;
+      String secret = cfg.session.proxySupport.velocitySecret;
+      if (secret == null || secret.isBlank()) return;
+
+      Class<?> networking = Class.forName("net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking");
+      Class<?> handler =
+          Class.forName("net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking$LoginQueryRequestHandler");
+
+      Object identifier = null;
+      try {
+        Class<?> idClass = Class.forName("net.minecraft.util.Identifier");
+        identifier =
+            idClass.getMethod("tryParse", String.class)
+                .invoke(null, net.ded3ec.network.VelocitySupport.PLAYER_INFO_CHANNEL);
+      } catch (ReflectiveOperationException ignored) {
+        // tryParse not present on this version
+      }
+      if (identifier == null) {
+        identifier =
+            Class.forName("net.minecraft.util.Identifier")
+                .getConstructor(String.class)
+                .newInstance(net.ded3ec.network.VelocitySupport.PLAYER_INFO_CHANNEL);
+      }
+
+      Object receiver =
+          java.lang.reflect.Proxy.newProxyInstance(
+              handler.getClassLoader(),
+              new Class<?>[] {handler},
+              (proxy, method, args) -> {
+                if (method.getName().equals("receive") && args != null && args.length >= 4) {
+                  // args: [server, handler, understood, buf, synchronizer, responseSender]
+                  if (!Boolean.TRUE.equals(args[2]) || args[3] == null) return null;
+                  byte[] data = readRemainingBytes(args[3]);
+                  var info =
+                      net.ded3ec.network.VelocitySupport.parsePlayerInfo(
+                          data, net.ded3ec.AuthCoreServer.config.session.proxySupport.velocitySecret);
+                  if (info != null) applyForwardedProfile(args[1], info);
+                }
+                return null;
+              });
+
+      networking
+          .getMethod("registerGlobalReceiver", identifier.getClass(), handler)
+          .invoke(null, identifier, receiver);
+      net.ded3ec.AuthCoreServer.LOGGER.info(
+          true, "Velocity modern forwarding receiver registered (velocity:player_info).");
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // fabric-api networking or ServerLoginNetworking not available - velocity modern
+      // identity forwarding is skipped gracefully
+    }
+  }
+
+  /** Copies the remaining bytes of the packet buffer (PacketByteBuf / ByteBuf). */
+  private static byte[] readRemainingBytes(Object buf) {
+    try {
+      if (buf instanceof io.netty.buffer.ByteBuf b) {
+        byte[] data = new byte[b.readableBytes()];
+        b.getBytes(b.readerIndex(), data);
+        return data;
+      }
+    } catch (Exception ignored) {
+      // fall through
+    }
+    return null;
+  }
+
+  /** Sets the login profile to the forwarded identity (reflective - profile setter varies). */
+  private static void applyForwardedProfile(Object handler, net.ded3ec.network.VelocitySupport.PlayerInfo info) {
+    try {
+      com.mojang.authlib.GameProfile profile =
+          new com.mojang.authlib.GameProfile(info.uuid, info.username);
+      try {
+        handler.getClass().getMethod("setProfile", com.mojang.authlib.GameProfile.class)
+            .invoke(handler, profile);
+      } catch (ReflectiveOperationException e) {
+        // no setter on this version - try the profile field
+        java.lang.reflect.Field f = handler.getClass().getField("profile");
+        f.set(handler, profile);
+      }
+      net.ded3ec.AuthCoreServer.LOGGER.info(
+          true,
+          "Velocity forwarding: applied identity {} ({}) for login.",
+          info.username,
+          info.uuid);
+    } catch (ReflectiveOperationException ignored) {
+      // profile could not be applied - vanilla flow continues
+    }
+  }
 }

@@ -65,6 +65,10 @@ repositories {
     maven {
         url = uri("https://repo.opencollab.dev/main/")
     }
+    // Velocity API (proxy plugin role)
+    maven {
+        url = uri("https://repo.papermc.io/repository/maven-public/")
+    }
 }
 
 // ------------------------------------------------------------------
@@ -82,6 +86,7 @@ sourceSets {
                 srcDirs = ['src/common/java', 'src/modern/java']
             }
             resources {
+                srcDir 'src/common/resources'
                 srcDir 'src/modern/resources'
                 srcDir 'src/classic/resources'
             }
@@ -90,6 +95,7 @@ sourceSets {
                 srcDirs = ['src/common/java', 'src/classic/java']
             }
             resources {
+                srcDir 'src/common/resources'
                 srcDir 'src/classic/resources'
             }
         }
@@ -152,6 +158,14 @@ dependencies {
     compileOnly("net.luckperms:api:5.4")
     // 2FA Library (TOTP - RFC 6238)
     implementation(include("com.j256.two-factor-auth:two-factor-auth:1.3"))
+
+    // Proxy plugin APIs (BungeeCord / Velocity) - compileOnly, never shaded: the same jar
+    // also acts as a proxy plugin when dropped into a proxy's plugins/ folder (auto-detected).
+    // Velocity 3.1.x classes are Java-8 level so the Java-16 classic jar still compiles
+    // against them (event shapes are read reflectively, so newer Velocity works too).
+    compileOnly("net.md-5:bungeecord-api:1.21-R0.3")
+    compileOnly("com.velocitypowered:velocity-api:3.1.1")
+
 }
 
 processResources {
@@ -163,7 +177,7 @@ processResources {
     // setup; re-order afterwards so the 26.x fabric.mod.json wins the duplicate resolution.
     if (modern) {
         afterEvaluate {
-            sourceSets.main.resources.srcDirs = ['src/modern/resources', 'src/classic/resources']
+            sourceSets.main.resources.srcDirs = ['src/common/resources', 'src/modern/resources', 'src/classic/resources']
         }
     }
 

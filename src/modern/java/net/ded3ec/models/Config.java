@@ -683,6 +683,15 @@ public class Config {
                   forgotten passwords via /account recover.""")
   public EmailConfig email = new EmailConfig();
 
+  @Comment(
+      """
+                Interop with OTHER mods and the proxy (Velocity / BungeeCord).
+                • AuthCore broadcasts auth-state changes as lightweight plugin messages
+                  (channel "authcore:auth" + BungeeCord subchannel "AuthCore") so a network can
+                  coexist with a DIFFERENT auth mod on the backend, or a proxy plugin can react.
+                • Payload: AUTH_CHANGED|<uuid>|<username>|<1|0> (ASCII)""")
+  public InteropConfig interop = new InteropConfig();
+
   @ConfigSerializable
   public static class ProxySupportConfig {
 
@@ -708,6 +717,28 @@ public class Config {
                 • Used to verify forwarded payloads when the protocol carries them.
                 • Default: "" (disabled)""")
     public String velocitySecret = "";
+  }
+
+  @ConfigSerializable
+  public static class InteropConfig {
+
+    @Comment("Enable interop auth-state broadcasts. Default: true")
+    public boolean enabled = true;
+
+    @Comment(
+        """
+                Custom Fabric channel used for auth-state messages.
+                • Other Fabric mods listen on this channel for "AUTH_CHANGED|..." payloads.
+                • Default: "authcore:auth\"""")
+    public String channel = "authcore:auth";
+
+    @Comment(
+        """
+                Also broadcast on the BungeeCord plugin-messaging channel
+                ("bungeecord:main", subchannel "AuthCore") so proxy plugins
+                (Velocity / BungeeCord) can react to logins.
+                • Default: true""")
+    public boolean bungeeChannel = true;
   }
 
   @ConfigSerializable

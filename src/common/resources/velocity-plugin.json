@@ -1,0 +1,10 @@
+{
+  "id": "authcore",
+  "name": "AuthCore",
+  "version": "1.0.0",
+  "description": "Network auth-state bridge - tracks which players authenticated on AuthCore backends.",
+  "authors": [
+    "Ded3ec"
+  ],
+  "main": "net.ded3ec.proxy.VelocityEntry"
+}

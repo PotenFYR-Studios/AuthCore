@@ -365,6 +365,47 @@ public final class Compat {
   }
 
   /**
+   * Sends a custom payload (plugin message) to the player's client (Mojang names, 26.1+).
+   * Uses the {@code ClientboundCustomPayloadPacket(ResourceLocation, FriendlyByteBuf)}
+   * constructor and never throws on failure - interop is best-effort.
+   */
+  public static void sendCustomPayload(
+      net.minecraft.server.level.ServerPlayer player, String channel, byte[] data) {
+    try {
+      if (player == null || channel == null || data == null || player.connection == null) return;
+
+      Object location = null;
+      try {
+        Class<?> rl = Class.forName("net.minecraft.resources.ResourceLocation");
+        location = rl.getMethod("tryParse", String.class).invoke(null, channel);
+      } catch (ReflectiveOperationException ignored) {
+        // tryParse not present on this version
+      }
+      if (location == null) {
+        Class<?> rl = Class.forName("net.minecraft.resources.ResourceLocation");
+        location = rl.getConstructor(String.class).newInstance(channel);
+      }
+
+      Object buf =
+          Class.forName("net.minecraft.network.FriendlyByteBuf")
+              .getConstructor(io.netty.buffer.ByteBuf.class)
+              .newInstance(io.netty.buffer.Unpooled.buffer(data.length));
+      buf.getClass().getMethod("writeBytes", byte[].class).invoke(buf, (Object) data);
+
+      Object packet =
+          Class.forName("net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket")
+              .getConstructor(
+                  Class.forName("net.minecraft.resources.ResourceLocation"),
+                  Class.forName("net.minecraft.network.FriendlyByteBuf"))
+              .newInstance(location, buf);
+
+      sendPacket(player.connection, packet);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // interop is best-effort - never break gameplay
+    }
+  }
+
+  /**
    * Sends the title/subtitle/fade packets. Uses the split packet API on 1.17+ and the combined
    * {@code TitleS2CPacket(Action, Text)} API on 1.16.
    */

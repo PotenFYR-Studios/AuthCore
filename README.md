@@ -176,6 +176,25 @@ Custom locales: drop a `messages-<lang>.conf` into `config/authcore/` — missin
 
 ---
 
+## 🔁 Proxy & Network (Velocity / BungeeCord)
+
+AuthCore runs on the **Fabric server** and supports every proxy setup properly:
+
+- **IP forwarding auto-detect** (`session.proxy-support.protocol = "auto"`) — BungeeCord and
+  Velocity-legacy (`ip\0uuid\0properties`) parsed from the handshake; real client IP used for
+  GeoIP, sessions, rate limits and login intelligence
+- **Velocity modern identity forwarding** — HMAC-verified `velocity:player_info` login
+  receiver applies the real UUID/username (`velocity-secret` from `velocity.toml`)
+- **Interop channel** `authcore:auth` (+ BungeeCord subchannel `AuthCore`) — AuthCore
+  broadcasts `AUTH_CHANGED|<uuid>|<username>|<1|0>` so a network can **coexist with a
+  different auth mod** on the backend
+- **Separate config per role** — server `settings.conf`, client `authcore-client.json`,
+  optional `database.conf` override (credentials outside the main config); Redis config sync
+  distributes network-wide settings
+- 📖 Full guide: [docs/PROXY.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
+
+---
+
 ## 🖥️ Client Companion
 
 Both jars ship `environment: "*"` with the login-screen companion built in. It shows a custom

@@ -53,4 +53,38 @@ public final class ProxySupport {
     }
     return true;
   }
+
+  /**
+   * Detects which forwarding protocol a handshake address uses.
+   *
+   * @return {@code "bungeecord"} for the BungeeCord / Velocity-legacy NUL-separated format,
+   *     {@code "bare"} for a plain forwarded IP, {@code "none"} when no forwarding is present
+   */
+  public static String detectProtocol(String handshakeAddress) {
+    if (handshakeAddress == null || handshakeAddress.isBlank()) return "none";
+    if (handshakeAddress.indexOf('\u0000') > 0) return "bungeecord";
+    return isValidIp(handshakeAddress.trim()) ? "bare" : "none";
+  }
+
+  /**
+   * Verifies a Velocity modern-forwarding payload (HMAC-SHA256 of the data with the shared
+   * forwarding secret). Useful for proxy-integration code and future login-phase support.
+   *
+   * @param payload the raw payload bytes (first 32 bytes are the HMAC, the rest is data)
+   * @param secret the shared forwarding secret bytes (UTF-8 of the configured secret)
+   * @return {@code true} when the HMAC is valid
+   */
+  public static boolean verifyVelocityHmac(byte[] payload, byte[] secret) {
+    if (payload == null || secret == null || payload.length <= 32) return false;
+    try {
+      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+      mac.init(new javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"));
+      byte[] expected = new byte[32];
+      System.arraycopy(payload, 0, expected, 0, 32);
+      byte[] actual = mac.doFinal(java.util.Arrays.copyOfRange(payload, 32, payload.length));
+      return java.security.MessageDigest.isEqual(expected, actual);
+    } catch (Exception err) {
+      return false;
+    }
+  }
 }

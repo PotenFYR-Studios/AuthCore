@@ -119,6 +119,11 @@ public class HoconConf {
       AuthCoreServer.config = mapper.load(node);
       mapper.save(AuthCoreServer.config, node);
 
+      // Optional SEPARATE database config: config/authcore/database.conf - a small file that
+      // only overrides the `database { ... }` block (SQLite/MySQL/PostgreSQL/Redis), letting
+      // admins keep credentials outside settings.conf.
+      applyDatabaseConfigOverrides(node);
+
       // Apply distributed Redis config overrides on top of the local settings
       applyRedisConfigOverrides();
 
@@ -127,6 +132,26 @@ public class HoconConf {
       AuthCoreServer.LOGGER.error(
           false, "Facing error while loading configuration file 'settings.conf': ", err);
       AuthCoreServer.config = new Config();
+    }
+  }
+
+  /** Merges {@code database.conf} (if present) over the loaded configuration node. */
+  private static void applyDatabaseConfigOverrides(org.spongepowered.configurate.ConfigurationNode node) {
+    try {
+      java.nio.file.Path dbConf = AuthCoreServer.configPath.resolve("database.conf");
+      if (!java.nio.file.Files.exists(dbConf)) return;
+
+      var override =
+          HoconConfigurationLoader.builder().path(dbConf).build().load();
+      // database.conf wins over settings.conf for the `database` block:
+      // merge settings INTO the override (settings fill gaps only).
+      override.mergeFrom(node);
+      AuthCoreServer.config = ObjectMapper.factory().get(Config.class).load(override);
+      AuthCoreServer.LOGGER.info(
+          true, "Database overrides applied from database.conf (separate config file).");
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.error(
+          false, "Failed to load optional 'database.conf' - using settings.conf database block.", err);
     }
   }
 
