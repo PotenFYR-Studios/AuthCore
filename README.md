@@ -190,9 +190,25 @@ safely and skip it (auto-login via chat still works). Configure interception in
 
 - **Zero per-tick work** — everything happens on join/login/logout events
 - Mojang & GeoIP lookups **cached** (hours-long TTLs) — a 500-player burst costs a few HTTP requests
-- All external I/O **non-blocking**; every cache **bounded & self-cleaning**
+- All external I/O **non-blocking**; every cache **bounded & self-cleaning** (no memory leaks)
 - **Lazy user loading** — 100k+ registered accounts stay light (bounded 20k LRU)
+- SQLite tuned for low-end boxes (WAL + `synchronous=NORMAL`, ~2 MB page cache)
+- **Web panel is OFF by default** — the mod runs as a basic, lean auth plugin until you opt in
 - Mixins are login/player-only — no conflicts with **C2ME, Lithium, Krypton, ModernFix, FerriteCore**
+
+### 🪶 Low-resource servers (≤ 250 MB RAM / 1 core)
+
+AuthCore itself is tiny; the server JVM dominates. For a 1-core / ≤250 MB box, add to your
+start script:
+
+```bash
+java -Xmx192M -Xms64M -XX:+UseSerialGC -XX:TieredStopAtLevel=1 \
+     -XX:-UsePerfData -XX:MaxMetaspaceSize=96M -jar fabric-server.jar nogui
+```
+
+Tips: keep `cache-max-users` at its default (20 000) or lower it (e.g. `5000`) in
+`settings.conf`, leave MySQL/PostgreSQL/Redis **disabled** (SQLite is the lightest), and keep the
+web panel disabled (`session.web-panel.enabled = false` — the default).
 
 ---
 
