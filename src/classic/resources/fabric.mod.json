@@ -3,7 +3,7 @@
   "id": "authcore",
   "version": "${version}",
   "name": "AuthCore",
-  "description": "AuthCore is a universal authentication framework for Fabric - ONE jar for Minecraft 1.16.x through 26.x, on servers AND clients, behind Velocity/BungeeCord or standalone. Secure player registration and login workflows on offline-mode servers with modular, configurable and version-safe design!",
+  "description": "AuthCore is a universal authentication framework for Fabric - this build targets Minecraft 1.16.x - 1.21.11 (obfuscated era, intermediary). One jar for servers AND clients AND BungeeCord/Velocity proxies, behind the proxy or standalone. Secure player registration and login workflows on offline-mode servers!",
   "authors": [
     "Ded3ec"
   ],
@@ -28,7 +28,7 @@
   ],
   "depends": {
     "fabricloader": ">=0.14.24",
-    "minecraft": ">=1.16.0",
+    "minecraft": ">=1.16.0 <26.0",
     "java": ">=16"
   },
   "suggests": {
