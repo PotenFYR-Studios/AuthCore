@@ -61,21 +61,26 @@
 | 🧠 | **Login intelligence** — risk scores, device fingerprint, new-IP/new-country alerts |
 | 🔔 | **Discord / webhooks / email** — alerts for every security event; SMTP recovery codes |
 | 🗄️ | **SQLite / MySQL / PostgreSQL** + **Redis** session & ban sync, cross-server event bus |
-| 🌐 | **Web admin panel** — dashboard with token auth (full + read-only tokens), HTTPS, `/metrics` |
+| 🌐 | **Web admin panel** — dashboard with token auth (full + read-only), HTTPS, brute-force lockout |
 | 👥 | **Discord account linking** — `/discord link` code flow via the panel API |
+| 🔁 | **Proxy-ready** — BungeeCord/Velocity forwarding auto-detect, Velocity modern identity (HMAC), interop with other auth mods |
 | 🌍 | **7 built-in locales** + custom `messages-<lang>.conf` with completeness check |
-| ⚡ | **Lazy-loading for 100k+ users** — bounded caches, zero per-tick work, non-blocking I/O |
+| ⚡ | **Lazy-loading for 100k+ users** — bounded caches, zero per-tick work, non-blocking I/O, ≤250 MB RAM profile |
 | 🖥️ | **Client login-screen companion** — bundled in both jars, auto-login after joining |
-| 🔮 | **Future-proof** — reflection compat layer, version-stable mixins, honest CI matrix |
+| 🧩 | **One jar, three roles** — Fabric server mod + client companion + BungeeCord/Velocity plugin (auto-detected) |
+| 🔮 | **Future-proof** — reflection compat layer, version-stable mixins, honest 3-role CI |
 
 ---
 
 ## 📦 Which jar do I need?
 
+Each jar plays **all three roles** — Fabric server mod, Fabric client companion, and a
+BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into):
+
 | Jar | Minecraft | Java | Notes |
 |:----|:----------|:-----|:------|
-| `authcore-classic-<v>.jar` | **1.16.0 – 1.21.11** | 16+ | Intermediary era — one jar runs on every obfuscated version, server + client |
-| `authcore-modern-<v>.jar` | **26.1+** | 25 | Unobfuscated era (Mojang names, no intermediary) — server + client |
+| `authcore-classic-<v>.jar` | **1.16.0 – 1.21.11** | 16+ | Intermediary era — one jar runs on every obfuscated version, server + client + proxy |
+| `authcore-modern-<v>.jar` | **26.1+** | 25 | Unobfuscated era (Mojang names, no intermediary) — server + client + proxy |
 
 Why two jars? Minecraft 26.1+ ships **unobfuscated** code and Fabric's intermediary no longer
 exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
@@ -313,10 +318,30 @@ normal chat commands.
 
 ## 🗺️ Roadmap
 
-- ✅ **Everything core shipped** — 2FA, CAPTCHA, MySQL/PG/Redis, web panel, email recovery,
-  Discord linking, honeypot, backups, maintenance mode, shadow-ban, 26.x support, security suite
-- 🔜 **NeoForge / Forge port** — the security core is loader-independent; the compat layer
+**✅ Shipped (1.0.0):**
+
+- 🔑 **Authentication core** — register/login, 2FA (TOTP), CAPTCHA (TPS-adaptive), recovery
+  codes, account locking, session system, premium auto-login
+- 🛡️ **Anti-abuse** — brute-force lockout, rate limits, IP allow/deny rules, honeypot,
+  shadow-ban, maintenance mode, progressive punishment, password history
+- 🗄️ **Storage & networks** — SQLite/MySQL/PostgreSQL (dialect-aware), Redis session/ban sync,
+  cross-server event bus, distributed config
+- 🌐 **Web panel** — token auth (full + read-only), HTTPS, brute-force lockout, `/metrics`
+- ✉️ **Email & Discord** — SMTP alerts + recovery, webhooks, Discord account linking
+- 🔁 **Proxy support** — BungeeCord/Velocity IP forwarding auto-detect, Velocity modern
+  identity forwarding (HMAC), interop channel with other auth mods, **full proxy-side auth**
+  (block unauthenticated players before any backend, Redis session validation, fail-open)
+- 🖥️ **Client companion** — login screen + auto-login, bundled in both jars
+- 🔮 **26.x support** — Mojang-named modern jar, unobfuscated era
+- 🧪 **Security suite** — 73 automated checks, honest 3-role CI (server/client/proxy)
+
+**🔜 Planned:**
+
+- **NeoForge / Forge port** — the security core is loader-independent; the compat layer
   already isolates version-specific APIs
+- **26.x snapshot compile checks** — ✅ already live: the CI runs a **daily snapshot job**
+  that compiles the modern source against the newest 26.x release the moment Fabric
+  publishes mappings for it (fails visibly when a new release breaks)
 
 ---
 

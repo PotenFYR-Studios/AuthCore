@@ -465,3 +465,11 @@ openssl s_client -connect 127.0.0.1:25571 -servername 127.0.0.1 </dev/null 2>/de
 curl -kv https://127.0.0.1:25571/api/overview -H "Authorization: Bearer $TOKEN" 2>&1 \
   | grep -A1 "Server certificate"
 ```
+
+
+### 🔒 Brute-force protection
+
+- Token comparisons are **constant-time** (no timing side-channels).
+- After **5 failed token attempts** from one source IP, the panel returns **429** for a
+  60-second lockout window (tracking is bounded - max 2048 IPs, stale entries pruned).
+- Internal errors are masked (generic `500`) - details go to the server log only.

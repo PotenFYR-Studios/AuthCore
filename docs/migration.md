@@ -24,7 +24,7 @@ latest **1.0.0** is safe and — in almost every case — fully automatic.
 | **Messages migration** | ✅ Yes | `messages.conf` / `messages-<lang>.conf` are re-read; new keys fall back to English defaults until you translate them. |
 | **Database schema migration** | ✅ Yes | `USERS` and `LOGIN_HISTORY` tables are checked on startup; missing columns (`email`, `nickname`, `deviceFingerprint`, `trustedUntilMs`, `discordId`, ...) are added automatically with `ALTER TABLE`. |
 | **Password compatibility** | ✅ Yes | Existing password hashes (Argon2id/BCrypt/Scrypt/SHA from any alpha) keep verifying — no re-registration needed. |
-| **Config file layout** | ✅ Yes | `config/authcore/` structure is unchanged. |
+| **Config file layout** | ✅ Yes | `config/authcore/settings.conf` unchanged; NEW optional files: `config/authcore/database.conf` (database overrides) and `config/authcore-proxy.properties` (auto-created when the jar runs as a BungeeCord/Velocity plugin). |
 
 > If the automatic database migration ever **fails**, AuthCore prints a clear, actionable message
 > in the console (delete-and-recreate the DB, run the shown `ALTER TABLE` statements, or restore a
@@ -59,7 +59,7 @@ cp authcore-1.0.0.jar mods/
 
 | Area | Change |
 |:-----|:-------|
-| **Universal jar + 26.x jar** | Two jars from the same source: uthcore-<v>.jar covers **1.16.0 – 1.21.11** (intermediary era, Java 16 class files), uthcore-<v>-26x.jar covers **26.1+** (unobfuscated Mojang names, Java 25). Both run on servers AND clients, standalone or behind Velocity/BungeeCord. |
+| **Universal jar + 26.x jar** | Two jars from the same source: uthcore-classic-<v>.jar covers **1.16.0 – 1.21.11** (intermediary era, Java 16 class files), uthcore-modern-<v>.jar covers **26.1+** (unobfuscated Mojang names, Java 25). Each jar is a Fabric server mod + client companion + BungeeCord/Velocity proxy plugin (auto-detected). |
 | **Client companion (included)** | The universal jar ships `environment: "*"` with the client login-screen companion built in (1.20.2+ clients). On older clients it loads safely and skips the screen. Players do not need anything extra — login/registration work with normal chat commands on any version. |
 | **Performance** | Users are loaded lazily from the DB (great for 100k+ registered accounts). New `cache-max-users` option (default 20000) tunes memory. |
 | **New security features** | Maintenance mode, honeypot, password history, fast-rejoin alert, readonly web token, migration suspension — all disabled by default unless you enable them. |

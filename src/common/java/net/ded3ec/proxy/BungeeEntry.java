@@ -31,9 +31,28 @@ public final class BungeeEntry extends Plugin implements Listener {
       if (config.logEvents)
         getLogger().info("AuthCore proxy mode enabled (BungeeCord detected) - config: config/authcore-proxy.properties");
 
+      if (config.blockUnauthenticated)
+        getLogger().info("AuthCore proxy-side auth ACTIVE - unauthenticated players are blocked before backend connect.");
+
       getProxy().getPluginManager().registerCommand(this, new AuthCoreStatusCommand());
     } catch (Throwable err) {
       getLogger().warning("AuthCore proxy mode failed to start: " + err);
+    }
+  }
+
+  @EventHandler
+  public void onLogin(net.md_5.bungee.api.event.LoginEvent event) {
+    try {
+      if (config == null || !config.enabled || !config.blockUnauthenticated) return;
+      var connection = event.getConnection();
+      if (connection == null || connection.getUniqueId() == null) return;
+
+      if (!ProxyAuthGate.hasValidSession(connection.getUniqueId(), config, msg -> getLogger().warning(msg))) {
+        event.setCancelReason(new net.md_5.bungee.api.chat.TextComponent(config.kickMessage));
+        event.setCancelled(true);
+      }
+    } catch (Throwable ignored) {
+      // fail-open - never break the proxy
     }
   }
 

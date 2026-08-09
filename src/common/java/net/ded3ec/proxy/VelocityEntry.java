@@ -39,11 +39,43 @@ public final class VelocityEntry {
     try {
       config = ProxyConfig.load(Path.of("config"));
       server.getEventManager().register(this, new PluginMessageListener());
+      server.getEventManager().register(this, new LoginGateListener());
       if (config.logEvents)
         logger.info(
             "AuthCore proxy mode enabled (Velocity detected) - config: config/authcore-proxy.properties");
+      if (config.blockUnauthenticated)
+        logger.info("AuthCore proxy-side auth ACTIVE - unauthenticated players are blocked before backend connect.");
     } catch (Throwable err) {
       logger.warn("AuthCore proxy mode failed to start: {}", err.toString());
+    }
+  }
+
+  /** Blocks players without a valid Redis session (fail-open when Redis is down). */
+  private final class LoginGateListener {
+
+    @Subscribe
+    public void onLogin(Object event) {
+      try {
+        if (config == null || !config.enabled || !config.blockUnauthenticated) return;
+
+        // Velocity 3/4: event.getPlayer() -> Player with getUniqueId()
+        Object player = event.getClass().getMethod("getPlayer").invoke(event);
+        if (player == null) return;
+        Object uuidObj = player.getClass().getMethod("getUniqueId").invoke(player);
+        if (!(uuidObj instanceof java.util.UUID uuid)) return;
+
+        if (!ProxyAuthGate.hasValidSession(uuid, config, msg -> logger.warn(msg))) {
+          // event.setResult(Result.denied(Component)) - reflectively, velocity 3.x and 4.x
+          Class<?> resultClass = Class.forName("com.velocitypowered.api.event.Result");
+          Object denied =
+              resultClass
+                  .getMethod("denied", net.kyori.adventure.text.Component.class)
+                  .invoke(null, net.kyori.adventure.text.Component.text(config.kickMessage));
+          event.getClass().getMethod("setResult", resultClass).invoke(event, denied);
+        }
+      } catch (Throwable ignored) {
+        // fail-open - never break the proxy
+      }
     }
   }
 

@@ -252,6 +252,36 @@ proxy-side plugins listen on `bungeecord:main` (`AuthCore` subchannel).
 | Database (optional override) | `config/authcore/database.conf` (only the `database { }` block, merged over settings.conf) |
 
 ---
+
+## 🛡️ FULL Proxy-Side Auth (block before any backend)
+
+Beyond tracking sessions, the proxy plugin can ENFORCE authentication network-wide: with
+`block-unauthenticated=true`, players without a valid Redis session are **disconnected at the
+proxy** before they ever reach a backend server.
+
+```properties
+# config/authcore-proxy.properties (auto-created on the proxy)
+block-unauthenticated=true
+redis-host=127.0.0.1
+redis-port=6379
+redis-password=            # optional
+redis-database=0
+kick-message=You must log in on the main server first.
+session-timeout-ms=3600000
+```
+
+**How it works**
+
+1. Backends with `database.redis.enabled` write `authcore:session:<uuid>` (TTL =
+   `session-timeout-ms`) on successful login/register.
+2. On every player login, the proxy checks Redis for that key (BungeeCord `LoginEvent` /
+   Velocity `LoginEvent`).
+3. No session -> the player is disconnected with `kick-message` and never loads into a
+   backend. Valid session (or Redis unreachable) -> allowed.
+
+> ⚠️ **Fail-open by design**: if Redis is unreachable, connections are ALLOWED (with a warning)
+> so a Redis outage can never lock an entire network. Keep `block-unauthenticated=false` until
+> every backend has Redis-enabled sessions.
 ## 🛡️ Resilience & Build Notes
 
 ### 🧩 Version-Fragile Mixins (`required:false`)

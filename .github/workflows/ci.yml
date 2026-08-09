@@ -1,11 +1,13 @@
 name: CI
 
-# ONE workflow, THREE jobs - minimal notifications:
+# ONE workflow, FOUR jobs - minimal notifications:
 #   build   - builds BOTH jars (authcore-classic for 1.16-1.21.11, authcore-modern for 26.1+),
-#             verifies them and runs the security test suite
+#             verifies ALL THREE ROLES (server/client/proxy) and runs the security test suite
 #   matrix  - single job that compiles the source against 1.16.5 ... 1.21.11
 #   release - on v* tags: builds both jars and publishes/updates the GitHub Release with them
 #             (re-running the same tag UPDATES the existing release + assets + changelog body)
+#   snapshots - daily: compiles the modern source against the NEWEST 26.x release the moment
+#             Fabric publishes mappings for it (fails visibly when a new version breaks)
 
 on:
   push:
@@ -14,6 +16,8 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'   # daily UTC 04:00
 
 permissions:
   contents: write
@@ -152,6 +156,61 @@ jobs:
         with:
           name: matrix-logs
           path: build-*.log
+
+  # ------------------------------------------------------------------
+  # 26.x snapshot check (daily + manual): as soon as Fabric publishes yarn
+  # mappings for a NEW 26.x release, compile the modern source against it.
+  # Fails visibly when the newest release breaks - no silent drift.
+  # ------------------------------------------------------------------
+  snapshots:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
+
+      - name: Find the newest 26.x release with yarn mappings
+        id: latest
+        run: |
+          YARN=$(curl -fsS https://maven.fabricmc.net/net/fabricmc/yarn/maven-metadata.xml \
+            | grep -oP '<version>26[^<]*</version>' | sed 's/<[^>]*>//g' | sort -V | tail -1 || true)
+          echo "yarn=$YARN"
+          if [ -z "$YARN" ]; then
+            echo "No 26.x yarn mappings published yet - skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "yarn=$YARN" >> "$GITHUB_OUTPUT"
+            MC="${YARN%%+*}"
+            echo "mc=$MC" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compile the modern source against the newest 26.x
+        if: steps.latest.outputs.skip == 'false'
+        run: |
+          MC="${{ steps.latest.outputs.mc }}"
+          YARN="${{ steps.latest.outputs.yarn }}"
+          echo "== checking against Minecraft $MC (yarn $YARN) =="
+          if [ "$MC" = "26.2" ]; then
+            echo "Newest 26.x is the already-verified 26.2 - nothing new to check."
+            exit 0
+          fi
+          sed -i \
+            -e "s/^minecraft_version=.*/minecraft_version=$MC/" \
+            -e "s/^yarn_mappings=.*/yarn_mappings=$YARN/" \
+            gradle.properties
+          grep -E 'minecraft_version|yarn_mappings' gradle.properties
+          ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
+          echo "PASS: the modern source compiles against Minecraft $MC"
 
   release:
     runs-on: ubuntu-latest
