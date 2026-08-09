@@ -388,3 +388,29 @@ Unauthenticated players are quarantined in the auth lobby:
 | Cross-server attack hopping | Minecraft-specific | Redis event bus: locks/kicks/brute-force propagate to every backend instantly |
 | Discord-link code theft / replay | Minecraft-specific | 6-char `SecureRandom` codes, 10-min TTL, single-use consumption, token-protected `link` API |
 | Unauthorized panel viewing | OWASP A05 | `readonly-token`: view-only access; actions return 403 for read-only tokens |
+
+
+### Proxy & forwarding
+
+- Handshake forwarding payloads are validated (`ProxySupport.isValidIp` - IPv4/IPv6 with zone
+  indexes) before any address rewrite; garbage handshake data is ignored.
+- Velocity modern forwarding (`velocity:player_info`) is verified with **HMAC-SHA256** using
+  the shared secret (`ProxySupport.verifyVelocityHmac` / `VelocitySupport.parsePlayerInfo`) -
+  tampered or unauthenticated payloads are rejected.
+- Web-panel tokens, captcha codes and email-recovery codes are compared in **constant time**
+  (MessageDigest.isEqual); recovery codes are single-use with a 5-attempt cap and a 60s
+  re-issue cooldown.
+- All caches (users, GeoIP, premium lookups, rate limits, captcha, web-panel lockouts,
+  proxy session cache) are **bounded and self-pruning** - no unbounded growth under attack.
+
+
+### Proxy-side full auth
+
+- With `block-unauthenticated=true` the proxy plugin validates `authcore:session:<uuid>` in
+  Redis BEFORE a player reaches any backend - unauthenticated players are disconnected at the
+  proxy (BungeeCord `LoginEvent` / Velocity `LoginEvent`).
+- The check is **fail-open**: Redis unreachable -> connections allowed with a warning, so a
+  Redis outage can never lock a network.
+- Session keys are written by backends with `database.redis.enabled` and carry the configured
+  TTL; the proxy's zero-dependency RESP client uses short timeouts (1.5s) so the login path
+  is never stalled by a hung Redis.

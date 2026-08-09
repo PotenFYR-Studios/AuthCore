@@ -391,3 +391,22 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 
 The suite is part of the security process — see [SECURITY.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) for what it caught
 (the PBKDF2 server-thread hang) and how it guards regressions.
+
+---
+
+## 📡 Interop & Network Events
+
+AuthCore broadcasts auth-state changes so OTHER mods (and proxy plugins) can react - useful
+when a backend runs a different authentication mod.
+
+| Channel | Payload (ASCII) | When |
+|:--------|:----------------|:-----|
+| `authcore:auth` (Fabric custom) | `AUTH_CHANGED|<uuid>|<username>|<1\|0>` | join / login / register / logout / kick / unregister |
+| `bungeecord:main` subchannel `AuthCore` | `AuthCore\0AUTH_CHANGED|<uuid>|<username>|<1\|0>` | same |
+
+Config: `session.interop { enabled, channel, bungee-channel }` (default on).
+
+**Velocity modern forwarding** - with `session.proxy-support.velocity-secret` set, AuthCore
+registers a `ServerLoginNetworking` receiver for `velocity:player_info`, verifies the
+HMAC-SHA256 and applies the real UUID/username to the login profile. `Networking.VelocitySupport`
+(`parsePlayerInfo`, `verifyVelocityHmac`) is exposed for integration code.

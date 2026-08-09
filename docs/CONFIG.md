@@ -495,3 +495,32 @@ bug it caught and how it guards regressions. CI runs the suite on every push
 (`.github/workflows/build.yml`, alongside the 1.16.5 + 1.21.11 double build) and the
 multi-version matrix (`multi-version-check.yml`) verifies 1.16.5 → 1.21.11 plus a 26.2 mojmap
 build attempt on every push and PR.
+
+
+### 🧩 Proxy, Interop & per-role configs
+
+- `session.proxy-support` - BungeeCord/Velocity forwarding: `enabled`, `protocol`
+  (`auto`/`bungeecord`/`velocity`) and `velocity-secret` (HMAC for Velocity modern
+  `velocity:player_info` identity forwarding).
+- `session.interop` - auth-state broadcasts to other mods / proxy plugins:
+  `enabled`, `channel` (default `authcore:auth`), `bungee-channel` (default true).
+- **Separate config files**:
+  - Server: `config/authcore/settings.conf`
+  - Client companion: `config/authcore-client.json`
+  - Proxy plugin (when the jar runs on BungeeCord/Velocity): `config/authcore-proxy.properties`
+  - Database override: `config/authcore/database.conf` - only the `database { }` block,
+    merged over settings.conf (credentials can live outside the main config)
+
+
+### 🛡️ Proxy plugin full-auth keys (`config/authcore-proxy.properties`)
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `true` | Proxy plugin on/off |
+| `kick-message` | "You must log in on the main server first." | Disconnect reason for unauthenticated players |
+| `session-timeout-ms` | `3600000` | Session TTL the proxy trusts |
+| `log-events` | `true` | Log interop events |
+| `block-unauthenticated` | `false` | **Full proxy-side auth**: disconnect players without a Redis session before backend connect (fail-open) |
+| `redis-host` / `redis-port` | `127.0.0.1` / `6379` | Redis used for session validation |
+| `redis-password` | (empty) | Optional Redis password |
+| `redis-database` | `0` | Optional Redis database index |

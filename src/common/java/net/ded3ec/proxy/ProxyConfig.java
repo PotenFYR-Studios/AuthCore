@@ -19,6 +19,14 @@ public final class ProxyConfig {
   public long sessionTimeoutMs = DEFAULT_TIMEOUT;
   public boolean logEvents = true;
 
+  // Full proxy-side auth: block players without a valid Redis session before they reach
+  // any backend. Fail-open: when Redis is unreachable, connections are allowed.
+  public boolean blockUnauthenticated = false;
+  public String redisHost = "127.0.0.1";
+  public int redisPort = 6379;
+  public String redisPassword = "";
+  public int redisDatabase = 0;
+
   private ProxyConfig() {}
 
   /** Loads (or creates with defaults) the proxy config file. */
@@ -39,6 +47,11 @@ public final class ProxyConfig {
       cfg.kickMessage = props.getProperty("kick-message", cfg.kickMessage);
       cfg.sessionTimeoutMs = parseLong(props.getProperty("session-timeout-ms"), cfg.sessionTimeoutMs);
       cfg.logEvents = parseBool(props.getProperty("log-events"), cfg.logEvents);
+      cfg.blockUnauthenticated = parseBool(props.getProperty("block-unauthenticated"), cfg.blockUnauthenticated);
+      cfg.redisHost = props.getProperty("redis-host", cfg.redisHost);
+      cfg.redisPort = (int) parseLong(props.getProperty("redis-port"), cfg.redisPort);
+      cfg.redisPassword = props.getProperty("redis-password", cfg.redisPassword);
+      cfg.redisDatabase = (int) parseLong(props.getProperty("redis-database"), cfg.redisDatabase);
     } catch (Exception err) {
       // config is best-effort - defaults keep the plugin functional
     }
@@ -52,6 +65,14 @@ public final class ProxyConfig {
         + "\nkick-message=You must log in on the main server first."
         + "\nsession-timeout-ms=3600000"
         + "\nlog-events=true"
+        + "\n"
+        + "\n# Full proxy-side auth: block players without a valid Redis session"
+        + "\n# (authcore:session:<uuid>) BEFORE they reach any backend. Fail-open."
+        + "\nblock-unauthenticated=false"
+        + "\nredis-host=127.0.0.1"
+        + "\nredis-port=6379"
+        + "\nredis-password="
+        + "\nredis-database=0"
         + "\n";
   }
 

@@ -53,7 +53,9 @@ All notable changes to AuthCore, from the first alpha to the current release.
   gradle-validate / dependency-audit / multi-version-check / release) were merged into a
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
-- **Velocity modern forwarding (Fabric server)**: HMAC-verified elocity:player_info login receiver applies the real UUID/username when elocity-secret is set; legacy/BungeeCord handshake parsing auto-detected (protocol = auto).
+- **Full proxy-side auth**: the proxy plugin (BungeeCord + Velocity) can now disconnect players WITHOUT a valid Redis session (lock-unauthenticated=true in config/authcore-proxy.properties) before they reach any backend - zero-dependency RESP Redis client, fail-open on Redis outage, /authcore status command.
+- **26.x snapshot compile checks**: new daily CI job compiles the modern source against the NEWEST 26.x release the moment Fabric publishes yarn mappings for it - fails visibly on breakage.
+- **Velocity modern forwarding (Fabric server): HMAC-verified elocity:player_info login receiver applies the real UUID/username when elocity-secret is set; legacy/BungeeCord handshake parsing auto-detected (protocol = auto).
 - **Interop channel** uthcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).
 - **Separate database config**: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.
 - **Config per role**: server = settings.conf, client = uthcore-client.json, proxy = uthcore-proxy.properties, database = database.conf.
