@@ -54,7 +54,7 @@ jobs:
           echo "jar: $JAR"
           # SERVER role (Fabric)
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0"' && echo "OK declares 1.16.0+"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0 <26.0"' && echo "OK declares 1.16.x - 1.21.x only"
           unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
           [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (Java 16, runs on any newer JVM)" || { echo "FAIL major $MAJOR"; exit 1; }
@@ -67,7 +67,7 @@ jobs:
           unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "OK velocity-plugin.json manifest"
           unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/VelocityEntry.class' && echo "OK Velocity entry class"
 
-      - name: Build 26.x jar (26.1+)
+      - name: Build 26.x jar (26.0+)
         run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
@@ -81,7 +81,7 @@ jobs:
           echo "jar: $JAR"
           # SERVER role (Fabric, unobfuscated era)
           unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
+          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.0"' && echo "OK declares 26.1+"
           unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=25"' && echo "OK declares Java 25"
           unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
@@ -238,7 +238,7 @@ jobs:
           mkdir -p release
           cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
 
-      - name: Build 26.x jar (26.1+)
+      - name: Build 26.x jar (26.0+)
         run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}

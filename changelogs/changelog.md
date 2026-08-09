@@ -60,10 +60,10 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - **Separate database config**: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.
 - **Config per role**: server = settings.conf, client = uthcore-client.json, proxy = uthcore-proxy.properties, database = database.conf.
 - **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
-- **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
+- **26.x support (real build)**: Minecraft 26.0+ is **unobfuscated** (Mojang names at runtime,
   intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
   source (`src/modern/java`, `-Pmodern=true`, loom 1.16.x, Java 25, no mappings):
-  `authcore-modern-1.0.0.jar` for **26.1+** servers/clients. The classic universal jar covers
+  `authcore-modern-1.0.0.jar` for **26.0+** servers/clients. The classic universal jar covers
   **1.16.0 - 1.21.11**. Both jars carry the client login-screen companion (`environment "*"`),
   and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
   `docs/26x.md` for the migration/sync workflow.

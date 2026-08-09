@@ -80,9 +80,9 @@ BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into):
 | Jar | Minecraft | Java | Notes |
 |:----|:----------|:-----|:------|
 | `authcore-classic-<v>.jar` | **1.16.0 – 1.21.11** | 16+ | Intermediary era — one jar runs on every obfuscated version, server + client + proxy |
-| `authcore-modern-<v>.jar` | **26.1+** | 25 | Unobfuscated era (Mojang names, no intermediary) — server + client + proxy |
+| `authcore-modern-<v>.jar` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) — server + client + proxy |
 
-Why two jars? Minecraft 26.1+ ships **unobfuscated** code and Fabric's intermediary no longer
+Why two jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no longer
 exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
 Details in [docs/26x.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md).
 
@@ -243,7 +243,7 @@ Two jars from one codebase, verified by CI on every push:
 | Jar | Versions | How |
 |:----|:---------|:----|
 | `authcore-classic` | 1.16.0 – 1.21.11 | Java-16 classes remapped to stable **intermediary** names → runs on every obfuscated version |
-| `authcore-modern` | 26.1+ | Mojang names (unobfuscated game), Java 25 |
+| `authcore-modern` | 26.0+ | Mojang names (unobfuscated game), Java 25 |
 
 - **Shared + versioned sources** — [`src/common/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/common/java) holds all pure-Java logic (database,
   hashing, web panel, Redis, security) used by BOTH jars; only MC-coupled code is duplicated in
