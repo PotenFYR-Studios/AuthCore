@@ -311,6 +311,7 @@ public final class WebPanel {
 
   private static final int MAX_ATTEMPTS = 5;
   private static final long LOCKOUT_MS = 60_000L;
+  private static final int MAX_TRACKED_IPS = 2_048;
   private static final java.util.Map<String, long[]> FAILED_ATTEMPTS = new java.util.concurrent.ConcurrentHashMap<>();
 
   private static boolean isLockedOut(HttpExchange exchange) {
@@ -329,6 +330,14 @@ public final class WebPanel {
   private static void recordFailedAttempt(HttpExchange exchange) {
     String ip = clientIp(exchange);
     long now = System.currentTimeMillis();
+
+    // Bounded memory: if an attacker cycles through many IPs, forget stale entries
+    // instead of letting the map grow forever.
+    if (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS) {
+      FAILED_ATTEMPTS.entrySet().removeIf(e -> now - e.getValue()[0] > LOCKOUT_MS);
+      if (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS) FAILED_ATTEMPTS.clear();
+    }
+
     FAILED_ATTEMPTS.compute(
         ip,
         (k, entry) -> {

@@ -168,6 +168,17 @@ public class Database {
 
       connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
 
+      // Low-resource SQLite tuning: WAL journaling reduces fsync stalls (smoother ticks on
+      // 1-core boxes), synchronous=NORMAL keeps crash-safety while cutting disk writes, and
+      // a bounded page cache keeps SQLite's memory footprint small.
+      try (Statement pragma = connection.createStatement()) {
+        pragma.execute("PRAGMA journal_mode=WAL;");
+        pragma.execute("PRAGMA synchronous=NORMAL;");
+        pragma.execute("PRAGMA cache_size=-2000;"); // ~2 MB max page cache
+      } catch (SQLException ignored) {
+        // pragmas are best-effort - the connection still works without them
+      }
+
       dialect = Dialect.SQLITE;
       return AuthCoreServer.LOGGER.info(true, "SQLite database has been connected with AuthCore!");
     } catch (SQLException err) {

@@ -39,10 +39,10 @@ jobs:
       - name: Build classic universal jar (1.16 - 1.21.11)
         run: ./gradlew clean build
 
-      - name: Stage classic jars (before the modern build cleans build/)
+      - name: Stage classic jar (before the modern build cleans build/)
         run: |
           mkdir -p release
-          cp build/libs/authcore-classic-*.jar release/
+          cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
 
       - name: Verify classic jar
         run: |
@@ -59,8 +59,8 @@ jobs:
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
-      - name: Stage modern jars
-        run: cp build/libs/authcore-modern-*.jar release/
+      - name: Stage modern jar
+        run: cp $(ls build/libs/authcore-modern-*.jar | grep -v sources) release/
 
       - name: Verify 26.x jar
         run: |
@@ -156,31 +156,35 @@ jobs:
       - name: Build classic jar (1.16 - 1.21.11)
         run: ./gradlew clean build
 
-      - name: Stage classic jars
+      - name: Stage classic jar
         run: |
           mkdir -p release
-          cp build/libs/authcore-classic-*.jar release/
+          cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
 
       - name: Build 26.x jar (26.1+)
         run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
         env:
           JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
 
-      - name: Stage modern jars
-        run: cp build/libs/authcore-modern-*.jar release/
+      - name: Stage modern jar
+        run: cp $(ls build/libs/authcore-modern-*.jar | grep -v sources) release/
 
       - name: Extract changelog section for this version
         id: changelog
         run: |
           VER="${GITHUB_REF_NAME#v}"
-          awk -v ver="[$VER]" '
-            $0 ~ "^## " { in_section = ($0 ~ ver) ; next }
-            in_section && $0 ~ "^## " { exit }
+          # Literal (non-regex) match of "[<VER>]" - only the section for THIS version is
+          # extracted; other versions never leak into the release notes.
+          awk -v ver="$VER" '
+            /^## / {
+              if (index($0, "[" ver "]") > 0) { in_section = 1; next }
+              else if (in_section) exit
+              next
+            }
             in_section { print }
           ' changelogs/changelog.md > release-notes.md
           if [ ! -s release-notes.md ]; then
-            echo "No changelog section found for [$VER] - using the top section" >&2
-            awk 'BEGIN{in_section=0} /^## /{in_section=1;next} in_section&&/^## /{exit} in_section{print}' changelogs/changelog.md > release-notes.md
+            echo "Release of AuthCore $VER - see changelogs/changelog.md for details." > release-notes.md
           fi
           echo "--- release notes ---"
           cat release-notes.md
@@ -192,8 +196,8 @@ jobs:
           name: AuthCore ${{ github.ref_name }}
           body_path: release-notes.md
           files: |
-            release/authcore-classic-*.jar
-            release/authcore-modern-*.jar
+            release/authcore-classic-1.0.0.jar
+            release/authcore-modern-1.0.0.jar
           draft: false
           update_release_body: true
           overwrite: true
