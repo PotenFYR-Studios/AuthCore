@@ -229,6 +229,9 @@ public class Register {
 
         user.register(player, password);
 
+        // Tell other mods / the proxy that this player is now authenticated
+        net.ded3ec.network.AuthInterop.broadcast(player, true);
+
         net.ded3ec.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIp());
         net.ded3ec.network.Webhook.send(
             ":white_check_mark: **" + username + "** registered on the server.");

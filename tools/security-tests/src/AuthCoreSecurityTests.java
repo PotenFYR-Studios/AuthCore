@@ -3,6 +3,7 @@ import net.ded3ec.security.Encrypter;
 import net.ded3ec.security.RateLimiter;
 import net.ded3ec.security.Security;
 import net.ded3ec.network.ProxySupport;
+import net.ded3ec.network.VelocitySupport;
 import net.ded3ec.util.TimeManager;
 
 /**
@@ -23,6 +24,7 @@ public class AuthCoreSecurityTests {
     testEmailRecovery();
     testRateLimiter();
     testProxyParsing();
+    testVelocityForwarding();
     testDeviceFingerprint();
     testTimeManager();
 
@@ -153,6 +155,65 @@ public class AuthCoreSecurityTests {
     check("port suffix rejected", ProxySupport.parseForwardedIp("10.0.0.5:25565") == null);
     check("null rejected", ProxySupport.parseForwardedIp(null) == null);
     check("bare private ip accepted", "127.0.0.1".equals(ProxySupport.parseForwardedIp("127.0.0.1")));
+  }
+
+  private static void testVelocityForwarding() {
+    System.out.println("== Velocity modern forwarding ==");
+    String secret = "test-secret-123";
+
+    // Build a valid velocity:player_info payload: hmac(32) + version(1) + uuid(16) + name(utf) + 0 properties
+    java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+    try {
+      java.io.DataOutputStream out = new java.io.DataOutputStream(body);
+      out.writeInt(1); // version
+      out.writeLong(0x123456789ABCDEF0L);
+      out.writeLong(0x0FEDCBA987654321L);
+      out.writeUTF("TestPlayer");
+      out.writeInt(0); // no properties
+      out.flush();
+    } catch (java.io.IOException err) {
+      check("payload build failed", false);
+      return;
+    }
+    byte[] bodyBytes = body.toByteArray();
+    byte[] payload = new byte[32 + bodyBytes.length];
+    try {
+      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+      mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+      byte[] hmac = mac.doFinal(bodyBytes);
+      System.arraycopy(hmac, 0, payload, 0, 32);
+      System.arraycopy(bodyBytes, 0, payload, 32, bodyBytes.length);
+    } catch (Exception err) {
+      check("hmac build failed", false);
+      return;
+    }
+
+    VelocitySupport.PlayerInfo info = VelocitySupport.parsePlayerInfo(payload, secret);
+    check("valid payload parsed", info != null && "TestPlayer".equals(info.username));
+    check(
+        "uuid matches",
+        info != null
+            && info.uuid.equals(new java.util.UUID(0x123456789ABCDEF0L, 0x0FEDCBA987654321L)));
+
+    // Tamper with the payload -> HMAC fails -> null
+    payload[40] ^= 0x01;
+    check("tampered payload rejected", VelocitySupport.parsePlayerInfo(payload, secret) == null);
+
+    // Wrong secret -> null
+    byte[] fresh = new byte[32 + bodyBytes.length];
+    try {
+      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+      mac.init(new javax.crypto.spec.SecretKeySpec("wrong-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
+      byte[] hmac = mac.doFinal(bodyBytes);
+      System.arraycopy(hmac, 0, fresh, 0, 32);
+      System.arraycopy(bodyBytes, 0, fresh, 32, bodyBytes.length);
+    } catch (Exception err) {
+      check("hmac build failed", false);
+      return;
+    }
+    check("wrong secret rejected", VelocitySupport.parsePlayerInfo(fresh, secret) == null);
+    check("null payload rejected", VelocitySupport.parsePlayerInfo(null, secret) == null);
+    check("blank secret rejected", VelocitySupport.parsePlayerInfo(payload, "  ") == null);
   }
 
   private static void testDeviceFingerprint() {

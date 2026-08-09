@@ -39,6 +39,9 @@ public class ServerEvents {
 
     ServerPlayer player = connection.player;
 
+    // Register interop channels (other mods / proxy plugin messaging)
+    net.ded3ec.network.AuthInterop.register(player);
+
     // Maintenance mode: block all joins
     if (AuthCoreServer.config.session.maintenance.enabled) {
       connection.disconnect(
@@ -367,6 +370,9 @@ public class ServerEvents {
       if (user.isInLobby.get()) user.lobby.unlock();
 
       user.isActive = false;
+
+      // Tell other mods / the proxy that this player is no longer authenticated
+      net.ded3ec.network.AuthInterop.broadcast(player, false);
 
       user.isInCombatPenalty =
           user.lastCombatDetectMs > 0

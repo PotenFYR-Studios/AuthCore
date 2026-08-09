@@ -188,8 +188,11 @@ public class Login {
 
         // Security events (log + webhook + login history)
         int risk = user.riskScore;
-        User.logLogin(user, player.getIp(), user.country.get(), "success", risk);
-        SecurityLog.log("LOGIN_SUCCESS", username + " | IP: " + player.getIp() + " | Risk: " + risk);
+      User.logLogin(user, player.getIp(), user.country.get(), "success", risk);
+      SecurityLog.log("LOGIN_SUCCESS", username + " | IP: " + player.getIp() + " | Risk: " + risk);
+
+      // Tell other mods / the proxy that this player is now authenticated
+      net.ded3ec.network.AuthInterop.broadcast(player, true);
         if (risk >= AuthCoreServer.config.session.intelligence.alertRiskThreshold)
           Webhook.sendEmbed(
               "High-Risk Login",

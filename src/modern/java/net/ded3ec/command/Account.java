@@ -486,6 +486,9 @@ public class Account {
           1, player.connection, AuthCoreServer.messages.promptUserLoggedOut);
 
       user.logout(AuthCoreServer.messages.promptUserSessionExpired);
+
+      // Tell other mods / the proxy that this player is no longer authenticated
+      net.ded3ec.network.AuthInterop.broadcast(player, false);
       return 1;
 
     } catch (Exception err) {

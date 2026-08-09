@@ -44,15 +44,24 @@ jobs:
           mkdir -p release
           cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
 
-      - name: Verify classic jar
+      - name: Verify classic jar (all 3 roles)
         run: |
           JAR=$(ls release/authcore-classic-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
+          # SERVER role (Fabric)
+          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0"' && echo "OK declares 1.16.0+"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
           [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (Java 16, runs on any newer JVM)" || { echo "FAIL major $MAJOR"; exit 1; }
+          # CLIENT role (Fabric companion)
+          unzip -p "$JAR" fabric.mod.json | grep -q 'net.ded3ec.client.ClientAuthCore' && echo "OK client entrypoint"
           unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
+          # PROXY role (BungeeCord + Velocity)
+          unzip -l "$JAR" | grep -q 'bungee.yml' && echo "OK bungee.yml manifest"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/BungeeEntry.class' && echo "OK BungeeCord entry class"
+          unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "OK velocity-plugin.json manifest"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/VelocityEntry.class' && echo "OK Velocity entry class"
 
       - name: Build 26.x jar (26.1+)
         run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
@@ -62,16 +71,25 @@ jobs:
       - name: Stage modern jar
         run: cp $(ls build/libs/authcore-modern-*.jar | grep -v sources) release/
 
-      - name: Verify 26.x jar
+      - name: Verify 26.x jar (all 3 roles)
         run: |
           JAR=$(ls release/authcore-modern-*.jar | grep -v sources | head -1)
           echo "jar: $JAR"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server + client"
+          # SERVER role (Fabric, unobfuscated era)
+          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
           unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.1"' && echo "OK declares 26.1+"
           unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=25"' && echo "OK declares Java 25"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
           MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
           [ "$MAJOR" -eq 69 ] && echo "OK class major $MAJOR (Java 25)" || { echo "FAIL major $MAJOR"; exit 1; }
+          # CLIENT role (Fabric companion)
+          unzip -p "$JAR" fabric.mod.json | grep -q 'net.ded3ec.client.ClientAuthCore' && echo "OK client entrypoint"
           unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
+          # PROXY role (BungeeCord + Velocity)
+          unzip -l "$JAR" | grep -q 'bungee.yml' && echo "OK bungee.yml manifest"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/BungeeEntry.class' && echo "OK BungeeCord entry class"
+          unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "OK velocity-plugin.json manifest"
+          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/VelocityEntry.class' && echo "OK Velocity entry class"
 
       - name: Run security & business-logic tests
         run: pwsh -File tools/security-tests/run-tests.ps1

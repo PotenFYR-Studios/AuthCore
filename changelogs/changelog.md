@@ -53,6 +53,10 @@ All notable changes to AuthCore, from the first alpha to the current release.
   gradle-validate / dependency-audit / multi-version-check / release) were merged into a
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
+- **Velocity modern forwarding (Fabric server)**: HMAC-verified elocity:player_info login receiver applies the real UUID/username when elocity-secret is set; legacy/BungeeCord handshake parsing auto-detected (protocol = auto).
+- **Interop channel** uthcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).
+- **Separate database config**: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.
+- **Config per role**: server = settings.conf, client = uthcore-client.json, proxy = uthcore-proxy.properties, database = database.conf.
 - **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
 - **26.x support (real build)**: Minecraft 26.1+ is **unobfuscated** (Mojang names at runtime,
   intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped

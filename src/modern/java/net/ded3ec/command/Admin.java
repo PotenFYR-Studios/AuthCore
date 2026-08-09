@@ -934,6 +934,9 @@ public class Admin {
 
       user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
 
+      // Tell other mods / the proxy that this player is no longer authenticated
+      net.ded3ec.network.AuthInterop.broadcast(player, false);
+
       if (sourcePlayer != null)
         return AuthCoreServer.LOGGER.toUser(
             1,

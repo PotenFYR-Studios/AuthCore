@@ -51,6 +51,9 @@ public class Registry {
     // Version-sensitive hooks (item use, damage/death) are registered reflectively
     FabricHooks.registerInteractionEvents();
 
+    // Velocity modern forwarding (velocity:player_info login receiver, HMAC-verified)
+    FabricHooks.registerVelocityForwarding();
+
     UseBlockCallback.EVENT.register(BlockEvents::onBlockUsage);
 
     UseEntityCallback.EVENT.register(EntityEvents::onEntityUse);
