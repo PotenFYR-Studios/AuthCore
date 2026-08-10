@@ -19,14 +19,16 @@ config = "authcore.server.mixins.json"
 modId = "forge"
 type = "required"
 mandatory = true
-versionRange = "[40,)"
+versionRange = "${forgeRange}"
 ordering = "NONE"
 side = "SERVER"
 
+# The whole group range (maven syntax), so Modrinth resolves the exact supported
+# versions instead of the single build target.
 [[dependencies.authcore]]
 modId = "minecraft"
 type = "required"
 mandatory = true
-versionRange = "${minecraftVersion}"
+versionRange = "${minecraftRangeForge}"
 ordering = "NONE"
 side = "SERVER"

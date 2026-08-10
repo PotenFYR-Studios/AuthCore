@@ -2,7 +2,7 @@
 
 # 🏰🔐 AuthCore
 
-**The Fortress Framework for Fabric** — login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.1-26.2**, servers AND clients.
+**The Fortress Framework for Minecraft Servers** — login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.1-26.2** on Fabric/Forge/NeoForge, servers AND clients.
 
 <p align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive; font-size: 1.15em; color: #c678dd;">
   ⚔️ 🔥 🏰 🔥 ⚔️<br/>
@@ -22,7 +22,7 @@
 [![PRs](https://img.shields.io/github/issues-pr/DawnOfDedSec/AuthCore?style=for-the-badge&label=PRs&color=brightgreen&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/pulls)
 [![Last Commit](https://img.shields.io/github/last-commit/DawnOfDedSec/AuthCore?style=for-the-badge&label=Last%20Commit&color=darkgreen&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/commits)
 
-[![Java](https://img.shields.io/badge/Java-16%20%7C%2025-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://adoptium.net)
+[![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://adoptium.net)
 [![Fabric](https://img.shields.io/badge/Fabric-Loader%20%2B%20API-blueviolet?style=for-the-badge&logo=fabric&logoColor=white)](https://fabricmc.net)
 [![Server](https://img.shields.io/badge/Server%20Compatible-Fabric%20%7C%20Velocity%20%7C%20BungeeCord-blueviolet?style=for-the-badge&logo=serverfault&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
 [![Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A?style=for-the-badge&logo=gradle&logoColor=white)](https://gradle.org)
@@ -69,7 +69,7 @@
 | 🔔 | **Discord / webhooks / email** — alerts for every security event; SMTP recovery codes |
 | 🗄️ | **SQLite / MySQL / PostgreSQL** + **Redis** session & ban sync, cross-server event bus |
 | 🌐 | **Web admin panel** — dashboard with token auth (full + read-only), HTTPS, brute-force lockout |
-| 👥 | **Discord account linking** — `/discord link` code flow via the panel API |
+| 👥 | **Discord account linking** — `/discord link` code flow (Redis + panel API; the bot never touches the database) |
 | 🔁 | **Proxy-ready** — BungeeCord/Velocity forwarding auto-detect, Velocity modern identity (HMAC), interop with other auth mods |
 | 🌍 | **7 built-in locales** + custom `messages-<lang>.conf` with completeness check |
 | ⚡ | **Lazy-loading for 100k+ users** — bounded caches, zero per-tick work, non-blocking I/O, ≤250 MB RAM profile |
@@ -88,7 +88,7 @@ and a BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it 
 |:----|:----------|:-----|:------|
 | `authcore-1.16-1.18-fabric-<v>.jar` / `-forge-` | **1.16.0 – 1.18.2** | 17 | Intermediary era |
 | `authcore-1.19-1.21-fabric-<v>.jar` / `-forge-` / `-neoforge-` | **1.19.0 – 1.21.11** | 21 | Intermediary era |
-| `authcore-26.1-26.2-fabric-<v>.jar` / `-neoforge-` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) |
+| `authcore-26.1-26.2-fabric-<v>.jar` / `-neoforge-` | **26.1 – 26.2** | 25 | Unobfuscated era (Mojang names, no intermediary) |
 
 Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
 longer exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
@@ -253,7 +253,7 @@ Three range jars from one codebase, verified by the host-test harness:
 |:----|:---------|:----|
 | `authcore-1.16-1.18` | 1.16.0 – 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
 | `authcore-1.19-1.21` | 1.19.0 – 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
-| `authcore-26.1-26.2` | 26.0+ | built @26.2 (unobfuscated, Mojang names) |
+| `authcore-26.1-26.2` | 26.1 – 26.2 | built @26.2 (unobfuscated, Mojang names) |
 
 - **Multi-version workspace (Stonecutter + Stonecraft)** — one Mojang-mapped source tree in
   [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
@@ -262,9 +262,6 @@ Three range jars from one codebase, verified by the host-test harness:
   (loader constants `fabric`/`forge`/`neoforge`/`forgeLike`).
 - **Merged client + server** — one jar is server mod, client companion and
   BungeeCord/Velocity proxy plugin at the same time.
-- **Legacy reference trees** — [`src/common/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/common/java)
-  (yarn 1.16–1.21 code) and `src/client/java` are kept as migration reference and will be
-  removed once the port is fully complete.
 - **Host-test harness** ([`tools/host-tests`](https://github.com/DawnOfDedSec/AuthCore/tree/main/tools/host-tests)):
   boots every range jar inside Docker on every range endpoint (1.16.5 … 26.2) and runs the
   functional checks (mod load, mixins, commands, web panel, honeypot, DB).
@@ -285,8 +282,8 @@ resolver downloads 17/21/25 automatically.
 ./gradlew chiseledBuild            # ALL SEVEN variants (3 ranges x fabric/forge/neoforge)
 
 # single variant:
-./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
-./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
+./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.1.jar
+./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.1.jar
 ```
 
 Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
@@ -317,11 +314,9 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 | [🔌 Developer API](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/API.md) | `AuthCoreApi`, database schema, integration guide |
 | [⚙️ Development & Architecture](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/DEVELOPMENT.md) | Build system, multi-version/multi-loader management, testing |
 | [🌐 Web Panel](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/WEBPANEL.md) | HTTP/HTTPS setup, REST reference, curl examples |
-| [🚀 Postman Collection](https://github.com/DawnOfDedSec/AuthCore/blob/main/postman/authcore-webpanel.postman_collection.json) | Ready-to-import panel API collection |
 | [🔁 Proxy Support](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md) | Velocity / BungeeCord forwarding |
 | [🛡️ Security Model](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) | Threat analysis (OWASP + Minecraft) |
 | [📦 26.1-26.2 Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Range jars, architecture, migration & sync |
-| [🔄 Migration Guide](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/migration.md) | Upgrading from any previous version |
 | [📜 Changelog](https://github.com/DawnOfDedSec/AuthCore/blob/main/changelogs/changelog.md) | Full release history |
 
 ---
@@ -358,7 +353,7 @@ normal chat commands.
 - 🔁 **Proxy support** — BungeeCord/Velocity IP forwarding auto-detect, Velocity modern
   identity forwarding (HMAC), interop channel with other auth mods, **full proxy-side auth**
   (block unauthenticated players before any backend, Redis session validation, fail-open)
-- 🖥️ **Client companion** — login screen + auto-login, bundled in both jars
+- 🖥️ **Client companion** — login screen + auto-login, bundled in every jar
 - 🔮 **26.1-26.2 support** — Mojang-named modern jar, unobfuscated era
 - 🧪 **Security suite** — 73 automated checks, honest 3-role CI (server/client/proxy)
 

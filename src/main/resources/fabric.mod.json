@@ -29,8 +29,8 @@
     "authcore.client.mixins.json"
   ],
   "depends": {
-    "fabricloader": "*",
-    "minecraft": "*",
+    "fabricloader": "${fabricLoaderVersion}",
+    "minecraft": "${minecraftRange}",
     "java": "${javaVersion}"
   },
   "suggests": {

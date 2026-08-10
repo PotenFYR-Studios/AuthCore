@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -338,6 +338,22 @@ On success the `discordId` is written to the `USERS.discordId` column, a `DISCOR
 security-log entry is written, a confirmation is sent to the Discord webhook, and the mapping is
 published to Redis (`authcore:discord:<discordId>` → username, 30-day TTL) for Discord bots to
 read. See [WEBPANEL.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/WEBPANEL.md) for the full action reference.
+
+### Bot integration rules
+
+The Discord bot **never touches the database** — the backend (this mod) is the only component
+that reads or writes the database. Every bot-driven change is an API call the backend executes
+against its own database; the bot has no database credentials and no SQL surface. The bot
+communicates with the backend over:
+
+- **Redis** — link codes (`authcore:discordlink:<code>`, 10-min TTL, single-use), the
+  Discord ↔ Minecraft mapping (`authcore:discord:<discordId>` → username, 30-day TTL) and the
+  `authcore:events` pub/sub channel (login / logout / register / brute-force / kick / ...).
+- **Web panel API** — `POST /api/action` for any state change (link, kick, unlock, ...).
+
+If Redis is disabled, only the raw-`discordId` path works (no code flow). The exact Redis keys
+are implemented in
+[`RedisManager`](https://github.com/DawnOfDedSec/AuthCore/blob/main/src/main/java/net/ded3ec/network/RedisManager.java).
 
 ---
 

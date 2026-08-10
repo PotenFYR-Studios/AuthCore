@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -222,7 +222,7 @@ Response:
 
 ```json
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "registered": 42,
   "online": 7,
   "inLobby": 2,
@@ -340,7 +340,10 @@ Request body:
 
 > 🔗 **Discord linking** — players run `/discord link` in-game to get a 6-char code (published
 > to the webhook + stored in Redis for 10 minutes) and send it to your Discord bot. The bot
-> completes the pairing with this action. See [API.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/API.md)
+> completes the pairing with this action. The bot **never touches the database** — every write
+> is executed by the backend through this API; the bot talks to the backend over Redis
+> (link codes, the `authcore:discord:<id>` mapping and the `authcore:events` pub/sub bus) plus
+> this API. See [API.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/API.md)
 > → *Discord Account Linking* for the full flow.
 
 Success response:

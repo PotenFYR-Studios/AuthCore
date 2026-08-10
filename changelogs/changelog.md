@@ -4,18 +4,48 @@
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
 ---
 
-# AuthCore Changelog
+## [1.0.1] - 2026-08-10
 
-All notable changes to AuthCore, from the first alpha to the current release.
+### Modrinth version range fix
+
+- Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
+  exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
+  of the full grid:
+  - Fabric (`fabric.mod.json`): `>=1.16 <=1.18.2` / `>=1.19 <=1.21.11` / `>=26.1 <=26.2`.
+  - Forge / NeoForge (`mods.toml` / `neoforge.mods.toml`): `[1.16,1.18.2]` / `[1.19,1.21.11]` /
+    `[26.1,26.2]` (maven syntax).
+- Loader minimums are now the exact pins of the build target instead of `*` / `[1,)`:
+  Fabric loader `>=0.19.3`, FML `[40.3.12,)` / `[61.2.0,)`, NeoForge `[21.11.45,)` /
+  `[26.2.0.57,)`.
+- Root cause: the range placeholders never reached the built jars - `fabric.mod.json` shipped
+  `"minecraft": "*"` (Modrinth reads this as "all versions") and `mods.toml` shipped only the
+  single build target. All 7 jars were rebuilt and their metadata verified.
+
+### Bot / backend separation
+
+- The Discord bot integration is now strictly backend-owned: the bot **never touches the
+  database**. Every write is executed by the mod backend through the web panel API; the bot
+  communicates over **Redis** (link codes `authcore:discordlink:*`, mapping
+  `authcore:discord:*`, `authcore:events` pub/sub) plus the API. Docs (`API.md`,
+  `WEBPANEL.md`) state the rule explicitly.
+
+### Cleanup
+
+- Removed legacy / migration leftovers: `src/common/`, `src/client/`, `_migration/`,
+  `postman/`, `release.sh`, `docs/migration.md`.
+- Removed IDE artifacts (`.settings/`, `bin/`, `.classpath`, `.project`, `.factorypath`),
+  stale `dist/` jars and the obsolete `authcore-26.x-*` jars.
+- Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
+  sections, corrected stale wording ("26.0+" → 26.1-26.2, Java 17/21/25, multi-loader
+  tagline).
 
 ---
-
 
 ## [1.0.0] - 2026-08-10
 
@@ -45,38 +75,6 @@ All notable changes to AuthCore, from the first alpha to the current release.
   parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.
 - GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
   weekly compat scan that auto-releases new validated versions with changelog entries.
-### Multi-version / multi-loader restructure (Stonecraft + Stonecutter) - continued
-
-###  Multi-version / multi-loader restructure (Stonecraft + Stonecutter)
-- **Stonecraft 1.10 + Stonecutter 0.9 workspace** - the legacy Groovy `build.gradle`
-  (`-Pmodern` classic/modern double build) is replaced by a Kotlin-DSL multi-version
-  workspace (`settings.gradle.kts`, `stonecutter.gradle.kts`, central `build.gradle.kts`,
-  `versions/dependencies/*.properties`). Variants: `:1.18.2-fabric`, `:1.21.11-fabric`,
-  `:26.2-fabric` (active: `1.21.11-fabric`).
-- **Range jars** - `authcore-classic-<v>.jar` + `authcore-modern-<v>.jar` become
-  `authcore-<range>-<loader>-<modversion>.jar`: `authcore-1.16-1.18-fabric-1.0.0.jar`
-  (built at 1.18.2, covers **1.16.0 - 1.18.2**), `authcore-1.19-1.21-fabric-1.0.0.jar`
-  (built at 1.21.11, covers **1.19.0 - 1.21.11**) and `authcore-26.1-26.2-fabric-1.0.0.jar`
-  (built at 26.2, covers **26.0+**).
-- **Mojang mappings everywhere** - every group compiles against official (Mojang) mappings;
-  only 26.1-26.2 is unobfuscated (Mojang names at runtime). Java toolchains per group: **17**
-  (1.16-1.18), **21** (1.19-1.21), **25** (26.1-26.2).
-- **Single merged source tree** - `src/main/java` + `src/main/resources` hold the server mod,
-  the client login-screen companion AND the BungeeCord/Velocity proxy plugin in **one jar**
-  (`bungee.yml` + `velocity-plugin.json` live in `src/main/resources`). The legacy reference
-  trees `src/common/` (yarn 1.16 - 1.21, renamed from `src/classic`) and `src/client/` are
-  kept for reference; deletion is planned. `_migration/` holds the old build-file backups.
-- **Fabric line verified end-to-end** - the host-compatibility harness booted every range jar
-  on its verify versions - 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 / 26.2 -
-  **8 endpoints, all PASS** (2026-08-10).
-- **Harness revamp** (`tools/host-tests`) - range-group matrix driven by `versions.json`; new
-  options `-Groups`, `-VerifyOverride`, `-Version`, `-Jar`, `-Smoke`, `-Build`,
-  `-Parallel` (default 6), `-NoLiveLogs`, `-KeepReports`, `-Memory`, `-Cpus`, `-TimeoutSec`,
-  `-JbrMajor`, `-WorkDir`, `-ReportDir`, `-NetworkMode`, `-JvmArgs`; live log streaming,
-  cached docker images, report pruning and `reports/latest.*` (md/html/json). The old
-  `-ClassicVersions` / `-ModernVersions` flags are gone.
-- **Forge/NeoForge next** - the Fabric loader line is the supported line now; Forge/NeoForge
-  variants are planned (P3).
 
 ---
 

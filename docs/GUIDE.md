@@ -21,8 +21,8 @@ AuthCore ships **range jars** — one jar covers a whole Minecraft version range
 | `authcore-1.19-1.21-fabric-<v>.jar` | 1.19.0 – 1.21.11 | Fabric |
 | `authcore-1.19-1.21-forge-<v>.jar` | 1.19.0 – 1.21.11 | Forge |
 | `authcore-1.19-1.21-neoforge-<v>.jar` | 1.19.0 – 1.21.11 | NeoForge |
-| `authcore-26.1-26.2-fabric-<v>.jar` | 26.0+ | Fabric |
-| `authcore-26.1-26.2-neoforge-<v>.jar` | 26.0+ | NeoForge |
+| `authcore-26.1-26.2-fabric-<v>.jar` | 26.1 – 26.2 | Fabric |
+| `authcore-26.1-26.2-neoforge-<v>.jar` | 26.1 – 26.2 | NeoForge |
 
 The **same jar is your server mod, your client companion and your BungeeCord/Velocity proxy
 plugin** — install it once wherever AuthCore should run.
@@ -46,7 +46,7 @@ plugin** — install it once wherever AuthCore should run.
 
 ```
   AuthCore - The Fortress Framework for Minecraft Servers
-  Version          : 1.0.0
+  Version          : 1.0.1
   Minecraft        : 1.21.11
   ...
   Security Summary:
