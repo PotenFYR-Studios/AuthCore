@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -348,7 +348,7 @@ Unauthenticated players are quarantined in the auth lobby:
   at runtime). Java toolchains follow the group: 17 (1.16–1.18), 21 (1.19–1.21), 25 (26.1-26.2).
 - **Range jars** — one Fabric jar per group: `authcore-1.16-1.18-fabric-<v>.jar` (built at
   1.18.2, covers 1.16.0 – 1.18.2), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11,
-  covers 1.19.0 – 1.21.11) and `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, covers 26.0+).
+  covers 1.19.0 – 1.21.11) and `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, covers 26.1 – 26.2).
   The legacy `authcore-classic`/`authcore-modern` split is gone.
 - **Host-compatibility harness** — `tools/host-tests/run-host-tests.ps1` boots every range jar
   on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 /

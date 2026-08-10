@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -16,7 +16,7 @@ format, the configuration, how it works server-side, and how to set up BungeeCor
 
 > 🎁 **One jar, both worlds.** Each **range jar** (`authcore-1.16-1.18-fabric-<v>.jar` for
 > 1.16.0 – 1.18.2, `authcore-1.19-1.21-fabric-<v>.jar` for 1.19.0 – 1.21.11,
-> `authcore-26.1-26.2-fabric-<v>.jar` for 26.0+) runs **standalone and behind a proxy** — the
+> `authcore-26.1-26.2-fabric-<v>.jar` for 26.1 – 26.2) runs **standalone and behind a proxy** — the
 > BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
 > build. Proxy behavior is entirely configuration-driven via `session.proxy-support`; with it
 > disabled, AuthCore is a plain server-side mod, and nothing else changes.

@@ -19,7 +19,8 @@ import net.minecraft.server.level.ServerPlayer;
  * <p>{@code /discord link} generates a short link code, publishes it to the role-sync webhook
  * (and stores it in Redis), and the player sends the code to the server's Discord bot. The bot
  * completes the link by calling the web panel API ({@code POST /api/action} with
- * {@code action: "link"}) or the AuthCoreApi.
+ * {@code action: "link"}) or the AuthCoreApi. The bot never touches the database - the backend
+ * (this mod) executes every write; the bot talks to the backend over Redis + this API.
  */
 public class Discord {
 

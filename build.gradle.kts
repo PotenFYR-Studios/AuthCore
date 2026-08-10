@@ -13,6 +13,7 @@
 // ============================================================================
 
 import gg.meza.stonecraft.mod
+import java.util.Properties
 
 plugins {
     id("gg.meza.stonecraft")
@@ -35,6 +36,46 @@ val rangeLabel: String =
         stonecutter.current.parsed < "26" -> "1.19-1.21"
         else -> "26.1-26.2"
     }
+
+// Minecraft version range declared in fabric.mod.json / mods.toml, so Modrinth
+// resolves the exact supported versions instead of "*" (which Modrinth reads as
+// "all versions"). Mirrors `rangeLabel` above and the ranges verified by
+// tools/host-tests.
+//   - Fabric (fabric.mod.json depends.minecraft): Modrinth matches this with
+//     npm-semver `satisfies`; a bare dash like "1.19-1.21.11" parses as a
+//     prerelease tag and matches NOTHING (Modrinth then pre-selects no versions
+//     and the grid shows the full list). ">=1.19 <=1.21.11" is valid for both
+//     npm-semver and the Fabric loader's own VersionPredicateParser.
+//   - Forge/NeoForge (mods.toml versionRange): maven bracket syntax "[min,max]".
+val minecraftRangeMin: String =
+    when {
+        stonecutter.current.parsed < "1.19" -> "1.16"
+        stonecutter.current.parsed < "26" -> "1.19"
+        else -> "26.1"
+    }
+val minecraftRangeMax: String =
+    when {
+        stonecutter.current.parsed < "1.19" -> "1.18.2"
+        stonecutter.current.parsed < "26" -> "1.21.11"
+        else -> "26.2"
+    }
+val minecraftRange: String = ">=$minecraftRangeMin <=$minecraftRangeMax"
+val minecraftRangeForge: String = "[$minecraftRangeMin,$minecraftRangeMax]"
+
+// Dependency pins of the current variant (versions/dependencies/<mc>.properties)
+// - used to declare accurate loader/API requirements in fabric.mod.json.
+val variantDependencies = Properties().apply {
+    rootProject.file("versions/dependencies/${stonecutter.current.version}.properties")
+        .inputStream().use { load(it) }
+}
+
+// Precise loader minimums (maven range syntax) declared in mods.toml so the loader
+// resolves the exact FML/NeoForge line of the build target instead of a loose "[1,)".
+// Fabric jars carry no mods.toml, so missing pins fall back to a safe minimum.
+val forgeRange: String =
+    variantDependencies.getProperty("forge_version")?.let { "[${it.substringAfterLast("-")},)" } ?: "[40,)"
+val neoforgeRange: String =
+    variantDependencies.getProperty("neoforge_version")?.let { "[$it,)" } ?: "[1,)"
 
 val modId: String = property("mod.id") as String
 val modVersion: String = property("mod.version") as String
@@ -72,6 +113,11 @@ modSettings {
     // valid JSON - Stonecutter preprocessor comments are NOT allowed there.
     variableReplacements =
         mapOf(
+            "minecraftRange" to minecraftRange,
+            "minecraftRangeForge" to minecraftRangeForge,
+            "fabricLoaderVersion" to ">=${variantDependencies.getProperty("loader_version")}",
+            "forgeRange" to forgeRange,
+            "neoforgeRange" to neoforgeRange,
             "javaVersion" to
                 when {
                     stonecutter.current.parsed < "1.20.5" -> ">=17"

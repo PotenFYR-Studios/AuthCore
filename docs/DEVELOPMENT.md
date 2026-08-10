@@ -100,12 +100,6 @@ src/main/resources/
 └── assets/authcore/        # icon + bundled translations
 ```
 
-Legacy trees kept as migration reference only (deletion planned):
-
-- `src/common/` — the old yarn 1.16–1.21 server code (renamed from `src/classic`)
-- `src/client/` — the old yarn client companion
-- `_migration/` — backups of the pre-Stonecutter build files
-
 ---
 
 ## 4. Managing multiple Minecraft versions
@@ -119,7 +113,7 @@ silently at the edges:
 |---|---|---|---|---|
 | G1 | 1.16.0 – 1.18.2 | 1.18.2 | 1.16.5, 1.17.1, 1.18.2 | intermediary |
 | G2 | 1.19.0 – 1.21.11 | 1.21.11 | 1.19.4, 1.20.6, 1.21.11 | intermediary |
-| G3 | 26.0+ | 26.2 | 26.1.2, 26.2 | unobfuscated (mojmap runtime) |
+| G3 | 26.1 – 26.2 | 26.2 | 26.1.2, 26.2 | unobfuscated (mojmap runtime) |
 
 ### 4.2 Why the ranges are where they are
 
@@ -248,8 +242,6 @@ fabric/forge/neoforge) — 2026-08-10.
 
 ## 7. Roadmap
 
-- **P3** Forge + NeoForge variants; harness boots all three loaders.
-- **P4** GameTest deep suite (register/login flows, lobby restrictions, 2FA) + automated
+- **P3** GameTest deep suite (register/login flows, lobby restrictions, 2FA) + automated
   mapping-stability check (intermediary-id diff between range endpoints) in CI.
-- **P5** GitHub Actions: build matrix, host-tests on every push, Modrinth/CurseForge publish.
-- **P6** Docs/changelog polish; delete legacy `src/common/` + `src/client/`.
+- **P4** Modrinth / CurseForge publish automation.

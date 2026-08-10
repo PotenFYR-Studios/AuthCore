@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -19,7 +19,7 @@ Defaults are the values shipped with a fresh install.
 > 🎁 **Range jars** — AuthCore ships one Fabric jar per supported version range:
 > `authcore-1.16-1.18-fabric-<v>.jar` (1.16.0 – 1.18.2, built at 1.18.2),
 > `authcore-1.19-1.21-fabric-<v>.jar` (1.19.0 – 1.21.11, built at 1.21.11) and
-> `authcore-26.1-26.2-fabric-<v>.jar` (26.0+, built at 26.2). Every jar runs standalone **and**
+> `authcore-26.1-26.2-fabric-<v>.jar` (26.1 – 26.2, built at 26.2). Every jar runs standalone **and**
 > behind Velocity/BungeeCord. The same `settings.conf` works in both setups; proxy IP
 > forwarding is the only thing you toggle (`session.proxy-support`). The cross-server security
 > event bus and Discord link-code storage need **no new settings** — they activate
@@ -42,7 +42,7 @@ Defaults are the values shipped with a fresh install.
 |---|---|---|---|---|
 | `show-banner` | boolean | `true` | Show the ASCII startup banner. | Keep `true` for the branded console header; disable in CI logs. |
 | `show-summary` | boolean | `true` | Show the version/security summary at startup (versions, cache size, DB, Redis status). | Keep on to verify the loaded config at a glance; disable to quiet startup logs. |
-| `show-untested-version-warning` | boolean | `true` | Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0–1.18.2, 1.19.0–1.21.11 and 26.0+). AuthCore **never refuses to load** — it warns and keeps working. | Keep on when riding a brand-new Minecraft release; set to `false` once you've verified your version in staging. |
+| `show-untested-version-warning` | boolean | `true` | Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0–1.18.2, 1.19.0–1.21.11 and 26.1–26.2). AuthCore **never refuses to load** — it warns and keeps working. | Keep on when riding a brand-new Minecraft release; set to `false` once you've verified your version in staging. |
 
 ---
 

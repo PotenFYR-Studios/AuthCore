@@ -709,8 +709,8 @@ public class Config {
   @Comment(
       """
       Client detection and anti-bypass guard.
-      �?� Detects ghost clients, macro abuse, session theft and fake companion clients.
-      �?� Every signal raises the player's risk score; the decision matrix below decides the action.""")
+      • Detects ghost clients, macro abuse, session theft and fake companion clients.
+      • Every signal raises the player's risk score; the decision matrix below decides the action.""")
   public ClientGuardConfig clientGuard = new ClientGuardConfig();
 
   /** Network-wide single sign-on (Redis). */
