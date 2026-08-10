@@ -9,7 +9,7 @@
 #   group  range     build    verify endpoints         released jar
 #   G1     1.16-1.18 1.18.2   1.16.5, 1.17.1, 1.18.2   authcore-1.16-1.18-fabric-<v>.jar
 #   G2     1.19-1.21 1.21.11  1.19.4, 1.20.6, 1.21.11  authcore-1.19-1.21-fabric-<v>.jar
-#   G3     26.x      26.2     26.1.2, 26.2             authcore-26.x-fabric-<v>.jar
+#   G3     26.1-26.2      26.2     26.1.2, 26.2             authcore-26.1-26.2-fabric-<v>.jar
 #
 # Per version it auto-fetches the server files (Fabric loader + installer +
 # server launch jar, vanilla server downloaded on first boot), installs the
@@ -23,7 +23,7 @@
 # Linux/macOS or `pwsh -File run-host-tests.ps1` on Windows.
 #
 # Options:
-#   -Groups "1.16-1.18,26.x"       filter groups by range label (default: all groups)
+#   -Groups "1.16-1.18,26.1-26.2"       filter groups by range label (default: all groups)
 #   -Range  "1.19-1.21"            alias for -Groups
 #   -Loader "fabric,neoforge"      test only these loaders (default: all loaders of a group)
 #   -VerifyOverride "1.17.1,1.20.6"  replace the verify-version list of every group

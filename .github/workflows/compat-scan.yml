@@ -47,23 +47,23 @@ jobs:
       - name: Probe the ecosystem for new stable releases
         id: probe
         run: |
-          # newest stable 26.x on the Fabric meta
+          # newest stable 26.1-26.2 on the Fabric meta
           FABRIC_26=$(curl -fsS https://meta.fabricmc.net/v2/versions/game \
             | python3 -c "import sys,json; g=json.load(sys.stdin); print(next((v['version'] for v in g if v['version'].startswith('26.') and v['stable']), ''))")
-          # newest NeoForge 26.x
+          # newest NeoForge 26.1-26.2
           NEOFORGE_26=$(curl -fsS https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml \
             | grep -oP '<version>26\.[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v beta | sort -V | tail -1 || true)
           # newest Forge 1.21.x
           FORGE_121=$(curl -fsS https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml \
             | grep -oP '<version>1\.21\.[^<]*</version>' | sed 's/<[^>]*>//g' | sort -V | tail -1 || true)
 
-          echo "Fabric 26.x: $FABRIC_26"
-          echo "NeoForge 26.x: $NEOFORGE_26"
+          echo "Fabric 26.1-26.2: $FABRIC_26"
+          echo "NeoForge 26.1-26.2: $NEOFORGE_26"
           echo "Forge 1.21.x: $FORGE_121"
 
           # Current build target from the repo
           CURRENT=$(grep '^minecraft_version=' versions/dependencies/26.2.properties | cut -d= -f2)
-          echo "Current 26.x target: $CURRENT"
+          echo "Current 26.1-26.2 target: $CURRENT"
 
           # A NEW version = the newest stable differs from the current build target
           NEW=""
@@ -111,7 +111,7 @@ jobs:
         if: always()
         run: |
           echo "## Ecosystem probe" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Newest stable 26.x on Fabric: \`${{ steps.probe.outputs.new_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Newest stable 26.1-26.2 on Fabric: \`${{ steps.probe.outputs.new_version }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## Harness result" >> "$GITHUB_STEP_SUMMARY"
           if [ -f tools/host-tests/reports/latest.md ]; then
@@ -124,7 +124,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            let body = '## AuthCore weekly compat scan failed\n\n**Newest stable 26.x:** `${{ steps.probe.outputs.new_version }}`\n\n**Report excerpt:**\n\n';
+            let body = '## AuthCore weekly compat scan failed\n\n**Newest stable 26.1-26.2:** `${{ steps.probe.outputs.new_version }}`\n\n**Report excerpt:**\n\n';
             try { body += '``````\n' + fs.readFileSync('tools/host-tests/reports/latest.md', 'utf8').slice(0, 4000) + '\n``````'; } catch (e) {}
             await github.rest.issues.create({
               owner: context.repo.owner,

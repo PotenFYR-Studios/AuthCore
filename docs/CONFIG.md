@@ -19,7 +19,7 @@ Defaults are the values shipped with a fresh install.
 > 🎁 **Range jars** — AuthCore ships one Fabric jar per supported version range:
 > `authcore-1.16-1.18-fabric-<v>.jar` (1.16.0 – 1.18.2, built at 1.18.2),
 > `authcore-1.19-1.21-fabric-<v>.jar` (1.19.0 – 1.21.11, built at 1.21.11) and
-> `authcore-26.x-fabric-<v>.jar` (26.0+, built at 26.2). Every jar runs standalone **and**
+> `authcore-26.1-26.2-fabric-<v>.jar` (26.0+, built at 26.2). Every jar runs standalone **and**
 > behind Velocity/BungeeCord. The same `settings.conf` works in both setups; proxy IP
 > forwarding is the only thing you toggle (`session.proxy-support`). The cross-server security
 > event bus and Discord link-code storage need **no new settings** — they activate
@@ -172,7 +172,7 @@ Defaults are the values shipped with a fresh install.
 
 | Setting | Type | Default | Description | Scenario |
 |---|---|---|---|---|
-| `enabled` | boolean | `false` | Add successfully registered accounts to the **vanilla server whitelist** automatically (only applies while the whitelist is enabled). Works across 1.16.0 – 26.x via the Compat layer. | Enable on a whitelisted server so registered players never get locked out. |
+| `enabled` | boolean | `false` | Add successfully registered accounts to the **vanilla server whitelist** automatically (only applies while the whitelist is enabled). Works across 1.16.0 – 26.1-26.2 via the Compat layer. | Enable on a whitelisted server so registered players never get locked out. |
 
 ### `trusted` ⭐
 
@@ -497,7 +497,7 @@ The suite is part of the security process — see
 bug it caught and how it guards regressions. CI runs the suite on every push, and the
 host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots every range jar on its
 verify matrix — 1.16.5 / 1.17.1 / 1.18.2 (1.16–1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 /
-1.21.11 (1.19–1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.x jar, built at 26.2) — with
+1.21.11 (1.19–1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2) — with
 live log streaming and pruned reports (`reports/latest.md|html|json`). The full matrix passed
 on 2026-08-10.
 

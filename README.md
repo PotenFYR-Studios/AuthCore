@@ -2,7 +2,7 @@
 
 # 🏰🔐 AuthCore
 
-**The Fortress Framework for Fabric** — login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.x**, servers AND clients.
+**The Fortress Framework for Fabric** — login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.1-26.2**, servers AND clients.
 
 <p align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive; font-size: 1.15em; color: #c678dd;">
   ⚔️ 🔥 🏰 🔥 ⚔️<br/>
@@ -45,7 +45,7 @@
 
 ---
 
-> ✅ **One codebase, every Minecraft version** — **1.16.0 → 26.x**, on servers AND clients,
+> ✅ **One codebase, every Minecraft version** — **1.16.0 → 26.1-26.2**, on servers AND clients,
 > behind Velocity/BungeeCord or standalone, on **Fabric / Forge / NeoForge** (see
 > [🔮 Multi-Version](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version-compatibility)).
 >
@@ -88,7 +88,7 @@ and a BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it 
 |:----|:----------|:-----|:------|
 | `authcore-1.16-1.18-fabric-<v>.jar` / `-forge-` | **1.16.0 – 1.18.2** | 17 | Intermediary era |
 | `authcore-1.19-1.21-fabric-<v>.jar` / `-forge-` / `-neoforge-` | **1.19.0 – 1.21.11** | 21 | Intermediary era |
-| `authcore-26.x-fabric-<v>.jar` / `-neoforge-` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) |
+| `authcore-26.1-26.2-fabric-<v>.jar` / `-neoforge-` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) |
 
 Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
 longer exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
@@ -213,7 +213,7 @@ AuthCore runs on the **Fabric server** and supports every proxy setup properly:
 
 Both jars ship `environment: "*"` with the login-screen companion built in. It shows a custom
 username/password screen before connecting to protected servers and auto-runs `/login` after
-joining. The screen needs **1.20.2+** (classic line) / **native on 26.x** — older clients load
+joining. The screen needs **1.20.2+** (classic line) / **native on 26.1-26.2** — older clients load
 safely and skip it (auto-login via chat still works). Configure interception in
 `config/authcore-client.json` (enable, auto-login, `servers: ["*"]`, theme colors).
 
@@ -253,7 +253,7 @@ Three range jars from one codebase, verified by the host-test harness:
 |:----|:---------|:----|
 | `authcore-1.16-1.18` | 1.16.0 – 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
 | `authcore-1.19-1.21` | 1.19.0 – 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
-| `authcore-26.x` | 26.0+ | built @26.2 (unobfuscated, Mojang names) |
+| `authcore-26.1-26.2` | 26.0+ | built @26.2 (unobfuscated, Mojang names) |
 
 - **Multi-version workspace (Stonecutter + Stonecraft)** — one Mojang-mapped source tree in
   [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
@@ -277,7 +277,7 @@ Three range jars from one codebase, verified by the host-test harness:
 
 ## 🧑‍💻 Building From Source
 
-Requires JDK 25 for Gradle itself (the 26.x variants enforce it); the foojay toolchain
+Requires JDK 25 for Gradle itself (the 26.1-26.2 variants enforce it); the foojay toolchain
 resolver downloads 17/21/25 automatically.
 
 ```bash
@@ -286,7 +286,7 @@ resolver downloads 17/21/25 automatically.
 
 # single variant:
 ./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
-./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.x-neoforge-1.0.0.jar
+./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
 ```
 
 Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
@@ -320,7 +320,7 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 | [🚀 Postman Collection](https://github.com/DawnOfDedSec/AuthCore/blob/main/postman/authcore-webpanel.postman_collection.json) | Ready-to-import panel API collection |
 | [🔁 Proxy Support](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md) | Velocity / BungeeCord forwarding |
 | [🛡️ Security Model](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) | Threat analysis (OWASP + Minecraft) |
-| [📦 26.x Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Range jars, architecture, migration & sync |
+| [📦 26.1-26.2 Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Range jars, architecture, migration & sync |
 | [🔄 Migration Guide](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/migration.md) | Upgrading from any previous version |
 | [📜 Changelog](https://github.com/DawnOfDedSec/AuthCore/blob/main/changelogs/changelog.md) | Full release history |
 
@@ -359,15 +359,15 @@ normal chat commands.
   identity forwarding (HMAC), interop channel with other auth mods, **full proxy-side auth**
   (block unauthenticated players before any backend, Redis session validation, fail-open)
 - 🖥️ **Client companion** — login screen + auto-login, bundled in both jars
-- 🔮 **26.x support** — Mojang-named modern jar, unobfuscated era
+- 🔮 **26.1-26.2 support** — Mojang-named modern jar, unobfuscated era
 - 🧪 **Security suite** — 73 automated checks, honest 3-role CI (server/client/proxy)
 
 **🔜 Planned:**
 
 - **NeoForge / Forge port** — the security core is loader-independent; the compat layer
   already isolates version-specific APIs
-- **26.x snapshot compile checks** — ✅ already live: the CI runs a **daily snapshot job**
-  that compiles the modern source against the newest 26.x release the moment Fabric
+- **26.1-26.2 snapshot compile checks** — ✅ already live: the CI runs a **daily snapshot job**
+  that compiles the modern source against the newest 26.1-26.2 release the moment Fabric
   publishes mappings for it (fails visibly when a new release breaks)
 
 ---

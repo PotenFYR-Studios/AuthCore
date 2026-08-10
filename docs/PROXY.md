@@ -16,7 +16,7 @@ format, the configuration, how it works server-side, and how to set up BungeeCor
 
 > 🎁 **One jar, both worlds.** Each **range jar** (`authcore-1.16-1.18-fabric-<v>.jar` for
 > 1.16.0 – 1.18.2, `authcore-1.19-1.21-fabric-<v>.jar` for 1.19.0 – 1.21.11,
-> `authcore-26.x-fabric-<v>.jar` for 26.0+) runs **standalone and behind a proxy** — the
+> `authcore-26.1-26.2-fabric-<v>.jar` for 26.0+) runs **standalone and behind a proxy** — the
 > BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
 > build. Proxy behavior is entirely configuration-driven via `session.proxy-support`; with it
 > disabled, AuthCore is a plain server-side mod, and nothing else changes.
@@ -79,7 +79,7 @@ session {
 
 1. Every client connection starts with a handshake packet (`HandshakeC2SPacket`).
 2. AuthCore's mixin `ServerHandshakeNetworkHandlerMixin` (in `net.ded3ec.mixin`) injects at the
-   very beginning of `onHandshake`. The mixin is **universal** (1.16.0 – 26.x): it reads the
+   very beginning of `onHandshake`. The mixin is **universal** (1.16.0 – 26.1-26.2): it reads the
    handshake address via reflection — the record accessor (`address()`) on newer versions, the
    private `address` field on 1.16–1.20.4.
 3. If `proxy-support.enabled` is true, `net.ded3ec.network.ProxySupport.parseForwardedIp(...)`
@@ -349,6 +349,6 @@ A: Yes, intentionally. `session-from-same-ip-only`, GeoIP country detection, per
 limits and risk scoring all operate on the real client IP, which is exactly what you want.
 
 **Q: The mixin shows an error in the console.**
-A: The universal mixin applies cleanly on every supported version (1.16.0 – 26.x). If another
+A: The universal mixin applies cleanly on every supported version (1.16.0 – 26.1-26.2). If another
 mod rewrites handshake addresses too, both may run — AuthCore's rewrite is idempotent and only
 runs once per connection. Enable `debug-mode` for details.
