@@ -21,6 +21,34 @@ $script:GhApiBase = "https://api.github.com/repos/JetBrains/JetBrainsRuntime/rel
 $script:JbrBase = "https://cache-redirector.jetbrains.com/intellij-jbr"
 $script:FabricMetaBase = "https://meta.fabricmc.net/v2"
 
+# Reports only ever show paths relative to the AuthCore folder; anything outside
+# it is reduced to its file name (no absolute/internal paths in reports).
+function Get-RepoRelativePath([string]$Path) {
+  if (-not $Path) { return $Path }
+  $rel = [System.IO.Path]::GetRelativePath($script:RepoRoot, $Path)
+  if ($rel -eq "." -or $rel.StartsWith("..")) { return [System.IO.Path]::GetFileName($Path) }
+  return $rel
+}
+
+# Free text (exception messages, container log lines, excerpts) is sanitized
+# before it is shown: any path inside the AuthCore folder becomes AuthCore-
+# relative, every other absolute path is reduced to its file name. No
+# internal/absolute paths ever reach console output or reports.
+function Get-SanitizedText([string]$Text) {
+  if (-not $Text) { return $Text }
+  $root = $script:RepoRoot.TrimEnd([char]'\', [char]'/')
+  $rootRe = [regex]::Escape($root)
+  $absRe = "(?i)(?:$rootRe[\\/][^\r\n]*|(?<![\w])[a-z]:[\\/][^\r\n]*|(?<![\w:/])[\\/][^\\/\s]+[\\/][^\r\n]*)"
+  return [regex]::Replace($Text, $absRe, {
+    param($m)
+    $p = $m.Value.TrimEnd([char]'\', [char]'/', ' ', "`t", '"', "'", ')', ']', '}', '.', ',', ';')
+    if ($p.StartsWith($root, [System.StringComparison]::OrdinalIgnoreCase) -and $p.Length -gt $root.Length) {
+      return Get-RepoRelativePath $p
+    }
+    return [System.IO.Path]::GetFileName($p)
+  })
+}
+
 function Invoke-AuthWeb {
   param([string]$Uri, [int]$TimeoutSec = 60)
   $resp = Invoke-WebRequest -Uri $Uri -TimeoutSec $TimeoutSec -Headers @{ "User-Agent" = "authcore-host-tests/1.0" }
@@ -71,7 +99,7 @@ function Get-NewestStableMatching {
     if ($cand) { return $cand.version }
     return $null
   } catch {
-    Write-Warning "Stable-version scan failed: $($_.Exception.Message)"
+    Write-Warning "Stable-version scan failed: $(Get-SanitizedText $_.Exception.Message)"
     return $null
   }
 }
@@ -98,7 +126,7 @@ function Resolve-FabricVersions {
     $cache | ConvertTo-Json -Depth 4 | Set-Content $script:MetaCacheFile -Encoding UTF8
     return $entry
   } catch {
-    Write-Warning "Fabric meta lookup failed for $McVersion : $($_.Exception.Message)"
+    Write-Warning "Fabric meta lookup failed for $McVersion : $(Get-SanitizedText $_.Exception.Message)"
     return $null
   }
 }
@@ -123,7 +151,7 @@ function Install-FabricApi {
     Invoke-WebRequest -Uri $file.url -OutFile $target -TimeoutSec 300 -Headers @{ "User-Agent" = "authcore-host-tests/1.0" }
     return $best.version_number
   } catch {
-    Write-Warning "Fabric API fetch failed for $McVersion (continuing without it): $($_.Exception.Message)"
+    Write-Warning "Fabric API fetch failed for $McVersion (continuing without it): $(Get-SanitizedText $_.Exception.Message)"
     return $null
   }
 }
@@ -191,7 +219,7 @@ function Resolve-JbrTarball {
     $manifest | ConvertTo-Json -Depth 4 | Set-Content $manifestFile -Encoding UTF8
     return $asset
   } catch {
-    Write-Warning "JBR $Major resolution failed: $($_.Exception.Message) - using Temurin fallback"
+    Write-Warning "JBR $Major resolution failed: $(Get-SanitizedText $_.Exception.Message) - using Temurin fallback"
     return $null
   }
 }
@@ -338,7 +366,7 @@ function Invoke-HostTest {
           }
         }
         $ver = $deps["$($Desc.loader)_version"]
-        if (-not $ver) { throw "no $($Desc.loader)_version pin in $depsFile" }
+        if (-not $ver) { throw "no $($Desc.loader)_version pin in $(Get-RepoRelativePath $depsFile)" }
         $url =
           if ($Desc.loader -eq "forge") {
             "https://maven.minecraftforge.net/net/minecraftforge/forge/$ver/forge-$ver-installer.jar"
@@ -413,7 +441,7 @@ session {
         $tail = (& docker logs --tail 3 $safeName 2>&1 | Out-String).Trim()
         if ($tail -and $tail -ne $lastTail) {
           foreach ($line in ($tail -split "`r?`n")) {
-            if ($line.Trim()) { Write-Host "  [$mc] $($line.Trim().Substring(0, [Math]::Min(160, $line.Trim().Length)))" }
+            if ($line.Trim()) { Write-Host "  [$mc] $(Get-SanitizedText $line.Trim().Substring(0, [Math]::Min(160, $line.Trim().Length)))" }
           }
           $lastTail = $tail
         }
@@ -435,15 +463,16 @@ session {
       $result.mcDetected = $parsed.mcDetected
       $result.javaVersion = $parsed.javaVersion
       $result.checks = $parsed.checks
-      $result.failures = if ($parsed.failures -is [array]) { $parsed.failures -join "; " } else { $parsed.failures }
-      $result.excerpt = $parsed.excerpt
+      $result.failures = if ($parsed.failures -is [array]) { @($parsed.failures | ForEach-Object { Get-SanitizedText $_ }) -join "; " } else { Get-SanitizedText $parsed.failures }
+      $result.excerpt = Get-SanitizedText $parsed.excerpt
     } else {
       $logTail = (& docker logs --tail 40 $safeName 2>&1 | Out-String).Trim()
-      $result.failures = "no result.json produced; container logs: " + ($logTail -replace '["\r\n]+', ' ').Substring(0, [Math]::Min(400, $logTail.Length))
+      $tailFlat = ($logTail -replace '["\r\n]+', ' ')
+      $result.failures = Get-SanitizedText ("no result.json produced; container logs: " + $tailFlat.Substring(0, [Math]::Min(400, $tailFlat.Length)))
     }
   } catch {
-    $result.failures = "harness error: $($_.Exception.Message)"
-    Write-Host "  [$mc] HARNESS ERROR: $($_.Exception.GetType().Name): $($_.Exception.Message)"
+    $result.failures = Get-SanitizedText "harness error: $($_.Exception.Message)"
+    Write-Host "  [$mc] HARNESS ERROR: $($_.Exception.GetType().Name): $(Get-SanitizedText $_.Exception.Message)"
   } finally {
     & docker rm -f $safeName 2>&1 | Out-Null
   }
@@ -512,7 +541,7 @@ function Write-AuthReport {
   $lines.Add("## Environment")
   $lines.Add("")
   foreach ($j in $Ctx.jars) {
-    $lines.Add("- AuthCore jar ($($j.ranges)): $($j.path)  (sha256 $($j.hash))$($j.legacy ? '  - **LEGACY fallback**' : '')")
+    $lines.Add("- AuthCore jar ($($j.ranges)): $(Get-RepoRelativePath $j.path)  (sha256 $($j.hash))$($j.legacy ? '  - **LEGACY fallback**' : '')")
   }
   $lines.Add("- Isolation: one Docker container per (version, loader), resource-limited, no published ports")
   $lines.Add("- JVM: JetBrains Runtime (auto-fallback: Eclipse Temurin)")
@@ -590,7 +619,7 @@ function Write-AuthReport {
   $lines.Add("After the server reaches \`Done\`, the harness exercises the surface a server owner relies on:")
   $lines.Add("mod loading, mixin application, startup banner + security summary, admin console commands, config and")
   $lines.Add("database creation, web admin panel auth (401/200/bad-token/brute-force lockout), the honeypot listener,")
-  $lines.Add("the game port and a graceful shutdown. Full logs per run: \`$($Ctx.reportLogsDir)\`.")
+  $lines.Add("the game port and a graceful shutdown. Full logs per run: \`$(Get-RepoRelativePath $Ctx.reportLogsDir)\`.")
   $lines.Add("")
   $lines.Add("_This report is generated by tools/host-tests - run \`run-host-tests.ps1\` to reproduce._")
 
@@ -648,7 +677,7 @@ function Write-AuthReport {
   $html.Add("<h1>AuthCore Host-Compatibility Report</h1>")
   $html.Add("<div class='sub'>Generated $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss zzz') &middot; Commit <code>$(& $esc $Ctx.commit)</code> &middot; Mode: $($Ctx.smoke ? 'smoke (build targets only)' : 'full matrix')</div>")
   foreach ($j in $Ctx.jars) {
-    $html.Add("<div class='sub'>Jar ($($j.ranges)): <code>$(& $esc $j.path)</code> &middot; sha256 <code>$($j.hash)</code>$($j.legacy ? ' &middot; LEGACY fallback' : '')</div>")
+    $html.Add("<div class='sub'>Jar ($($j.ranges)): <code>$(& $esc (Get-RepoRelativePath $j.path))</code> &middot; sha256 <code>$($j.hash)</code>$($j.legacy ? ' &middot; LEGACY fallback' : '')</div>")
   }
   $html.Add("<div class='sub'>Isolation: one Docker container per (version, loader) &middot; JVM: JetBrains Runtime (Temurin fallback)</div>")
 
@@ -714,14 +743,27 @@ function Write-AuthReport {
   }
 
   $html.Add("<h2>Methodology</h2>")
-  $html.Add("<div class='sub'>Each run boots a real Minecraft server (Fabric / Forge / NeoForge) inside an isolated Docker container on the JetBrains Runtime matching the Minecraft version, with the AuthCore jar as the only mod. After 'Done', the harness exercises: mod loading, mixin application, the startup banner + security summary, admin console commands, config + database creation, web panel auth (401 no-token / 401 bad-token / 200 valid / 429 brute-force lockout), the honeypot listener, the game port and a graceful shutdown. Full logs: <code>$(& $esc $Ctx.reportLogsDir)</code>.</div>")
+  $html.Add("<div class='sub'>Each run boots a real Minecraft server (Fabric / Forge / NeoForge) inside an isolated Docker container on the JetBrains Runtime matching the Minecraft version, with the AuthCore jar as the only mod. After 'Done', the harness exercises: mod loading, mixin application, the startup banner + security summary, admin console commands, config + database creation, web panel auth (401 no-token / 401 bad-token / 200 valid / 429 brute-force lockout), the honeypot listener, the game port and a graceful shutdown. Full logs: <code>$(& $esc (Get-RepoRelativePath $Ctx.reportLogsDir))</code>.</div>")
   $html.Add("<div class='foot'>Generated by tools/host-tests &middot; AuthCore multi-version compatibility suite</div>")
   $html.Add("</body></html>")
   $htmlPath = Join-Path $ReportDir "report.html"
   Write-LfFile $htmlPath (($html -join "`n") + "`n")
 
   $jsonPath = Join-Path $ReportDir "report.json"
-  @{ generated = (Get-Date -Format o); context = $Ctx; results = $Results } |
+  # Only AuthCore-relative paths ever leave this tool (no absolute/internal paths).
+  $jsonCtx = @{}
+  foreach ($k in $Ctx.Keys) { $jsonCtx[$k] = $Ctx[$k] }
+  $jsonCtx.workRoot = Get-RepoRelativePath $jsonCtx.workRoot
+  $jsonCtx.reportLogsDir = Get-RepoRelativePath $jsonCtx.reportLogsDir
+  $jsonCtx.jars = @($jsonCtx.jars | ForEach-Object {
+    @{ path = Get-RepoRelativePath $_.path; hash = $_.hash; ranges = $_.ranges; legacy = $_.legacy }
+  })
+  $jsonResults = @($Results | ForEach-Object {
+    $c = @{}; foreach ($k in $_.Keys) { $c[$k] = $_[$k] }
+    if ($c.ContainsKey("workDir")) { $c.workDir = Get-RepoRelativePath $c.workDir }
+    $c
+  })
+  @{ generated = (Get-Date -Format o); context = $jsonCtx; results = $jsonResults } |
     ConvertTo-Json -Depth 8 | Set-Content $jsonPath -Encoding UTF8
 
   return $mdPath

@@ -94,6 +94,15 @@ $repoRoot = Split-Path (Split-Path $toolDir -Parent) -Parent
 $modulePath = Join-Path $toolDir "lib/host-test-lib.psm1"
 Import-Module $modulePath -Force
 
+# Console output only ever shows paths relative to the AuthCore folder; anything
+# outside it is reduced to its file name (no absolute/internal paths in output).
+function Get-RepoRelativePath([string]$Path) {
+  if (-not $Path) { return $Path }
+  $rel = [System.IO.Path]::GetRelativePath($repoRoot, $Path)
+  if ($rel -eq "." -or $rel.StartsWith("..")) { return [System.IO.Path]::GetFileName($Path) }
+  return $rel
+}
+
 # ---------------------------------------------------------------- preflight
 
 if (-not (Test-DockerAvailable)) {
@@ -153,7 +162,7 @@ $versionOnlyList = @($Version -split "," | ForEach-Object { $_.Trim() } | Where-
 
 $explicitJar = $null
 if ($Jar) {
-  if (-not (Test-Path $Jar)) { Write-Error "-Jar not found: $Jar" -ErrorAction Continue; exit 4 }
+  if (-not (Test-Path $Jar)) { Write-Error "-Jar not found: $(Get-RepoRelativePath $Jar)" -ErrorAction Continue; exit 4 }
   $explicitJar = (Resolve-Path $Jar).Path
 }
 
@@ -194,8 +203,8 @@ function Assert-FabricModJar {
     $names = $zip.Entries.FullName
     $has = $names -contains "fabric.mod.json" -or $names -contains "META-INF/mods.toml" -or $names -contains "META-INF/neoforge.mods.toml"
   } finally { $zip.Dispose() }
-  if (-not $has) { throw "Jar $Jar is not a mod (no fabric.mod.json / mods.toml / neoforge.mods.toml)." }
-  Write-Host "  using $Kind jar: $Jar"
+  if (-not $has) { throw "Jar $(Get-RepoRelativePath $Jar) is not a mod (no fabric.mod.json / mods.toml / neoforge.mods.toml)." }
+  Write-Host "  using $Kind jar: $(Get-RepoRelativePath $Jar)"
 }
 
 $gradlew = if ($IsWindows) { ".\gradlew.bat" } else { "./gradlew" }
@@ -213,7 +222,7 @@ foreach ($g in $groupDefs) {
     if (-not $groupJarPath -and $loader -eq "fabric") {
       $legacyJar = Resolve-LegacyJar -Range $g.range
       if ($legacyJar) {
-        Write-Warning "No authcore-$($g.range)-$loader-*.jar found for group $($g.range) - falling back to legacy jar $legacyJar"
+        Write-Warning "No authcore-$($g.range)-$loader-*.jar found for group $($g.range) - falling back to legacy jar $(Get-RepoRelativePath $legacyJar)"
         $groupJarPath = $legacyJar
       }
     }
@@ -375,7 +384,7 @@ for ($i = 0; $i -lt $descs.Count; $i++) {
 Write-Host ""
 Write-Host "Running $($tests.Count) isolated host tests (Docker), parallel=$Parallel, smoke=$Smoke..."
 foreach ($j in $ctxJars) {
-  Write-Host "  jar [$($j.ranges)]: $($j.path)$($j.legacy ? '  (LEGACY fallback)' : '')"
+  Write-Host "  jar [$($j.ranges)]: $(Get-RepoRelativePath $j.path)$($j.legacy ? '  (LEGACY fallback)' : '')"
 }
 
 if ($tests.Count -gt 1 -and $Parallel -gt 1) {
@@ -389,8 +398,7 @@ if ($tests.Count -gt 1 -and $Parallel -gt 1) {
     try {
       Invoke-HostTest -Ctx $ctx -Desc $d
     } catch {
-      Write-Host "HARNESS ERROR for $($d.version): $($_.Exception.Message)"
-      Write-Host $_.ScriptStackTrace
+      Write-Host "HARNESS ERROR for $($d.version): $(Get-SanitizedText $_.Exception.Message)"
       throw
     }
   }
@@ -426,8 +434,8 @@ foreach ($r in ($all | Sort-Object @{ Expression = { $_.groupRange } }, @{ Expre
   Write-Host ("  [{0}] {1,-9} {2,-8} {3,-7} jvm={4,-9} boot={5,6}s  authcore={6,6}ms  {7}" -f $icon, $r.groupRange, $r.version, $r.loader, $r.jbrLabel, $r.bootSec, $r.authcoreStartedMs, $r.failures)
 }
 Write-Host ""
-Write-Host "Report: $mdPath"
-Write-Host "HTML:   $htmlPath"
+Write-Host "Report: $(Get-RepoRelativePath $mdPath)"
+Write-Host "HTML:   $(Get-RepoRelativePath $htmlPath)"
 
 $failed = @($all | Where-Object { $_.status -ne "PASS" })
 if ($failed.Count -gt 0) {
