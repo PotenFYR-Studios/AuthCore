@@ -176,21 +176,27 @@ login** until the schema is fixed:
 
 ### 🔄 Version Compatibility
 
-- AuthCore is a **universal jar** supporting **Minecraft 1.16.0 – 26.x** (Fabric Loader,
-  server-side by default). The same jar runs standalone or behind Velocity/BungeeCord.
-- **Client companion (optional build)** — pass `-Pclient_build=true` to Gradle to include the
-  client login-screen companion (a pre-connect username/password screen with auto-login via
-  `/login` / `/register`). The companion requires a **1.19.4+ client** (it uses client APIs not
-  present on older versions); without the flag the jar ships `environment: server` only.
-  CI verifies the companion build on 1.20.6 + 1.21.11 (`client-check.yml`).
+- AuthCore covers **Minecraft 1.16.0 – 26.x** with **three jars** built from one source tree
+  (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at
+  1.18.2, Java 17), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11, Java 21) and
+  `authcore-26.x-fabric-<v>.jar` (built at 26.2, Java 25). Install the jar matching your
+  server version. Every jar runs standalone or behind Velocity/BungeeCord (it doubles as a
+  proxy plugin).
+- **Client companion (included)** — the client login-screen companion (a pre-connect
+  username/password screen with auto-login via `/login` / `/register`) is compiled into
+  **every** jar (`environment: "*"`). Version-specific client code is gated with Stonecutter
+  conditionals, and on older clients it loads safely and skips the screen.
 - The API is version-agnostic: `net.ded3ec.api.AuthCoreApi` is compiled once in `src/main`
   and never references version-specific classes, so your integration compiles against a single
   API surface regardless of the target MC version.
 - Version bridging lives entirely in `net.ded3ec.compat` (a reflection layer) and in
-  version-stable mixin targets — there are **no** `legacy` / `modern` source sets anymore.
-  Version-fragile mixins are declared `required:false`, so a changed signature on a future
-  Minecraft version degrades gracefully (mixin skipped) instead of crashing the server.
-  As long as you only use `AuthCoreApi`, you never touch any of it.
+  Stonecutter conditionals (`/*? if < 26 {*/` ...) — there are **no** `legacy` / `modern`
+  source sets anymore. Version-fragile mixins are declared `required:false`, so a changed
+  signature on a future Minecraft version degrades gracefully (mixin skipped) instead of
+  crashing the server. As long as you only use `AuthCoreApi`, you never touch any of it.
+- **Verified on real servers** — the host-test harness (`tools/host-tests`) boots every range
+  endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
+  1.19.4/1.20.6/1.21.11 and the 26.x jar on 26.1.2/26.2 — all **PASS** (2026-08-10).
 
 ## 🗂️ Internal Packages
 

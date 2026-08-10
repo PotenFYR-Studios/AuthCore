@@ -1,0 +1,32 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "CC0-1.0"
+issueTrackerURL = "https://github.com/DawnOfDedSec/AuthCore/issues"
+
+[[mods]]
+modId = "authcore"
+version = "${version}"
+displayName = "${name}"
+description = "${description}"
+authors = "Ded3ec"
+logoFile = "assets/authcore/icon.png"
+
+# NeoForge applies the same mixin configs as the fabric build (loader-agnostic selectors).
+[[mixins]]
+config = "authcore.server.mixins.json"
+
+[[dependencies.authcore]]
+modId = "neoforge"
+type = "required"
+mandatory = true
+versionRange = "[1,)"
+ordering = "NONE"
+side = "SERVER"
+
+[[dependencies.authcore]]
+modId = "minecraft"
+type = "required"
+mandatory = true
+versionRange = "${minecraftVersion}"
+ordering = "NONE"
+side = "SERVER"

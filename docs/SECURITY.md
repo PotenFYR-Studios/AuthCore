@@ -339,18 +339,27 @@ Unauthenticated players are quarantined in the auth lobby:
   `required:false` in `authcore.server.mixins.json`. When a future Minecraft version changes a
   target signature, the mixin is **skipped instead of crashing the server**, and the rest of
   the mod's defenses (commands, hashing, rate limits, lobby restrictions) stay active.
-- **Mojmap builds for 26.x** — yarn mappings max out at 1.21.11, so 26.x builds use official
-  (Mojang) mappings via `mappings_type=mojmap` in `gradle.properties` (Loom's
-  `officialMojangMappings()`). Mojang-mapped sources use different names (e.g.
-  `ServerGamePacketListenerImpl` instead of `ServerPlayNetworkHandler`), so mixin targets must
-  be re-mapped to the new names until yarn catches up.
-- **CI multi-version matrix** — `.github/workflows/multi-version-check.yml` builds the identical
-  source on **1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (pass/fail + uploaded build
-  logs) and **attempts 26.2 with mojmap** on every push and PR. `.github/workflows/build.yml`
-  remains the release gate (1.21.11 + 1.16.5 + the 57-check security suite).
-- **Client companion (optional build)** — the default jar is `environment: server` only. The
-  client login-screen companion is built with `-Pclient_build=true` and requires a **1.19.4+
-  client**; `.github/workflows/client-check.yml` verifies that build on 1.20.6 + 1.21.11.
+- **Stonecraft/Stonecutter workspace, Mojang mappings everywhere** — a single merged source
+  tree (`src/main/java` + `src/main/resources`) is compiled per version-group × loader variant
+  by the Stonecraft 1.10 + Stonecutter 0.9 workspace (`settings.gradle.kts`,
+  `stonecutter.gradle.kts`, central `build.gradle.kts` Kotlin DSL, `versions/dependencies/*.properties`;
+  variants `:1.18.2-fabric` / `:1.21.11-fabric` / `:26.2-fabric`, active `1.21.11-fabric`).
+  Every group uses official (Mojang) mappings; 26.x is additionally unobfuscated (Mojang names
+  at runtime). Java toolchains follow the group: 17 (1.16–1.18), 21 (1.19–1.21), 25 (26.x).
+- **Range jars** — one Fabric jar per group: `authcore-1.16-1.18-fabric-<v>.jar` (built at
+  1.18.2, covers 1.16.0 – 1.18.2), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11,
+  covers 1.19.0 – 1.21.11) and `authcore-26.x-fabric-<v>.jar` (built at 26.2, covers 26.0+).
+  The legacy `authcore-classic`/`authcore-modern` split is gone.
+- **Host-compatibility harness** — `tools/host-tests/run-host-tests.ps1` boots every range jar
+  on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 /
+  26.2) in Docker containers, driven by the `versions.json` range-group matrix (options
+  `-Groups`, `-Version`, `-Jar`, `-Smoke`, `-Build`, `-Parallel`, `-KeepReports` and more),
+  with live log streaming and pruned reports (`reports/latest.md|html|json`). The full matrix
+  passed on 2026-08-10.
+- **Client companion (bundled)** — every range jar ships `environment: "*"` with the client
+  login-screen companion built in (1.20.2+ clients; older clients load safely and skip the
+  screen). There is no separate build flag — the companion, server mod and the
+  BungeeCord/Velocity proxy plugin all live in the same jar.
 
 ---
 

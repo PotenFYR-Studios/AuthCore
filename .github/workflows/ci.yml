@@ -1,13 +1,13 @@
 name: CI
 
-# ONE workflow, FOUR jobs - minimal notifications:
-#   build   - builds BOTH jars (authcore-classic for 1.16-1.21.11, authcore-modern for 26.1+),
-#             verifies ALL THREE ROLES (server/client/proxy) and runs the security test suite
-#   matrix  - single job that compiles the source against 1.16.5 ... 1.21.11
-#   release - on v* tags: builds both jars and publishes/updates the GitHub Release with them
-#             (re-running the same tag UPDATES the existing release + assets + changelog body)
-#   snapshots - daily: compiles the modern source against the NEWEST 26.x release the moment
-#             Fabric publishes mappings for it (fails visibly when a new version breaks)
+# ONE workflow, THREE jobs - minimal notifications:
+#   build   - builds ALL SEVEN variants (3 ranges x fabric/forge/neoforge) via
+#             Stonecutter (chiseledBuild), verifies the jar roles and runs the
+#             security test suite
+#   host-tests - Docker-based compatibility harness: boots every range jar on its
+#             build targets (and range endpoints on schedule/dispatch)
+#   release - on v* tags: builds all variants and publishes the range jars to the
+#             GitHub Release (re-running the same tag UPDATES it)
 
 on:
   push:
@@ -17,10 +17,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'   # daily UTC 04:00
+    - cron: '0 4 * * *'   # daily UTC 04:00 (full range-endpoint matrix)
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
@@ -29,188 +30,131 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 + JDK 25
+      - name: Set up JDK 17 + JDK 21 + JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: |
+            17
             21
             25
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build classic universal jar (1.16 - 1.21.11)
-        run: ./gradlew clean build
+      - name: Build all variants (1.18.2/1.21.11/26.2 x fabric/forge/neoforge)
+        run: |
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :1.18.2-fabric:build :1.18.2-forge:build \
+            :1.21.11-fabric:build :1.21.11-forge:build :1.21.11-neoforge:build \
+            :26.2-fabric:build :26.2-neoforge:build
 
-      - name: Stage classic jar (before the modern build cleans build/)
+      - name: Stage all jars
         run: |
           mkdir -p release
-          cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
+          cp versions/*/build/libs/authcore-*.jar release/
+          rm -f release/*sources*.jar
+          ls -la release/
 
-      - name: Verify classic jar (all 3 roles)
+      - name: Verify jar roles (server / client / proxy)
         run: |
-          JAR=$(ls release/authcore-classic-*.jar | grep -v sources | head -1)
-          echo "jar: $JAR"
-          # SERVER role (Fabric)
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=1.16.0 <26.0"' && echo "OK declares 1.16.x - 1.21.x only"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
-          MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
-          [ "$MAJOR" -le 60 ] && echo "OK class major $MAJOR (Java 16, runs on any newer JVM)" || { echo "FAIL major $MAJOR"; exit 1; }
-          # CLIENT role (Fabric companion)
-          unzip -p "$JAR" fabric.mod.json | grep -q 'net.ded3ec.client.ClientAuthCore' && echo "OK client entrypoint"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
-          # PROXY role (BungeeCord + Velocity)
-          unzip -l "$JAR" | grep -q 'bungee.yml' && echo "OK bungee.yml manifest"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/BungeeEntry.class' && echo "OK BungeeCord entry class"
-          unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "OK velocity-plugin.json manifest"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/VelocityEntry.class' && echo "OK Velocity entry class"
-
-      - name: Build 26.x jar (26.0+)
-        run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
-
-      - name: Stage modern jar
-        run: cp $(ls build/libs/authcore-modern-*.jar | grep -v sources) release/
-
-      - name: Verify 26.x jar (all 3 roles)
-        run: |
-          JAR=$(ls release/authcore-modern-*.jar | grep -v sources | head -1)
-          echo "jar: $JAR"
-          # SERVER role (Fabric, unobfuscated era)
-          unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "OK server+client environment"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"minecraft": ">=26.0"' && echo "OK declares 26.1+"
-          unzip -p "$JAR" fabric.mod.json | grep -q '"java": ">=25"' && echo "OK declares Java 25"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "OK server entrypoint class"
-          MAJOR=$(unzip -p "$JAR" net/ded3ec/AuthCoreServer.class | head -c 8 | od -An -t u1 -j 6 -N 2 | awk '{print $1*256+$2}')
-          [ "$MAJOR" -eq 69 ] && echo "OK class major $MAJOR (Java 25)" || { echo "FAIL major $MAJOR"; exit 1; }
-          # CLIENT role (Fabric companion)
-          unzip -p "$JAR" fabric.mod.json | grep -q 'net.ded3ec.client.ClientAuthCore' && echo "OK client entrypoint"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "OK client companion bundled"
-          # PROXY role (BungeeCord + Velocity)
-          unzip -l "$JAR" | grep -q 'bungee.yml' && echo "OK bungee.yml manifest"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/BungeeEntry.class' && echo "OK BungeeCord entry class"
-          unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "OK velocity-plugin.json manifest"
-          unzip -l "$JAR" | grep -q 'net/ded3ec/proxy/VelocityEntry.class' && echo "OK Velocity entry class"
+          for JAR in release/authcore-*.jar; do
+            echo "== $JAR =="
+            unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "  OK server entrypoint"
+            unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "  OK client companion"
+            unzip -l "$JAR" | grep -q 'bungee.yml' && echo "  OK bungee manifest"
+            unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "  OK velocity manifest"
+            if unzip -l "$JAR" | grep -q 'fabric.mod.json'; then
+              unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "  OK fabric env *"
+            fi
+            if unzip -l "$JAR" | grep -q 'META-INF/neoforge.mods.toml'; then
+              unzip -p "$JAR" META-INF/neoforge.mods.toml | grep -q 'modId = "authcore"' && echo "  OK neoforge metadata"
+            fi
+            if unzip -l "$JAR" | grep -q 'META-INF/mods.toml'; then
+              unzip -p "$JAR" META-INF/mods.toml | grep -q 'modId = "authcore"' && echo "  OK forge metadata"
+            fi
+          done
 
       - name: Run security & business-logic tests
         run: pwsh -File tools/security-tests/run-tests.ps1
 
-      - name: Upload both jars
+      - name: Upload jars
         uses: actions/upload-artifact@v4
         with:
           name: authcore-jars
           path: release/*.jar
 
-  matrix:
+  # ------------------------------------------------------------------
+  # Docker compatibility harness: real servers, real boots.
+  # On PR/push: build targets only (fast). On schedule/dispatch: the
+  # full range-endpoint matrix (1.16.5 .. 26.2).
+  # ------------------------------------------------------------------
+  host-tests:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Set up JDK 17 + JDK 21 + JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: |
+            17
+            21
+            25
 
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
+      - name: Set up PowerShell 7
+        uses: microsoft/setup-powershell@v2
 
-      - name: Compile the source against every supported version
+      - name: Build all variants
         run: |
-          failures=()
-          for row in \
-            "1.16.5 1.16.5+build.10 0.14.24 0.42.0+1.16" \
-            "1.17.1 1.17.1+build.65 0.14.24 0.46.1+1.17" \
-            "1.18.2 1.18.2+build.4 0.14.24 0.77.0+1.18.2" \
-            "1.19.4 1.19.4+build.2 0.15.11 0.87.2+1.19.4" \
-            "1.20.6 1.20.6+build.3 0.15.11 0.100.8+1.20.6" \
-            "1.21.11 1.21.11+build.6 0.18.4 0.141.3+1.21.11"; do
-            read -r mc yarn loader api <<< "$row"
-            sed -i \
-              -e "s/^minecraft_version=.*/minecraft_version=$mc/" \
-              -e "s/^yarn_mappings=.*/yarn_mappings=$yarn/" \
-              -e "s/^loader_version=.*/loader_version=$loader/" \
-              -e "s/^fabric_api_version=.*/fabric_api_version=$api/" \
-              gradle.properties
-            echo "== compiling against Minecraft $mc =="
-            if ./gradlew clean build -Puniversal=false > "build-$mc.log" 2>&1; then
-              echo "PASS $mc"
-            else
-              echo "FAIL $mc"
-              grep -E "error:" "build-$mc.log" | head -10 || true
-              failures+=("$mc")
-            fi
-          done
-          if [ ${#failures[@]} -gt 0 ]; then
-            echo "Compile failures: ${failures[*]}"
-            exit 1
-          fi
+          chmod +x ./gradlew
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :1.18.2-fabric:build :1.18.2-forge:build \
+            :1.21.11-fabric:build :1.21.11-forge:build :1.21.11-neoforge:build \
+            :26.2-fabric:build :26.2-neoforge:build
+          mkdir -p dist
+          cp versions/*/build/libs/authcore-*.jar dist/
+          rm -f dist/*sources*.jar
 
-      - name: Upload logs on failure
-        if: failure()
+      - name: Host-compatibility smoke (build targets, all loaders)
+        run: |
+          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Smoke -Parallel 4
+        env:
+          DOCKER_BUILDKIT: '1'
+
+      - name: Full range-endpoint matrix (scheduled runs only)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Parallel 4
+        env:
+          DOCKER_BUILDKIT: '1'
+
+      - name: Upload harness report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: matrix-logs
-          path: build-*.log
+          name: host-test-report
+          path: |
+            tools/host-tests/reports/latest.md
+            tools/host-tests/reports/latest.html
+            tools/host-tests/reports/latest.json
 
-  # ------------------------------------------------------------------
-  # 26.x snapshot check (daily + manual): as soon as Fabric publishes yarn
-  # mappings for a NEW 26.x release, compile the modern source against it.
-  # Fails visibly when the newest release breaks - no silent drift.
-  # ------------------------------------------------------------------
-  snapshots:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
+      - name: Open an issue on harness failure
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/github-script@v7
         with:
-          distribution: 'temurin'
-          java-version: '25'
-
-      - name: Make gradlew executable
-        run: chmod +x ./gradlew
-
-      - name: Find the newest 26.x release with yarn mappings
-        id: latest
-        run: |
-          YARN=$(curl -fsS https://maven.fabricmc.net/net/fabricmc/yarn/maven-metadata.xml \
-            | grep -oP '<version>26[^<]*</version>' | sed 's/<[^>]*>//g' | sort -V | tail -1 || true)
-          echo "yarn=$YARN"
-          if [ -z "$YARN" ]; then
-            echo "No 26.x yarn mappings published yet - skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "yarn=$YARN" >> "$GITHUB_OUTPUT"
-            MC="${YARN%%+*}"
-            echo "mc=$MC" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Compile the modern source against the newest 26.x
-        if: steps.latest.outputs.skip == 'false'
-        run: |
-          MC="${{ steps.latest.outputs.mc }}"
-          YARN="${{ steps.latest.outputs.yarn }}"
-          echo "== checking against Minecraft $MC (yarn $YARN) =="
-          if [ "$MC" = "26.2" ]; then
-            echo "Newest 26.x is the already-verified 26.2 - nothing new to check."
-            exit 0
-          fi
-          sed -i \
-            -e "s/^minecraft_version=.*/minecraft_version=$MC/" \
-            -e "s/^yarn_mappings=.*/yarn_mappings=$YARN/" \
-            gradle.properties
-          grep -E 'minecraft_version|yarn_mappings' gradle.properties
-          ./gradlew clean build -Pmodern=true -Pfabric.loom.disableObfuscation=true
-          echo "PASS: the modern source compiles against Minecraft $MC"
+          script: |
+            const fs = require('fs');
+            let body = '## AuthCore host-compatibility failure\n\n';
+            try { body += fs.readFileSync('tools/host-tests/reports/latest.md', 'utf8').slice(0, 6000); } catch (e) {}
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Host-compat matrix failure (' + new Date().toISOString().slice(0,10) + ')',
+              body: body
+            });
 
   release:
     runs-on: ubuntu-latest
@@ -219,39 +163,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21 + JDK 25
+      - name: Set up JDK 17 + JDK 21 + JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: |
+            17
             21
             25
+
+      - name: Set up PowerShell 7
+        uses: microsoft/setup-powershell@v2
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build classic jar (1.16 - 1.21.11)
-        run: ./gradlew clean build
+      - name: Build all variants
+        run: |
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :1.18.2-fabric:build :1.18.2-forge:build \
+            :1.21.11-fabric:build :1.21.11-forge:build :1.21.11-neoforge:build \
+            :26.2-fabric:build :26.2-neoforge:build
 
-      - name: Stage classic jar
+      - name: Stage jars + changelog
         run: |
           mkdir -p release
-          cp $(ls build/libs/authcore-classic-*.jar | grep -v sources) release/
-
-      - name: Build 26.x jar (26.0+)
-        run: ./gradlew build -Pmodern=true -Pfabric.loom.disableObfuscation=true
-        env:
-          JAVA_HOME: ${{ env.JAVA_HOME_25_X64 }}
-
-      - name: Stage modern jar
-        run: cp $(ls build/libs/authcore-modern-*.jar | grep -v sources) release/
-
-      - name: Extract changelog section for this version
-        id: changelog
-        run: |
+          cp versions/*/build/libs/authcore-*.jar release/
+          rm -f release/*sources*.jar
           VER="${GITHUB_REF_NAME#v}"
-          # Literal (non-regex) match of "[<VER>]" - only the section for THIS version is
-          # extracted; other versions never leak into the release notes.
           awk -v ver="$VER" '
             /^## / {
               if (index($0, "[" ver "]") > 0) { in_section = 1; next }
@@ -263,19 +202,28 @@ jobs:
           if [ ! -s release-notes.md ]; then
             echo "Release of AuthCore $VER - see changelogs/changelog.md for details." > release-notes.md
           fi
-          echo "--- release notes ---"
-          cat release-notes.md
+          ls -la release/
 
-      - name: Create or update GitHub Release with both jars
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: AuthCore ${{ github.ref_name }}
-          body_path: release-notes.md
-          files: |
-            release/authcore-classic-1.0.0.jar
-            release/authcore-modern-1.0.0.jar
-          draft: false
-          update_release_body: true
-          overwrite: true
-          fail_on_unmatched_files: false
+      - name: Host-compat validation (smoke) before publishing
+        run: |
+          mkdir -p dist
+          cp release/*.jar dist/
+          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Smoke -Parallel 4
+        env:
+          DOCKER_BUILDKIT: '1'
+
+      - name: Replace the GitHub Release for this version (clean)
+        # Same tag = same version: delete the existing release (and its assets),
+        # then recreate it with the validated jars + changelog. Old files never linger.
+        run: |
+          TAG="${{ github.ref_name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Existing release $TAG found - replacing it entirely."
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" \
+            release/*.jar \
+            --title "AuthCore $TAG" \
+            --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

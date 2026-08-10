@@ -46,8 +46,11 @@
 ---
 
 > ✅ **One codebase, every Minecraft version** — **1.16.0 → 26.x**, on servers AND clients,
-> behind Velocity/BungeeCord or standalone. Two jars, built from one source (see
+> behind Velocity/BungeeCord or standalone, on **Fabric / Forge / NeoForge** (see
 > [🔮 Multi-Version](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version-compatibility)).
+>
+> 🧭 **New here?** Read the [**Server Admin Guide**](docs/GUIDE.md) — jar selection, install,
+> every config option explained, how the auth flows work, commands and troubleshooting.
 
 ---
 
@@ -55,9 +58,13 @@
 
 | | |
 |:--|:--|
+| 📖 | **Newbie-friendly setup** — runs out of the box (SQLite default), every option optional ([guide](docs/GUIDE.md)) |
 | 🔑 | **Premium auto-login** — Mojang API outage-proof detection, cracked fallback |
+| 🔐 | **2FA / MFA** — TOTP authenticator codes, single-use recovery codes, email OTP, MFA step-up for sensitive actions |
+| 🕸️ | **Network SSO** — Redis-backed single sign-on across your server network |
 | 🚪 | **Locked-down login lobby** — invisible limbo, no movement/block/chat until verified |
 | 🛡️ | **Anti-abuse** — brute-force lockout, CAPTCHA (TPS-adaptive), rate limits, IP rules, honeypot |
+| 🤖 | **ClientGuard** — ghost-client / macro / packet-flood detection, companion attestation, risk-score decision matrix |
 | 🧠 | **Login intelligence** — risk scores, device fingerprint, new-IP/new-country alerts |
 | 🔔 | **Discord / webhooks / email** — alerts for every security event; SMTP recovery codes |
 | 🗄️ | **SQLite / MySQL / PostgreSQL** + **Redis** session & ban sync, cross-server event bus |
@@ -66,24 +73,26 @@
 | 🔁 | **Proxy-ready** — BungeeCord/Velocity forwarding auto-detect, Velocity modern identity (HMAC), interop with other auth mods |
 | 🌍 | **7 built-in locales** + custom `messages-<lang>.conf` with completeness check |
 | ⚡ | **Lazy-loading for 100k+ users** — bounded caches, zero per-tick work, non-blocking I/O, ≤250 MB RAM profile |
-| 🖥️ | **Client login-screen companion** — bundled in both jars, auto-login after joining |
-| 🧩 | **One jar, three roles** — Fabric server mod + client companion + BungeeCord/Velocity plugin (auto-detected) |
+| 🖥️ | **Client login-screen companion** — bundled in every jar, auto-login after joining |
+| 🧩 | **One jar, three roles** — Fabric/Forge/NeoForge server mod + client companion + BungeeCord/Velocity plugin (auto-detected) |
 | 🔮 | **Future-proof** — reflection compat layer, version-stable mixins, honest 3-role CI |
 
 ---
 
 ## 📦 Which jar do I need?
 
-Each jar plays **all three roles** — Fabric server mod, Fabric client companion, and a
-BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into):
+Each jar plays **all three roles** — server mod (Fabric/Forge/NeoForge), client companion,
+and a BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into):
 
 | Jar | Minecraft | Java | Notes |
 |:----|:----------|:-----|:------|
-| `authcore-classic-<v>.jar` | **1.16.0 – 1.21.11** | 16+ | Intermediary era — one jar runs on every obfuscated version, server + client + proxy |
-| `authcore-modern-<v>.jar` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) — server + client + proxy |
+| `authcore-1.16-1.18-fabric-<v>.jar` / `-forge-` | **1.16.0 – 1.18.2** | 17 | Intermediary era |
+| `authcore-1.19-1.21-fabric-<v>.jar` / `-forge-` / `-neoforge-` | **1.19.0 – 1.21.11** | 21 | Intermediary era |
+| `authcore-26.x-fabric-<v>.jar` / `-neoforge-` | **26.0+** | 25 | Unobfuscated era (Mojang names, no intermediary) |
 
-Why two jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no longer
-exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
+Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
+longer exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
+Each jar is booted on **every version of its range** by the host-test harness before release.
 Details in [docs/26x.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md).
 
 ---
@@ -238,20 +247,29 @@ web panel disabled (`session.web-panel.enabled = false` — the default).
 
 ## 🔮 Multi-Version Compatibility
 
-Two jars from one codebase, verified by CI on every push:
+Three range jars from one codebase, verified by the host-test harness:
 
 | Jar | Versions | How |
 |:----|:---------|:----|
-| `authcore-classic` | 1.16.0 – 1.21.11 | Java-16 classes remapped to stable **intermediary** names → runs on every obfuscated version |
-| `authcore-modern` | 26.0+ | Mojang names (unobfuscated game), Java 25 |
+| `authcore-1.16-1.18` | 1.16.0 – 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
+| `authcore-1.19-1.21` | 1.19.0 – 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
+| `authcore-26.x` | 26.0+ | built @26.2 (unobfuscated, Mojang names) |
 
-- **Shared + versioned sources** — [`src/common/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/common/java) holds all pure-Java logic (database,
-  hashing, web panel, Redis, security) used by BOTH jars; only MC-coupled code is duplicated in
-  [`src/classic/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/classic/java) (yarn) and [`src/modern/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/modern/java) (Mojang).
-- **Fragile mixins are `required:false`** + tick re-assert guards — a changed signature skips
-  the mixin instead of crashing the server.
-- **CI** ([one workflow, 3 jobs](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)): builds both jars, compiles the source against 1.16.5 … 1.21.11,
-  runs 67 security checks, publishes both jars to GitHub Releases on `v*` tags.
+- **Multi-version workspace (Stonecutter + Stonecraft)** — one Mojang-mapped source tree in
+  [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
+  `/*? if ... {*/` version/loader conditionals; per-version dependencies in `versions/dependencies/`.
+- **Multi-loader ready** — Fabric now, Forge/NeoForge variants share the same tree
+  (loader constants `fabric`/`forge`/`neoforge`/`forgeLike`).
+- **Merged client + server** — one jar is server mod, client companion and
+  BungeeCord/Velocity proxy plugin at the same time.
+- **Legacy reference trees** — [`src/common/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/common/java)
+  (yarn 1.16–1.21 code) and `src/client/java` are kept as migration reference and will be
+  removed once the port is fully complete.
+- **Host-test harness** ([`tools/host-tests`](https://github.com/DawnOfDedSec/AuthCore/tree/main/tools/host-tests)):
+  boots every range jar inside Docker on every range endpoint (1.16.5 … 26.2) and runs the
+  functional checks (mod load, mixins, commands, web panel, honeypot, DB).
+- **CI** ([one workflow](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)): builds all variants, runs the security checks, publishes to
+  GitHub Releases on `v*` tags.
 - Untested versions get a **startup warning banner** (never refuse to load) — silence with
   `logging.show-untested-version-warning = false`.
 
@@ -259,14 +277,21 @@ Two jars from one codebase, verified by CI on every push:
 
 ## 🧑‍💻 Building From Source
 
+Requires JDK 25 for Gradle itself (the 26.x variants enforce it); the foojay toolchain
+resolver downloads 17/21/25 automatically.
+
 ```bash
-./gradlew clean build                                  # classic jar (1.16 - 1.21.11)  -> build/libs/authcore-classic-1.0.0.jar
-./gradlew clean build -Pmodern=true \
-  -Pfabric.loom.disableObfuscation=true                # 26.x jar                      -> build/libs/authcore-modern-1.0.0.jar
+./gradlew build                    # the ACTIVE variant (1.21.11-fabric)
+./gradlew chiseledBuild            # ALL SEVEN variants (3 ranges x fabric/forge/neoforge)
+
+# single variant:
+./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
+./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.x-neoforge-1.0.0.jar
 ```
 
-Java 21+ for the classic build, Java 25 for the modern one. Per-version verification builds:
-`./gradlew build -Puniversal=false`.
+Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
+host-test harness (`tools/host-tests`) verifies every jar on every version of its range —
+see [docs/DEVELOPMENT.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/DEVELOPMENT.md).
 
 ---
 
@@ -287,13 +312,15 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 
 | Doc | What's inside |
 |:----|:--------------|
+| [🧭 Server Admin Guide](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/GUIDE.md) | Newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting |
 | [📖 Configuration](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/CONFIG.md) | Every option, default and use-case |
 | [🔌 Developer API](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/API.md) | `AuthCoreApi`, database schema, integration guide |
+| [⚙️ Development & Architecture](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/DEVELOPMENT.md) | Build system, multi-version/multi-loader management, testing |
 | [🌐 Web Panel](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/WEBPANEL.md) | HTTP/HTTPS setup, REST reference, curl examples |
 | [🚀 Postman Collection](https://github.com/DawnOfDedSec/AuthCore/blob/main/postman/authcore-webpanel.postman_collection.json) | Ready-to-import panel API collection |
 | [🔁 Proxy Support](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md) | Velocity / BungeeCord forwarding |
 | [🛡️ Security Model](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) | Threat analysis (OWASP + Minecraft) |
-| [📦 26.x Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Two-jar architecture, migration & sync |
+| [📦 26.x Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Range jars, architecture, migration & sync |
 | [🔄 Migration Guide](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/migration.md) | Upgrading from any previous version |
 | [📜 Changelog](https://github.com/DawnOfDedSec/AuthCore/blob/main/changelogs/changelog.md) | Full release history |
 

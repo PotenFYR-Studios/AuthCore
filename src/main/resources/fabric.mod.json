@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "${id}",
+  "version": "${version}",
+
+  "name": "${name}",
+  "description": "${description}",
+  "authors": [
+    "Ded3ec"
+  ],
+  "contact": {
+    "homepage": "https://github.com/DawnOfDedSec/AuthCore",
+    "sources": "https://github.com/DawnOfDedSec/AuthCore"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/authcore/icon.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "server": [
+      "${group}.entrypoint.FabricEntry"
+    ],
+    "client": [
+      "${group}.client.ClientAuthCore"
+    ]
+  },
+  "mixins": [
+    "authcore.server.mixins.json",
+    "authcore.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "*",
+    "minecraft": "*",
+    "java": "${javaVersion}"
+  },
+  "suggests": {
+    "fabric-api": "*",
+    "luckperms": "*"
+  }
+}

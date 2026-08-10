@@ -46,3 +46,22 @@ run/.settings/
 # security test harness
 tools/security-tests/out/
 tools/security-tests/result.txt
+
+# host-test harness (docker-based compatibility tests)
+tools/host-tests/.cache/
+tools/host-tests/work/
+tools/host-tests/reports/
+
+# ---- Stonecutter / Stonecraft multi-version workspace ----
+# Generated variant projects (one per mc-loader pairing) and their caches.
+versions/*/
+!versions/dependencies/
+
+# Legacy build system backup (pre-migration, git-tracked files recoverable)
+_migration/
+
+# build artifacts (release jars are published to GitHub Releases, not the repo)
+dist/
+
+# IDE
+.factorypath
