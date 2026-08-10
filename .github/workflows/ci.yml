@@ -175,9 +175,13 @@ jobs:
       - name: Extract changelog section for this version
         run: |
           VER="${GITHUB_REF_NAME#v}"
+          # Match the EXACT version bracket: "[1.0.0]" must not match
+          # "[1.0.0-alpha.5]" (substring bug). Compare the heading's bracket
+          # field literally, so only sections for the tagged version are used.
           awk -v ver="$VER" '
             /^## / {
-              if (index($0, "[" ver "]") > 0) { in_section = 1; next }
+              field = $2
+              if (field == "[" ver "]") { in_section = 1; next }
               else if (in_section) exit
               next
             }
@@ -188,19 +192,23 @@ jobs:
           fi
           ls -la release/
 
-      - name: Replace the GitHub Release for this version (clean)
-        # Same tag = same version: delete the existing release (and its assets),
-        # then recreate it with the validated jars + changelog. Old files never linger.
-        # A different tag creates a brand new release.
+      - name: Publish or update the GitHub Release for this version
+        # Existing release for the same tag = same version: replace the notes and
+        # re-upload the jars with --clobber (old assets are overwritten, nothing
+        # lingers). A different tag creates a brand new release. Never deletes
+        # first, so a failed publish cannot leave the release missing.
         run: |
           TAG="${{ github.ref_name }}"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Existing release $TAG found - replacing it entirely."
-            gh release delete "$TAG" --yes
+            echo "Release $TAG exists - updating notes and replacing assets."
+            gh release upload "$TAG" release/*.jar --clobber
+            gh release edit "$TAG" --notes-file release-notes.md
+          else
+            echo "Release $TAG does not exist - creating it."
+            gh release create "$TAG" \
+              release/*.jar \
+              --title "AuthCore $TAG" \
+              --notes-file release-notes.md
           fi
-          gh release create "$TAG" \
-            release/*.jar \
-            --title "AuthCore $TAG" \
-            --notes-file release-notes.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
