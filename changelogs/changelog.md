@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-# Ã°Å¸â€œÅ“ AuthCore Changelog
+# ðŸ“œ AuthCore Changelog
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
@@ -22,9 +22,9 @@ All notable changes to AuthCore, from the first alpha to the current release.
 ### Multi-loader & multi-version workspace (Stonecutter / Stonecraft)
 
 - One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
-  1.16-1.18, 1.19-1.21 and 26.x (7 release jars in total).
+  1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).
 - Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
-  26.1.2, 26.2 Ã¢â‚¬â€ all 22 harness checks PASS on all 7 loader build targets.
+  26.1.2, 26.2 —” all 22 harness checks PASS on all 7 loader build targets.
 
 ### Security & anti-bypass
 
@@ -56,11 +56,11 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - **Range jars** - `authcore-classic-<v>.jar` + `authcore-modern-<v>.jar` become
   `authcore-<range>-<loader>-<modversion>.jar`: `authcore-1.16-1.18-fabric-1.0.0.jar`
   (built at 1.18.2, covers **1.16.0 - 1.18.2**), `authcore-1.19-1.21-fabric-1.0.0.jar`
-  (built at 1.21.11, covers **1.19.0 - 1.21.11**) and `authcore-26.x-fabric-1.0.0.jar`
+  (built at 1.21.11, covers **1.19.0 - 1.21.11**) and `authcore-26.1-26.2-fabric-1.0.0.jar`
   (built at 26.2, covers **26.0+**).
 - **Mojang mappings everywhere** - every group compiles against official (Mojang) mappings;
-  only 26.x is unobfuscated (Mojang names at runtime). Java toolchains per group: **17**
-  (1.16-1.18), **21** (1.19-1.21), **25** (26.x).
+  only 26.1-26.2 is unobfuscated (Mojang names at runtime). Java toolchains per group: **17**
+  (1.16-1.18), **21** (1.19-1.21), **25** (26.1-26.2).
 - **Single merged source tree** - `src/main/java` + `src/main/resources` hold the server mod,
   the client login-screen companion AND the BungeeCord/Velocity proxy plugin in **one jar**
   (`bungee.yml` + `velocity-plugin.json` live in `src/main/resources`). The legacy reference
@@ -82,10 +82,10 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ## [1.0.0] - 2026-08-09
 
-### Ã°Å¸Å½Â¯ Universal single-jar architecture (1.16.x - 26.x)
+### ðŸŽ¯ Universal single-jar architecture (1.16.x - 26.1-26.2)
 - **One source, every Minecraft version** - the old per-version source sets are gone; version
   variants live under `src/` (`src/main/java` + `src/client/java` = classic yarn code,
-  `src/modern/java` = Mojang 26.x code) behind the `net.ded3ec.compat` reflection layer and
+  `src/modern/java` = Mojang 26.1-26.2 code) behind the `net.ded3ec.compat` reflection layer and
   version-stable mixin targets. Verified by compiling the identical source against **1.16.5,
   1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11** (all green), with a per-push CI matrix.
 - **Universal mixins**: login hello (reflects over `getProfile()` vs `name()/profileId()`, plus
@@ -118,13 +118,13 @@ All notable changes to AuthCore, from the first alpha to the current release.
   single `ci.yml`. Matrix builds no longer mask failures (`gradlew` exec-bit bug fixed, yarn
   versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).
 - **Full proxy-side auth**: the proxy plugin (BungeeCord + Velocity) can now disconnect players WITHOUT a valid Redis session (lock-unauthenticated=true in config/authcore-proxy.properties) before they reach any backend - zero-dependency RESP Redis client, fail-open on Redis outage, /authcore status command.
-- **26.x snapshot compile checks**: new daily CI job compiles the modern source against the NEWEST 26.x release the moment Fabric publishes yarn mappings for it - fails visibly on breakage.
+- **26.1-26.2 snapshot compile checks**: new daily CI job compiles the modern source against the NEWEST 26.1-26.2 release the moment Fabric publishes yarn mappings for it - fails visibly on breakage.
 - **Velocity modern forwarding (Fabric server): HMAC-verified elocity:player_info login receiver applies the real UUID/username when elocity-secret is set; legacy/BungeeCord handshake parsing auto-detected (protocol = auto).
 - **Interop channel** uthcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).
 - **Separate database config**: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.
 - **Config per role**: server = settings.conf, client = uthcore-client.json, proxy = uthcore-proxy.properties, database = database.conf.
-- **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.x code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
-- **26.x support (real build)**: Minecraft 26.0+ is **unobfuscated** (Mojang names at runtime,
+- **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.1-26.2 code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
+- **26.1-26.2 support (real build)**: Minecraft 26.0+ is **unobfuscated** (Mojang names at runtime,
   intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
   source (`src/modern/java`, `-Pmodern=true`, loom 1.16.x, Java 25, no mappings):
   `authcore-modern-1.0.0.jar` for **26.0+** servers/clients. The classic universal jar covers
@@ -132,7 +132,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
   `docs/26x.md` for the migration/sync workflow.
 
-### Ã°Å¸Å¡â‚¬ Performance for 100k+ users
+### ðŸš€ Performance for 100k+ users
 - **Lazy user loading** - users are fetched from the database on demand (join/login/whois)
   instead of loading the whole table at startup. A 100k-registered server keeps only online +
   recently-touched users in memory.
@@ -141,19 +141,19 @@ All notable changes to AuthCore, from the first alpha to the current release.
   searchable queries) instead of iterating the in-memory map.
 - Thread-safe canonical cache (a single User instance per account under concurrent access).
 
-### Ã°Å¸â€ºÂ¡Ã¯Â¸Â Race-condition hardening
+### ðŸ›¡ï¸ Race-condition hardening
 - `AuthCoreServer.config/messages`, user session fields, `TpsManager.tickCounter` and the DB
   connection are now `volatile`.
 - All database access is `synchronized` (single shared JDBC connection is never used
   concurrently).
 - User cache-miss fetches are serialized under a dedicated lock.
 
-### Ã°Å¸Ââ€º Security fixes found by the new test suite
+### ðŸ› Security fixes found by the new test suite
 - **PBKDF2 DoS fixed** - password4j's PBKDF2 `check()` could hang the server thread during
   login. PBKDF2 is now a self-contained JDK `SecretKeyFactory` implementation
   (`$pbkdf2-sha256$iter$salt$hash`, constant-time comparison).
 
-### Ã¢Å“Â¨ New features
+### âœ¨ New features
 - **Cross-server security event bus** (Redis pub/sub `authcore:events`): login, logout, register,
   brute-force, account-locked and kick events are broadcast network-wide; receivers log, webhook
   and execute remote kicks.
@@ -175,7 +175,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   `password-rules.history-size`, `security.extra-webhook-urls` - all fully commented in
   `settings.conf` and documented in `docs/CONFIG.md` with defaults + scenarios.
 
-### Ã°Å¸Â§Âª Quality
+### ðŸ§ª Quality
 - `tools/security-tests/` - standalone test suite (57 checks) covering password hashing
   round-trips, captcha lifecycle, email recovery, rate limiting, proxy parsing, device
   fingerprints. Run via `tools/security-tests/run-tests.ps1`.

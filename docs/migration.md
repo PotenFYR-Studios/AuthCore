@@ -43,7 +43,7 @@ cp -r config/authcore config/authcore-backup        # config + SQLite database
 # 3. Replace the mod jar
 rm mods/authcore-old.jar
 cp authcore-1.19-1.21-fabric-1.0.0.jar mods/   # pick the jar matching your MC version:
-                                               # 1.16-1.18 / 1.19-1.21 / 26.x
+                                               # 1.16-1.18 / 1.19-1.21 / 26.1-26.2
 
 # 4. Start the server and watch the console:
 #    - "Users database initialized and patched!"  -> schema migration OK
@@ -60,7 +60,7 @@ cp authcore-1.19-1.21-fabric-1.0.0.jar mods/   # pick the jar matching your MC v
 
 | Area | Change |
 |:-----|:-------|
-| **Three range jars** | Three jars from the same source tree (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at 1.18.2) covers **1.16.0 – 1.18.2**, `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11) covers **1.19.0 – 1.21.11**, `authcore-26.x-fabric-<v>.jar` (built at 26.2, unobfuscated Mojang names) covers **26.1+**. Each jar is a Fabric server mod + client companion + BungeeCord/Velocity proxy plugin (auto-detected). |
+| **Three range jars** | Three jars from the same source tree (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at 1.18.2) covers **1.16.0 – 1.18.2**, `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11) covers **1.19.0 – 1.21.11**, `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, unobfuscated Mojang names) covers **26.1+**. Each jar is a Fabric server mod + client companion + BungeeCord/Velocity proxy plugin (auto-detected). |
 | **Client companion (included)** | Every jar ships `environment: "*"` with the client login-screen companion built in (1.20.2+ clients). On older clients it loads safely and skips the screen. Players do not need anything extra — login/registration work with normal chat commands on any version. |
 | **Performance** | Users are loaded lazily from the DB (great for 100k+ registered accounts). New `cache-max-users` option (default 20000) tunes memory. |
 | **New security features** | Maintenance mode, honeypot, password history, fast-rejoin alert, readonly web token, migration suspension — all disabled by default unless you enable them. |
@@ -70,7 +70,7 @@ cp authcore-1.19-1.21-fabric-1.0.0.jar mods/   # pick the jar matching your MC v
 
 ## ❓ FAQ
 
-| **Three range jars** | Three jars from the same source tree (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at 1.18.2) covers **1.16.0 - 1.18.2**, `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11) covers **1.19.0 - 1.21.11**, `authcore-26.x-fabric-<v>.jar` (built at 26.2, unobfuscated Mojang names) covers **26.1+**. Each jar is a Fabric server mod + client companion + BungeeCord/Velocity proxy plugin (auto-detected). |
+| **Three range jars** | Three jars from the same source tree (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at 1.18.2) covers **1.16.0 - 1.18.2**, `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11) covers **1.19.0 - 1.21.11**, `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, unobfuscated Mojang names) covers **26.1+**. Each jar is a Fabric server mod + client companion + BungeeCord/Velocity proxy plugin (auto-detected). |
 A: Yes. Hashes are self-contained (salt embedded) and verify with the same algorithms.
 
 **Q: Do players need the client mod?**
