@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-# 📜 AuthCore Changelog
+# AuthCore Changelog
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
@@ -82,7 +82,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ## [1.0.0] - 2026-08-09
 
-### 🎯 Universal single-jar architecture (1.16.x - 26.1-26.2)
+### Universal single-jar architecture (1.16.x - 26.1-26.2)
 - **One source, every Minecraft version** - the old per-version source sets are gone; version
   variants live under `src/` (`src/main/java` + `src/client/java` = classic yarn code,
   `src/modern/java` = Mojang 26.1-26.2 code) behind the `net.ded3ec.compat` reflection layer and
@@ -132,7 +132,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
   `docs/26x.md` for the migration/sync workflow.
 
-### 🚀 Performance for 100k+ users
+### Performance for 100k+ users
 - **Lazy user loading** - users are fetched from the database on demand (join/login/whois)
   instead of loading the whole table at startup. A 100k-registered server keeps only online +
   recently-touched users in memory.
@@ -141,19 +141,19 @@ All notable changes to AuthCore, from the first alpha to the current release.
   searchable queries) instead of iterating the in-memory map.
 - Thread-safe canonical cache (a single User instance per account under concurrent access).
 
-### 🛡️ Race-condition hardening
+### Race-condition hardening
 - `AuthCoreServer.config/messages`, user session fields, `TpsManager.tickCounter` and the DB
   connection are now `volatile`.
 - All database access is `synchronized` (single shared JDBC connection is never used
   concurrently).
 - User cache-miss fetches are serialized under a dedicated lock.
 
-### 🐛 Security fixes found by the new test suite
+### Security fixes found by the new test suite
 - **PBKDF2 DoS fixed** - password4j's PBKDF2 `check()` could hang the server thread during
   login. PBKDF2 is now a self-contained JDK `SecretKeyFactory` implementation
   (`$pbkdf2-sha256$iter$salt$hash`, constant-time comparison).
 
-### ✨ New features
+### New features
 - **Cross-server security event bus** (Redis pub/sub `authcore:events`): login, logout, register,
   brute-force, account-locked and kick events are broadcast network-wide; receivers log, webhook
   and execute remote kicks.
@@ -175,7 +175,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   `password-rules.history-size`, `security.extra-webhook-urls` - all fully commented in
   `settings.conf` and documented in `docs/CONFIG.md` with defaults + scenarios.
 
-### 🧪 Quality
+### Quality
 - `tools/security-tests/` - standalone test suite (57 checks) covering password hashing
   round-trips, captcha lifecycle, email recovery, rate limiting, proxy parsing, device
   fingerprints. Run via `tools/security-tests/run-tests.ps1`.
