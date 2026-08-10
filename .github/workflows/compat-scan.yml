@@ -90,6 +90,13 @@ jobs:
         env:
           DOCKER_BUILDKIT: '1'
 
+      - name: Upload jars (shared with the publish job)
+        uses: actions/upload-artifact@v4
+        with:
+          name: authcore-jars
+          path: dist/*.jar
+          retention-days: 7
+
       - name: Upload harness report
         if: always()
         uses: actions/upload-artifact@v4
@@ -147,14 +154,6 @@ jobs:
           name: authcore-jars
           path: release
           # the build job in ci.yml uploads them; the scan job stages dist/ directly
-      - name: Stage jars (fallback to local dist)
-        run: |
-          if [ ! -d release ] || [ -z "$(ls -A release 2>/dev/null)" ]; then
-            mkdir -p release
-            cp versions/*/build/libs/authcore-*.jar release/ 2>/dev/null || true
-            rm -f release/*sources*.jar
-          fi
-          ls -la release/
 
       - name: Create changelog entry for the new version
         shell: bash
