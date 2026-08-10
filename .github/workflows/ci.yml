@@ -6,9 +6,14 @@ name: CI
 #               uploads the jars as an artifact
 #   host-tests - needs build: downloads the jars (no rebuild) and runs the Docker
 #               harness (smoke on push/PR, full range matrix on schedule)
-#   release   - needs build + host-tests: downloads the validated jars, replaces the
-#               release for the same tag (or creates a new one), publishes the changelog.
-#               Only runs on v* tags and ONLY after validation passed.
+#   release   - needs build: downloads the validated jars, replaces the release for
+#               the same tag (or creates a new one), publishes the changelog.
+#               Only runs on v* tags. Does NOT wait for host-tests so a release
+#               appears as soon as the jars are built; host-tests still validates
+#               in parallel in the same run.
+# Speed notes: Gradle deps + build cache are persisted between runs (setup-java
+# cache + org.gradle.caching), so re-pushing a tag or rebuilding after a small
+# change reuses most of the work.
 
 on:
   push:
@@ -19,6 +24,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: '0 4 * * *'   # daily UTC 04:00 (full range-endpoint matrix)
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -39,6 +48,7 @@ jobs:
             17
             21
             25
+          cache: 'gradle'
 
       - name: Make gradlew executable
         run: chmod +x ./gradlew
@@ -142,14 +152,15 @@ jobs:
             });
 
   # ------------------------------------------------------------------
-  # Release: waits for build + host-tests (validation gate), then
-  # replaces the release for the SAME tag (delete old release + assets)
-  # or creates a new one for a different version. Publishes the jars +
-  # the changelog entry. Never rebuilds - uses the validated artifact.
+  # Release: waits for build (the jars are the artifact), then replaces
+  # the release for the SAME tag (delete old release + assets) or creates
+  # a new one for a different version. Publishes the jars + the changelog
+  # entry. Deliberately does NOT wait for host-tests: releases appear as
+  # soon as the build finishes while the harness validates in parallel.
   # ------------------------------------------------------------------
   release:
     runs-on: ubuntu-latest
-    needs: [build, host-tests]
+    needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Checkout repository

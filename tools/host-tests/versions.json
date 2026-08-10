@@ -17,7 +17,7 @@
       "jbrMajor": 21
     },
     {
-      "range": "26.x",
+      "range": "26.1-26.2",
       "build": "26.2",
       "loaders": ["fabric", "neoforge"],
       "verify": ["26.1.2", "26.2"],

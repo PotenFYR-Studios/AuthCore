@@ -45,9 +45,9 @@ public class Account {
    * <p>Supported subcommands:
    *
    * <ul>
-   *   <li>{@code logout} â€“ Ends the player's current session and forces re-authentication.
-   *   <li>{@code password set <new-password>} â€“ Changes the player's password after validation.
-   *   <li>{@code unregister} â€“ Permanently removes the player's registration from the database.
+   *   <li>{@code logout} – Ends the player's current session and forces re-authentication.
+   *   <li>{@code password set <new-password>} – Changes the player's password after validation.
+   *   <li>{@code unregister} – Permanently removes the player's registration from the database.
    * </ul>
    *
    * <p>Each subcommand enforces its own permission requirements and authentication state checks.

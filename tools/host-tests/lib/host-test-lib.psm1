@@ -4,7 +4,7 @@
 #
 # Responsibilities:
 #   - fabric meta v2 resolution (loader / installer / server launch jar)
-#   - newest stable 26.x detection for the modern line
+#   - newest stable 26.1-26.2 detection for the modern line
 #   - Fabric API fetch from Modrinth (best effort)
 #   - JetBrains Runtime resolution + download (auto Temurin fallback)
 #   - isolated container run + result collection
