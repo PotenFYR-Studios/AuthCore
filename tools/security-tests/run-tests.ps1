@@ -4,28 +4,61 @@
 $ErrorActionPreference = "Stop"
 
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$mainClasses = Join-Path $repo (Join-Path "build" (Join-Path "classes" (Join-Path "java" "main")))
+
+# Locate the compiled mod classes. In the Stonecutter workspace every variant compiles into
+# versions/<mc>-<loader>/build/classes/java/main; the root build/ may hold stale output from
+# older builds, so only candidates that actually contain the mod classes are accepted.
+$mainClasses = $null
+$variantDirs = Get-ChildItem (Join-Path $repo "versions") -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne "dependencies" } | ForEach-Object { Join-Path $_.FullName (Join-Path "build" (Join-Path "classes" (Join-Path "java" "main"))) }
+$candidates = @($variantDirs) + @((Join-Path $repo (Join-Path "build" (Join-Path "classes" (Join-Path "java" "main")))))
+foreach ($candidate in $candidates) {
+  if ($candidate -and (Test-Path $candidate) -and (Test-Path (Join-Path $candidate (Join-Path "net" (Join-Path "ded3ec" (Join-Path "models" "Config.class")))))) {
+    $mainClasses = $candidate
+    break
+  }
+}
+if (-not $mainClasses) {
+  Write-Error "Compiled mod classes not found. Run 'gradlew build' (or any :<variant>:build) first."
+}
 $testSrc = Join-Path $PSScriptRoot "src"
 $out = Join-Path $PSScriptRoot "out"
 if (-not $env:USERPROFILE) { $env:USERPROFILE = $env:HOME }
 $cache = Join-Path $env:USERPROFILE ".gradle/caches/modules-2/files-2.1"
 
 function Find-Jar($group, $artifact, $name) {
-  Get-ChildItem (Join-Path (Join-Path $cache $group) $artifact) -Recurse -Filter $name -ErrorAction SilentlyContinue |
+  Get-ChildItem (Join-Path (Join-Path $cache $group) $artifact) -Recurse -Filter "$namePrefix*.jar" -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch 'sources' } | Select-Object -First 1 -ExpandProperty FullName
 }
 
-$p4j = Find-Jar "com.password4j" "password4j" "password4j-1.8.4.jar"
-$slf4j = Find-Jar "org.slf4j" "slf4j-api" "slf4j-api-2.0.17.jar"
-$commons = Find-Jar "org.apache.commons" "commons-lang3" "commons-lang3-3.19.0.jar"
-$bcprov = Find-Jar "org.bouncycastle" "bcprov-jdk18on" "bcprov-jdk18on-1.78.1.jar"
+$p4j = Find-Jar "com.password4j" "password4j" "password4j-1.8."
+$slf4j = Find-Jar "org.slf4j" "slf4j-api" "slf4j-api-2."
+$commons = Find-Jar "org.apache.commons" "commons-lang3" "commons-lang3-3."
+$bcprov = Find-Jar "org.bouncycastle" "bcprov-jdk18on" "bcprov-jdk18on-1.78."
 
 if (-not $p4j -or -not $slf4j -or -not $commons -or -not $bcprov) {
   Write-Error "Required jars not found in the Gradle cache. Run 'gradlew build' first."
 }
 
+# Additional shaded libraries the compiled classes reference (configurate, gson, DB
+# drivers, jedis, ...) - javac needs them on the classpath to load the types.
+$libs = @(
+  (Find-Jar "org.spongepowered" "configurate-core" "configurate-core-4."),
+  (Find-Jar "org.spongepowered" "configurate-hocon" "configurate-hocon-4."),
+  (Find-Jar "com.google.code.gson" "gson" "gson-2."),
+  (Find-Jar "org.xerial" "sqlite-jdbc" "sqlite-jdbc-3."),
+  (Find-Jar "com.mysql" "mysql-connector-j" "mysql-connector-j-"),
+  (Find-Jar "org.postgresql" "postgresql" "postgresql-"),
+  (Find-Jar "redis.clients" "jedis" "jedis-"),
+  (Find-Jar "org.apache.commons" "commons-pool2" "commons-pool2-"),
+  (Find-Jar "org.jetbrains.kotlin" "kotlin-stdlib" "kotlin-stdlib-"),
+  (Find-Jar "com.j256.two-factor-auth" "two-factor-auth" "two-factor-auth-"),
+  (Find-Jar "io.leangen.geantyref" "geantyref" "geantyref-"),
+  (Find-Jar "net.kyori" "option" "option-")
+) | Where-Object { $_ }
+
 $sep = [System.IO.Path]::PathSeparator
-$cp = @($mainClasses, $p4j, $slf4j, $commons, $bcprov) -join $sep
+$cpParts = @($mainClasses) + $p4j + $slf4j + $commons + $bcprov + @($libs)
+$cp = ($cpParts -join $sep)
 
 javac -encoding UTF-8 -cp $cp -d $out (Join-Path $testSrc (Join-Path "net" (Join-Path "ded3ec" "AuthCoreServer.java"))) (Join-Path $testSrc (Join-Path "net" (Join-Path "ded3ec" (Join-Path "util" "Logger.java")))) (Join-Path $testSrc "AuthCoreSecurityTests.java")
 if ($LASTEXITCODE -ne 0) { exit 1 }
