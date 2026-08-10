@@ -16,11 +16,14 @@ Defaults are the values shipped with a fresh install.
 
 > All paths below are relative to the `session` section unless stated otherwise.
 
-> 🎁 **Universal jar** — one jar runs on Minecraft **1.16.0 – 26.x**, standalone **and** behind
-> Velocity/BungeeCord. The same `settings.conf` works in both setups; proxy IP forwarding is the
-> only thing you toggle (`session.proxy-support`). The cross-server security event bus and
-> Discord link-code storage need **no new settings** — they activate automatically with
-> `database.redis.enabled`.
+> 🎁 **Range jars** — AuthCore ships one Fabric jar per supported version range:
+> `authcore-1.16-1.18-fabric-<v>.jar` (1.16.0 – 1.18.2, built at 1.18.2),
+> `authcore-1.19-1.21-fabric-<v>.jar` (1.19.0 – 1.21.11, built at 1.21.11) and
+> `authcore-26.x-fabric-<v>.jar` (26.0+, built at 26.2). Every jar runs standalone **and**
+> behind Velocity/BungeeCord. The same `settings.conf` works in both setups; proxy IP
+> forwarding is the only thing you toggle (`session.proxy-support`). The cross-server security
+> event bus and Discord link-code storage need **no new settings** — they activate
+> automatically with `database.redis.enabled`.
 
 ---
 
@@ -39,7 +42,7 @@ Defaults are the values shipped with a fresh install.
 |---|---|---|---|---|
 | `show-banner` | boolean | `true` | Show the ASCII startup banner. | Keep `true` for the branded console header; disable in CI logs. |
 | `show-summary` | boolean | `true` | Show the version/security summary at startup (versions, cache size, DB, Redis status). | Keep on to verify the loaded config at a glance; disable to quiet startup logs. |
-| `show-untested-version-warning` | boolean | `true` | Warn when running on an untested Minecraft version (outside the verified 1.16–1.21 set; 26.x is supported but attempts mojmap builds in CI). AuthCore **never refuses to load** — it warns and keeps working. | Keep on when riding a brand-new Minecraft release; set to `false` once you've verified your version in staging. |
+| `show-untested-version-warning` | boolean | `true` | Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0–1.18.2, 1.19.0–1.21.11 and 26.0+). AuthCore **never refuses to load** — it warns and keeps working. | Keep on when riding a brand-new Minecraft release; set to `false` once you've verified your version in staging. |
 
 ---
 
@@ -491,10 +494,12 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 
 The suite is part of the security process — see
 [SECURITY.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) for the PBKDF2
-bug it caught and how it guards regressions. CI runs the suite on every push
-(`.github/workflows/build.yml`, alongside the 1.16.5 + 1.21.11 double build) and the
-multi-version matrix (`multi-version-check.yml`) verifies 1.16.5 → 1.21.11 plus a 26.2 mojmap
-build attempt on every push and PR.
+bug it caught and how it guards regressions. CI runs the suite on every push, and the
+host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots every range jar on its
+verify matrix — 1.16.5 / 1.17.1 / 1.18.2 (1.16–1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 /
+1.21.11 (1.19–1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.x jar, built at 26.2) — with
+live log streaming and pruned reports (`reports/latest.md|html|json`). The full matrix passed
+on 2026-08-10.
 
 
 ### 🧩 Proxy, Interop & per-role configs

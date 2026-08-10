@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "package": "net.ded3ec.mixin.client",
+  "compatibilityLevel": "${mixinCompatibilityLevel}",
+  "client": [
+    "ClientPlayNetworkHandlerMixin",
+    "ConnectScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

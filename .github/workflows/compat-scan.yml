@@ -1,0 +1,212 @@
+name: Compat Scan (weekly)
+
+# Weekly forward-compatibility scan:
+#  1. Queries the Fabric meta + Forge/NeoForge maven for NEW stable releases.
+#  2. Builds all seven variants (3 ranges x fabric/forge/neoforge).
+#  3. Runs the Docker harness with -ScanStable so every group also boots the NEWEST
+#     stable version of its range (forward-compat probe).
+#  4. Uploads the report; opens a GitHub issue on failure.
+#  5. When a NEW stable version is detected AND the harness passes on it: creates a
+#     version tag (v<mod.version>-<mc>), publishes the jars to a GitHub Release and
+#     commits an auto-generated changelog entry for the new version.
+#
+# Triggered weekly (Mon 06:00 UTC) + manually via workflow_dispatch.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.probe.outputs.new_version }}
+      new_detected: ${{ steps.probe.outputs.new_detected }}
+      report_title: ${{ steps.probe.outputs.report_title }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17 + JDK 21 + JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: |
+            17
+            21
+            25
+
+      - name: Set up PowerShell 7
+        uses: microsoft/setup-powershell@v2
+
+      - name: Probe the ecosystem for new stable releases
+        id: probe
+        run: |
+          # newest stable 26.x on the Fabric meta
+          FABRIC_26=$(curl -fsS https://meta.fabricmc.net/v2/versions/game \
+            | python3 -c "import sys,json; g=json.load(sys.stdin); print(next((v['version'] for v in g if v['version'].startswith('26.') and v['stable']), ''))")
+          # newest NeoForge 26.x
+          NEOFORGE_26=$(curl -fsS https://maven.neoforged.net/releases/net/neoforged/neoforge/maven-metadata.xml \
+            | grep -oP '<version>26\.[^<]*</version>' | sed 's/<[^>]*>//g' | grep -v beta | sort -V | tail -1 || true)
+          # newest Forge 1.21.x
+          FORGE_121=$(curl -fsS https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml \
+            | grep -oP '<version>1\.21\.[^<]*</version>' | sed 's/<[^>]*>//g' | sort -V | tail -1 || true)
+
+          echo "Fabric 26.x: $FABRIC_26"
+          echo "NeoForge 26.x: $NEOFORGE_26"
+          echo "Forge 1.21.x: $FORGE_121"
+
+          # Current build target from the repo
+          CURRENT=$(grep '^minecraft_version=' versions/dependencies/26.2.properties | cut -d= -f2)
+          echo "Current 26.x target: $CURRENT"
+
+          # A NEW version = the newest stable differs from the current build target
+          NEW=""
+          if [ -n "$FABRIC_26" ] && [ "$FABRIC_26" != "$CURRENT" ]; then NEW="$FABRIC_26"; fi
+          echo "New version detected: ${NEW:-none}"
+          echo "new_version=$NEW" >> "$GITHUB_OUTPUT"
+          echo "new_detected=$([ -n "$NEW" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "report_title=Compat scan $(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: Build all variants
+        run: |
+          chmod +x ./gradlew
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :1.18.2-fabric:build :1.18.2-forge:build \
+            :1.21.11-fabric:build :1.21.11-forge:build :1.21.11-neoforge:build \
+            :26.2-fabric:build :26.2-neoforge:build
+          mkdir -p dist
+          cp versions/*/build/libs/authcore-*.jar dist/
+          rm -f dist/*sources*.jar
+
+      - name: Host-compat matrix with forward-compat scan
+        run: |
+          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -ScanStable -Parallel 4
+        env:
+          DOCKER_BUILDKIT: '1'
+
+      - name: Upload harness report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-scan-report
+          path: |
+            tools/host-tests/reports/latest.md
+            tools/host-tests/reports/latest.html
+            tools/host-tests/reports/latest.json
+
+      - name: Summarize scan findings
+        if: always()
+        run: |
+          echo "## Ecosystem probe" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Newest stable 26.x on Fabric: \`${{ steps.probe.outputs.new_version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Harness result" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f tools/host-tests/reports/latest.md ]; then
+            sed -n '1,40p' tools/host-tests/reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Open an issue on scan failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let body = '## AuthCore weekly compat scan failed\n\n**Newest stable 26.x:** `${{ steps.probe.outputs.new_version }}`\n\n**Report excerpt:**\n\n';
+            try { body += '``````\n' + fs.readFileSync('tools/host-tests/reports/latest.md', 'utf8').slice(0, 4000) + '\n``````'; } catch (e) {}
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '${{ steps.probe.outputs.report_title }} - FAILED',
+              body: body
+            });
+
+  # ------------------------------------------------------------------
+  # New-version release: runs only when the scan detected a NEW stable
+  # version AND the harness validated the current jars on it.
+  # Creates tag v<mod.version>-<mc>, publishes the jars + changelog.
+  # ------------------------------------------------------------------
+  publish:
+    runs-on: ubuntu-latest
+    needs: scan
+    if: needs.scan.outputs.new_detected == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download validated jars
+        uses: actions/download-artifact@v4
+        with:
+          name: authcore-jars
+          path: release
+          # the build job in ci.yml uploads them; the scan job stages dist/ directly
+      - name: Stage jars (fallback to local dist)
+        run: |
+          if [ ! -d release ] || [ -z "$(ls -A release 2>/dev/null)" ]; then
+            mkdir -p release
+            cp versions/*/build/libs/authcore-*.jar release/ 2>/dev/null || true
+            rm -f release/*sources*.jar
+          fi
+          ls -la release/
+
+      - name: Create changelog entry for the new version
+        shell: bash
+        run: |
+          NEW="${{ needs.scan.outputs.new_version }}"
+          VER=$(grep '^mod.version=' gradle.properties | cut -d= -f2)
+          TAG="v${VER}-${NEW}"
+          echo "tag=$TAG" >> "$GITHUB_ENV"
+          cat > new-entry.md <<EOF
+          ## [${VER}-${NEW}] - $(date +%Y-%m-%d)
+
+          ### Compatibility scan (automated)
+
+          - Detected new stable Minecraft release: **${NEW}**.
+          - All range jars booted and passed the full harness check suite on the new version
+            (mod load, mixins, admin commands, web panel auth + lockout, honeypot, graceful stop).
+          - See tools/host-tests/reports/latest.md for the matrix.
+
+          EOF
+          python3 - <<'PY'
+          import re
+          path = 'changelogs/changelog.md'
+          text = open(path, encoding='utf-8').read()
+          entry = open('new-entry.md', encoding='utf-8').read()
+          m = re.search(r'\n## \[', text)
+          if m:
+              text = text[:m.start() + 1] + entry + text[m.start() + 1:]
+          else:
+              text = text + '\n' + entry
+          open(path, 'w', encoding='utf-8').write(text)
+          print('changelog updated')
+          PY
+
+      - name: Commit changelog + create tag
+        run: |
+          git config user.name "AuthCore Bot"
+          git config user.email "actions@github.com"
+          git add changelogs/changelog.md
+          git commit -m "chore: add changelog entry for Minecraft ${{ needs.scan.outputs.new_version }} [skip ci]"
+          git push
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Tag $TAG created"
+
+      - name: Publish GitHub Release (new version)
+        run: |
+          TAG="${{ env.tag }}"
+          gh release create "$TAG" \
+            release/*.jar \
+            --title "AuthCore $TAG" \
+            --notes-file new-entry.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

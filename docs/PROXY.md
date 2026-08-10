@@ -14,10 +14,12 @@ AuthCore works behind network proxies and uses the forwarded real client IP for 
 session IP binding, rate limiting and login intelligence. This document explains the forwarding
 format, the configuration, how it works server-side, and how to set up BungeeCord and Velocity.
 
-> 🎁 **One jar, both worlds.** The **same universal jar** (Minecraft 1.16.0 – 26.x) runs
-> **standalone and behind a proxy** — there is no separate proxy build. Proxy behavior is
-> entirely configuration-driven via `session.proxy-support`; with it disabled, AuthCore is a
-> plain server-side mod, and nothing else changes.
+> 🎁 **One jar, both worlds.** Each **range jar** (`authcore-1.16-1.18-fabric-<v>.jar` for
+> 1.16.0 – 1.18.2, `authcore-1.19-1.21-fabric-<v>.jar` for 1.19.0 – 1.21.11,
+> `authcore-26.x-fabric-<v>.jar` for 26.0+) runs **standalone and behind a proxy** — the
+> BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
+> build. Proxy behavior is entirely configuration-driven via `session.proxy-support`; with it
+> disabled, AuthCore is a plain server-side mod, and nothing else changes.
 
 ---
 
@@ -306,22 +308,23 @@ Unknown or failing hash algorithms fall back to **Argon2id** (with a warning) so
 and password resets never store an unusable hash — consistent behavior across all backends of a
 proxy network. See [SECURITY.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md).
 
-### 🎨 Client Companion (Optional Build)
+### 🎨 Client Companion (Bundled)
 
-The default jar is server-only. Build the client login-screen companion with
-`-Pclient_build=true` (requires a **1.19.4+ client**); the proxy/IP-forwarding layer is
-untouched by the companion — it lives on the client and intercepts connections before the
-server handshake.
+Every range jar ships `environment: "*"` with the client login-screen companion built in
+(1.20.2+ clients; older clients load safely and skip the screen) — no separate build flag.
+The proxy/IP-forwarding layer is untouched by the companion — it lives on the client and
+intercepts connections before the server handshake.
 
-### 🔮 Mojmap Build Switch & CI Matrix
+### 🔮 Multi-Version Workspace & Host-Compatibility Matrix
 
-- **26.x builds** use official (Mojang) mappings: set `mappings_type=mojmap` in
-  `gradle.properties` (yarn has no 26.x mappings). Mixin targets must be re-mapped to
-  Mojang-mapped names (e.g. `ServerLoginPacketListenerImpl`) until yarn catches up.
-- `.github/workflows/multi-version-check.yml` builds on **1.16.5 / 1.17.1 / 1.18.2 / 1.19.4 /
-  1.20.6 / 1.21.11** (pass/fail + logs) and **attempts 26.2 with mojmap** every push/PR;
-  `.github/workflows/client-check.yml` verifies the `-Pclient_build=true` companion on 1.20.6 +
-  1.21.11.
+- The **Stonecraft 1.10 + Stonecutter 0.9** workspace compiles one merged source tree
+  (`src/main/java`, Mojang mappings) per version-group variant (`:1.18.2-fabric`,
+  `:1.21.11-fabric`, `:26.2-fabric`; active `1.21.11-fabric`) into the three range jars
+  (`authcore-<range>-fabric-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
+- The host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots each range jar
+  on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
+  26.1.2 / 26.2 — with live log streaming and report pruning
+  (`reports/latest.md|html|json`). Full matrix: **8/8 PASS** (2026-08-10).
 
 ---
 

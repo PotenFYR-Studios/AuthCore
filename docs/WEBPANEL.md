@@ -429,21 +429,21 @@ The server mixins that target version-sensitive classes (`ServerHandshakeNetwork
 method signature, the mixin **does not apply instead of crashing the server** — the panel and
 the rest of the mod keep working, and CI's multi-version matrix reports the mismatch.
 
-### 🎨 Client Companion (Optional Build)
+### 🎨 Client Companion (Bundled)
 
-The default jar ships `environment: server` only. To also build the client login-screen
-companion, compile with `-Pclient_build=true` (requires **1.19.4+ client APIs**). The
-`client-check.yml` workflow verifies the companion build on 1.20.6 and 1.21.11 every push.
+Every range jar ships `environment: "*"` with the client login-screen companion built in
+(1.20.2+ clients; older clients load safely and skip the screen) — no separate build flag.
 
-### 🔮 Mojmap Build Switch & CI Matrix
+### 🔮 Multi-Version Workspace & Host-Compatibility Matrix
 
-- **26.x builds** use **official (Mojang) mappings** because yarn does not publish mappings for
-  those versions yet. Set `mappings_type=mojmap` in `gradle.properties` — Loom's
-  `officialMojangMappings()` then supplies Mojang-mapped names, so mixin targets must be
-  re-mapped to names like `ServerGamePacketListenerImpl`.
-- `.github/workflows/multi-version-check.yml` runs the build on **1.16.5 / 1.17.1 / 1.18.2 /
-  1.19.4 / 1.20.6 / 1.21.11** (pass/fail + uploaded logs) and **attempts 26.2** with mojmap;
-  `.github/workflows/build.yml` remains the release gate (1.21.11 + 1.16.5 + security tests).
+- The **Stonecraft 1.10 + Stonecutter 0.9** workspace compiles one merged source tree
+  (`src/main/java`, Mojang mappings) per version-group variant (`:1.18.2-fabric`,
+  `:1.21.11-fabric`, `:26.2-fabric`; active `1.21.11-fabric`) into the three range jars
+  (`authcore-<range>-fabric-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
+- The host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots each range jar
+  on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
+  26.1.2 / 26.2 — with live log streaming and report pruning
+  (`reports/latest.md|html|json`). Full matrix: **8/8 PASS** (2026-08-10).
 
 ---
 

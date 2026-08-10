@@ -1,0 +1,10 @@
+# Temurin fallback image for the AuthCore host-test harness (used when the
+# JetBrains Runtime tarball for the required Java major is unavailable).
+# Build context must be the tools/host-tests directory.
+ARG JBR_MAJOR=21
+FROM eclipse-temurin:${JBR_MAJOR}-jdk
+
+COPY docker/server-entrypoint.sh /usr/local/bin/authcore-entrypoint.sh
+RUN chmod +x /usr/local/bin/authcore-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/authcore-entrypoint.sh"]

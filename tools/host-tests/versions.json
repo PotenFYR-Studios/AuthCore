@@ -1,0 +1,35 @@
+{
+  "groups": [
+    {
+      "range": "1.16-1.18",
+      "build": "1.18.2",
+      "loaders": ["fabric", "forge"],
+      "verify": ["1.16.5", "1.17.1", "1.18.2"],
+      "scanPattern": "^1\\.(16|17|18)\\.[0-9]+$",
+      "jbrMajor": 17
+    },
+    {
+      "range": "1.19-1.21",
+      "build": "1.21.11",
+      "loaders": ["fabric", "forge", "neoforge"],
+      "verify": ["1.19.4", "1.20.6", "1.21.11"],
+      "scanPattern": "^1\\.(19|20|21)\\.[0-9]+$",
+      "jbrMajor": 21
+    },
+    {
+      "range": "26.x",
+      "build": "26.2",
+      "loaders": ["fabric", "neoforge"],
+      "verify": ["26.1.2", "26.2"],
+      "scanPattern": "^26\\.[0-9]+\\.[0-9]+$",
+      "jbrMajor": 25
+    }
+  ],
+  "defaults": {
+    "memory": "1536M",
+    "containerMemory": "2g",
+    "cpus": 2,
+    "timeoutSec": 900,
+    "xmxPattern": "-Xms256M -Xmx{memory}"
+  }
+}

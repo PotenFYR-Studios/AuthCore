@@ -1,0 +1,18 @@
+# JetBrains Runtime based image for the AuthCore host-test harness.
+# Build context must be the tools/host-tests directory (tarballs live in .cache/jbr/).
+ARG JBR_MAJOR=21
+FROM eclipse-temurin:${JBR_MAJOR}-jdk
+
+ARG JBR_TARBALL
+COPY .cache/jbr/${JBR_TARBALL} /tmp/jbr.tar.gz
+RUN mkdir -p /opt/jbr \
+ && tar -xzf /tmp/jbr.tar.gz --strip-components=1 -C /opt/jbr \
+ && rm -f /tmp/jbr.tar.gz
+
+ENV JAVA_HOME=/opt/jbr
+ENV PATH=/opt/jbr/bin:${PATH}
+
+COPY docker/server-entrypoint.sh /usr/local/bin/authcore-entrypoint.sh
+RUN chmod +x /usr/local/bin/authcore-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/authcore-entrypoint.sh"]
