@@ -4,13 +4,13 @@
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
 ---
 
-## [1.0.1] - 2026-08-10
+## [1.0.0] - 2026-08-10
 
 ### Modrinth version range fix
 
@@ -44,10 +44,6 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
   sections, corrected stale wording ("26.0+" → 26.1-26.2, Java 17/21/25, multi-loader
   tagline).
-
----
-
-## [1.0.0] - 2026-08-10
 
 ### Multi-loader & multi-version workspace (Stonecutter / Stonecraft)
 
