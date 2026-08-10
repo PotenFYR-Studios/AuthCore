@@ -2,7 +2,7 @@
 
 This document explains **how AuthCore is built**, **how the codebase is organized** and
 **how multi-version / multi-loader support is managed** so contributors can extend the mod
-without breaking the 1.16.x – 26.x compatibility promise.
+without breaking the 1.16.x – 26.1-26.2 compatibility promise.
 
 ---
 
@@ -12,7 +12,7 @@ AuthCore is a universal authentication framework for Minecraft servers:
 
 - **One jar** is simultaneously a server mod, a client companion mod and a
   BungeeCord/Velocity proxy plugin (the loader picks the right entrypoint at runtime).
-- **One codebase** targets Minecraft **1.16.0 – 26.x** across loaders (**Fabric** today,
+- **One codebase** targets Minecraft **1.16.0 – 26.1-26.2** across loaders (**Fabric** today,
   **Forge / NeoForge** in progress).
 - Compatibility is not assumed — it is **verified by the host-test harness** on every
   version-group endpoint inside Docker (see §6).
@@ -25,7 +25,7 @@ AuthCore is a universal authentication framework for Minecraft servers:
 |---|---|---|
 | Gradle version-gating | **Stonecutter 0.9** (`dev.kikugie.stonecutter`) | One source tree, per-version code generated from `/*? if ... {*/` preprocessor comments |
 | Multi-loader wiring | **Stonecraft 1.10** (`gg.meza.stonecraft`) | Wires Stonecutter + Architectury Loom + Mod-Publish-Plugin; registers the `fabric` / `forge` / `neoforge` / `forgeLike` / `fabricLike` constants and per-version dependencies |
-| Mappings | **Mojang (mojmap)** for every version | One naming convention 1.16.5 → 26.x; 26.x is unobfuscated so dev names == runtime names |
+| Mappings | **Mojang (mojmap)** for every version | One naming convention 1.16.5 → 26.1-26.2; 26.1-26.2 is unobfuscated so dev names == runtime names |
 | Toolchains | foojay resolver, **JDK 17 / 21 / 25** | Java level follows the group: G1=17, G2=21, G3=25 |
 
 ### Key files
@@ -49,7 +49,7 @@ Every released jar is one **variant** (a generated Gradle project in `versions/<
 ```kotlin
 mc("1.18.2", "fabric")     // G1 jar: authcore-1.16-1.18-fabric-<v>.jar
 mc("1.21.11", "fabric")    // G2 jar: authcore-1.19-1.21-fabric-<v>.jar
-mc("26.2", "fabric")       // G3 jar: authcore-26.x-fabric-<v>.jar
+mc("26.2", "fabric")       // G3 jar: authcore-26.1-26.2-fabric-<v>.jar
 ```
 
 `vcsVersion = "1.21.11-fabric"` is the **active** variant: the raw template sources are
@@ -66,7 +66,7 @@ written in its output state (see §4), IDEs and `gradlew build` act on it.
 
 Notes:
 
-- Gradle itself must run on **JDK 25** when a 26.x variant is configured
+- Gradle itself must run on **JDK 25** when a 26.1-26.2 variant is configured
   (MC 26.2 enforces it); the foojay resolver downloads 17/21/25 toolchains automatically.
 - Runtime libraries (SQLite/MySQL/PostgreSQL JDBC, Redis, HOCON configurate, password4j,
   bouncycastle, gson, kotlin-stdlib, two-factor-auth) are **shaded** into the jar with
@@ -128,13 +128,13 @@ found while building the range jars (each one *crashed a real server* until hand
 
 - `ServerCommandSource.getPlayer()` — intermediary id `method_9207` (1.16–1.18) vs
   `method_44023` (1.19.4+) → resolved via `Compat.sourcePlayer()` (reflection over the
-  candidate ids; also works on unobfuscated 26.x via the mojmap name).
+  candidate ids; also works on unobfuscated 26.1-26.2 via the mojmap name).
 - `ActionResult` constants — on 1.20.5+ they became classes with nested subclasses and the
   1.21.11 mappings type them as `ActionResult$Pass` etc. A direct field reference
   compiled for 1.21.11 fails to load on 1.20.6 → `Compat.actionResultPass()/Fail()`
   resolve by field name ("PASS"/"FAIL", or stable intermediary ids `field_5811`/`field_5814`).
 - `ScreenHandler.clicked` — `(…ClickType…)LItemStack;` on 1.16, `(…ClickType…)V` on 1.17–1.21,
-  `(…ContainerInput…)V` on 26.x → two mixins with **descriptor-based selectors**,
+  `(…ContainerInput…)V` on 26.1-26.2 → two mixins with **descriptor-based selectors**,
   each `require = 0`, so exactly one matches per runtime.
 - `ServerPlayer.setGameMode` — returns `void` on 1.16, `boolean` on 1.17+ → two `@Inject`
   handlers (one `CallbackInfo`, one `CallbackInfoReturnable`), descriptor-gated.

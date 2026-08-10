@@ -176,10 +176,10 @@ login** until the schema is fixed:
 
 ### 🔄 Version Compatibility
 
-- AuthCore covers **Minecraft 1.16.0 – 26.x** with **three jars** built from one source tree
+- AuthCore covers **Minecraft 1.16.0 – 26.1-26.2** with **three jars** built from one source tree
   (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at
   1.18.2, Java 17), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11, Java 21) and
-  `authcore-26.x-fabric-<v>.jar` (built at 26.2, Java 25). Install the jar matching your
+  `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, Java 25). Install the jar matching your
   server version. Every jar runs standalone or behind Velocity/BungeeCord (it doubles as a
   proxy plugin).
 - **Client companion (included)** — the client login-screen companion (a pre-connect
@@ -196,13 +196,13 @@ login** until the schema is fixed:
   crashing the server. As long as you only use `AuthCoreApi`, you never touch any of it.
 - **Verified on real servers** — the host-test harness (`tools/host-tests`) boots every range
   endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
-  1.19.4/1.20.6/1.21.11 and the 26.x jar on 26.1.2/26.2 — all **PASS** (2026-08-10).
+  1.19.4/1.20.6/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2 — all **PASS** (2026-08-10).
 
 ## 🗂️ Internal Packages
 
 | Package | Purpose |
 |---|---|
-| `net.ded3ec.compat` | Universal reflection layer bridging APIs that changed between Minecraft 1.16.0 – 26.x (text, effects, teleports, packets, registries, whitelist, OP handling) |
+| `net.ded3ec.compat` | Universal reflection layer bridging APIs that changed between Minecraft 1.16.0 – 26.1-26.2 (text, effects, teleports, packets, registries, whitelist, OP handling) |
 | `net.ded3ec.util` | Database, config (HOCON), logging, TPS manager, task scheduling, registries — incl. `FabricHooks` (reflective fabric-api hook registration) |
 | `net.ded3ec.security` | Password hashing, rate limiting, risk scoring, TOTP, captcha, recovery codes |
 | `net.ded3ec.network` | Web panel, webhooks, email, Redis (incl. the cross-server event bus), proxy support, Mojang premium API client |

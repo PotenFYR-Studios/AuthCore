@@ -18,7 +18,7 @@
 // Version groups (one released jar per group):
 //   G1  1.16 - 1.18  (build target 1.18.2, intermediary era)
 //   G2  1.19 - 1.21  (build target 1.21.11, intermediary era)
-//   G3  26.x         (build target 26.2, unobfuscated / Mojang names)
+//   G3  26.1-26.2         (build target 26.2, unobfuscated / Mojang names)
 // ============================================================================
 
 pluginManagement {
@@ -54,7 +54,7 @@ stonecutter {
 
         mc("1.18.2", "fabric", "forge")          // G1: authcore-1.16-1.18-{fabric,forge}
         mc("1.21.11", "fabric", "forge", "neoforge") // G2: authcore-1.19-1.21-{fabric,forge,neoforge}
-        mc("26.2", "fabric", "neoforge")         // G3: authcore-26.x-{fabric,neoforge}
+        mc("26.2", "fabric", "neoforge")         // G3: authcore-26.1-26.2-{fabric,neoforge}
 
         // The default version used by IDEs and bare `gradlew` invocations.
         vcsVersion = "1.21.11-fabric"

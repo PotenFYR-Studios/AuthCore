@@ -33,7 +33,7 @@ val rangeLabel: String =
     when {
         stonecutter.current.parsed < "1.19" -> "1.16-1.18"
         stonecutter.current.parsed < "26" -> "1.19-1.21"
-        else -> "26.x"
+        else -> "26.1-26.2"
     }
 
 val modId: String = property("mod.id") as String
@@ -98,7 +98,7 @@ stonecutter {
 
     java {
         // Java level follows the Minecraft version of each group:
-        //   G1 (1.16-1.18): Java 17   G2 (1.19-1.21): Java 21   G3 (26.x): Java 25
+        //   G1 (1.16-1.18): Java 17   G2 (1.19-1.21): Java 21   G3 (26.1-26.2): Java 25
         val javaMajor =
             when {
                 stonecutter.current.parsed < "1.17" -> 16
