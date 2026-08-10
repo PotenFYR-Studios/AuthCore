@@ -46,7 +46,7 @@ plugin** — install it once wherever AuthCore should run.
 
 ```
   AuthCore - The Fortress Framework for Minecraft Servers
-  Version          : 1.0.1
+  Version          : 1.0.0
   Minecraft        : 1.21.11
   ...
   Security Summary:
