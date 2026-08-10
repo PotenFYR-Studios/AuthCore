@@ -43,8 +43,6 @@ jobs:
             21
             25
 
-      - name: Set up PowerShell 7
-        uses: actions/setup-powershell@v2
 
       - name: Probe the ecosystem for new stable releases
         id: probe
