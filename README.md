@@ -282,8 +282,8 @@ resolver downloads 17/21/25 automatically.
 ./gradlew chiseledBuild            # ALL SEVEN variants (3 ranges x fabric/forge/neoforge)
 
 # single variant:
-./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.1.jar
-./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.1.jar
+./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
+./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
 ```
 
 Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
