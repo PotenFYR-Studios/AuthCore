@@ -64,7 +64,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
   1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).
 - Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
-  26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.
+  26.1.2, 26.2, all 22 harness checks PASS on all 7 loader build targets.
 
 ### Modrinth version range fix
 

@@ -1,7 +1,7 @@
 # Changelog
 
 The full changelog lives at [changelogs/changelog.md](changelogs/changelog.md) (source) or the
-styled [hosted changelog](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/changelog.html) —
+styled [hosted changelog](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/changelog.html);
 it covers every release from the first alpha to 1.0.0 (exact Modrinth version ranges,
 bot/backend separation, repository cleanup).
 

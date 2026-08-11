@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Web Admin Panel — AuthCore Docs</title>
+<title>Web Admin Panel - AuthCore Docs</title>
 <meta name="description" content="HTTP/HTTPS setup, REST reference, token auth, curl examples.">
-<meta property="og:title" content="Web Admin Panel — AuthCore Docs">
+<meta property="og:title" content="Web Admin Panel - AuthCore Docs">
 <meta property="og:description" content="HTTP/HTTPS setup, REST reference, token auth, curl examples.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/webpanel.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -274,7 +277,7 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#features">✨ Features</a></li><li class="toc-item toc-3"><a href="#overview">📊 Overview</a></li><li class="toc-item toc-3"><a href="#players">👥 Players</a></li><li class="toc-item toc-3"><a href="#history">🕘 History</a></li><li class="toc-item toc-3"><a href="#actions">⚡ Actions</a></li><li class="toc-item toc-2"><a href="#setup">🛠️ Setup</a></li><li class="toc-item toc-3"><a href="#1-generate-a-token">1. Generate a token</a></li><li class="toc-item toc-3"><a href="#2-configure-settingsconf">2. Configure settings.conf</a></li><li class="toc-item toc-3"><a href="#3-reload">3. Reload</a></li><li class="toc-item toc-2"><a href="#security-recommendations">🔐 Security Recommendations</a></li><li class="toc-item toc-2"><a href="#api-reference">📡 API Reference</a></li><li class="toc-item toc-3"><a href="#get---dashboard">GET / — Dashboard</a></li><li class="toc-item toc-3"><a href="#get-metrics--prometheus-metrics">GET /metrics — Prometheus Metrics</a></li><li class="toc-item toc-3"><a href="#get-apioverview--overview">GET /api/overview — Overview</a></li><li class="toc-item toc-3"><a href="#get-apiplayers--player-list">GET /api/players — Player List</a></li><li class="toc-item toc-3"><a href="#get-apihistoryuuid--login-history">GET /api/history?uuid=<uuid> — Login History</a></li><li class="toc-item toc-3"><a href="#post-apiaction--admin-actions">POST /api/action — Admin Actions</a></li><li class="toc-item toc-2"><a href="#behavior-notes--compatibility">🛡️ Behavior Notes & Compatibility</a></li><li class="toc-item toc-3"><a href="#database-migration-suspension">🛑 Database Migration Suspension</a></li><li class="toc-item toc-3"><a href="#encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</a></li><li class="toc-item toc-3"><a href="#version-fragile-mixins-requiredfalse">🧩 Version-Fragile Mixins (required:false)</a></li><li class="toc-item toc-3"><a href="#client-companion-bundled">🎨 Client Companion (Bundled)</a></li><li class="toc-item toc-3"><a href="#multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace & Host-Compatibility Matrix</a></li><li class="toc-item toc-2"><a href="#self-signed-certificate-details">🧾 Self-Signed Certificate Details</a></li><li class="toc-item toc-3"><a href="#brute-force-protection">🔒 Brute-force protection</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#features">✨ Features</a></li><li class="toc-item toc-3"><a href="#overview">📊 Overview</a></li><li class="toc-item toc-3"><a href="#players">👥 Players</a></li><li class="toc-item toc-3"><a href="#history">🕘 History</a></li><li class="toc-item toc-3"><a href="#actions">⚡ Actions</a></li><li class="toc-item toc-2"><a href="#setup">🛠️ Setup</a></li><li class="toc-item toc-3"><a href="#1-generate-a-token">1. Generate a token</a></li><li class="toc-item toc-3"><a href="#2-configure-settingsconf">2. Configure settings.conf</a></li><li class="toc-item toc-3"><a href="#3-reload">3. Reload</a></li><li class="toc-item toc-2"><a href="#security-recommendations">🔐 Security Recommendations</a></li><li class="toc-item toc-2"><a href="#api-reference">📡 API Reference</a></li><li class="toc-item toc-3"><a href="#get---dashboard">GET /, Dashboard</a></li><li class="toc-item toc-3"><a href="#get-metrics--prometheus-metrics">GET /metrics, Prometheus Metrics</a></li><li class="toc-item toc-3"><a href="#get-apioverview--overview">GET /api/overview, Overview</a></li><li class="toc-item toc-3"><a href="#get-apiplayers--player-list">GET /api/players, Player List</a></li><li class="toc-item toc-3"><a href="#get-apihistoryuuid--login-history">GET /api/history?uuid=<uuid>, Login History</a></li><li class="toc-item toc-3"><a href="#post-apiaction--admin-actions">POST /api/action, Admin Actions</a></li><li class="toc-item toc-2"><a href="#behavior-notes--compatibility">🛡️ Behavior Notes & Compatibility</a></li><li class="toc-item toc-3"><a href="#database-migration-suspension">🛑 Database Migration Suspension</a></li><li class="toc-item toc-3"><a href="#encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</a></li><li class="toc-item toc-3"><a href="#version-fragile-mixins-requiredfalse">🧩 Version-Fragile Mixins (required:false)</a></li><li class="toc-item toc-3"><a href="#client-companion-bundled">🎨 Client Companion (Bundled)</a></li><li class="toc-item toc-3"><a href="#multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace & Host-Compatibility Matrix</a></li><li class="toc-item toc-2"><a href="#self-signed-certificate-details">🧾 Self-Signed Certificate Details</a></li><li class="toc-item toc-3"><a href="#brute-force-protection">🔒 Brute-force protection</a></li></ul>
   </aside>
   <main>
     <article>
@@ -297,7 +300,7 @@ authentication.</p>
 <h3 id="players">👥 Players</h3>
 <ul>
 <li>Searchable table of registered accounts, <strong>fetched directly from the database</strong> (bounded to
-the <strong>500 most recent by username order</strong> — no in-memory cache scan, so it stays fast with
+the <strong>500 most recent by username order</strong>, no in-memory cache scan, so it stays fast with
 100k+ registered users), sorted by username</li>
 <li>Per-player: mode (premium/offline), status (online/lobby/offline), lock badge, risk score,
 last IP and country</li>
@@ -309,12 +312,12 @@ last IP and country</li>
 </ul>
 <h3 id="actions">⚡ Actions</h3>
 <ul>
-<li><strong>Kick</strong> — disconnect an online player (admin reason message)</li>
-<li><strong>Logout</strong> — end an active session</li>
-<li><strong>Unlock</strong> — clear an account lock</li>
-<li><strong>Delete</strong> — permanently delete an account (with in-browser confirmation)</li>
-<li><strong>Set password</strong> — force-reset a password (hashed with the configured algorithm)</li>
-<li><strong>Reload</strong> — hot-reload configuration and restart the panel</li>
+<li><strong>Kick</strong>, disconnect an online player (admin reason message)</li>
+<li><strong>Logout</strong>, end an active session</li>
+<li><strong>Unlock</strong>, clear an account lock</li>
+<li><strong>Delete</strong>, permanently delete an account (with in-browser confirmation)</li>
+<li><strong>Set password</strong>, force-reset a password (hashed with the configured algorithm)</li>
+<li><strong>Reload</strong>, hot-reload configuration and restart the panel</li>
 </ul>
 <p>Every action is written to the security log (<code>security.log</code>) with a <code>WEB_*</code> event tag (the
 <code>link</code> action additionally writes a <code>DISCORD_LINK</code> entry).</p>
@@ -396,9 +399,9 @@ when the panel has a valid full-access token too.</p>
 <hr>
 <h2 id="security-recommendations">🔐 Security Recommendations</h2>
 <ol>
-<li><strong>Always set a strong token</strong> — the panel refuses to start without one.</li>
-<li><strong>Bind to <code>127.0.0.1</code></strong> — never expose <code>0.0.0.0</code> to the public internet.</li>
-<li><strong>Tunnel instead of exposing</strong> — use an SSH tunnel (<code>ssh -L 25570:127.0.0.1:25570 user@server</code>)
+<li><strong>Always set a strong token</strong>, the panel refuses to start without one.</li>
+<li><strong>Bind to <code>127.0.0.1</code></strong>, never expose <code>0.0.0.0</code> to the public internet.</li>
+<li><strong>Tunnel instead of exposing</strong>, use an SSH tunnel (<code>ssh -L 25570:127.0.0.1:25570 user@server</code>)
 or a reverse proxy (Caddy/Nginx) with TLS and rate limiting in front.</li>
 <li><strong>Prefer HTTPS</strong> with the self-signed certificate + fingerprint verification, or your own CA.</li>
 <li><strong>Rotate the token</strong> periodically; anyone with the full token can kick, logout, unlock, delete
@@ -452,17 +455,17 @@ to <em>view</em> data.</li>
 <td>Admin action (kick/logout/unlock/delete/set-password/reload/link)</td>
 </tr>
 </tbody></table>
-<h3 id="get---dashboard"><code>GET /</code> — Dashboard</h3>
+<h3 id="get---dashboard"><code>GET /</code>, Dashboard</h3>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/
 </code></pre>
 <p>Returns the single-page HTML dashboard (dark theme, no external resources).</p>
-<h3 id="get-metrics--prometheus-metrics"><code>GET /metrics</code> — Prometheus Metrics</h3>
+<h3 id="get-metrics--prometheus-metrics"><code>GET /metrics</code>, Prometheus Metrics</h3>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/metrics
 </code></pre>
 <p>Returns AuthCore metrics in <strong>Prometheus text format</strong> (<code>Content-Type: text/plain; version=0.0.4</code>),
 so you can scrape the panel from Prometheus/Grafana. The endpoint is token-protected like every
 other route (401 without a valid token). A <strong>read-only token</strong> may also scrape it.</p>
-<h3 id="get-apioverview--overview"><code>GET /api/overview</code> — Overview</h3>
+<h3 id="get-apioverview--overview"><code>GET /api/overview</code>, Overview</h3>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/api/overview
 </code></pre>
 <p>Response:</p>
@@ -532,9 +535,9 @@ other route (401 without a valid token). A <strong>read-only token</strong> may 
 <td>Whether Redis sync is enabled</td>
 </tr>
 </tbody></table>
-<h3 id="get-apiplayers--player-list"><code>GET /api/players</code> — Player List</h3>
+<h3 id="get-apiplayers--player-list"><code>GET /api/players</code>, Player List</h3>
 <p>The list is <strong>database-backed</strong> (bounded query via <code>User.fetchPlayersPublic(500, null)</code>) instead
-of iterating the in-memory cache — it stays fast on servers with <strong>100k+ registered users</strong> and
+of iterating the in-memory cache, it stays fast on servers with <strong>100k+ registered users</strong> and
 returns up to <strong>500 accounts</strong> per call.</p>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/api/players
 </code></pre>
@@ -627,7 +630,7 @@ returns up to <strong>500 accounts</strong> per call.</p>
 <td>Number of players in the array</td>
 </tr>
 </tbody></table>
-<h3 id="get-apihistoryuuid--login-history"><code>GET /api/history?uuid=&lt;uuid&gt;</code> — Login History</h3>
+<h3 id="get-apihistoryuuid--login-history"><code>GET /api/history?uuid=&lt;uuid&gt;</code>, Login History</h3>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; \
   &quot;http://127.0.0.1:25570/api/history?uuid=069a79f4-44e9-4726-a5be-fca90e38aaf5&quot;
 </code></pre>
@@ -638,7 +641,7 @@ returns up to <strong>500 accounts</strong> per call.</p>
   ]
 }
 </code></pre>
-<h3 id="post-apiaction--admin-actions"><code>POST /api/action</code> — Admin Actions</h3>
+<h3 id="post-apiaction--admin-actions"><code>POST /api/action</code>, Admin Actions</h3>
 <pre><code class="language-bash">curl -X POST -H &quot;Authorization: Bearer $TOKEN&quot; \
   -H &quot;Content-Type: application/json&quot; \
   -d &#39;{&quot;action&quot;: &quot;kick&quot;, &quot;uuid&quot;: &quot;069a79f4-44e9-4726-a5be-fca90e38aaf5&quot;}&#39; \
@@ -706,13 +709,13 @@ returns up to <strong>500 accounts</strong> per call.</p>
 </tr>
 <tr>
 <td><code>link</code></td>
-<td>Discord account linking (used by Discord bots): <code>value</code> is a 6-char link code (<code>[A-Z2-9]{6}</code>, resolved via Redis and consumed — single-use) or a raw <code>discordId</code> stored on the <code>uuid</code> account; writes <code>USERS.discordId</code>, logs <code>DISCORD_LINK</code>, sends a webhook confirmation</td>
+<td>Discord account linking (used by Discord bots): <code>value</code> is a 6-char link code (<code>[A-Z2-9]{6}</code>, resolved via Redis and consumed, single-use) or a raw <code>discordId</code> stored on the <code>uuid</code> account; writes <code>USERS.discordId</code>, logs <code>DISCORD_LINK</code>, sends a webhook confirmation</td>
 </tr>
 </tbody></table>
 <blockquote>
-<p>🔗 <strong>Discord linking</strong> — players run <code>/discord link</code> in-game to get a 6-char code (published
+<p>🔗 <strong>Discord linking</strong>, players run <code>/discord link</code> in-game to get a 6-char code (published
 to the webhook + stored in Redis for 10 minutes) and send it to your Discord bot. The bot
-completes the pairing with this action. The bot <strong>never touches the database</strong> — every write
+completes the pairing with this action. The bot <strong>never touches the database</strong>, every write
 is executed by the backend through this API; the bot talks to the backend over Redis
 (link codes, the <code>authcore:discord:&lt;id&gt;</code> mapping and the <code>authcore:events</code> pub/sub bus) plus
 this API. See <a href="api.html">API.md</a>
@@ -772,7 +775,7 @@ restore a backup). The web panel stays up so you can inspect the damage:</p>
 <li><code>/api/overview</code> and <code>/api/players</code> continue to work (they read what the database can still
 return), but counts may be partial.</li>
 <li>Actions that need a writable account state (<code>set-password</code>, <code>delete</code>, <code>link</code>) fail with a
-clear error until the schema is repaired — no half-applied writes.</li>
+clear error until the schema is repaired, no half-applied writes.</li>
 <li>The panel itself never triggers the migration; fix the database, then <code>/authcore reload</code>.</li>
 </ul>
 <h3 id="encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</h3>
@@ -785,11 +788,11 @@ details.</p>
 <p>The server mixins that target version-sensitive classes (<code>ServerHandshakeNetworkHandlerMixin</code>,
 <code>ServerLoginNetworkHandlerMixin</code>, <code>ServerPlayNetworkHandlerChatMixin</code>) are declared
 <code>required:false</code> in <code>authcore.server.mixins.json</code>. If a future Minecraft version changes a
-method signature, the mixin <strong>does not apply instead of crashing the server</strong> — the panel and
+method signature, the mixin <strong>does not apply instead of crashing the server</strong>, the panel and
 the rest of the mod keep working, and CI&#39;s multi-version matrix reports the mismatch.</p>
 <h3 id="client-companion-bundled">🎨 Client Companion (Bundled)</h3>
 <p>Every range jar ships <code>environment: &quot;*&quot;</code> with the client login-screen companion built in
-(1.20.2+ clients; older clients load safely and skip the screen) — no separate build flag.</p>
+(1.20.2+ clients; older clients load safely and skip the screen), no separate build flag.</p>
 <h3 id="multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
 <ul>
 <li>The <strong>Stonecraft 1.10 + Stonecutter 0.9</strong> workspace compiles one merged source tree
@@ -798,8 +801,8 @@ the rest of the mod keep working, and CI&#39;s multi-version matrix reports the 
 <code>:26.2-fabric</code>, <code>:26.2-neoforge</code>; active <code>1.21.11-fabric</code>) into the seven range jars
 (<code>authcore-&lt;range&gt;-&lt;loader&gt;-&lt;v&gt;.jar</code>); Java toolchains are 17 / 21 / 25 per group.</li>
 <li>The host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots each range jar
-on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
-26.1.2 / 26.2 — with live log streaming and report pruning
+on its verify versions in Docker, 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
+26.1.2 / 26.2, with live log streaming and report pruning
 (<code>reports/latest.md|html|json</code>). Full matrix: <strong>8/8 endpoints × 7/7 loader targets PASS</strong>
 (2026-08-10).</li>
 </ul>
@@ -810,7 +813,7 @@ on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 /
 <li><strong>Algorithm:</strong> RSA 2048, SHA256withRSA, valid 10 years</li>
 <li><strong>Keystore password:</strong> <code>authcore</code> (internal; <code>https-keystore-password</code> is ignored for the
 auto-generated store)</li>
-<li>On startup the console prints the certificate <strong>SHA-256 fingerprint</strong> — compare it against
+<li>On startup the console prints the certificate <strong>SHA-256 fingerprint</strong>, compare it against
 the certificate your browser/curl receives to confirm you are talking to your own server:</li>
 </ul>
 <pre><code class="language-bash"># Linux/macOS
@@ -829,12 +832,13 @@ curl -kv https://127.0.0.1:25571/api/overview -H &quot;Authorization: Bearer $TO
 <li>Internal errors are masked (generic <code>500</code>) - details go to the server log only.</li>
 </ul>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

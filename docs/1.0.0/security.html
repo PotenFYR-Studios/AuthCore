@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Security Model — AuthCore Docs</title>
+<title>Security Model - AuthCore Docs</title>
 <meta name="description" content="Threat analysis (OWASP + Minecraft) and every defense in depth.">
-<meta property="og:title" content="Security Model — AuthCore Docs">
+<meta property="og:title" content="Security Model - AuthCore Docs">
 <meta property="og:description" content="Threat analysis (OWASP + Minecraft) and every defense in depth.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/security.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -290,7 +293,7 @@ isolation, and the mitigation of OWASP Top-10 and Minecraft-specific threats.</p
 <ul>
 <li><strong>Default algorithm: Argon2id</strong> (memory-hard, GPU/ASIC-resistant): 64 MiB memory,
 3 iterations, parallelism 1, 16-byte hash.</li>
-<li><strong>Per-user random salt</strong> — a fresh, cryptographically random salt is generated for every
+<li><strong>Per-user random salt</strong>, a fresh, cryptographically random salt is generated for every
 hash and <strong>embedded in the self-contained hash string</strong> (<code>$argon2id$...</code>), so verification
 works across restarts without storing the salt separately.</li>
 <li><strong>Alternatives</strong> (via <code>password-rules.password-hash-algorithm</code>):</li>
@@ -304,7 +307,7 @@ works across restarts without storing the salt separately.</li>
 </thead>
 <tbody><tr>
 <td><code>argon2</code></td>
-<td>✅ Recommended default — memory-hard, resistant to GPU cracking</td>
+<td>✅ Recommended default, memory-hard, resistant to GPU cracking</td>
 </tr>
 <tr>
 <td><code>bcrypt</code></td>
@@ -316,15 +319,15 @@ works across restarts without storing the salt separately.</li>
 </tr>
 <tr>
 <td><code>pbkdf2</code></td>
-<td>⚠️ Acceptable — HMAC-SHA256, 100 000 iterations</td>
+<td>⚠️ Acceptable, HMAC-SHA256, 100 000 iterations</td>
 </tr>
 <tr>
 <td><code>sha-256</code> / <code>sha-512</code></td>
-<td>⚠️ Fast hashes — <strong>less ideal for passwords</strong>; kept for legacy compatibility only</td>
+<td>⚠️ Fast hashes, <strong>less ideal for passwords</strong>; kept for legacy compatibility only</td>
 </tr>
 <tr>
 <td><code>md5</code></td>
-<td>❌ <strong>Insecure — do not use.</strong> If an old account still uses MD5-class hashes it maps to SHA-256 internally and contributes to the login <strong>risk score</strong></td>
+<td>❌ <strong>Insecure, do not use.</strong> If an old account still uses MD5-class hashes it maps to SHA-256 internally and contributes to the login <strong>risk score</strong></td>
 </tr>
 </tbody></table>
 <ul>
@@ -333,41 +336,41 @@ works across restarts without storing the salt separately.</li>
 accounts so admins can force re-hashing.</li>
 <li><strong>PBKDF2 is self-contained (JDK only).</strong> <code>pbkdf2</code> is implemented as a pure JDK
 <code>SecretKeyFactory</code> (format <code>$pbkdf2-sha256$&lt;iter&gt;$&lt;salt&gt;$&lt;hash&gt;</code>) instead of going through
-password4j — the test suite caught that password4j&#39;s PBKDF2 check could <strong>hang the server
+password4j, the test suite caught that password4j&#39;s PBKDF2 check could <strong>hang the server
 thread</strong> on some inputs; the JDK implementation is predictable, interruptible and behaves
 identically on every supported Minecraft version.</li>
 <li><strong>Argon2id fallback.</strong> <code>Encrypter.hash(...)</code> <strong>never stores an unusable hash</strong>: an unknown
 <code>password-hash-algorithm</code> value (or a hashing exception) logs a warning and falls back to
-<strong>Argon2id</strong>, so registration and password resets never fail silently. <code>md5</code> is never stored —
+<strong>Argon2id</strong>, so registration and password resets never fail silently. <code>md5</code> is never stored -
 it hashes through SHA-256 internally (legacy compatibility) and flags the account as weak.</li>
 <li>The same hasher backs <code>register</code>, <code>change-password</code>, admin resets and web-panel resets.</li>
 <li>Every hash path is exercised by the automated test suite (<code>tools/security-tests/</code>, 57 checks)
-— round-trips for all 6 algorithms plus unique per-hash salts; see
+- round-trips for all 6 algorithms plus unique per-hash salts; see
 <a href="#-automated-test-suite">the test suite</a> below.</li>
 </ul>
 <h2 id="brute-force-defense-layers">🛡️ Brute-Force Defense Layers</h2>
 <p>Defense is layered so a single failure never exposes accounts:</p>
 <ol>
-<li><strong>Max login attempts</strong> (<code>session.authentication.max-login-attempts</code>, default 8) — kick after
+<li><strong>Max login attempts</strong> (<code>session.authentication.max-login-attempts</code>, default 8), kick after
 repeated failures.</li>
-<li><strong>Cooldown after kick</strong> (<code>session.cooldown-after-kick-ms</code>, default 2 min) — the kicked player
+<li><strong>Cooldown after kick</strong> (<code>session.cooldown-after-kick-ms</code>, default 2 min), the kicked player
 cannot immediately retry.</li>
-<li><strong>Per-IP rate limits</strong> (<code>session.rate-limit</code>) — max 10 joins per IP per minute by default;
+<li><strong>Per-IP rate limits</strong> (<code>session.rate-limit</code>), max 10 joins per IP per minute by default;
 sliding-window counter, memory bounded at 10 000 keys with expired-window purge.</li>
-<li><strong>Progressive punishment</strong> (<code>session.progressive-punishment</code>) — exponential kick cooldowns
+<li><strong>Progressive punishment</strong> (<code>session.progressive-punishment</code>), exponential kick cooldowns
 (5 s → 30 s → 3 m by default, capped at 5 min) for repeat offenders.</li>
-<li><strong>Persistent account lock</strong> (<code>session.account-lock</code>, default on) — after 8 failed logins the
+<li><strong>Persistent account lock</strong> (<code>session.account-lock</code>, default on), after 8 failed logins the
 account locks for 10 minutes; the lock is <strong>persisted</strong> to the database (<code>lockUntilMs</code>) so it
 survives restarts and works across network instances via Redis.</li>
-<li><strong>Captcha</strong> (<code>lobby.captcha</code>) — optional text captcha on <code>/login</code> and <code>/register</code>, TTL-bound
+<li><strong>Captcha</strong> (<code>lobby.captcha</code>), optional text captcha on <code>/login</code> and <code>/register</code>, TTL-bound
 (default 1 min) and bounded at 512 pending entries.</li>
-<li><strong>Login intelligence</strong> (<code>session.intelligence</code>) — new-IP/new-country detection raises the
+<li><strong>Login intelligence</strong> (<code>session.intelligence</code>), new-IP/new-country detection raises the
 risk score (0–100), triggers webhook/email/security-log alerts above
 <code>alert-risk-threshold</code> (60), and can optionally <strong>block</strong> logins from new countries.</li>
-<li><strong>Command cooldowns</strong> (<code>session.rate-limit.command-cooldown-ms</code>, default 1 s) — minimum
+<li><strong>Command cooldowns</strong> (<code>session.rate-limit.command-cooldown-ms</code>, default 1 s), minimum
 delay between <code>/login</code> and <code>/register</code> executions <strong>per player</strong>, throttling scripted
 password-spray loops that bypass per-IP limits.</li>
-<li><strong>Fast-rejoin alert</strong> (<code>session.rate-limit.alert-on-fast-rejoin</code>, default off) — a
+<li><strong>Fast-rejoin alert</strong> (<code>session.rate-limit.alert-on-fast-rejoin</code>, default off), a
 disconnect→rejoin in under <code>fast-rejoin-window-ms</code> (default 500 ms) is a classic bot pattern;
 AuthCore fires a <strong>webhook + security-log alert</strong> (alert-only, no kick) so you can spot
 automated clients without punishing legitimate laggy players.</li>
@@ -383,12 +386,12 @@ the history.</p>
 already-verified players friction-free while guests still prove they are not bots. Trust status
 is stored in the database (<code>trustedUntilMs</code>), so it survives restarts.</p>
 <h3 id="network-device-fingerprint">🖇️ Network Device Fingerprint</h3>
-<p>On every login AuthCore computes a <strong>SHA-256 fingerprint of the login origin (IP + country)</strong> —
+<p>On every login AuthCore computes a <strong>SHA-256 fingerprint of the login origin (IP + country)</strong> -
 a strong &quot;same network/device&quot; signal, not a hardware fingerprint (impossible server-side). It
 is stored per account in the <code>deviceFingerprint</code> DB column.</p>
 <ul>
 <li>A login from a <strong>changed fingerprint</strong> adds <strong>+15</strong> to the risk score.</li>
-<li>A <strong>&quot;Possible Account Sharing&quot;</strong> webhook alert fires (account sharing/trading detection) —
+<li>A <strong>&quot;Possible Account Sharing&quot;</strong> webhook alert fires (account sharing/trading detection) -
 the same signal that backs optional <code>block-on-new-country</code>.</li>
 <li>New logins just record the fingerprint; only <em>changes</em> are flagged, so legitimate roaming
 across IPs is noticed but not punished automatically.</li>
@@ -403,13 +406,13 @@ allow 1.2.3.4
 <ul>
 <li>One rule per line: <code>allow &lt;ip&gt;</code> or <code>deny &lt;ip&gt;</code>; <code>#</code> lines are comments.</li>
 <li><strong>First match wins</strong>; if no rule matches the IP is <strong>allowed</strong> (default-allow).</li>
-<li><strong>Denied IPs are kicked on join</strong> — before they can reach the lobby.</li>
+<li><strong>Denied IPs are kicked on join</strong>, before they can reach the lobby.</li>
 <li>The file is loaded at startup and on <code>/authcore reload</code>.</li>
 </ul>
 <h3 id="shadow-ban-mode">👻 Shadow-Ban Mode</h3>
 <p><code>session.shadow-ban</code> (default off) hides <em>why</em> players are blocked. When enabled, security
 blocks (e.g. <code>block-on-new-country</code>) disconnect the player with a generic
-<code>disconnect-reason</code> (&quot;Connection lost&quot;) instead of the revealing security message — while the
+<code>disconnect-reason</code> (&quot;Connection lost&quot;) instead of the revealing security message, while the
 <strong>webhook alert still fires</strong>, so admins keep full visibility without tipping off the blocked
 player (useful against account sharers who adapt to specific block messages).</p>
 <h3 id="auto-whitelist">📜 Auto-Whitelist</h3>
@@ -422,7 +425,7 @@ locked out by an admin-managed whitelist.</p>
 25599). <em>Every</em> connection to it is treated as an attacker scan:</p>
 <ul>
 <li>The connecting IP is logged with a <code>HONEYPOT_HIT</code> security-log entry and a console warning.</li>
-<li>A <strong>permanent</strong> <code>deny &lt;ip&gt;</code> rule is <strong>appended to <code>ip-rules.conf</code></strong> and immediately reloaded —
+<li>A <strong>permanent</strong> <code>deny &lt;ip&gt;</code> rule is <strong>appended to <code>ip-rules.conf</code></strong> and immediately reloaded -
 the scanner is banned for good and kicked on any real join attempt.</li>
 <li>The listener runs on a daemon thread and never touches the server thread.</li>
 </ul>
@@ -430,7 +433,7 @@ the scanner is banned for good and kicked on any real join attempt.</li>
 themselves.</p>
 <h3 id="maintenance-mode">🛠️ Maintenance Mode</h3>
 <p><code>session.maintenance</code> (default off) blocks <strong>all</strong> joins with a custom <code>kick-message</code>. Toggle it
-at runtime with <code>/authcore maintenance on|off</code> (persisted to <code>settings.conf</code>) — useful during
+at runtime with <code>/authcore maintenance on|off</code> (persisted to <code>settings.conf</code>), useful during
 world updates, backups or security incidents. Combine with <code>security.webhook-url</code> so the
 maintenance window is visible in your alerting. <code>/authcore validate</code> performs a dry-run config
 check before you rely on any of these settings.</p>
@@ -438,20 +441,20 @@ check before you rely on any of these settings.</p>
 <p>1.0.0 hardened the shared state that multiple threads (server thread, web panel daemon, Redis
 subscriber, honeypot, backup scheduler) touch:</p>
 <ul>
-<li><code>config</code> / <code>messages</code> and user session fields are <strong><code>volatile</code></strong> — reloads and toggles are
+<li><code>config</code> / <code>messages</code> and user session fields are <strong><code>volatile</code></strong>, reloads and toggles are
 immediately visible to every thread.</li>
-<li><strong>All database access is <code>synchronized</code></strong> — the single shared JDBC connection is never used
+<li><strong>All database access is <code>synchronized</code></strong>, the single shared JDBC connection is never used
 concurrently (no interleaved statements / transactions).</li>
 <li>Cache-miss DB fetches are serialized under a dedicated <strong>canonical-cache lock</strong>, so there is
 exactly one <code>User</code> instance per account even under concurrent joins/logins.</li>
 </ul>
 <h3 id="database-migration-safety">🛑 Database Migration Safety</h3>
 <p>AuthCore migrates the <code>USERS</code> schema automatically at startup (dialect-aware <code>ALTER TABLE</code> for
-missing columns — SQLite <code>PRAGMA</code>, MySQL/PostgreSQL <code>information_schema</code>). If the migration
+missing columns, SQLite <code>PRAGMA</code>, MySQL/PostgreSQL <code>information_schema</code>). If the migration
 <strong>fails</strong>:</p>
 <ul>
 <li><code>Database.migrationBlocked</code> is set to <code>true</code> and <strong>registration/login are suspended</strong> until
-the schema is fixed — AuthCore never writes to a half-migrated database.</li>
+the schema is fixed, AuthCore never writes to a half-migrated database.</li>
 <li><code>Database.printMigrationGuidance()</code> prints a <strong>clear banner</strong> with fix steps: back up + delete
 the DB file to let AuthCore recreate it, run the missing <code>ALTER TABLE</code> statements manually
 (shown in the log), or restore a backup from <code>config/authcore/backups/</code>.</li>
@@ -459,27 +462,27 @@ the DB file to let AuthCore recreate it, run the missing <code>ALTER TABLE</code
 schema errors; security-log/webhook alerts keep working.</li>
 </ul>
 <blockquote>
-<p>🎬 <strong>Scenario:</strong> <em>corrupt hand-edited schema</em> — an admin&#39;s manual column change breaks the
+<p>🎬 <strong>Scenario:</strong> <em>corrupt hand-edited schema</em>, an admin&#39;s manual column change breaks the
 migration; the server refuses new registrations, prints exact fix instructions, and only
 resumes after the admin repairs or restores the database.</p>
 </blockquote>
 <h2 id="session-protection">🔄 Session Protection</h2>
 <ul>
-<li><strong>IP binding</strong> — <code>session-from-same-ip-only</code> (default true): a resumed session is only
+<li><strong>IP binding</strong>, <code>session-from-same-ip-only</code> (default true): a resumed session is only
 accepted from the IP that originally logged in, protecting against session hijacking.</li>
-<li><strong>Timeout</strong> — sessions expire after <code>timeout-ms</code> (default 60 min); with
+<li><strong>Timeout</strong>, sessions expire after <code>timeout-ms</code> (default 60 min); with
 <code>kick-after-session-timeout</code> the player is kicked on expiry.</li>
-<li><strong>Remote logout</strong> — <code>/account logout</code>, the web panel&#39;s <code>logout</code> action, and
+<li><strong>Remote logout</strong>, <code>/account logout</code>, the web panel&#39;s <code>logout</code> action, and
 <code>AuthCoreApi.logout(UUID)</code> all end a session instantly (and propagate network-wide when
 Redis is enabled).</li>
-<li><strong>Duplicate session protection</strong> — <code>block-duplicate-session</code> prevents the same account from
+<li><strong>Duplicate session protection</strong>, <code>block-duplicate-session</code> prevents the same account from
 being authenticated from multiple locations at once.</li>
-<li><strong>Bedrock / proxy / VPN gating</strong> — <code>allow-bedrock-players</code>, <code>allow-proxy-users</code> can
+<li><strong>Bedrock / proxy / VPN gating</strong>, <code>allow-bedrock-players</code>, <code>allow-proxy-users</code> can
 completely block untrusted client classes.</li>
 </ul>
 <h2 id="cross-server-security-event-bus">📡 Cross-Server Security Event Bus</h2>
 <p>When <code>database.redis.enabled</code> is on, every server in a network participates in a <strong>Redis
-pub/sub security event bus</strong> (channel <code>authcore:events</code>) — no extra configuration:</p>
+pub/sub security event bus</strong> (channel <code>authcore:events</code>), no extra configuration:</p>
 <ul>
 <li>Events: <code>login</code>, <code>logout</code>, <code>register</code>, <code>brute-force</code>, <code>account-locked</code>, <code>kick</code>, each
 carrying <code>{type, username, detail, server, ts}</code>.</li>
@@ -487,14 +490,14 @@ carrying <code>{type, username, detail, server, ts}</code>.</li>
 forwarded to the local Discord webhook as a &quot;Cross-Server Event&quot; embed, and executed locally
 (<code>kick</code> / <code>logout</code> events kick the matching player on that backend).</li>
 <li><strong>Attack propagation:</strong> a brute-force lock or admin kick on one backend takes effect on
-<strong>every</strong> backend immediately — there is no window where a locked/compromised account can
+<strong>every</strong> backend immediately, there is no window where a locked/compromised account can
 hop to another server in the network. Events from the local server are ignored (no loops).</li>
 </ul>
 <h2 id="discord-link-codes">🔗 Discord Link Codes</h2>
 <p>Discord account linking (<code>/discord link</code>) uses short-lived, single-use codes:</p>
 <ul>
 <li>Codes are <strong>6 chars</strong> drawn from an unambiguous charset (<code>A–Z</code> minus <code>I/O</code>, <code>2–9</code>) via
-<code>SecureRandom</code> — no visually confusable characters.</li>
+<code>SecureRandom</code>, no visually confusable characters.</li>
 <li>Stored in Redis (<code>authcore:discordlink:&lt;code&gt;</code>) with a <strong>10-minute TTL</strong> and <strong>consumed on
 first use</strong>, so a captured code cannot be replayed.</li>
 <li>The command requires a registered account with user permissions; code issuance is written to
@@ -512,14 +515,14 @@ all 6 algorithms, unique per-hash salts, captcha lifecycle (generation, case-ins
 verification, single-use consumption, expiry), email recovery codes (validation, case handling,
 single-use), the rate limiter (window behavior, per-key isolation), proxy IP parsing (IPv4/IPv6,
 garbage rejection), device fingerprints and time formatting. It already caught and fixed a real
-vulnerability — the PBKDF2 server-thread hang (see <a href="#password-hashing">Password Hashing</a>) —
+vulnerability, the PBKDF2 server-thread hang (see <a href="#password-hashing">Password Hashing</a>) -
 and any regression in these paths fails the suite.</p>
 <h2 id="premium-api-outage-safety">☁️ Premium API Outage Safety</h2>
 <ul>
 <li><code>premium-api-strict = false</code> (default): when the Mojang session API is unreachable, premium
-checks <strong>degrade gracefully</strong> — no legitimate premium player is blocked.</li>
+checks <strong>degrade gracefully</strong>, no legitimate premium player is blocked.</li>
 <li><code>premium-api-strict = true</code> (legacy): the premium-name restriction is enforced even during an
-outage (riskier — use only if you understand the lockout implications).</li>
+outage (riskier, use only if you understand the lockout implications).</li>
 <li><code>premium-auto-login</code> / <code>premium-auto-register</code> make hybrid online/offline servers seamless
 while <code>allow-online-name-by-offline</code> (default false) prevents username squatting by offline
 players.</li>
@@ -562,22 +565,22 @@ connection floods.</li>
 with its SHA-256 fingerprint printed to the console, or a user-supplied PKCS12/JKS keystore.</li>
 <li>The panel binds to <code>127.0.0.1</code> by default, requires a bearer token on <strong>every</strong> request
 (including <code>/metrics</code>), sets <code>Cache-Control: no-store</code>, and supports a separate
-<strong>read-only token</strong> (<code>web-panel.readonly-token</code>) for viewers that must never run actions —
+<strong>read-only token</strong> (<code>web-panel.readonly-token</code>) for viewers that must never run actions -
 read-only tokens get <code>403</code> on <code>POST /api/action</code>.</li>
 </ul>
 <h2 id="resource-safety">🧮 Resource Safety</h2>
 <ul>
-<li><strong>Lazy user loading (1.0.0)</strong> — the server <strong>no longer loads the full user table at startup</strong>.
+<li><strong>Lazy user loading (1.0.0)</strong>, the server <strong>no longer loads the full user table at startup</strong>.
 Users are fetched from the database on demand (join/login/whois) into a <strong>bounded LRU cache
 (20 000 entries max)</strong> with idle eviction; <strong>online users are never evicted</strong>. A 100k-user
-database therefore costs no more memory than the online player count — and <strong>nobody can DoS
+database therefore costs no more memory than the online player count, and <strong>nobody can DoS
 the server by registering 100k accounts</strong> just to inflate a startup load.</li>
-<li><strong>Database-backed admin queries</strong> — <code>list</code>, <code>whois</code>, <code>export</code> and the web panel player list
+<li><strong>Database-backed admin queries</strong>, <code>list</code>, <code>whois</code>, <code>export</code> and the web panel player list
 run bounded, searchable SQL queries instead of iterating the cache, so even giant databases
 stay O(rows-returned).</li>
-<li><strong>Bounded caches</strong> — captcha entries (512), email recovery codes (256), rate-limiter
+<li><strong>Bounded caches</strong>, captcha entries (512), email recovery codes (256), rate-limiter
 windows (10 000), user cache (20 000) all purge expired entries automatically.</li>
-<li><strong>No netty blocking</strong> — all security checks are synchronous, in-memory, and O(1)-ish map
+<li><strong>No netty blocking</strong>, all security checks are synchronous, in-memory, and O(1)-ish map
 operations; nothing blocks netty&#39;s event loop.</li>
 <li>The web panel runs on a <strong>daemon thread pool</strong> (<code>AuthCore-WebPanel</code>), never the server thread.</li>
 </ul>
@@ -585,31 +588,31 @@ operations; nothing blocks netty&#39;s event loop.</li>
 <ul>
 <li><strong>Discord webhook</strong> (<code>session.security.webhook-url</code>) receives join, login, failed-login,
 lockout and suspicious-login events.</li>
-<li><strong>Extra webhooks</strong> (<code>session.security.extra-webhook-urls</code>, list) — Slack, Telegram or custom
+<li><strong>Extra webhooks</strong> (<code>session.security.extra-webhook-urls</code>, list), Slack, Telegram or custom
 webhook URLs that receive the <strong>same</strong> events as the Discord webhook (multi-channel alerting).</li>
-<li><strong>Role-sync webhook</strong> (<code>session.security.role-sync-webhook-url</code>) — a <em>separate</em> webhook used
+<li><strong>Role-sync webhook</strong> (<code>session.security.role-sync-webhook-url</code>), a <em>separate</em> webhook used
 only for registration announcements, typically consumed by a Discord bot that assigns roles;
 falls back to <code>webhook-url</code> when empty.</li>
 <li><strong>Email</strong> (<code>session.email</code>) sends login alerts for new IPs/countries and supports recovery
 codes for forgotten passwords via <code>/account recover</code> (6-digit, single-use, 15-minute TTL).
-⚠️ Completing a recovery also <strong>clears the account&#39;s 2FA (TOTP) secret</strong> — the player must
+⚠️ Completing a recovery also <strong>clears the account&#39;s 2FA (TOTP) secret</strong>, the player must
 re-setup 2FA, so a recovered account cannot be held hostage by a lost authenticator.</li>
 <li><strong>Security log file</strong> (<code>session.security.log-file</code>, default <code>security.log</code>) records every
 event with tags such as <code>WEB_KICK</code>, <code>PROXY_FORWARD</code>, <code>NICKNAME_INVALID</code>, <code>DB_EXPORT</code>,
 lockouts, and risk alerts.</li>
-<li><strong>Log rotation</strong> (<code>session.security.log-max-bytes</code>, default 5 MB) — when the security log
+<li><strong>Log rotation</strong> (<code>session.security.log-max-bytes</code>, default 5 MB), when the security log
 exceeds the limit it rotates to <code>security.log.1</code> → <code>.2</code> → <code>.3</code> (oldest discarded), so the
 log can never fill the disk.</li>
 </ul>
 <hr>
 <h2 id="multi-version--build-compatibility">🔮 Multi-Version &amp; Build Compatibility</h2>
 <ul>
-<li><strong>Version-fragile mixins are <code>required:false</code></strong> — <code>ServerHandshakeNetworkHandlerMixin</code>,
+<li><strong>Version-fragile mixins are <code>required:false</code></strong>, <code>ServerHandshakeNetworkHandlerMixin</code>,
 <code>ServerLoginNetworkHandlerMixin</code> and <code>ServerPlayNetworkHandlerChatMixin</code> are declared
 <code>required:false</code> in <code>authcore.server.mixins.json</code>. When a future Minecraft version changes a
 target signature, the mixin is <strong>skipped instead of crashing the server</strong>, and the rest of
 the mod&#39;s defenses (commands, hashing, rate limits, lobby restrictions) stay active.</li>
-<li><strong>Stonecraft/Stonecutter workspace, Mojang mappings everywhere</strong> — a single merged source
+<li><strong>Stonecraft/Stonecutter workspace, Mojang mappings everywhere</strong>, a single merged source
 tree (<code>src/main/java</code> + <code>src/main/resources</code>) is compiled per version-group × loader variant
 by the Stonecraft 1.10 + Stonecutter 0.9 workspace (<code>settings.gradle.kts</code>,
 <code>stonecutter.gradle.kts</code>, central <code>build.gradle.kts</code> Kotlin DSL, <code>versions/dependencies/*.properties</code>;
@@ -617,20 +620,20 @@ variants <code>:1.18.2-fabric</code> / <code>:1.18.2-forge</code> / <code>:1.21.
 <code>:1.21.11-neoforge</code> / <code>:26.2-fabric</code> / <code>:26.2-neoforge</code>, active <code>1.21.11-fabric</code>).
 Every group uses official (Mojang) mappings; 26.1-26.2 is additionally unobfuscated (Mojang names
 at runtime). Java toolchains follow the group: 17 (1.16–1.18), 21 (1.19–1.21), 25 (26.1-26.2).</li>
-<li><strong>Range jars</strong> — one jar per group × loader: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code>
+<li><strong>Range jars</strong>, one jar per group × loader: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code>
 (built at 1.18.2, covers 1.16.0 – 1.18.2), <code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code>
 (built at 1.21.11, covers 1.19.0 – 1.21.11) and <code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code>
 (built at 26.2, covers 26.1 – 26.2).
 The legacy <code>authcore-classic</code>/<code>authcore-modern</code> split is gone.</li>
-<li><strong>Host-compatibility harness</strong> — <code>tools/host-tests/run-host-tests.ps1</code> boots every range jar
+<li><strong>Host-compatibility harness</strong>, <code>tools/host-tests/run-host-tests.ps1</code> boots every range jar
 on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 /
 26.2) in Docker containers, driven by the <code>versions.json</code> range-group matrix (options
 <code>-Groups</code>, <code>-Version</code>, <code>-Jar</code>, <code>-Smoke</code>, <code>-Build</code>, <code>-Parallel</code>, <code>-KeepReports</code> and more),
 with live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix
 passed on 2026-08-10.</li>
-<li><strong>Client companion (bundled)</strong> — every range jar ships <code>environment: &quot;*&quot;</code> with the client
+<li><strong>Client companion (bundled)</strong>, every range jar ships <code>environment: &quot;*&quot;</code> with the client
 login-screen companion built in (1.20.2+ clients; older clients load safely and skip the
-screen). There is no separate build flag — the companion, server mod and the
+screen). There is no separate build flag, the companion, server mod and the
 BungeeCord/Velocity proxy plugin all live in the same jar.</li>
 </ul>
 <hr>
@@ -819,12 +822,13 @@ TTL; the proxy&#39;s zero-dependency RESP client uses short timeouts (1.5s) so t
 is never stalled by a hung Redis.</li>
 </ul>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

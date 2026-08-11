@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Developer API — AuthCore Docs</title>
+<title>Developer API - AuthCore Docs</title>
 <meta name="description" content="AuthCoreApi, database schema, integration guide.">
-<meta property="og:title" content="Developer API — AuthCore Docs">
+<meta property="og:title" content="Developer API - AuthCore Docs">
 <meta property="og:description" content="AuthCoreApi, database schema, integration guide.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/api.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -274,7 +277,7 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#overview">📖 Overview</a></li><li class="toc-item toc-2"><a href="#method-reference">📋 Method Reference</a></li><li class="toc-item toc-3"><a href="#player-list--statistics-api-netded3ecmodelsuser">🗂️ Player List & Statistics API (net.ded3ec.models.User)</a></li><li class="toc-item toc-2"><a href="#example">🧪 Example</a></li><li class="toc-item toc-2"><a href="#integration-notes">📝 Integration Notes</a></li><li class="toc-item toc-3"><a href="#threading">🧵 Threading</a></li><li class="toc-item toc-3"><a href="#lazy-loading-for-100k-users">🐢 Lazy Loading for 100k+ Users</a></li><li class="toc-item toc-3"><a href="#database-migration-suspension-databasemigrationblocked">🛑 Database Migration Suspension (Database.migrationBlocked)</a></li><li class="toc-item toc-3"><a href="#encrypter--argon2id-fallback-behavior">🧂 Encrypter — Argon2id Fallback Behavior</a></li><li class="toc-item toc-3"><a href="#null-safety">⚠️ Null Safety</a></li><li class="toc-item toc-3"><a href="#version-compatibility">🔄 Version Compatibility</a></li><li class="toc-item toc-2"><a href="#internal-packages">🗂️ Internal Packages</a></li><li class="toc-item toc-2"><a href="#database-schema-reference">🗄️ Database Schema Reference</a></li><li class="toc-item toc-3"><a href="#users-table">USERS table</a></li><li class="toc-item toc-3"><a href="#login_history-table">LOGIN_HISTORY table</a></li><li class="toc-item toc-2"><a href="#placeholder-tokens">🔤 Placeholder Tokens</a></li><li class="toc-item toc-2"><a href="#new-admin-commands-100">🛠️ New Admin Commands (1.0.0)</a></li><li class="toc-item toc-2"><a href="#web-panel-metrics-endpoint">📡 Web Panel /metrics Endpoint</a></li><li class="toc-item toc-2"><a href="#server-side-files">🗂️ Server-Side Files</a></li><li class="toc-item toc-2"><a href="#discord-account-linking">🔗 Discord Account Linking</a></li><li class="toc-item toc-3"><a href="#in-game-commands">In-game commands</a></li><li class="toc-item toc-3"><a href="#completing-the-link-discord-bot--web-panel-api">Completing the link (Discord bot → web panel API)</a></li><li class="toc-item toc-3"><a href="#bot-integration-rules">Bot integration rules</a></li><li class="toc-item toc-2"><a href="#cross-server-security-event-bus-redis-pubsub">📡 Cross-Server Security Event Bus (Redis pub/sub)</a></li><li class="toc-item toc-3"><a href="#events">Events</a></li><li class="toc-item toc-3"><a href="#payload">Payload</a></li><li class="toc-item toc-3"><a href="#receiver-behavior">Receiver behavior</a></li><li class="toc-item toc-2"><a href="#security-test-suite">🧪 Security Test Suite</a></li><li class="toc-item toc-2"><a href="#interop--network-events">📡 Interop & Network Events</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#overview">📖 Overview</a></li><li class="toc-item toc-2"><a href="#method-reference">📋 Method Reference</a></li><li class="toc-item toc-3"><a href="#player-list--statistics-api-netded3ecmodelsuser">🗂️ Player List & Statistics API (net.ded3ec.models.User)</a></li><li class="toc-item toc-2"><a href="#example">🧪 Example</a></li><li class="toc-item toc-2"><a href="#integration-notes">📝 Integration Notes</a></li><li class="toc-item toc-3"><a href="#threading">🧵 Threading</a></li><li class="toc-item toc-3"><a href="#lazy-loading-for-100k-users">🐢 Lazy Loading for 100k+ Users</a></li><li class="toc-item toc-3"><a href="#database-migration-suspension-databasemigrationblocked">🛑 Database Migration Suspension (Database.migrationBlocked)</a></li><li class="toc-item toc-3"><a href="#encrypter--argon2id-fallback-behavior">🧂 Encrypter, Argon2id Fallback Behavior</a></li><li class="toc-item toc-3"><a href="#null-safety">⚠️ Null Safety</a></li><li class="toc-item toc-3"><a href="#version-compatibility">🔄 Version Compatibility</a></li><li class="toc-item toc-2"><a href="#internal-packages">🗂️ Internal Packages</a></li><li class="toc-item toc-2"><a href="#database-schema-reference">🗄️ Database Schema Reference</a></li><li class="toc-item toc-3"><a href="#users-table">USERS table</a></li><li class="toc-item toc-3"><a href="#login_history-table">LOGIN_HISTORY table</a></li><li class="toc-item toc-2"><a href="#placeholder-tokens">🔤 Placeholder Tokens</a></li><li class="toc-item toc-2"><a href="#new-admin-commands-100">🛠️ New Admin Commands (1.0.0)</a></li><li class="toc-item toc-2"><a href="#web-panel-metrics-endpoint">📡 Web Panel /metrics Endpoint</a></li><li class="toc-item toc-2"><a href="#server-side-files">🗂️ Server-Side Files</a></li><li class="toc-item toc-2"><a href="#discord-account-linking">🔗 Discord Account Linking</a></li><li class="toc-item toc-3"><a href="#in-game-commands">In-game commands</a></li><li class="toc-item toc-3"><a href="#completing-the-link-discord-bot--web-panel-api">Completing the link (Discord bot → web panel API)</a></li><li class="toc-item toc-3"><a href="#bot-integration-rules">Bot integration rules</a></li><li class="toc-item toc-2"><a href="#cross-server-security-event-bus-redis-pubsub">📡 Cross-Server Security Event Bus (Redis pub/sub)</a></li><li class="toc-item toc-3"><a href="#events">Events</a></li><li class="toc-item toc-3"><a href="#payload">Payload</a></li><li class="toc-item toc-3"><a href="#receiver-behavior">Receiver behavior</a></li><li class="toc-item toc-2"><a href="#security-test-suite">🧪 Security Test Suite</a></li><li class="toc-item toc-2"><a href="#interop--network-events">📡 Interop & Network Events</a></li></ul>
   </aside>
   <main>
     <article>
@@ -289,7 +292,7 @@ and server scripts:</p>
 <p><strong><code>net.ded3ec.api.AuthCoreApi</code></strong></p>
 </blockquote>
 <p>The class is <code>final</code>, has a private constructor, and every member is a <strong>static method</strong>. There is
-no registration step or service-lookup dance — just call the static methods directly. The API is
+no registration step or service-lookup dance, just call the static methods directly. The API is
 safe to call from the <strong>server thread</strong> at any time after the server has finished booting.</p>
 <p>Typical use cases for integration:</p>
 <ul>
@@ -310,61 +313,61 @@ safe to call from the <strong>server thread</strong> at any time after the serve
 </thead>
 <tbody><tr>
 <td><code>isEnabled()</code></td>
-<td>—</td>
+<td>-</td>
 <td><code>boolean</code></td>
 <td>Whether AuthCore has finished initializing (config + messages loaded). Call this before anything else.</td>
 </tr>
 <tr>
 <td><code>getUser(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>User</code> (nullable)</td>
 <td>Returns the cached <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/src/main/java/net/ded3ec/models/User.java"><code>User</code></a> for the UUID, or <code>null</code>.</td>
 </tr>
 <tr>
 <td><code>getUser(String)</code></td>
-<td><code>username</code> — case-insensitive name</td>
+<td><code>username</code>, case-insensitive name</td>
 <td><code>User</code> (nullable)</td>
 <td>Returns the cached <code>User</code> looked up by username (case-insensitive), or <code>null</code>.</td>
 </tr>
 <tr>
 <td><code>exists(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the account exists in the cache (registered or merely seen by the server).</td>
 </tr>
 <tr>
 <td><code>isRegistered(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the account has a password set (i.e. is registered).</td>
 </tr>
 <tr>
 <td><code>isAuthenticated(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the player is currently authenticated on this server.</td>
 </tr>
 <tr>
 <td><code>isInLobby(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the player is currently restricted in the auth lobby (limbo).</td>
 </tr>
 <tr>
 <td><code>isLocked(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the account is locked after too many failed logins.</td>
 </tr>
 <tr>
 <td><code>getRiskScore(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>int</code></td>
 <td>The account&#39;s last computed login risk score (0–100). Returns <code>100</code> if the user is unknown.</td>
 </tr>
 <tr>
 <td><code>isPremium(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Whether the player&#39;s UUID belongs to a premium (online-mode / Mojang) account.</td>
 </tr>
@@ -382,13 +385,13 @@ safe to call from the <strong>server thread</strong> at any time after the serve
 </tr>
 <tr>
 <td><code>login(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
-<td>Authenticates the account in memory — equivalent to a successful login (no password check). Returns <code>false</code> if the account is not found.</td>
+<td>Authenticates the account in memory, equivalent to a successful login (no password check). Returns <code>false</code> if the account is not found.</td>
 </tr>
 <tr>
 <td><code>logout(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Ends the active session of the account. Returns <code>false</code> if the account is not found.</td>
 </tr>
@@ -406,13 +409,13 @@ safe to call from the <strong>server thread</strong> at any time after the serve
 </tr>
 <tr>
 <td><code>deleteAccount(UUID)</code></td>
-<td><code>uuid</code> — player UUID</td>
+<td><code>uuid</code>, player UUID</td>
 <td><code>boolean</code></td>
 <td>Deletes the account from the database and cache. Returns <code>false</code> if not found.</td>
 </tr>
 </tbody></table>
 <h3 id="player-list--statistics-api-netded3ecmodelsuser">🗂️ Player List &amp; Statistics API (<code>net.ded3ec.models.User</code>)</h3>
-<p>These are <strong>database-backed</strong> static methods on <code>User</code> — they do <strong>not</strong> iterate the in-memory
+<p>These are <strong>database-backed</strong> static methods on <code>User</code>, they do <strong>not</strong> iterate the in-memory
 cache, so they stay fast and memory-safe on servers with <strong>100k+ registered accounts</strong> (no bulk
 user loading; see <a href="#-lazy-loading-for-100k-users">Lazy Loading</a> below).</p>
 <table>
@@ -426,25 +429,25 @@ user loading; see <a href="#-lazy-loading-for-100k-users">Lazy Loading</a> below
 </thead>
 <tbody><tr>
 <td><code>fetchPlayersPublic(int, String)</code></td>
-<td><code>limit</code> — max rows (e.g. <code>500</code>), <code>search</code> — optional substring filter on username (<code>null</code> = all)</td>
+<td><code>limit</code>, max rows (e.g. <code>500</code>), <code>search</code>, optional substring filter on username (<code>null</code> = all)</td>
 <td><code>ArrayList&lt;User&gt;</code></td>
 <td>Bounded, searchable player list straight from the database. Backs <code>/authcore list players</code> and the web panel player list.</td>
 </tr>
 <tr>
 <td><code>countRegistered()</code></td>
-<td>—</td>
+<td>-</td>
 <td><code>long</code></td>
 <td>Total registered accounts (<code>mode</code> set), counted in the database.</td>
 </tr>
 <tr>
 <td><code>countByMode(String)</code></td>
-<td><code>mode</code> — <code>&quot;online-mode&quot;</code> or <code>&quot;offline-mode&quot;</code></td>
+<td><code>mode</code>, <code>&quot;online-mode&quot;</code> or <code>&quot;offline-mode&quot;</code></td>
 <td><code>long</code></td>
 <td>Account count for one authentication mode, counted in the database.</td>
 </tr>
 <tr>
 <td><code>applyCacheLimit()</code></td>
-<td>—</td>
+<td>-</td>
 <td><code>void</code></td>
 <td>Applies the configured in-memory cache size (<code>cache-max-users</code>) to the LRU cache. Called automatically after config load; call it again if you hot-reload a changed cache size.</td>
 </tr>
@@ -499,7 +502,7 @@ public class MyIntegration {
 <ul>
 <li>All API methods are safe to call from the <strong>Minecraft server thread</strong>.</li>
 <li>If you call from another thread (async tasks, HTTP callbacks, web bridges), marshal the call
-back onto the server thread first — e.g. via <code>MinecraftServer.execute(...)</code> or
+back onto the server thread first, e.g. via <code>MinecraftServer.execute(...)</code> or
 <code>ServerLifecycleEvents</code>-based schedulers. The <code>User</code> objects returned are live cache objects.</li>
 </ul>
 <h3 id="lazy-loading-for-100k-users">🐢 Lazy Loading for 100k+ Users</h3>
@@ -509,12 +512,12 @@ back onto the server thread first — e.g. via <code>MinecraftServer.execute(...
 in a <strong>bounded LRU cache (20 000 entries max by default)</strong> with idle eviction. The size is
 configurable via the root <code>cache-max-users</code> setting and applied at startup with
 <code>User.applyCacheLimit()</code> (call it again after hot-reloading a changed value).</li>
-<li><strong>Online players are never evicted</strong> — the cache only prunes offline users idle for
+<li><strong>Online players are never evicted</strong>, the cache only prunes offline users idle for
 30+ minutes.</li>
 <li>Cache misses are serialized under a dedicated lock, so there is exactly <strong>one canonical
 <code>User</code> instance per account</strong> under concurrent access.</li>
 <li>Admin <code>list</code>/<code>whois</code>/<code>export</code> commands and the web panel player list are <strong>database-backed</strong>
-(bounded, searchable) — they never trigger a bulk cache load.</li>
+(bounded, searchable), they never trigger a bulk cache load.</li>
 </ul>
 <h3 id="database-migration-suspension-databasemigrationblocked">🛑 Database Migration Suspension (<code>Database.migrationBlocked</code>)</h3>
 <p>AuthCore migrates the <code>USERS</code> schema automatically at startup (dialect-aware <code>ALTER TABLE</code> for
@@ -531,12 +534,12 @@ API calls like <code>getUser(...)</code>, <code>isRegistered(...)</code> and <co
 <li>Check <code>Database.migrationBlocked</code> in your integration to surface a &quot;database needs repair&quot;
 state to players/admins instead of failing silently.</li>
 </ul>
-<h3 id="encrypter--argon2id-fallback-behavior">🧂 Encrypter — Argon2id Fallback Behavior</h3>
+<h3 id="encrypter--argon2id-fallback-behavior">🧂 Encrypter, Argon2id Fallback Behavior</h3>
 <p><code>net.ded3ec.security.Encrypter</code> never stores an unusable hash:</p>
 <ul>
 <li>An <strong>unknown algorithm</strong> in <code>password-rules.password-hash-algorithm</code> logs a warning
 (<em>&quot;Unknown password-hash-algorithm &#39;{}&#39; - falling back to argon2 for this hash.&quot;</em>) and hashes
-with <strong>Argon2id</strong> instead — registration never fails on a typo&#39;d config value.</li>
+with <strong>Argon2id</strong> instead, registration never fails on a typo&#39;d config value.</li>
 <li>A <strong>hashing exception</strong> (library failure, bad input) is caught and retried once with Argon2id
 as a last resort; only if Argon2 itself fails does <code>hash(...)</code> return <code>null</code>.</li>
 <li>Verification of an unknown algorithm returns <code>false</code> (never a crash), matching the &quot;uniform
@@ -560,7 +563,7 @@ Stonecutter conditionals): fabric/forge jars built at 1.18.2 (Java 17) and 1.21.
 (Java 21), a neoforge jar built at 1.21.11 (Java 21), and fabric/neoforge jars built at
 26.2 (Java 25). Install the jar matching your server version <strong>and loader</strong>. Every jar runs
 standalone or behind Velocity/BungeeCord (it doubles as a proxy plugin).</li>
-<li><strong>Client companion (included)</strong> — the client login-screen companion (a pre-connect
+<li><strong>Client companion (included)</strong>, the client login-screen companion (a pre-connect
 username/password screen with auto-login via <code>/login</code> / <code>/register</code>) is compiled into
 <strong>every</strong> jar (<code>environment: &quot;*&quot;</code>). Version-specific client code is gated with Stonecutter
 conditionals, and on older clients it loads safely and skips the screen.</li>
@@ -568,13 +571,13 @@ conditionals, and on older clients it loads safely and skips the screen.</li>
 and never references version-specific classes, so your integration compiles against a single
 API surface regardless of the target MC version.</li>
 <li>Version bridging lives entirely in <code>net.ded3ec.compat</code> (a reflection layer) and in
-Stonecutter conditionals (<code>/*? if &lt; 26 {*/</code> ...) — there are <strong>no</strong> <code>legacy</code> / <code>modern</code>
+Stonecutter conditionals (<code>/*? if &lt; 26 {*/</code> ...), there are <strong>no</strong> <code>legacy</code> / <code>modern</code>
 source sets anymore. Version-fragile mixins are declared <code>required:false</code>, so a changed
 signature on a future Minecraft version degrades gracefully (mixin skipped) instead of
 crashing the server. As long as you only use <code>AuthCoreApi</code>, you never touch any of it.</li>
-<li><strong>Verified on real servers</strong> — the host-test harness (<code>tools/host-tests</code>) boots every range
+<li><strong>Verified on real servers</strong>, the host-test harness (<code>tools/host-tests</code>) boots every range
 endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
-1.19.4/1.20.6/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2 — all <strong>PASS</strong> (2026-08-10).</li>
+1.19.4/1.20.6/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2, all <strong>PASS</strong> (2026-08-10).</li>
 </ul>
 <h2 id="internal-packages">🗂️ Internal Packages</h2>
 <table>
@@ -590,7 +593,7 @@ endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar
 </tr>
 <tr>
 <td><code>net.ded3ec.util</code></td>
-<td>Database, config (HOCON), logging, TPS manager, task scheduling, registries — incl. <code>FabricHooks</code> (reflective fabric-api hook registration)</td>
+<td>Database, config (HOCON), logging, TPS manager, task scheduling, registries, incl. <code>FabricHooks</code> (reflective fabric-api hook registration)</td>
 </tr>
 <tr>
 <td><code>net.ded3ec.security</code></td>
@@ -618,7 +621,7 @@ endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar
 </tr>
 </tbody></table>
 <blockquote>
-<p>🔌 <strong><code>FabricHooks</code></strong> — fabric-api callbacks (command API v1/v2, <code>UseItemCallback</code>,
+<p>🔌 <strong><code>FabricHooks</code></strong>, fabric-api callbacks (command API v1/v2, <code>UseItemCallback</code>,
 <code>ServerLivingEntityEvents</code>) are registered <strong>reflectively</strong>, so the same jar adapts to the
 fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 </blockquote>
@@ -635,7 +638,7 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 <tbody><tr>
 <td><code>uuid</code></td>
 <td>TEXT</td>
-<td>Primary key — player UUID</td>
+<td>Primary key, player UUID</td>
 </tr>
 <tr>
 <td><code>username</code></td>
@@ -770,7 +773,7 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 </tbody></table>
 <h2 id="placeholder-tokens">🔤 Placeholder Tokens</h2>
 <p>Message templates (announcements, custom messages, webhook payloads) support the following
-<code>%authcore_*%</code> tokens — they are resolved per-player at render time:</p>
+<code>%authcore_*%</code> tokens, they are resolved per-player at render time:</p>
 <table>
 <thead>
 <tr>
@@ -788,15 +791,15 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 </tr>
 <tr>
 <td><code>%authcore_registered%</code></td>
-<td><code>true</code> / <code>false</code> — whether the account has a password set</td>
+<td><code>true</code> / <code>false</code>, whether the account has a password set</td>
 </tr>
 <tr>
 <td><code>%authcore_premium%</code></td>
-<td><code>true</code> / <code>false</code> — whether it is a premium (online-mode / Mojang) account</td>
+<td><code>true</code> / <code>false</code>, whether it is a premium (online-mode / Mojang) account</td>
 </tr>
 <tr>
 <td><code>%authcore_online%</code></td>
-<td><code>true</code> / <code>false</code> — whether the player is currently connected</td>
+<td><code>true</code> / <code>false</code>, whether the player is currently connected</td>
 </tr>
 <tr>
 <td><code>%authcore_country%</code></td>
@@ -808,7 +811,7 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 </tr>
 <tr>
 <td><code>%authcore_locked%</code></td>
-<td><code>true</code> / <code>false</code> — whether the account is currently locked</td>
+<td><code>true</code> / <code>false</code>, whether the account is currently locked</td>
 </tr>
 </tbody></table>
 <h2 id="new-admin-commands-100">🛠️ New Admin Commands (1.0.0)</h2>
@@ -828,16 +831,16 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 <tr>
 <td><code>/authcore validate</code></td>
 <td><code>authcore.admin.reload</code> (level 3)</td>
-<td>Dry-run config validation — reports invalid hash algorithms, out-of-range ports (web panel, honeypot), missing MySQL/PostgreSQL fields, missing web-panel token, bad webhook URL and an invalid <code>server-mode</code>. Exits with an issue count.</td>
+<td>Dry-run config validation, reports invalid hash algorithms, out-of-range ports (web panel, honeypot), missing MySQL/PostgreSQL fields, missing web-panel token, bad webhook URL and an invalid <code>server-mode</code>. Exits with an issue count.</td>
 </tr>
 <tr>
 <td><code>/authcore resetpw &lt;player&gt; &lt;new-password&gt;</code></td>
 <td><code>authcore.admin.setPlayerPassword</code> (level 3)</td>
-<td>Console-friendly alias of <code>set-password</code> — reset a player&#39;s password without touching the web panel.</td>
+<td>Console-friendly alias of <code>set-password</code>, reset a player&#39;s password without touching the web panel.</td>
 </tr>
 </tbody></table>
 <h2 id="web-panel-metrics-endpoint">📡 Web Panel <code>/metrics</code> Endpoint</h2>
-<p>The web panel exposes <strong><code>GET /metrics</code></strong> — token-protected like every other endpoint (send
+<p>The web panel exposes <strong><code>GET /metrics</code></strong>, token-protected like every other endpoint (send
 <code>Authorization: Bearer &lt;token&gt;</code>) and emitted in <strong>Prometheus text format</strong>, so you can scrape
 AuthCore with Prometheus/Grafana:</p>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/metrics
@@ -845,10 +848,10 @@ AuthCore with Prometheus/Grafana:</p>
 <p>See <a href="webpanel.html">WEBPANEL.md</a> for the endpoint reference.</p>
 <h2 id="server-side-files">🗂️ Server-Side Files</h2>
 <ul>
-<li><strong><code>config/authcore/ip-rules.conf</code></strong> — per-IP allow/deny rules (see <code>session.security.ip-rules-file</code>
+<li><strong><code>config/authcore/ip-rules.conf</code></strong>, per-IP allow/deny rules (see <code>session.security.ip-rules-file</code>
 in <a href="config.html">CONFIG.md</a>). Lines: <code>allow 1.2.3.4</code> / <code>deny 5.6.7.8</code>, <code>#</code> comments; first match
 wins, default allow. Denied IPs are kicked on join.</li>
-<li><strong><code>config/authcore/messages-&lt;lang&gt;.conf</code></strong> — custom locale overrides (see <a href="config.html">CONFIG.md</a>,
+<li><strong><code>config/authcore/messages-&lt;lang&gt;.conf</code></strong>, custom locale overrides (see <a href="config.html">CONFIG.md</a>,
 &quot;Custom Locales&quot;).</li>
 </ul>
 <hr>
@@ -885,10 +888,10 @@ Content-Type: application/json
 </code></pre>
 <p><code>value</code> is resolved in this order:</p>
 <ol>
-<li>A <strong>6-char code</strong> matching <code>[A-Z2-9]{6}</code> — resolved through Redis
+<li>A <strong>6-char code</strong> matching <code>[A-Z2-9]{6}</code>, resolved through Redis
 (<code>authcore:discordlink:&lt;code&gt;</code>, consumed on use → single-use) to the requesting player&#39;s
 username; the <code>uuid</code> field is ignored.</li>
-<li>A <strong>raw <code>discordId</code></strong> — stored directly on the account identified by <code>uuid</code> (no code
+<li>A <strong>raw <code>discordId</code></strong>, stored directly on the account identified by <code>uuid</code> (no code
 needed; works without Redis).</li>
 </ol>
 <p>On success the <code>discordId</code> is written to the <code>USERS.discordId</code> column, a <code>DISCORD_LINK</code>
@@ -896,15 +899,15 @@ security-log entry is written, a confirmation is sent to the Discord webhook, an
 published to Redis (<code>authcore:discord:&lt;discordId&gt;</code> → username, 30-day TTL) for Discord bots to
 read. See <a href="webpanel.html">WEBPANEL.md</a> for the full action reference.</p>
 <h3 id="bot-integration-rules">Bot integration rules</h3>
-<p>The Discord bot <strong>never touches the database</strong> — the backend (this mod) is the only component
+<p>The Discord bot <strong>never touches the database</strong>, the backend (this mod) is the only component
 that reads or writes the database. Every bot-driven change is an API call the backend executes
 against its own database; the bot has no database credentials and no SQL surface. The bot
 communicates with the backend over:</p>
 <ul>
-<li><strong>Redis</strong> — link codes (<code>authcore:discordlink:&lt;code&gt;</code>, 10-min TTL, single-use), the
+<li><strong>Redis</strong>, link codes (<code>authcore:discordlink:&lt;code&gt;</code>, 10-min TTL, single-use), the
 Discord ↔ Minecraft mapping (<code>authcore:discord:&lt;discordId&gt;</code> → username, 30-day TTL) and the
 <code>authcore:events</code> pub/sub channel (login / logout / register / brute-force / kick / ...).</li>
-<li><strong>Web panel API</strong> — <code>POST /api/action</code> for any state change (link, kick, unlock, ...).</li>
+<li><strong>Web panel API</strong>, <code>POST /api/action</code> for any state change (link, kick, unlock, ...).</li>
 </ul>
 <p>If Redis is disabled, only the raw-<code>discordId</code> path works (no code flow). The exact Redis keys
 are implemented in
@@ -912,7 +915,7 @@ are implemented in
 <hr>
 <h2 id="cross-server-security-event-bus-redis-pubsub">📡 Cross-Server Security Event Bus (Redis pub/sub)</h2>
 <p>When <code>database.redis.enabled</code> is on, every server publishes security events to the Redis
-pub/sub channel <strong><code>authcore:events</code></strong> — no additional configuration is needed. The event bus
+pub/sub channel <strong><code>authcore:events</code></strong>, no additional configuration is needed. The event bus
 is enabled automatically with Redis.</p>
 <h3 id="events">Events</h3>
 <table>
@@ -961,20 +964,20 @@ is enabled automatically with Redis.</p>
 <ol>
 <li><strong>Logged</strong> to <code>security.log</code> with an <code>EVENT_BUS_&lt;TYPE&gt;</code> tag.</li>
 <li><strong>Forwarded</strong> to the local webhook as a &quot;Cross-Server Event&quot; embed.</li>
-<li><strong>Executed locally</strong> where applicable — <code>kick</code> / <code>logout</code> events kick the matching
+<li><strong>Executed locally</strong> where applicable, <code>kick</code> / <code>logout</code> events kick the matching
 locally-connected player.</li>
 </ol>
 <p>Events published by the local server (matching <code>server</code>) are ignored to avoid loops.</p>
 <hr>
 <h2 id="security-test-suite">🧪 Security Test Suite</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required):
-<code>tools/security-tests/</code> — <strong>57 checks</strong> covering password hashing round-trips for all 6
+<code>tools/security-tests/</code>, <strong>57 checks</strong> covering password hashing round-trips for all 6
 algorithms, unique per-hash salts, captcha lifecycle, email recovery codes, the rate limiter,
 proxy IP parsing, device fingerprints and time formatting:</p>
 <pre><code class="language-powershell">.\gradlew.bat build                          # once: produces the compiled classes + cached jars
 powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 </code></pre>
-<p>The suite is part of the security process — see <a href="security.html">SECURITY.md</a> for what it caught
+<p>The suite is part of the security process, see <a href="security.html">SECURITY.md</a> for what it caught
 (the PBKDF2 server-thread hang) and how it guards regressions.</p>
 <hr>
 <h2 id="interop--network-events">📡 Interop &amp; Network Events</h2>
@@ -1006,12 +1009,13 @@ registers a <code>ServerLoginNetworking</code> receiver (Fabric; fabric-api, ref
 login profile. <code>Networking.VelocitySupport</code> (<code>parsePlayerInfo</code>, <code>verifyVelocityHmac</code>) is
 exposed for integration code.</p>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

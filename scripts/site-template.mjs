@@ -1,5 +1,5 @@
 // Shared site shell: dark/blue theme, top nav, sidebar TOC, scrollspy,
-// scroll progress, copy buttons, back-to-top — used by every generated page.
+// scroll progress, copy buttons, back-to-top, used by every generated page.
 
 export const SITE_TITLE = "AuthCore Docs";
 export const REPO = "PotenFYR-Studios/AuthCore";
@@ -18,15 +18,15 @@ export const NAV = [
 ];
 
 export const DOCS = [
-  { slug: "guide", title: "Server Admin Guide", icon: "🧭", description: "START HERE — jar selection, install, config walkthrough, auth flows, commands, troubleshooting + learning path." },
-  { slug: "config", title: "Configuration Reference", icon: "⚙️", description: "Every setting, default and use-case — the single source of truth for settings.conf." },
+  { slug: "guide", title: "Server Admin Guide", icon: "🧭", description: "START HERE, jar selection, install, config walkthrough, auth flows, commands, troubleshooting + learning path." },
+  { slug: "config", title: "Configuration Reference", icon: "⚙️", description: "Every setting, default and use-case, the single source of truth for settings.conf." },
   { slug: "proxy", title: "Proxy Support", icon: "🔁", description: "Velocity / BungeeCord forwarding, modern identity (HMAC), proxy-side auth." },
   { slug: "webpanel", title: "Web Admin Panel", icon: "🌐", description: "HTTP/HTTPS setup, REST reference, token auth, curl examples." },
   { slug: "security", title: "Security Model", icon: "🛡️", description: "Threat analysis (OWASP + Minecraft) and every defense in depth." },
   { slug: "26x", title: "26.1 – 26.2 Builds", icon: "📦", description: "Range jars, the unobfuscated era, architecture and verification." },
   { slug: "api", title: "Developer API", icon: "🔌", description: "AuthCoreApi, database schema, integration guide for plugin authors." },
   { slug: "development", title: "Development & Architecture", icon: "⚙️", description: "Build system, multi-version / multi-loader management, testing." },
-  { slug: "changelog", title: "Changelog", icon: "📜", description: "Full release history — from the first alpha to 1.0.0." },
+  { slug: "changelog", title: "Changelog", icon: "📜", description: "Full release history, from the first alpha to 1.0.0." },
 ];
 
 // GitHub-style heading anchor (matches github.com's generated anchors,
@@ -85,9 +85,9 @@ export function pageShell({ title, description, canonical, body, toc, active, ba
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title} — ${SITE_TITLE}</title>
+<title>${title} - ${SITE_TITLE}</title>
 <meta name="description" content="${description}">
-<meta property="og:title" content="${title} — ${SITE_TITLE}">
+<meta property="og:title" content="${title} - ${SITE_TITLE}">
 <meta property="og:description" content="${description}">
 <meta property="og:type" content="website">
 <link rel="canonical" href="${canonical}">
@@ -343,7 +343,7 @@ ${body}
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/${REPO}" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

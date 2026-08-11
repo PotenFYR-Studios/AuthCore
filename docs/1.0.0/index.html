@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Documentation — AuthCore Docs</title>
-<meta name="description" content="AuthCore documentation hub — admin guide, configuration, proxy, web panel, security, API and more.">
-<meta property="og:title" content="Documentation — AuthCore Docs">
-<meta property="og:description" content="AuthCore documentation hub — admin guide, configuration, proxy, web panel, security, API and more.">
+<title>Documentation - AuthCore Docs</title>
+<meta name="description" content="AuthCore documentation hub, admin guide, configuration, proxy, web panel, security, API and more.">
+<meta property="og:title" content="Documentation - AuthCore Docs">
+<meta property="og:description" content="AuthCore documentation hub, admin guide, configuration, proxy, web panel, security, API and more.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/index.html">
 <style>
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -280,24 +283,25 @@
 new, then explore each topic below. Every page is also available in the
 <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md">repository README</a>.</p>
 <div class="docs-grid">
-  <a class="doc-card" href="guide.html"><span class="dc-icon">🧭</span><span class="dc-title">Server Admin Guide</span><span class="dc-desc">START HERE — jar selection, install, config walkthrough, auth flows, commands, troubleshooting + learning path.</span></a>
-  <a class="doc-card" href="config.html"><span class="dc-icon">⚙️</span><span class="dc-title">Configuration Reference</span><span class="dc-desc">Every setting, default and use-case — the single source of truth for settings.conf.</span></a>
+  <a class="doc-card" href="guide.html"><span class="dc-icon">🧭</span><span class="dc-title">Server Admin Guide</span><span class="dc-desc">START HERE, jar selection, install, config walkthrough, auth flows, commands, troubleshooting + learning path.</span></a>
+  <a class="doc-card" href="config.html"><span class="dc-icon">⚙️</span><span class="dc-title">Configuration Reference</span><span class="dc-desc">Every setting, default and use-case, the single source of truth for settings.conf.</span></a>
   <a class="doc-card" href="proxy.html"><span class="dc-icon">🔁</span><span class="dc-title">Proxy Support</span><span class="dc-desc">Velocity / BungeeCord forwarding, modern identity (HMAC), proxy-side auth.</span></a>
   <a class="doc-card" href="webpanel.html"><span class="dc-icon">🌐</span><span class="dc-title">Web Admin Panel</span><span class="dc-desc">HTTP/HTTPS setup, REST reference, token auth, curl examples.</span></a>
   <a class="doc-card" href="security.html"><span class="dc-icon">🛡️</span><span class="dc-title">Security Model</span><span class="dc-desc">Threat analysis (OWASP + Minecraft) and every defense in depth.</span></a>
   <a class="doc-card" href="26x.html"><span class="dc-icon">📦</span><span class="dc-title">26.1 – 26.2 Builds</span><span class="dc-desc">Range jars, the unobfuscated era, architecture and verification.</span></a>
   <a class="doc-card" href="api.html"><span class="dc-icon">🔌</span><span class="dc-title">Developer API</span><span class="dc-desc">AuthCoreApi, database schema, integration guide for plugin authors.</span></a>
   <a class="doc-card" href="development.html"><span class="dc-icon">⚙️</span><span class="dc-title">Development & Architecture</span><span class="dc-desc">Build system, multi-version / multi-loader management, testing.</span></a>
-  <a class="doc-card" href="changelog.html"><span class="dc-icon">📜</span><span class="dc-title">Changelog</span><span class="dc-desc">Full release history — from the first alpha to 1.0.0.</span></a>
+  <a class="doc-card" href="changelog.html"><span class="dc-icon">📜</span><span class="dc-title">Changelog</span><span class="dc-desc">Full release history, from the first alpha to 1.0.0.</span></a>
 </div>
-<blockquote><p>💡 <strong>New here?</strong> Read the <a href="guide.html">Admin Guide</a> first — it walks
+<blockquote><p>💡 <strong>New here?</strong> Read the <a href="guide.html">Admin Guide</a> first, it walks
 you from jar selection to a fully secured server, and maps every topic to the deeper docs.</p></blockquote>
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>
