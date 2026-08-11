@@ -1,0 +1,2367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Configuration Reference — AuthCore Docs</title>
+<meta name="description" content="Every setting, default and use-case.">
+<meta property="og:title" content="Configuration Reference — AuthCore Docs">
+<meta property="og:description" content="Every setting, default and use-case.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/config.html">
+<style>
+  :root {
+    --bg0: #030508;
+    --bg1: #0a1128;
+    --bg2: #0d2a5e;
+    --panel: rgba(10, 17, 40, 0.72);
+    --panel-2: rgba(13, 42, 94, 0.35);
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --accent-3: #93c5fd;
+    --green: #22c55e;
+    --text: #e2e8f0;
+    --muted: #8b95a7;
+    --border: rgba(59, 130, 246, 0.22);
+    --radius: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.65;
+    background:
+      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* ---------- scroll progress ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    z-index: 1000; border-radius: 0 3px 3px 0;
+  }
+
+  /* ---------- header ---------- */
+  .site-header {
+    position: sticky; top: 0; z-index: 500;
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 22px;
+    background: rgba(3, 5, 8, 0.72);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-text { font-size: 1.05em; }
+  .brand-dot { color: var(--accent-3); }
+  .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
+  .nav-link {
+    color: var(--muted); text-decoration: none; font-size: 0.86em; font-weight: 500;
+    padding: 6px 10px; border-radius: 8px; transition: color .18s, background .18s, box-shadow .18s;
+    position: relative;
+  }
+  .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
+  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-gh { margin-left: 6px; color: var(--accent-3); }
+  .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+  @media (max-width: 900px) {
+    .nav-toggle { display: block; }
+    .site-nav {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 4px;
+      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border); padding: 10px 14px;
+    }
+    .site-nav.open { display: flex; }
+  }
+
+  /* ---------- layout ---------- */
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---------- sidebar TOC ---------- */
+  .toc {
+    position: sticky; top: 78px; align-self: start;
+    max-height: calc(100vh - 100px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: fadeUp .5s ease both;
+  }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc ul { list-style: none; margin: 0; padding: 0; }
+  .toc-item { margin: 1px 0; }
+  .toc-item a {
+    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
+  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+
+  /* ---------- content ---------- */
+  article {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    padding: 36px 44px 52px;
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    animation: fadeUp .55s ease both;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  article > :first-child { margin-top: 0; }
+  article h1, article h2, article h3, article h4 { line-height: 1.3; scroll-margin-top: 90px; }
+  article h1 {
+    font-size: 2em; font-weight: 800; margin: 0 0 18px; padding-bottom: 14px;
+    background: linear-gradient(90deg, #fff 0%, var(--accent-3) 55%, var(--accent) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    border-bottom: 1px solid var(--border);
+  }
+  article h2 {
+    font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    animation: fadeUp .5s ease both;
+  }
+  article h2::before {
+    content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
+    background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+  }
+  article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
+  article h4 { font-size: 1em; color: #dbeafe; }
+  article p { margin: 0.85em 0; }
+  article strong { color: #f8fafc; }
+  article a {
+    color: var(--accent-2); text-decoration: none;
+    background-image: linear-gradient(90deg, var(--accent-3), var(--accent));
+    background-size: 0% 1.5px; background-position: 0 100%; background-repeat: no-repeat;
+    transition: background-size .25s, color .15s;
+  }
+  article a:hover { color: #fff; background-size: 100% 1.5px; }
+  article hr {
+    border: 0; height: 1px; margin: 2.2em 0;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  article blockquote {
+    margin: 1.1em 0; padding: 0.7em 1.2em;
+    border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+  }
+  article blockquote p { margin: 0.4em 0; }
+  article img { max-width: 100%; border-radius: 12px; }
+  article table {
+    width: 100%; margin: 1.2em 0; border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    display: block; overflow-x: auto;
+    animation: fadeUp .5s ease both;
+  }
+  article th {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
+    color: #dbeafe; font-weight: 600; text-align: left;
+  }
+  article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  article th:last-child, article td:last-child { white-space: normal; }
+  article tr:last-child td { border-bottom: 0; }
+  article tbody tr { transition: background .15s; }
+  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article code {
+    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
+    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
+  }
+  article pre {
+    position: relative; margin: 1.2em 0; padding: 18px 20px;
+    background: rgba(2, 6, 16, 0.88);
+    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    overflow-x: auto;
+  }
+  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
+    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
+  }
+  article pre:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
+
+  /* ---------- docs hub cards ---------- */
+  .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 24px 0; }
+  .doc-card {
+    display: block; text-decoration: none !important; background-image: none !important;
+    padding: 20px 20px 16px; border-radius: 14px; position: relative;
+    background: var(--panel-2); border: 1px solid var(--border);
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    animation: fadeUp .5s ease both;
+  }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
+  .doc-card .dc-icon { font-size: 1.7em; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; }
+  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.5; }
+
+  /* ---------- back to top ---------- */
+  #toTop {
+    position: fixed; right: 22px; bottom: 22px; z-index: 600;
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #02060d);
+    color: var(--accent-3); font-size: 1.2em;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity .25s, transform .25s;
+  }
+  #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 0.84em;
+    padding: 8px 0 30px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { color: #fff; }
+  @media (max-width: 720px) {
+    article { padding: 24px 18px 34px; border-radius: 12px; }
+    .layout { padding: 16px 10px 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark">🏰🔐</span>
+      <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav">
+      <a class="nav-link" href="../../index.html">Home</a>
+      <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link active" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+<div class="layout">
+  <aside class="toc" id="toc">
+    <div class="toc-title">On this page</div>
+    <ul><li class="toc-item toc-2"><a href="#root-settings">🌍 Root Settings</a></li><li class="toc-item toc-3"><a href="#logging--startup-output">logging 📣 (startup output)</a></li><li class="toc-item toc-2"><a href="#session">🕒 session</a></li><li class="toc-item toc-3"><a href="#core-session-settings">Core Session Settings</a></li><li class="toc-item toc-3"><a href="#combat-log">combat-log ⚔️</a></li><li class="toc-item toc-3"><a href="#progressive-punishment">progressive-punishment 📈</a></li><li class="toc-item toc-3"><a href="#account-lock">account-lock 🔒</a></li><li class="toc-item toc-3"><a href="#intelligence">intelligence 🧠</a></li><li class="toc-item toc-3"><a href="#security">security 🛡️</a></li><li class="toc-item toc-3"><a href="#shadow-ban">shadow-ban 👻</a></li><li class="toc-item toc-3"><a href="#rate-limit">rate-limit 🚦</a></li><li class="toc-item toc-3"><a href="#proxy-support">proxy-support 🌐</a></li><li class="toc-item toc-3"><a href="#web-panel">web-panel 🖥️</a></li><li class="toc-item toc-3"><a href="#email">email 📧</a></li><li class="toc-item toc-3"><a href="#auto-whitelist">auto-whitelist 📜</a></li><li class="toc-item toc-3"><a href="#trusted">trusted ⭐</a></li><li class="toc-item toc-3"><a href="#maintenance">maintenance 🛠️</a></li><li class="toc-item toc-3"><a href="#honeypot">honeypot 🍯</a></li><li class="toc-item toc-3"><a href="#backup">backup 💾</a></li><li class="toc-item toc-2"><a href="#sessionauthentication">🔐 session.authentication</a></li><li class="toc-item toc-2"><a href="#password-rules">🔤 password-rules</a></li><li class="toc-item toc-2"><a href="#database">🗄️ database</a></li><li class="toc-item toc-3"><a href="#databasemysql">database.mysql</a></li><li class="toc-item toc-3"><a href="#databasepostgres">database.postgres</a></li><li class="toc-item toc-3"><a href="#databaseredis">database.redis</a></li><li class="toc-item toc-2"><a href="#lobby-limbo-restrictions">🏠 lobby (limbo restrictions)</a></li><li class="toc-item toc-3"><a href="#limbo-config-teleport">limbo-config (teleport)</a></li><li class="toc-item toc-3"><a href="#timeout-dynamic-login-timeout-by-ping">timeout (dynamic login timeout by ping)</a></li><li class="toc-item toc-3"><a href="#lobby-behavior">Lobby Behavior</a></li><li class="toc-item toc-3"><a href="#announcements--rotating">announcements 📢 (rotating)</a></li><li class="toc-item toc-3"><a href="#announcement--join">announcement 📢 (join)</a></li><li class="toc-item toc-3"><a href="#captcha">captcha 🤖</a></li><li class="toc-item toc-2"><a href="#commands">🧑‍💻 commands</a></li><li class="toc-item toc-3"><a href="#user-commands">User Commands</a></li><li class="toc-item toc-3"><a href="#admin-commands">Admin Commands</a></li><li class="toc-item toc-2"><a href="#discord-account-linking">🔗 Discord Account Linking</a></li><li class="toc-item toc-3"><a href="#message-keys">Message keys</a></li><li class="toc-item toc-2"><a href="#custom-locales">🗣️ Custom Locales</a></li><li class="toc-item toc-2"><a href="#security-testing">🧪 Security Testing</a></li><li class="toc-item toc-3"><a href="#proxy-interop--per-role-configs">🧩 Proxy, Interop & per-role configs</a></li><li class="toc-item toc-3"><a href="#proxy-plugin-full-auth-keys-configauthcore-proxyproperties">🛡️ Proxy plugin full-auth keys (config/authcore-proxy.properties)</a></li></ul>
+  </aside>
+  <main>
+    <article>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+</div><hr>
+<hr>
+<h1>⚙️ AuthCore Configuration Reference</h1>
+<p>This document describes <strong>every</strong> setting in AuthCore&#39;s <code>config/settings.conf</code> (HOCON format).
+Settings are grouped into sections; keys are shown in kebab-case as they appear in the file.
+Defaults are the values shipped with a fresh install.</p>
+<blockquote>
+<p>All paths below are relative to the <code>session</code> section unless stated otherwise.</p>
+</blockquote>
+<blockquote>
+<p>🎁 <strong>Range jars, every loader</strong> — AuthCore ships one jar per supported version range <strong>and
+loader</strong>: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code> (1.16.0 – 1.18.2, built at 1.18.2),
+<code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code> (1.19.0 – 1.21.11, built at 1.21.11) and
+<code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code> (26.1 – 26.2, built at 26.2). Every jar runs standalone <strong>and</strong>
+behind Velocity/BungeeCord. The same <code>settings.conf</code> works in both setups; proxy IP
+forwarding is the only thing you toggle (<code>session.proxy-support</code>). The cross-server security
+event bus and Discord link-code storage need <strong>no new settings</strong> — they activate
+automatically with <code>database.redis.enabled</code>.</p>
+</blockquote>
+<hr>
+<h2 id="root-settings">🌍 Root Settings</h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>version</code></td>
+<td>string</td>
+<td><code>&quot;1.0.0&quot;</code></td>
+<td>Internal config version used for automated migrations. Do <strong>not</strong> edit manually.</td>
+<td>Never touch it — migrations bump it automatically when the format changes.</td>
+</tr>
+<tr>
+<td><code>language</code></td>
+<td>string</td>
+<td><code>&quot;en&quot;</code></td>
+<td>Language/locale for player-facing messages: <code>en</code>, <code>zh</code>, <code>es</code>, <code>de</code>, <code>fr</code>, <code>pt</code>, <code>ru</code>. Bundled locale files are extracted automatically. For a fully custom locale, drop a <code>messages-&lt;lang&gt;.conf</code> file into the config directory — see <a href="#custom-locales">Custom Locales</a>.</td>
+<td>Set to <code>&quot;zh&quot;</code> (or any bundled locale) so your players get messages in their own language.</td>
+</tr>
+<tr>
+<td><code>debug-mode</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Detailed debug logging to console. Recommended <code>false</code> in production to reduce log spam.</td>
+<td>Turn on temporarily while diagnosing a login issue, then switch back off.</td>
+</tr>
+<tr>
+<td><code>cache-max-users</code></td>
+<td>int</td>
+<td><code>20000</code></td>
+<td>In-memory user cache size (lazy-loaded from the DB). Larger = fewer DB queries, more memory. <strong>Online users are never evicted</strong>; idle offline users are pruned after 30 minutes. For 500k+ registered accounts keep this modest (e.g. <code>10000</code>).</td>
+<td>Lower to 10000 on a 500k-account server to keep memory bounded; raise on small servers for faster lookups.</td>
+</tr>
+</tbody></table>
+<h3 id="logging--startup-output"><code>logging</code> 📣 (startup output)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>show-banner</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Show the ASCII startup banner.</td>
+<td>Keep <code>true</code> for the branded console header; disable in CI logs.</td>
+</tr>
+<tr>
+<td><code>show-summary</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Show the version/security summary at startup (versions, cache size, DB, Redis status).</td>
+<td>Keep on to verify the loaded config at a glance; disable to quiet startup logs.</td>
+</tr>
+<tr>
+<td><code>show-untested-version-warning</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0–1.18.2, 1.19.0–1.21.11 and 26.1–26.2). AuthCore <strong>never refuses to load</strong> — it warns and keeps working.</td>
+<td>Keep on when riding a brand-new Minecraft release; set to <code>false</code> once you&#39;ve verified your version in staging.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="session">🕒 <code>session</code></h2>
+<h3 id="core-session-settings">Core Session Settings</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>server-mode</code></td>
+<td>string</td>
+<td><code>&quot;online&quot;</code></td>
+<td>Server operation mode: <code>online</code> or <code>offline</code>.</td>
+<td>Set <code>&quot;offline&quot;</code> on cracked servers; keep <code>&quot;online&quot;</code> on premium ones (hybrid works either way).</td>
+</tr>
+<tr>
+<td><code>timeout-ms</code></td>
+<td>int</td>
+<td><code>3600000</code> (60 min)</td>
+<td>How long an authenticated session remains valid. Reasonable range: <code>1200000</code>–<code>10800000</code>.</td>
+<td>Lower to 20 min on a chaotic server to force re-auth; raise it on a community server with long AFK sessions.</td>
+</tr>
+<tr>
+<td><code>cooldown-after-kick-ms</code></td>
+<td>int</td>
+<td><code>120000</code> (2 min)</td>
+<td>Cooldown after a player is kicked for too many failed login attempts (brute-force mitigation).</td>
+<td>Raise to 5 minutes while the server is under an active brute-force attack.</td>
+</tr>
+<tr>
+<td><code>skip-combat-detection</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Skip combat detection for unauthorized players (they can disconnect without being flagged).</td>
+<td>Enable on a PvP server so lobby players aren&#39;t punished for disconnecting mid-fight.</td>
+</tr>
+<tr>
+<td><code>combat-timeout</code></td>
+<td>long</td>
+<td><code>3000</code> (3 s)</td>
+<td>How long a player is considered in combat after taking damage.</td>
+<td>Raise to 5 s if combat-loggers routinely escape during lag spikes.</td>
+</tr>
+<tr>
+<td><code>message-reminder-interval-ms</code></td>
+<td>int</td>
+<td><code>8000</code> (8 s)</td>
+<td>Interval between login reminder messages sent to unauthenticated players. Suggested <code>10000</code>–<code>30000</code>.</td>
+<td>Set to 15 s on a busy server to avoid chat spam from the login prompt.</td>
+</tr>
+<tr>
+<td><code>enable-sessions</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Persist sessions across reconnects. Strongly recommended to keep enabled.</td>
+<td>Keep on so players who disconnect mid-session don&#39;t have to re-login every time.</td>
+</tr>
+<tr>
+<td><code>kick-after-session-timeout</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Immediately kick players whose session expires while online. <code>false</code> = friendlier (re-login instantly).</td>
+<td>Enable to force re-authentication on an AFK-heavy server once sessions expire.</td>
+</tr>
+<tr>
+<td><code>session-from-same-ip-only</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Require new sessions to come from the same IP as the original login. Protects against session hijacking.</td>
+<td>Disable only if players legitimately switch IPs (mobile + PC) and get kicked.</td>
+</tr>
+</tbody></table>
+<h3 id="combat-log"><code>combat-log</code> ⚔️</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable combat-log punishment (disconnecting during combat).</td>
+<td>Turn on for a Hardcore-lite server to discourage rage-quitting mid-fight.</td>
+</tr>
+<tr>
+<td><code>kill-on-disconnect</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Kill the player entity on disconnect while still inside the combat window. Inventory/XP still drop.</td>
+<td>Enable to actually punish combat-loggers; keep off for friendly communities.</td>
+</tr>
+</tbody></table>
+<h3 id="progressive-punishment"><code>progressive-punishment</code> 📈</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable exponentially increasing kick cooldowns for repeated failed authentication.</td>
+<td>Enable on a public server with repeat password-guessers.</td>
+</tr>
+<tr>
+<td><code>base-cooldown-ms</code></td>
+<td>long</td>
+<td><code>5000</code> (5 s)</td>
+<td>Cooldown for the first offense.</td>
+<td>Lower to 2 s to start milder, raise to 10 s to deter immediately.</td>
+</tr>
+<tr>
+<td><code>multiplier</code></td>
+<td>double</td>
+<td><code>6.0</code></td>
+<td>Growth factor per offense (≈ 5 s → 30 s → 3 m).</td>
+<td>Raise to 8 for faster escalation against bots.</td>
+</tr>
+<tr>
+<td><code>max-cooldown-ms</code></td>
+<td>long</td>
+<td><code>300000</code> (5 min)</td>
+<td>Maximum cooldown cap.</td>
+<td>Cap at 10 minutes so legit players aren&#39;t locked out too long.</td>
+</tr>
+</tbody></table>
+<h3 id="account-lock"><code>account-lock</code> 🔒</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable automatic account locking after repeated failed logins (persisted to the database).</td>
+<td>Keep on — the lock survives restarts and propagates via Redis.</td>
+</tr>
+<tr>
+<td><code>max-failed-logins</code></td>
+<td>int</td>
+<td><code>8</code></td>
+<td>Failed logins before the account is locked.</td>
+<td>Lower to 5 for high-value servers, raise to 10 for casual ones.</td>
+</tr>
+<tr>
+<td><code>lock-duration-ms</code></td>
+<td>long</td>
+<td><code>600000</code> (10 min)</td>
+<td>How long the account stays locked.</td>
+<td>Raise to 30 minutes during bot waves.</td>
+</tr>
+</tbody></table>
+<h3 id="intelligence"><code>intelligence</code> 🧠</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable login intelligence (new IP / country detection).</td>
+<td>Keep on to detect new-IP / new-country logins on every account.</td>
+</tr>
+<tr>
+<td><code>alert-on-new-ip</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Alert admins (webhook + security log) on login from a new IP.</td>
+<td>Keep on so you&#39;re pinged when a player logs in from a new address.</td>
+</tr>
+<tr>
+<td><code>alert-on-new-country</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Alert admins on login from a new country.</td>
+<td>Keep on to spot accounts shared across countries.</td>
+</tr>
+<tr>
+<td><code>block-on-new-country</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Block logins from a new country (anti account-sharing — use with caution).</td>
+<td>Enable to enforce region-locked accounts; expect complaints from legit travellers.</td>
+</tr>
+<tr>
+<td><code>alert-risk-threshold</code></td>
+<td>int</td>
+<td><code>60</code></td>
+<td>Risk score threshold (0–100) above which admins are alerted on login.</td>
+<td>Lower to 40 for tighter alerting; raise to 80 to reduce noise.</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🖇️ <strong>Network device fingerprint</strong> — on every login AuthCore computes a SHA-256 fingerprint of
+the login origin (<code>IP + country</code>) and stores it in the <code>deviceFingerprint</code> DB column. When an
+account logs in from a <em>different</em> fingerprint than the one recorded, <strong>+15</strong> is added to the
+risk score and a <strong>&quot;Possible Account Sharing&quot;</strong> webhook alert fires. This is automatic — there
+is no toggle.</p>
+</blockquote>
+<h3 id="security"><code>security</code> 🛡️</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>webhook-url</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Discord webhook URL for login/security events (join, login, failed login, lockouts, suspicious logins). Empty = disabled.</td>
+<td>Paste a Discord webhook so logins and brute-force attempts land in your admin channel.</td>
+</tr>
+<tr>
+<td><code>role-sync-webhook-url</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Optional <em>separate</em> Discord webhook used only for registration announcements (e.g. consumed by Discord bots assigning roles). Falls back to <code>webhook-url</code> when empty.</td>
+<td>Point it at a bot that assigns a &quot;Member&quot; role when someone registers.</td>
+</tr>
+<tr>
+<td><code>extra-webhook-urls</code></td>
+<td>list</td>
+<td><code>[]</code></td>
+<td>Additional generic webhook URLs (Slack, Telegram, custom) that receive the <strong>same</strong> events as the Discord webhook.</td>
+<td>Add a Slack/Telegram webhook to mirror security events into your team&#39;s chat.</td>
+</tr>
+<tr>
+<td><code>log-file</code></td>
+<td>string</td>
+<td><code>&quot;security.log&quot;</code></td>
+<td>File name (in the config directory) for the security event log. Empty = disabled.</td>
+<td>Keep the default; set to <code>&quot;&quot;</code> only if you don&#39;t want on-disk history.</td>
+</tr>
+<tr>
+<td><code>log-max-bytes</code></td>
+<td>long</td>
+<td><code>5242880</code> (5 MB)</td>
+<td>Maximum size of the security log before it is rotated to <code>security.log.1</code>, then <code>.2</code>, then <code>.3</code> (oldest deleted).</td>
+<td>Raise to 25 MB if you want longer local history before rotation.</td>
+</tr>
+<tr>
+<td><code>ip-rules-file</code></td>
+<td>string</td>
+<td><code>&quot;ip-rules.conf&quot;</code></td>
+<td>Per-IP allow/deny rules file (in the config directory). One rule per line: <code>allow 1.2.3.4</code> / <code>deny 5.6.7.8</code>; lines starting with <code>#</code> are comments. <strong>First match wins</strong>, default is allow. Denied IPs are kicked on join.</td>
+<td>Manually <code>deny</code> a griefing IP — and the honeypot appends its auto-bans here too.</td>
+</tr>
+</tbody></table>
+<h3 id="shadow-ban"><code>shadow-ban</code> 👻</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Shadow-ban mode. When enabled, security blocks (e.g. new-country blocking) use a generic <code>disconnect-reason</code> disconnect instead of revealing the security message. A webhook alert <strong>still fires</strong>, so you keep visibility without tipping off the player.</td>
+<td>Enable against account traders who adapt to specific block messages.</td>
+</tr>
+<tr>
+<td><code>disconnect-reason</code></td>
+<td>string</td>
+<td><code>&quot;Connection lost&quot;</code></td>
+<td>The generic disconnect reason shown to shadow-banned players.</td>
+<td>Customize it if <code>&quot;Connection lost&quot;</code> looks too suspicious to savvy players.</td>
+</tr>
+</tbody></table>
+<h3 id="rate-limit"><code>rate-limit</code> 🚦</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable per-IP join/login rate limiting.</td>
+<td>Keep on to survive bot join floods.</td>
+</tr>
+<tr>
+<td><code>max-joins-per-window</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Maximum joins per IP within the window.</td>
+<td>Raise to 25 for a big launch day; lower to 5 under attack.</td>
+</tr>
+<tr>
+<td><code>window-ms</code></td>
+<td>long</td>
+<td><code>60000</code> (1 min)</td>
+<td>Rate-limit window length.</td>
+<td>Widen to 5 minutes to catch slow-flood bots.</td>
+</tr>
+<tr>
+<td><code>command-cooldown-ms</code></td>
+<td>long</td>
+<td><code>1000</code> (1 s)</td>
+<td>Minimum delay between <code>/login</code> and <code>/register</code> executions <strong>per player</strong> (anti-spam, not IP-based).</td>
+<td>Raise to 3 s to throttle password-spray scripts.</td>
+</tr>
+<tr>
+<td><code>over-limit-message</code></td>
+<td>string</td>
+<td><code>&quot;Too many connections from your address. Please wait a moment!&quot;</code></td>
+<td>Kick message shown when the join rate limit is exceeded.</td>
+<td>Write a friendly custom message for rate-limited players.</td>
+</tr>
+<tr>
+<td><code>alert-on-fast-rejoin</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Alert when a player rejoins extremely fast after disconnecting (bot pattern). Alert-only (no kick) — webhook + security log.</td>
+<td>Enable to get webhook alerts for the bot reconnect pattern.</td>
+</tr>
+<tr>
+<td><code>fast-rejoin-window-ms</code></td>
+<td>long</td>
+<td><code>500</code></td>
+<td>Minimum disconnect-to-rejoin window for the fast-rejoin alert (ms).</td>
+<td>Raise to 1000 ms if quick bots slip under the alert window.</td>
+</tr>
+</tbody></table>
+<h3 id="proxy-support"><code>proxy-support</code> 🌐</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable proxy IP-forwarding support (Velocity / BungeeCord). Enable only when your network runs a proxy in IP-forwarding mode.</td>
+<td>Enable on a Velocity/BungeeCord network so the real client IP is used.</td>
+</tr>
+<tr>
+<td><code>protocol</code></td>
+<td>string</td>
+<td><code>&quot;auto&quot;</code></td>
+<td>Forwarding protocol: <code>auto</code> (detect), <code>bungeecord</code> (BungeeCord / Velocity legacy <code>ip\0uuid\0properties</code>), <code>velocity</code> (Velocity modern forwarding, legacy parse as fallback).</td>
+<td><code>auto</code> works for most setups; pick <code>velocity</code> when using modern forwarding.</td>
+</tr>
+<tr>
+<td><code>velocity-secret</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Velocity modern forwarding shared secret (optional, for verifying forwarded payloads).</td>
+<td>Set the shared secret when your proxy uses Velocity modern forwarding.</td>
+</tr>
+</tbody></table>
+<h3 id="web-panel"><code>web-panel</code> 🖥️</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable the built-in web admin panel.</td>
+<td>Turn on to get the browser dashboard on <code>127.0.0.1</code>.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>&quot;127.0.0.1&quot;</code></td>
+<td>Interface to bind to. <code>127.0.0.1</code> = local only (recommended); <code>0.0.0.0</code> = all interfaces (not recommended without a token).</td>
+<td>Keep <code>127.0.0.1</code> and SSH-tunnel; never bind <code>0.0.0.0</code> publicly.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>25570</code></td>
+<td>Panel port (HTTP).</td>
+<td>Change if 25570 collides with another service.</td>
+</tr>
+<tr>
+<td><code>https-enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Serve the panel over HTTPS. A self-signed certificate is generated automatically on first start and its fingerprint is printed to the console.</td>
+<td>Enable for encrypted browser access; verify the printed fingerprint.</td>
+</tr>
+<tr>
+<td><code>https-port</code></td>
+<td>int</td>
+<td><code>25571</code></td>
+<td>HTTPS port.</td>
+<td>Change if 25571 collides.</td>
+</tr>
+<tr>
+<td><code>https-keystore</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Path to a custom PKCS12/JKS keystore. Empty = auto-generated self-signed keystore.</td>
+<td>Point at your own certificate to avoid browser warnings.</td>
+</tr>
+<tr>
+<td><code>https-keystore-password</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Password of the custom keystore (ignored for the auto-generated one).</td>
+<td>Set the password of the custom keystore you configured above.</td>
+</tr>
+<tr>
+<td><code>token</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Access token (required). Sent as <code>Authorization: Bearer &lt;token&gt;</code>. The panel will <strong>not</strong> start without one. Generate with <code>openssl rand -hex 16</code>.</td>
+<td>Generate a hex token — full read/write admin access.</td>
+</tr>
+<tr>
+<td><code>token-file</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Path (in the config directory) to a file containing the access token. When set, this <strong>wins over</strong> the inline <code>token</code> — convenient for CI/secrets management (keeps the token out of <code>settings.conf</code>).</td>
+<td>Store the secret in <code>web-panel-token.txt</code> provisioned by your secret manager.</td>
+</tr>
+<tr>
+<td><code>readonly-token</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Optional read-only token: requests authenticated with this token can view data but <strong>cannot</strong> run actions (kick, delete, set-password, link…). Empty = disabled.</td>
+<td>Hand a second token to a moderator tool that should only <em>view</em> stats and players.</td>
+</tr>
+</tbody></table>
+<h3 id="email"><code>email</code> 📧</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable SMTP email features (login alerts, recovery codes).</td>
+<td>Enable to email players login alerts and password recovery codes.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>SMTP server host, e.g. <code>smtp.gmail.com</code>.</td>
+<td>Use your provider&#39;s SMTP host (Gmail, Outlook, your own).</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>587</code></td>
+<td>SMTP port: <code>587</code> (STARTTLS) or <code>465</code> (implicit SSL).</td>
+<td>Keep 587 unless your provider only supports implicit SSL.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>SMTP username (usually the full email address).</td>
+<td>The sending account&#39;s address/username.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>SMTP password / app password.</td>
+<td>Use an app password for Gmail/Outlook (2FA-safe).</td>
+</tr>
+<tr>
+<td><code>from</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>From address shown in sent emails.</td>
+<td>Set to <code>AuthCore &lt;you@server.com&gt;</code> so alerts are recognizable.</td>
+</tr>
+<tr>
+<td><code>use-ssl</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Use implicit SSL (port 465). When <code>false</code>, STARTTLS is used (port 587).</td>
+<td>Enable if your provider requires implicit SSL on 465.</td>
+</tr>
+<tr>
+<td><code>alert-on-new-login</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Send a login alert email when an account logs in from a new IP or country.</td>
+<td>Keep on so players are emailed when their account logs in elsewhere.</td>
+</tr>
+</tbody></table>
+<h3 id="auto-whitelist"><code>auto-whitelist</code> 📜</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Add successfully registered accounts to the <strong>vanilla server whitelist</strong> automatically (only applies while the whitelist is enabled). Works across 1.16.0 – 26.1-26.2 via the Compat layer.</td>
+<td>Enable on a whitelisted server so registered players never get locked out.</td>
+</tr>
+</tbody></table>
+<h3 id="trusted"><code>trusted</code> ⭐</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable the trusted-player system: after a successful login the account is marked trusted and <strong>skips the captcha</strong> on rejoins.</td>
+<td>Keep on so returning players skip the captcha.</td>
+</tr>
+<tr>
+<td><code>bypass-captcha-hours</code></td>
+<td>int</td>
+<td><code>24</code></td>
+<td>How long a successful login keeps the account trusted (hours). <code>0</code> = disable the bypass.</td>
+<td>Raise to 72 h for a community server; lower for strict security.</td>
+</tr>
+</tbody></table>
+<h3 id="maintenance"><code>maintenance</code> 🛠️</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Maintenance mode: temporarily block <strong>all</strong> joins with a custom message. Toggle at runtime with <code>/authcore maintenance on|off</code>.</td>
+<td>Block all joins while you update the world — run <code>/authcore maintenance on</code>, update, then <code>off</code>.</td>
+</tr>
+<tr>
+<td><code>kick-message</code></td>
+<td>string</td>
+<td><code>&quot;Server is under maintenance! Please check back later.&quot;</code></td>
+<td>Kick reason shown to players while maintenance mode is active.</td>
+<td>Set a friendly text like <code>&quot;Back in 30 minutes — world update!&quot;</code>.</td>
+</tr>
+</tbody></table>
+<h3 id="honeypot"><code>honeypot</code> 🍯</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Fake-server honeypot: an additional listening port that treats <strong>every</strong> connection as an attacker scan, logs it, and <strong>auto-bans</strong> the IP by appending <code>deny &lt;ip&gt;</code> to <code>ip-rules.conf</code>.</td>
+<td>Enable on a public server so scanners probing port 25599 get permanently banned.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>25599</code></td>
+<td>Port the honeypot listens on (any connection = attacker).</td>
+<td>Pick a port that looks like a real Minecraft port to attract scanners.</td>
+</tr>
+</tbody></table>
+<h3 id="backup"><code>backup</code> 💾</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>interval-hours</code></td>
+<td>int</td>
+<td><code>0</code></td>
+<td>Automatic backup interval in hours (<code>0</code> = disabled). SQLite: full file copy to <code>config/authcore/backups/</code>. MySQL/PostgreSQL: the export command is recommended instead.</td>
+<td>Set to <code>6</code> to auto-copy the SQLite database every 6 hours; <code>0</code> disables.</td>
+</tr>
+<tr>
+<td><code>keep</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Maximum number of automatic backups kept (oldest are deleted).</td>
+<td>Lower to 3 to save disk; raise to 30 for long retention.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="sessionauthentication">🔐 <code>session.authentication</code></h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>max-login-attempts</code></td>
+<td>int</td>
+<td><code>8</code></td>
+<td>Maximum failed login attempts before the player is kicked. Lower = stricter.</td>
+<td>Lower to 5 on high-value servers.</td>
+</tr>
+<tr>
+<td><code>allow-totp-support</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable two-factor authentication (TOTP) support. Recommended for enhanced security.</td>
+<td>Enable so players can protect their accounts with Google Authenticator.</td>
+</tr>
+<tr>
+<td><code>allow-bedrock-players</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow Bedrock/Geyser/Floodgate players to join and authenticate.</td>
+<td>Enable on a Geyser server so Bedrock players can register/login.</td>
+</tr>
+<tr>
+<td><code>look-up-by-username</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enforce unique usernames. When <code>false</code>, multiple accounts may share a name with different UUIDs.</td>
+<td>Enable if you require globally unique names on your server.</td>
+</tr>
+<tr>
+<td><code>premium-auto-login</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Auto-login players with legitimate premium (Mojang) accounts without a password. Recommended for hybrid servers.</td>
+<td>Keep on for hybrid servers so real Mojang accounts never type a password.</td>
+</tr>
+<tr>
+<td><code>premium-auto-register</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Generate a random password for legitimate premium accounts (smooth auth for new premium members).</td>
+<td>Keep on so new premium players get an account automatically.</td>
+</tr>
+<tr>
+<td><code>allow-proxy-users</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow connections from known proxy/VPN services. Disabling blocks many bot attacks.</td>
+<td>Keep off to block datacenter/VPN bot farms.</td>
+</tr>
+<tr>
+<td><code>register-password-confirmation</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Require password confirmation during registration (prevents typos).</td>
+<td>Keep on to catch typo&#39;d passwords.</td>
+</tr>
+<tr>
+<td><code>allow-login-after-registration</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Automatically log the player in immediately after successful registration.</td>
+<td>Keep on so new players get into the world instantly.</td>
+</tr>
+<tr>
+<td><code>allow-online-name-by-offline</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow offline players to use a premium username. Disabling prevents username squatting.</td>
+<td>Keep off so offline players can&#39;t squat premium names.</td>
+</tr>
+<tr>
+<td><code>block-duplicate-register</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Prevent the same account name from being registered from multiple locations at once.</td>
+<td>Keep on to stop one name registering from many IPs at once.</td>
+</tr>
+<tr>
+<td><code>block-duplicate-session</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Prevent the same account name from being authenticated from multiple locations at once.</td>
+<td>Keep on so an account can&#39;t be logged in twice at once.</td>
+</tr>
+<tr>
+<td><code>auto-luck-perms-group</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Automatically assign a LuckPerms group to newly registered accounts. Empty = disabled.</td>
+<td>Set to <code>&quot;member&quot;</code> so every new registration is auto-grouped in LuckPerms.</td>
+</tr>
+<tr>
+<td><code>bind-bedrock-xuid</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Bind Bedrock (Geyser/Floodgate) accounts to their XUID. On join, the player&#39;s XUID must match the stored one or they are kicked.</td>
+<td>Enable so Bedrock accounts are locked to their XUID, blocking impersonation.</td>
+</tr>
+<tr>
+<td><code>premium-api-strict</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td><code>false</code> = when the Mojang API is unreachable, premium checks degrade gracefully and <strong>no one is blocked</strong> (recommended). <code>true</code> = legacy behavior, the premium-name restriction is enforced even during outages.</td>
+<td>Keep <code>false</code> so a Mojang outage never locks out premium players.</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🔑 <strong>2FA reset on recovery</strong> — completing <code>/account recover</code> (email-based password recovery)
+also <strong>clears the TOTP secret</strong>, so the account&#39;s two-factor authentication is disabled and the
+player must re-setup 2FA after recovering the account.</p>
+</blockquote>
+<hr>
+<h2 id="password-rules">🔤 <code>password-rules</code></h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>upper-case.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enforce the uppercase (A–Z) rule.</td>
+<td>Disable if you want simpler passwords for younger players.</td>
+</tr>
+<tr>
+<td><code>upper-case.min</code></td>
+<td>int</td>
+<td><code>1</code></td>
+<td>Minimum uppercase letters.</td>
+<td>Raise to 2 for stricter policy.</td>
+</tr>
+<tr>
+<td><code>upper-case.max</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Maximum uppercase letters.</td>
+<td>Leave at 10; only relevant for absurd inputs.</td>
+</tr>
+<tr>
+<td><code>lower-case.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enforce the lowercase (a–z) rule.</td>
+<td>Keep on — most passwords need lowercase.</td>
+</tr>
+<tr>
+<td><code>lower-case.min</code></td>
+<td>int</td>
+<td><code>3</code></td>
+<td>Minimum lowercase letters.</td>
+<td>Raise to 5 for a stricter policy.</td>
+</tr>
+<tr>
+<td><code>lower-case.max</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Maximum lowercase letters.</td>
+<td>Leave at 10.</td>
+</tr>
+<tr>
+<td><code>digits.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enforce the digit (0–9) rule.</td>
+<td>Keep on so passwords can&#39;t be all letters.</td>
+</tr>
+<tr>
+<td><code>digits.min</code></td>
+<td>int</td>
+<td><code>4</code></td>
+<td>Minimum digits.</td>
+<td>Raise to 6 for high-security servers.</td>
+</tr>
+<tr>
+<td><code>digits.max</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Maximum digits.</td>
+<td>Leave at 10.</td>
+</tr>
+<tr>
+<td><code>length.enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enforce the overall length rule.</td>
+<td>Keep on — it ties all category limits together.</td>
+</tr>
+<tr>
+<td><code>length.min</code></td>
+<td>int</td>
+<td>auto (sum of category mins)</td>
+<td>Minimum total password length.</td>
+<td>Override with a fixed <code>min</code> if you want a simpler rule set.</td>
+</tr>
+<tr>
+<td><code>length.max</code></td>
+<td>int</td>
+<td>auto (sum of category maxes)</td>
+<td>Maximum total password length.</td>
+<td>Override if you want to cap total length explicitly.</td>
+</tr>
+<tr>
+<td><code>allow-reuse</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow reusing a previously used password when changing it.</td>
+<td>Keep <code>false</code> so players can&#39;t cycle back to an old password.</td>
+</tr>
+<tr>
+<td><code>history-size</code></td>
+<td>int</td>
+<td><code>5</code></td>
+<td>Password history: how many previous passwords are remembered and <strong>blocked from reuse</strong> (<code>0</code> = disabled).</td>
+<td>Set to 10 to block reuse of the last 10 passwords.</td>
+</tr>
+<tr>
+<td><code>password-hash-algorithm</code></td>
+<td>string</td>
+<td><code>&quot;argon2&quot;</code></td>
+<td>Hashing algorithm: <code>argon2</code> (default, memory-hard, GPU-resistant), <code>bcrypt</code>, <code>scrypt</code>, <code>pbkdf2</code>, <code>sha-512</code>, <code>sha-256</code>, or <code>md5</code> (insecure — do <strong>not</strong> use).</td>
+<td>Keep <code>argon2</code>; switch to <code>bcrypt</code> only for legacy compatibility.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="database">🗄️ <code>database</code></h2>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sqlite</code></td>
+<td>string</td>
+<td><code>&quot;authCore-db.sqlite&quot;</code></td>
+<td>SQLite file name (stored in <code>config/database/</code>). No external server required.</td>
+<td>Keep the default for a simple single-server setup.</td>
+</tr>
+</tbody></table>
+<h3 id="databasemysql"><code>database.mysql</code></h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable MySQL instead of SQLite.</td>
+<td>Switch to MySQL once you outgrow SQLite or run multiple servers.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Server host, e.g. <code>localhost</code> or <code>db.example.com</code>.</td>
+<td>Point at your MySQL host.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>3306</code></td>
+<td>Server port.</td>
+<td>Keep 3306 unless your DB runs elsewhere.</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database/schema name.</td>
+<td>The schema AuthCore should use.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database username.</td>
+<td>A user with full rights on that schema.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database password (stored in plain text — protect the config file).</td>
+<td>Use a dedicated, least-privilege account.</td>
+</tr>
+<tr>
+<td><code>ssl</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Use SSL/TLS for the database connection. Recommended for remote databases.</td>
+<td>Enable when the DB is not on localhost.</td>
+</tr>
+</tbody></table>
+<h3 id="databasepostgres"><code>database.postgres</code></h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable PostgreSQL instead of SQLite/MySQL.</td>
+<td>Use PostgreSQL if your infrastructure is already Postgres-based.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Server host.</td>
+<td>Point at your PostgreSQL host.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>5432</code></td>
+<td>Server port.</td>
+<td>Keep 5432 unless customized.</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database/schema name.</td>
+<td>The schema AuthCore should use.</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database username.</td>
+<td>A user with full rights on that schema.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Database password (stored in plain text — protect the config file).</td>
+<td>Use a dedicated, least-privilege account.</td>
+</tr>
+<tr>
+<td><code>ssl</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Use SSL/TLS for the database connection.</td>
+<td>Enable when the DB is not on localhost.</td>
+</tr>
+</tbody></table>
+<h3 id="databaseredis"><code>database.redis</code></h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable Redis session &amp; ban synchronization across a network.</td>
+<td>Enable on multi-server networks for shared sessions/bans + the event bus.</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td><code>&quot;localhost&quot;</code></td>
+<td>Redis server host.</td>
+<td>Point at the shared Redis instance.</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td><code>6379</code></td>
+<td>Redis server port.</td>
+<td>Keep 6379 unless customized.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>Redis password (empty if auth is disabled).</td>
+<td>Set if your Redis requires AUTH.</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>int</td>
+<td><code>0</code></td>
+<td>Logical database index.</td>
+<td>Leave 0 unless you share a Redis instance with other apps.</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>🔁 <strong>Distributed config overrides</strong> — when Redis is enabled, a HOCON snippet stored under the
+Redis key <code>authcore:config:overrides</code> is <strong>merged over the local <code>settings.conf</code> on load</strong>.
+This lets a server network push shared settings (webhooks, rule files, lobby policies) from a
+single place; keys present in the snippet win over the local file. Store it with any Redis
+client, e.g. <code>SET authcore:config:overrides &quot;session { security { webhook-url = \&quot;...\&quot; } }&quot;</code>.</p>
+</blockquote>
+<hr>
+<h2 id="lobby-limbo-restrictions">🏠 <code>lobby</code> (limbo restrictions)</h2>
+<h3 id="limbo-config-teleport"><code>limbo-config</code> (teleport)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Teleport unauthenticated players to the configured location.</td>
+<td>Keep on to teleport newcomers into your registration area.</td>
+</tr>
+<tr>
+<td><code>only-on-first-time</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Only teleport on the player&#39;s first join.</td>
+<td>Keep on so only brand-new players get teleported.</td>
+</tr>
+<tr>
+<td><code>location.dimension</code></td>
+<td>string</td>
+<td><code>&quot;minecraft:overworld&quot;</code></td>
+<td>Target dimension key, e.g. <code>minecraft:the_nether</code>.</td>
+<td>Set to your spawn plaza&#39;s dimension.</td>
+</tr>
+<tr>
+<td><code>location.x</code></td>
+<td>double</td>
+<td><code>0.0</code></td>
+<td>X coordinate.</td>
+<td>Set via <code>/authcore set-spawn</code> for the correct value.</td>
+</tr>
+<tr>
+<td><code>location.y</code></td>
+<td>double</td>
+<td><code>64.0</code></td>
+<td>Y coordinate.</td>
+<td>Set via <code>/authcore set-spawn</code>.</td>
+</tr>
+<tr>
+<td><code>location.z</code></td>
+<td>double</td>
+<td><code>0.0</code></td>
+<td>Z coordinate.</td>
+<td>Set via <code>/authcore set-spawn</code>.</td>
+</tr>
+</tbody></table>
+<h3 id="timeout-dynamic-login-timeout-by-ping"><code>timeout</code> (dynamic login timeout by ping)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Enable dynamic login timeout based on player ping.</td>
+<td>Keep on so high-ping players get more login time.</td>
+</tr>
+<tr>
+<td><code>time-in-ms</code></td>
+<td>int</td>
+<td><code>120000</code> (2 min)</td>
+<td>Timeout for players with ping ≤ 200 ms.</td>
+<td>Raise if your locals type slowly.</td>
+</tr>
+<tr>
+<td><code>timeout-above-200-latency-ms</code></td>
+<td>int</td>
+<td><code>180000</code> (3 min)</td>
+<td>Timeout for players with ping &gt; 200 ms.</td>
+<td>Tune per tier if your player base is geographically far away.</td>
+</tr>
+<tr>
+<td><code>timeout-above-400-latency-ms</code></td>
+<td>int</td>
+<td><code>240000</code> (4 min)</td>
+<td>Timeout for players with ping &gt; 400 ms.</td>
+<td>Tune per tier if your player base is geographically far away.</td>
+</tr>
+<tr>
+<td><code>timeout-above-600-latency-ms</code></td>
+<td>int</td>
+<td><code>300000</code> (5 min)</td>
+<td>Timeout for players with ping &gt; 600 ms.</td>
+<td>Tune per tier if your player base is geographically far away.</td>
+</tr>
+</tbody></table>
+<h3 id="lobby-behavior">Lobby Behavior</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>max-lobby-users</code></td>
+<td>int</td>
+<td><code>50</code></td>
+<td>Maximum simultaneously lobby (unauthenticated) players. Prevents overload from many unauthenticated connections.</td>
+<td>Lower to 20 if bots spam connections during attacks.</td>
+</tr>
+<tr>
+<td><code>safe-operators</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Temporarily remove OP status until authentication succeeds; restore it after login if the player was OP.</td>
+<td>Keep on so unauthenticated players can never use OP powers.</td>
+</tr>
+<tr>
+<td><code>allow-chat</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow lobby players to use global chat.</td>
+<td>Keep off to stop pre-auth spam.</td>
+</tr>
+<tr>
+<td><code>allow-commands</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow lobby players to execute commands (except auth commands).</td>
+<td>Keep off; enable only if you trust your lobby guests.</td>
+</tr>
+<tr>
+<td><code>whitelisted-commands</code></td>
+<td>list</td>
+<td><code>[&quot;login&quot;, &quot;account&quot;, &quot;register&quot;]</code></td>
+<td>Commands affected by the whitelist/blacklist logic. Auth commands are always included.</td>
+<td>Add e.g. <code>&quot;rules&quot;</code> if guests should read server rules.</td>
+</tr>
+<tr>
+<td><code>use-whitelist-as-blacklist</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td><code>true</code> = listed commands are <strong>blocked</strong> (blacklist mode); <code>false</code> = only listed commands are allowed (whitelist mode).</td>
+<td>Flip to blacklist mode to block a few commands but allow the rest.</td>
+</tr>
+<tr>
+<td><code>allow-movement</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow basic movement (walking, jumping, sprinting).</td>
+<td>Enable for a free-roam lobby; keep off for a strict spawn lock.</td>
+</tr>
+<tr>
+<td><code>allow-block-interaction</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click block interaction (doors, chests, buttons…).</td>
+<td>Enable if your lobby features interactive elements.</td>
+</tr>
+<tr>
+<td><code>allow-block-breaking</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow breaking or placing blocks.</td>
+<td>Keep off — lobby guests shouldn&#39;t modify your spawn.</td>
+</tr>
+<tr>
+<td><code>allow-attacking-player</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking other players.</td>
+<td>Keep off to prevent lobby PvP trolling.</td>
+</tr>
+<tr>
+<td><code>allow-attacking-hostile-mobs</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking hostile mobs.</td>
+<td>Enable for a survival-style lobby if you wish.</td>
+</tr>
+<tr>
+<td><code>allow-attacking-animals</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking passive animals.</td>
+<td>Keep off to protect decorative mobs.</td>
+</tr>
+<tr>
+<td><code>allow-attacking-friendly-mobs</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking villagers/traders.</td>
+<td>Keep off to protect traders.</td>
+</tr>
+<tr>
+<td><code>allow-attack-neutral-mobs</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking neutral mobs (endermen, piglins…).</td>
+<td>Keep off unless you want lobby combat.</td>
+</tr>
+<tr>
+<td><code>allow-attack-mountable-entity</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking mountable entities (horses, boats…).</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-attack-entity</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow attacking other entities (item frames, armor stands…).</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-item-drop</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow dropping items from inventory.</td>
+<td>Keep off so guests can&#39;t litter your spawn.</td>
+</tr>
+<tr>
+<td><code>allow-item-pickup</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow picking up items from the ground.</td>
+<td>Keep off to prevent loot-stealing in the lobby.</td>
+</tr>
+<tr>
+<td><code>allow-item-moving</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow moving/rearranging items inside the inventory.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-item-use</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow using items (eating, shooting bows…).</td>
+<td>Keep off unless your lobby has food stations.</td>
+</tr>
+<tr>
+<td><code>allow-player-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with other players.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-animal-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with animals.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-mountable-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with mountable entities.</td>
+<td>Enable if you want lobby horse rides.</td>
+</tr>
+<tr>
+<td><code>allow-entity-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with miscellaneous entities.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-hostile-mobs-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with hostile mobs.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-friendly-mobs-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with friendly/villager mobs.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>allow-neutral-mobs-interact-with</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow right-click interaction with neutral mobs.</td>
+<td>Keep off.</td>
+</tr>
+<tr>
+<td><code>invisible-unauthorized</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Make unauthenticated players invisible to authenticated players.</td>
+<td>Keep on to reduce visual clutter at spawn.</td>
+</tr>
+<tr>
+<td><code>apply-blindness-effect</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Apply permanent blindness to lobby players (focus on the auth prompt).</td>
+<td>Keep on so guests focus on logging in.</td>
+</tr>
+<tr>
+<td><code>hide-inventory</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Completely hide the player&#39;s inventory UI while in lobby.</td>
+<td>Enable for a fully immersive auth screen.</td>
+</tr>
+<tr>
+<td><code>allow-mob-damage</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Allow mobs to damage lobby players.</td>
+<td>Keep off to prevent unfair deaths pre-auth.</td>
+</tr>
+<tr>
+<td><code>force-adventure-mode</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Force lobby players into Adventure mode (prevents accidental block breaking/placing).</td>
+<td>Keep on — the simplest block protection.</td>
+</tr>
+<tr>
+<td><code>prevent-damage</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Prevent all damage to lobby players from items/projectiles.</td>
+<td>Keep on so guests are invulnerable until they log in.</td>
+</tr>
+<tr>
+<td><code>prevent-status-effect</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Block status effects from being applied to lobby players.</td>
+<td>Keep on.</td>
+</tr>
+<tr>
+<td><code>prevent-player-damage</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Protect lobby players from damage by authenticated players.</td>
+<td>Keep on to stop logged-in players griefing the lobby.</td>
+</tr>
+</tbody></table>
+<h3 id="announcements--rotating"><code>announcements</code> 📢 (rotating)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>announcements</code></td>
+<td>list</td>
+<td><code>[]</code></td>
+<td>Rotating server announcements shown to authenticated players. Each entry is shown for <code>announcement-interval-sec</code>, then the next one. Supports the <code>%player%</code> placeholder.</td>
+<td>List messages like <code>&quot;Vote for us!&quot;</code>, <code>&quot;Join our Discord!&quot;</code> — rotated on a timer.</td>
+</tr>
+<tr>
+<td><code>announcement-interval-sec</code></td>
+<td>int</td>
+<td><code>600</code></td>
+<td>Seconds between rotating announcements.</td>
+<td>Set to 300 to rotate every 5 minutes.</td>
+</tr>
+</tbody></table>
+<h3 id="announcement--join"><code>announcement</code> 📢 (join)</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Show a server announcement to players right after they authenticate.</td>
+<td>Enable to greet players as soon as they log in.</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>string</td>
+<td><code>&quot;&quot;</code></td>
+<td>The announcement message. Supports the <code>%player%</code> placeholder (replaced with the player&#39;s username).</td>
+<td>Set to <code>&quot;Welcome back, %player%!&quot;</code> for a personal touch.</td>
+</tr>
+</tbody></table>
+<h3 id="captcha"><code>captcha</code> 🤖</h3>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable captcha for registration/login. The lobby shows a code; <code>/login</code> and <code>/register</code> require it as an extra argument.</td>
+<td>Enable during bot waves; disable when it annoys legits.</td>
+</tr>
+<tr>
+<td><code>length</code></td>
+<td>int</td>
+<td><code>5</code></td>
+<td>Captcha code length.</td>
+<td>Lower to 4 for mobile players; raise to 6 under bot attacks.</td>
+</tr>
+<tr>
+<td><code>ttl-ms</code></td>
+<td>long</td>
+<td><code>60000</code> (1 min)</td>
+<td>Captcha code validity.</td>
+<td>Raise to 2 minutes for slow typists.</td>
+</tr>
+<tr>
+<td><code>disable-when-tps-below</code></td>
+<td>double</td>
+<td><code>0</code></td>
+<td><strong>TPS-adaptive captcha</strong> — while server TPS is below this value the captcha is skipped entirely (prevents bots exploiting lag-spikes). <code>0</code> = never disable.</td>
+<td>Set to 15 so the captcha vanishes during lag spikes.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="commands">🧑‍💻 <code>commands</code></h2>
+<p>Every command supports <strong>both</strong> a LuckPerms node and a vanilla permission level (used when
+LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderators, <code>2</code> = gamemasters, <code>3</code> = admins,
+<code>4</code> = owners).</p>
+<h3 id="user-commands">User Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>LuckPerms Node</th>
+<th>Permissions Level</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>user.login</code></td>
+<td><code>authcore.user.login</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/login</code>.</td>
+<td>Keep at level 0 so everyone can log in.</td>
+</tr>
+<tr>
+<td><code>user.logout</code></td>
+<td><code>authcore.user.logout</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/account logout</code> — log out while authenticated.</td>
+<td>Keep at 0 — harmless and useful.</td>
+</tr>
+<tr>
+<td><code>user.register</code></td>
+<td><code>authcore.user.load</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/register</code> — create an account.</td>
+<td>Keep at 0 so new players can register.</td>
+</tr>
+<tr>
+<td><code>user.unregister</code></td>
+<td><code>authcore.user.unregister</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/account unregister</code> — delete your own account.</td>
+<td>Keep at 0 so players can wipe their own data.</td>
+</tr>
+<tr>
+<td><code>user.nickname</code></td>
+<td><code>authcore.user.logout</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/account nickname &lt;name&gt;</code> — set your display nickname (2–24 chars, no spaces; shown in whois and the web panel).</td>
+<td>Keep at 0 so everyone can personalize their display name.</td>
+</tr>
+<tr>
+<td><code>user.change-password</code></td>
+<td><code>authcore.user.changepassword</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/account set-password &lt;new&gt;</code> — change your password.</td>
+<td>Keep at 0 — everyone should rotate passwords.</td>
+</tr>
+</tbody></table>
+<h3 id="admin-commands">Admin Commands</h3>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>LuckPerms Node</th>
+<th>Permissions Level</th>
+<th>Description</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>admin.reload</code></td>
+<td><code>authcore.admin.reload</code></td>
+<td><code>3</code></td>
+<td><code>/authcore reload</code> — reload configuration without restarting.</td>
+<td>Level 3 keeps config control in the admin team.</td>
+</tr>
+<tr>
+<td><code>admin.delete-player</code></td>
+<td><code>authcore.admin.deleteplayer</code></td>
+<td><code>3</code></td>
+<td><code>/authcore delete player &lt;player&gt;</code> — permanently remove an account.</td>
+<td>Give to trusted moderators only — destructive.</td>
+</tr>
+<tr>
+<td><code>admin.list-players</code></td>
+<td><code>authcore.admin.listPlayers</code></td>
+<td><code>3</code></td>
+<td><code>/authcore list players</code> — list all registered accounts (database-backed, safe for 100k+ users).</td>
+<td>Useful for audits of the registered player base.</td>
+</tr>
+<tr>
+<td><code>admin.export-users</code></td>
+<td><code>authcore.admin.reload</code></td>
+<td><code>3</code></td>
+<td><code>/authcore export</code> — export all users to <code>config/authcore/backups/users-export-&lt;timestamp&gt;.json</code> (works with SQLite/MySQL/PostgreSQL).</td>
+<td>Run weekly to keep an off-server JSON copy.</td>
+</tr>
+<tr>
+<td><code>admin.list-online-mode-players</code></td>
+<td><code>authcore.admin.listOnlineModePlayers</code></td>
+<td><code>3</code></td>
+<td><code>/authcore list online-players</code> — list connected premium players.</td>
+<td>Check who is premium during hybrid-server debugging.</td>
+</tr>
+<tr>
+<td><code>admin.list-offline-mode-players</code></td>
+<td><code>authcore.admin.listOfflineModePlayers</code></td>
+<td><code>3</code></td>
+<td><code>/authcore list offline-players</code> — list connected offline players.</td>
+<td>Spot guests who still need to register.</td>
+</tr>
+<tr>
+<td><code>admin.destroy-player-session</code></td>
+<td><code>authcore.admin.destroyPlayerSession</code></td>
+<td><code>3</code></td>
+<td><code>/authcore destroy-session &lt;player&gt;</code> — force re-authentication.</td>
+<td>Use when you suspect a session was hijacked.</td>
+</tr>
+<tr>
+<td><code>admin.set-player-password</code></td>
+<td><code>authcore.admin.setPlayerPassword</code></td>
+<td><code>3</code></td>
+<td><code>/authcore set-password &lt;player&gt; &lt;new&gt;</code> — admin-forced password change.</td>
+<td>Reset a password for a player who forgot theirs.</td>
+</tr>
+<tr>
+<td><code>admin.reset-player-password</code></td>
+<td><code>authcore.admin.setPlayerPassword</code></td>
+<td><code>3</code></td>
+<td><code>/authcore resetpw &lt;player&gt; &lt;new-password&gt;</code> — console-friendly alias of <code>set-password</code>.</td>
+<td>Run from the server console to reset a password without Discord/panel.</td>
+</tr>
+<tr>
+<td><code>admin.whois-username</code></td>
+<td><code>authcore.admin.whoisUsername</code></td>
+<td><code>3</code></td>
+<td><code>/authcore whois [&lt;username&gt;] [&lt;uuid&gt;] [&lt;player&gt;]</code> — detailed account info (database-backed).</td>
+<td>Investigate an account&#39;s IP/country/mode/risk.</td>
+</tr>
+<tr>
+<td><code>admin.set-offline-mode-player</code></td>
+<td><code>authcore.admin.setOfflineModePlayer</code></td>
+<td><code>3</code></td>
+<td><code>/authcore set-mode offline &lt;player&gt; &lt;new-password&gt;</code> — force offline auth mode.</td>
+<td>Convert a stolen premium account back to password auth.</td>
+</tr>
+<tr>
+<td><code>admin.set-online-mode-player</code></td>
+<td><code>authcore.admin.setOnlineModePlayer</code></td>
+<td><code>3</code></td>
+<td><code>/authcore set-mode online &lt;player&gt;</code> — force premium auth mode.</td>
+<td>Restore a player who proved premium ownership.</td>
+</tr>
+<tr>
+<td><code>admin.set-spawn-location</code></td>
+<td><code>authcore.admin.setSpawnLocation</code></td>
+<td><code>3</code></td>
+<td><code>/authcore set-spawn &lt;dimension&gt; &lt;x&gt; &lt;y&gt; &lt;z&gt;</code> — set the default spawn used by lobby teleports.</td>
+<td>Set the limbo spawn to your registration plaza.</td>
+</tr>
+<tr>
+<td><code>admin.maintenance</code></td>
+<td><code>authcore.admin.reload</code></td>
+<td><code>3</code></td>
+<td><code>/authcore maintenance on|off</code> — block all joins with the configured <code>maintenance.kick-message</code>.</td>
+<td>Toggle maintenance around world updates or security incidents.</td>
+</tr>
+<tr>
+<td><code>admin.validate</code></td>
+<td><code>authcore.admin.reload</code></td>
+<td><code>3</code></td>
+<td><code>/authcore validate</code> — dry-run config validation: reports invalid algorithms, ports, missing DB fields, missing panel token, bad webhook URL.</td>
+<td>Run after hand-editing <code>settings.conf</code> to catch typos before they break things.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="discord-account-linking">🔗 Discord Account Linking</h2>
+<p>Discord linking has <strong>no settings</strong> — it reuses <code>session.security.webhook-url</code> (the code is
+published there) and <code>database.redis</code> (code storage + <code>discordId</code> mapping). Players use
+<code>/discord link</code> / <code>/discord unlink</code>; Discord bots complete the pairing via the web panel API
+(<code>action: &quot;link&quot;</code> — see
+<a href="webpanel.html">WEBPANEL.md</a>).</p>
+<h3 id="message-keys">Message keys</h3>
+<p>The player-facing texts are fully editable in <code>messages.conf</code> (and per-locale files):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default (English)</th>
+<th>Scenario</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>prompt-user-discord-link-code</code></td>
+<td>Shows the generated 6-char link code (sent to the bot)</td>
+<td>Re-word it to explain where the code should be sent.</td>
+</tr>
+<tr>
+<td><code>prompt-user-discord-already-linked</code></td>
+<td>Shown by <code>/discord link</code> when the account is already linked</td>
+<td>Customize the reminder that accounts can hold one link.</td>
+</tr>
+<tr>
+<td><code>prompt-user-discord-not-linked</code></td>
+<td>Shown by <code>/discord unlink</code> when no link exists</td>
+<td>Customize for players who never linked.</td>
+</tr>
+<tr>
+<td><code>prompt-user-discord-unlinked</code></td>
+<td>Confirmation after a successful <code>/discord unlink</code></td>
+<td>Customize the success feedback.</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>📡 <strong>Cross-server event bus</strong> — with Redis enabled, login/logout/register/brute-force/
+account-locked/kick events are published on the <code>authcore:events</code> channel and handled on every
+backend (security log + webhook + local actions). There is nothing to configure.</p>
+</blockquote>
+<hr>
+<h2 id="custom-locales">🗣️ Custom Locales</h2>
+<p>AuthCore ships with bundled locales for every supported <code>language</code> (extracted on first start).
+To fully customize a locale — or add one of your own — drop a <code>messages-&lt;lang&gt;.conf</code> file into
+<strong><code>config/authcore/</code></strong>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th><code>language</code> setting</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>config/authcore/messages.conf</code></td>
+<td><code>&quot;en&quot;</code></td>
+<td>Overrides the English messages</td>
+</tr>
+<tr>
+<td><code>config/authcore/messages-fr.conf</code></td>
+<td><code>&quot;fr&quot;</code></td>
+<td>Overrides the French messages</td>
+</tr>
+<tr>
+<td><code>config/authcore/messages-de.conf</code></td>
+<td><code>&quot;de&quot;</code></td>
+<td>…and so on for any code</td>
+</tr>
+</tbody></table>
+<p>How it works:</p>
+<ol>
+<li>Pick the code you want (<code>language = &quot;fr&quot;</code> in <code>settings.conf</code>) and create
+<code>config/authcore/messages-fr.conf</code>.</li>
+<li>Copy the structure from the extracted <code>messages.conf</code> (or the file from a previous export)
+and edit the texts you want to change.</li>
+<li>On startup the mod picks the custom file up <strong>automatically</strong> and merges it over the bundled
+locale.</li>
+<li><strong>Completeness check</strong> — if any message keys are missing from your custom file, AuthCore
+logs a <strong>WARNING listing the missing keys</strong> so you know exactly what to translate.</li>
+</ol>
+<blockquote>
+<p>✏️ Note: a custom locale file only needs the keys you want to override — the rest fall back
+to the bundled defaults. The completeness warning helps translators deliver 100% coverage.</p>
+</blockquote>
+<hr>
+<h2 id="security-testing">🧪 Security Testing</h2>
+<p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required)
+at <strong><code>tools/security-tests/</code></strong> — <strong>57 checks</strong> covering password hashing round-trips for all 6
+algorithms, unique per-hash salts, captcha lifecycle, email recovery codes, the rate limiter,
+proxy IP parsing, device fingerprints and time formatting. Run it after a build:</p>
+<pre><code class="language-powershell">.\gradlew.bat build                          # once: produces the compiled classes + cached jars
+powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
+</code></pre>
+<p>The suite is part of the security process — see
+<a href="security.html">SECURITY.md</a> for the PBKDF2
+bug it caught and how it guards regressions. CI runs the suite on every push, and the
+host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots every range jar on its
+verify matrix — 1.16.5 / 1.17.1 / 1.18.2 (1.16–1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 /
+1.21.11 (1.19–1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2) — with
+live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix passed
+on 2026-08-10.</p>
+<h3 id="proxy-interop--per-role-configs">🧩 Proxy, Interop &amp; per-role configs</h3>
+<ul>
+<li><code>session.proxy-support</code> - BungeeCord/Velocity forwarding: <code>enabled</code>, <code>protocol</code>
+(<code>auto</code>/<code>bungeecord</code>/<code>velocity</code>) and <code>velocity-secret</code> (HMAC for Velocity modern
+<code>velocity:player_info</code> identity forwarding).</li>
+<li><code>session.interop</code> - auth-state broadcasts to other mods / proxy plugins:
+<code>enabled</code>, <code>channel</code> (default <code>authcore:auth</code>), <code>bungee-channel</code> (default true).</li>
+<li><strong>Separate config files</strong>:<ul>
+<li>Server: <code>config/authcore/settings.conf</code></li>
+<li>Client companion: <code>config/authcore-client.json</code></li>
+<li>Proxy plugin (when the jar runs on BungeeCord/Velocity): <code>config/authcore-proxy.properties</code></li>
+<li>Database override: <code>config/authcore/database.conf</code> - only the <code>database { }</code> block,
+merged over settings.conf (credentials can live outside the main config)</li>
+</ul>
+</li>
+</ul>
+<h3 id="proxy-plugin-full-auth-keys-configauthcore-proxyproperties">🛡️ Proxy plugin full-auth keys (<code>config/authcore-proxy.properties</code>)</h3>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enabled</code></td>
+<td><code>true</code></td>
+<td>Proxy plugin on/off</td>
+</tr>
+<tr>
+<td><code>kick-message</code></td>
+<td>&quot;You must log in on the main server first.&quot;</td>
+<td>Disconnect reason for unauthenticated players</td>
+</tr>
+<tr>
+<td><code>session-timeout-ms</code></td>
+<td><code>3600000</code></td>
+<td>Session TTL the proxy trusts</td>
+</tr>
+<tr>
+<td><code>log-events</code></td>
+<td><code>true</code></td>
+<td>Log interop events</td>
+</tr>
+<tr>
+<td><code>block-unauthenticated</code></td>
+<td><code>false</code></td>
+<td><strong>Full proxy-side auth</strong>: disconnect players without a Redis session before backend connect (fail-open)</td>
+</tr>
+<tr>
+<td><code>redis-host</code> / <code>redis-port</code></td>
+<td><code>127.0.0.1</code> / <code>6379</code></td>
+<td>Redis used for session validation</td>
+</tr>
+<tr>
+<td><code>redis-password</code></td>
+<td>(empty)</td>
+<td>Optional Redis password</td>
+</tr>
+<tr>
+<td><code>redis-database</code></td>
+<td><code>0</code></td>
+<td>Optional Redis database index</td>
+</tr>
+</tbody></table>
+
+    </article>
+  </main>
+</div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<footer>
+  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
+  <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
+</footer>
+<script>
+(function () {
+  // scroll progress
+  const bar = document.getElementById("progress");
+  const toTop = document.getElementById("toTop");
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+    toTop.classList.toggle("show", h.scrollTop > 400);
+  };
+  document.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  // mobile nav
+  const toggle = document.querySelector(".nav-toggle");
+  const nav = document.querySelector(".site-nav");
+  if (toggle && nav) {
+    toggle.addEventListener("click", () => {
+      const open = nav.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+  }
+
+  // copy buttons on code blocks
+  document.querySelectorAll("article pre").forEach((pre) => {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", async () => {
+      const text = pre.querySelector("code").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        btn.classList.add("done");
+      } catch {
+        btn.textContent = "Error";
+      }
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+    });
+    pre.appendChild(btn);
+  });
+
+  // scrollspy for the sidebar TOC
+  const links = document.querySelectorAll(".toc-item a");
+  if (links.length) {
+    const map = new Map();
+    links.forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const el = document.getElementById(id);
+      if (el) map.set(el, a);
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            links.forEach((l) => l.classList.remove("active"));
+            const a = map.get(e.target);
+            if (a) a.classList.add("active");
+          }
+        });
+      },
+      { rootMargin: "-90px 0px -70% 0px" },
+    );
+    map.forEach((_, el) => io.observe(el));
+  }
+})();
+</script>
+</body>
+</html>

@@ -63,5 +63,10 @@ _migration/
 # build artifacts (release jars are published to GitHub Releases, not the repo)
 dist/
 
+# github pages renderer (marked installed by the pages workflow)
+scripts/node_modules/
+scripts/_site/
+scripts/package-lock.json
+
 # IDE
 .factorypath

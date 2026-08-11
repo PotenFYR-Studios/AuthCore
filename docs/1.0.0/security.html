@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security Model — AuthCore Docs</title>
+<meta name="description" content="Threat analysis (OWASP + Minecraft) and every defense in depth.">
+<meta property="og:title" content="Security Model — AuthCore Docs">
+<meta property="og:description" content="Threat analysis (OWASP + Minecraft) and every defense in depth.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/security.html">
+<style>
+  :root {
+    --bg0: #030508;
+    --bg1: #0a1128;
+    --bg2: #0d2a5e;
+    --panel: rgba(10, 17, 40, 0.72);
+    --panel-2: rgba(13, 42, 94, 0.35);
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --accent-3: #93c5fd;
+    --green: #22c55e;
+    --text: #e2e8f0;
+    --muted: #8b95a7;
+    --border: rgba(59, 130, 246, 0.22);
+    --radius: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.65;
+    background:
+      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* ---------- scroll progress ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    z-index: 1000; border-radius: 0 3px 3px 0;
+  }
+
+  /* ---------- header ---------- */
+  .site-header {
+    position: sticky; top: 0; z-index: 500;
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 22px;
+    background: rgba(3, 5, 8, 0.72);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-text { font-size: 1.05em; }
+  .brand-dot { color: var(--accent-3); }
+  .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
+  .nav-link {
+    color: var(--muted); text-decoration: none; font-size: 0.86em; font-weight: 500;
+    padding: 6px 10px; border-radius: 8px; transition: color .18s, background .18s, box-shadow .18s;
+    position: relative;
+  }
+  .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
+  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-gh { margin-left: 6px; color: var(--accent-3); }
+  .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+  @media (max-width: 900px) {
+    .nav-toggle { display: block; }
+    .site-nav {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 4px;
+      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border); padding: 10px 14px;
+    }
+    .site-nav.open { display: flex; }
+  }
+
+  /* ---------- layout ---------- */
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---------- sidebar TOC ---------- */
+  .toc {
+    position: sticky; top: 78px; align-self: start;
+    max-height: calc(100vh - 100px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: fadeUp .5s ease both;
+  }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc ul { list-style: none; margin: 0; padding: 0; }
+  .toc-item { margin: 1px 0; }
+  .toc-item a {
+    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
+  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+
+  /* ---------- content ---------- */
+  article {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    padding: 36px 44px 52px;
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    animation: fadeUp .55s ease both;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  article > :first-child { margin-top: 0; }
+  article h1, article h2, article h3, article h4 { line-height: 1.3; scroll-margin-top: 90px; }
+  article h1 {
+    font-size: 2em; font-weight: 800; margin: 0 0 18px; padding-bottom: 14px;
+    background: linear-gradient(90deg, #fff 0%, var(--accent-3) 55%, var(--accent) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    border-bottom: 1px solid var(--border);
+  }
+  article h2 {
+    font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    animation: fadeUp .5s ease both;
+  }
+  article h2::before {
+    content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
+    background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+  }
+  article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
+  article h4 { font-size: 1em; color: #dbeafe; }
+  article p { margin: 0.85em 0; }
+  article strong { color: #f8fafc; }
+  article a {
+    color: var(--accent-2); text-decoration: none;
+    background-image: linear-gradient(90deg, var(--accent-3), var(--accent));
+    background-size: 0% 1.5px; background-position: 0 100%; background-repeat: no-repeat;
+    transition: background-size .25s, color .15s;
+  }
+  article a:hover { color: #fff; background-size: 100% 1.5px; }
+  article hr {
+    border: 0; height: 1px; margin: 2.2em 0;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  article blockquote {
+    margin: 1.1em 0; padding: 0.7em 1.2em;
+    border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+  }
+  article blockquote p { margin: 0.4em 0; }
+  article img { max-width: 100%; border-radius: 12px; }
+  article table {
+    width: 100%; margin: 1.2em 0; border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    display: block; overflow-x: auto;
+    animation: fadeUp .5s ease both;
+  }
+  article th {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
+    color: #dbeafe; font-weight: 600; text-align: left;
+  }
+  article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  article th:last-child, article td:last-child { white-space: normal; }
+  article tr:last-child td { border-bottom: 0; }
+  article tbody tr { transition: background .15s; }
+  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article code {
+    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
+    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
+  }
+  article pre {
+    position: relative; margin: 1.2em 0; padding: 18px 20px;
+    background: rgba(2, 6, 16, 0.88);
+    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    overflow-x: auto;
+  }
+  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
+    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
+  }
+  article pre:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
+
+  /* ---------- docs hub cards ---------- */
+  .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 24px 0; }
+  .doc-card {
+    display: block; text-decoration: none !important; background-image: none !important;
+    padding: 20px 20px 16px; border-radius: 14px; position: relative;
+    background: var(--panel-2); border: 1px solid var(--border);
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    animation: fadeUp .5s ease both;
+  }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
+  .doc-card .dc-icon { font-size: 1.7em; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; }
+  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.5; }
+
+  /* ---------- back to top ---------- */
+  #toTop {
+    position: fixed; right: 22px; bottom: 22px; z-index: 600;
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #02060d);
+    color: var(--accent-3); font-size: 1.2em;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity .25s, transform .25s;
+  }
+  #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 0.84em;
+    padding: 8px 0 30px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { color: #fff; }
+  @media (max-width: 720px) {
+    article { padding: 24px 18px 34px; border-radius: 12px; }
+    .layout { padding: 16px 10px 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark">🏰🔐</span>
+      <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav">
+      <a class="nav-link" href="../../index.html">Home</a>
+      <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
+      <a class="nav-link active" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+<div class="layout">
+  <aside class="toc" id="toc">
+    <div class="toc-title">On this page</div>
+    <ul><li class="toc-item toc-2"><a href="#password-hashing">🔑 Password Hashing</a></li><li class="toc-item toc-2"><a href="#brute-force-defense-layers">🛡️ Brute-Force Defense Layers</a></li><li class="toc-item toc-3"><a href="#password-reuse-blocking">🔑 Password Reuse Blocking</a></li><li class="toc-item toc-3"><a href="#trusted-players-captcha-bypass">⭐ Trusted Players (captcha bypass)</a></li><li class="toc-item toc-3"><a href="#network-device-fingerprint">🖇️ Network Device Fingerprint</a></li><li class="toc-item toc-3"><a href="#ip-allowdeny-rules">🚫 IP Allow/Deny Rules</a></li><li class="toc-item toc-3"><a href="#shadow-ban-mode">👻 Shadow-Ban Mode</a></li><li class="toc-item toc-3"><a href="#auto-whitelist">📜 Auto-Whitelist</a></li><li class="toc-item toc-3"><a href="#honeypot-auto-banning-decoy-port">🍯 Honeypot (auto-banning decoy port)</a></li><li class="toc-item toc-3"><a href="#maintenance-mode">🛠️ Maintenance Mode</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">🧵 Race-Condition Hardening</a></li><li class="toc-item toc-3"><a href="#database-migration-safety">🛑 Database Migration Safety</a></li><li class="toc-item toc-2"><a href="#session-protection">🔄 Session Protection</a></li><li class="toc-item toc-2"><a href="#cross-server-security-event-bus">📡 Cross-Server Security Event Bus</a></li><li class="toc-item toc-2"><a href="#discord-link-codes">🔗 Discord Link Codes</a></li><li class="toc-item toc-2"><a href="#automated-test-suite">🧪 Automated Test Suite</a></li><li class="toc-item toc-2"><a href="#premium-api-outage-safety">☁️ Premium API Outage Safety</a></li><li class="toc-item toc-2"><a href="#account-enumeration-prevention">👤 Account Enumeration Prevention</a></li><li class="toc-item toc-2"><a href="#op-safety">👑 OP Safety</a></li><li class="toc-item toc-2"><a href="#limbo-isolation">🏠 Limbo Isolation</a></li><li class="toc-item toc-2"><a href="#ssrf--https-only-outbound">🌍 SSRF & HTTPS-Only Outbound</a></li><li class="toc-item toc-2"><a href="#resource-safety">🧮 Resource Safety</a></li><li class="toc-item toc-2"><a href="#webhook--email-alerting">📣 Webhook & Email Alerting</a></li><li class="toc-item toc-2"><a href="#multi-version--build-compatibility">🔮 Multi-Version & Build Compatibility</a></li><li class="toc-item toc-2"><a href="#threat-model">🧨 Threat Model</a></li><li class="toc-item toc-3"><a href="#proxy--forwarding">Proxy & forwarding</a></li><li class="toc-item toc-3"><a href="#proxy-side-full-auth">Proxy-side full auth</a></li></ul>
+  </aside>
+  <main>
+    <article>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+</div><hr>
+<hr>
+<h1>🔐 AuthCore Security Model</h1>
+<p>This document describes how AuthCore protects player accounts and the server: password
+hashing, brute-force defense, session protection, premium-API failure handling, limbo
+isolation, and the mitigation of OWASP Top-10 and Minecraft-specific threats.</p>
+<hr>
+<h2 id="password-hashing">🔑 Password Hashing</h2>
+<ul>
+<li><strong>Default algorithm: Argon2id</strong> (memory-hard, GPU/ASIC-resistant): 64 MiB memory,
+3 iterations, parallelism 1, 16-byte hash.</li>
+<li><strong>Per-user random salt</strong> — a fresh, cryptographically random salt is generated for every
+hash and <strong>embedded in the self-contained hash string</strong> (<code>$argon2id$...</code>), so verification
+works across restarts without storing the salt separately.</li>
+<li><strong>Alternatives</strong> (via <code>password-rules.password-hash-algorithm</code>):</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>argon2</code></td>
+<td>✅ Recommended default — memory-hard, resistant to GPU cracking</td>
+</tr>
+<tr>
+<td><code>bcrypt</code></td>
+<td>✅ Proven adaptive hash (cost factor 12)</td>
+</tr>
+<tr>
+<td><code>scrypt</code></td>
+<td>✅ Memory-hard alternative (N=16384, r=8, p=1)</td>
+</tr>
+<tr>
+<td><code>pbkdf2</code></td>
+<td>⚠️ Acceptable — HMAC-SHA256, 100 000 iterations</td>
+</tr>
+<tr>
+<td><code>sha-256</code> / <code>sha-512</code></td>
+<td>⚠️ Fast hashes — <strong>less ideal for passwords</strong>; kept for legacy compatibility only</td>
+</tr>
+<tr>
+<td><code>md5</code></td>
+<td>❌ <strong>Insecure — do not use.</strong> If an old account still uses MD5-class hashes it maps to SHA-256 internally and contributes to the login <strong>risk score</strong></td>
+</tr>
+</tbody></table>
+<ul>
+<li><strong>Weak-algorithm warnings:</strong> the risk scorer adds points when an account&#39;s stored hash uses
+<code>md5</code>/<code>sha-256</code>/<code>sha-512</code> (weak or non-memory-hard), and the console/security log flags such
+accounts so admins can force re-hashing.</li>
+<li><strong>PBKDF2 is self-contained (JDK only).</strong> <code>pbkdf2</code> is implemented as a pure JDK
+<code>SecretKeyFactory</code> (format <code>$pbkdf2-sha256$&lt;iter&gt;$&lt;salt&gt;$&lt;hash&gt;</code>) instead of going through
+password4j — the test suite caught that password4j&#39;s PBKDF2 check could <strong>hang the server
+thread</strong> on some inputs; the JDK implementation is predictable, interruptible and behaves
+identically on every supported Minecraft version.</li>
+<li><strong>Argon2id fallback.</strong> <code>Encrypter.hash(...)</code> <strong>never stores an unusable hash</strong>: an unknown
+<code>password-hash-algorithm</code> value (or a hashing exception) logs a warning and falls back to
+<strong>Argon2id</strong>, so registration and password resets never fail silently. <code>md5</code> is never stored —
+it hashes through SHA-256 internally (legacy compatibility) and flags the account as weak.</li>
+<li>The same hasher backs <code>register</code>, <code>change-password</code>, admin resets and web-panel resets.</li>
+<li>Every hash path is exercised by the automated test suite (<code>tools/security-tests/</code>, 57 checks)
+— round-trips for all 6 algorithms plus unique per-hash salts; see
+<a href="#-automated-test-suite">the test suite</a> below.</li>
+</ul>
+<h2 id="brute-force-defense-layers">🛡️ Brute-Force Defense Layers</h2>
+<p>Defense is layered so a single failure never exposes accounts:</p>
+<ol>
+<li><strong>Max login attempts</strong> (<code>session.authentication.max-login-attempts</code>, default 8) — kick after
+repeated failures.</li>
+<li><strong>Cooldown after kick</strong> (<code>session.cooldown-after-kick-ms</code>, default 2 min) — the kicked player
+cannot immediately retry.</li>
+<li><strong>Per-IP rate limits</strong> (<code>session.rate-limit</code>) — max 10 joins per IP per minute by default;
+sliding-window counter, memory bounded at 10 000 keys with expired-window purge.</li>
+<li><strong>Progressive punishment</strong> (<code>session.progressive-punishment</code>) — exponential kick cooldowns
+(5 s → 30 s → 3 m by default, capped at 5 min) for repeat offenders.</li>
+<li><strong>Persistent account lock</strong> (<code>session.account-lock</code>, default on) — after 8 failed logins the
+account locks for 10 minutes; the lock is <strong>persisted</strong> to the database (<code>lockUntilMs</code>) so it
+survives restarts and works across network instances via Redis.</li>
+<li><strong>Captcha</strong> (<code>lobby.captcha</code>) — optional text captcha on <code>/login</code> and <code>/register</code>, TTL-bound
+(default 1 min) and bounded at 512 pending entries.</li>
+<li><strong>Login intelligence</strong> (<code>session.intelligence</code>) — new-IP/new-country detection raises the
+risk score (0–100), triggers webhook/email/security-log alerts above
+<code>alert-risk-threshold</code> (60), and can optionally <strong>block</strong> logins from new countries.</li>
+<li><strong>Command cooldowns</strong> (<code>session.rate-limit.command-cooldown-ms</code>, default 1 s) — minimum
+delay between <code>/login</code> and <code>/register</code> executions <strong>per player</strong>, throttling scripted
+password-spray loops that bypass per-IP limits.</li>
+<li><strong>Fast-rejoin alert</strong> (<code>session.rate-limit.alert-on-fast-rejoin</code>, default off) — a
+disconnect→rejoin in under <code>fast-rejoin-window-ms</code> (default 500 ms) is a classic bot pattern;
+AuthCore fires a <strong>webhook + security-log alert</strong> (alert-only, no kick) so you can spot
+automated clients without punishing legitimate laggy players.</li>
+</ol>
+<h3 id="password-reuse-blocking">🔑 Password Reuse Blocking</h3>
+<p><code>password-rules.history-size</code> (default 5) remembers the last N passwords per account and
+<strong>blocks reuse</strong> on change. Combined with <code>allow-reuse = false</code>, players cannot cycle back to an
+old password, so a leaked old hash can never become the current one again. Set to <code>0</code> to disable
+the history.</p>
+<h3 id="trusted-players-captcha-bypass">⭐ Trusted Players (captcha bypass)</h3>
+<p>After a <strong>successful login</strong> the account is marked &quot;trusted&quot; for <code>bypass-captcha-hours</code>
+(default 24 h) and <strong>skips the captcha</strong> on rejoins (<code>session.trusted</code>). This keeps repeat,
+already-verified players friction-free while guests still prove they are not bots. Trust status
+is stored in the database (<code>trustedUntilMs</code>), so it survives restarts.</p>
+<h3 id="network-device-fingerprint">🖇️ Network Device Fingerprint</h3>
+<p>On every login AuthCore computes a <strong>SHA-256 fingerprint of the login origin (IP + country)</strong> —
+a strong &quot;same network/device&quot; signal, not a hardware fingerprint (impossible server-side). It
+is stored per account in the <code>deviceFingerprint</code> DB column.</p>
+<ul>
+<li>A login from a <strong>changed fingerprint</strong> adds <strong>+15</strong> to the risk score.</li>
+<li>A <strong>&quot;Possible Account Sharing&quot;</strong> webhook alert fires (account sharing/trading detection) —
+the same signal that backs optional <code>block-on-new-country</code>.</li>
+<li>New logins just record the fingerprint; only <em>changes</em> are flagged, so legitimate roaming
+across IPs is noticed but not punished automatically.</li>
+</ul>
+<h3 id="ip-allowdeny-rules">🚫 IP Allow/Deny Rules</h3>
+<p><code>config/authcore/ip-rules.conf</code> (<code>session.security.ip-rules-file</code>, default <code>ip-rules.conf</code>)
+provides a static, first-match-wins access list applied on join:</p>
+<pre><code class="language-text"># block a known abuser, allow a trusted build proxy
+deny 5.6.7.8
+allow 1.2.3.4
+</code></pre>
+<ul>
+<li>One rule per line: <code>allow &lt;ip&gt;</code> or <code>deny &lt;ip&gt;</code>; <code>#</code> lines are comments.</li>
+<li><strong>First match wins</strong>; if no rule matches the IP is <strong>allowed</strong> (default-allow).</li>
+<li><strong>Denied IPs are kicked on join</strong> — before they can reach the lobby.</li>
+<li>The file is loaded at startup and on <code>/authcore reload</code>.</li>
+</ul>
+<h3 id="shadow-ban-mode">👻 Shadow-Ban Mode</h3>
+<p><code>session.shadow-ban</code> (default off) hides <em>why</em> players are blocked. When enabled, security
+blocks (e.g. <code>block-on-new-country</code>) disconnect the player with a generic
+<code>disconnect-reason</code> (&quot;Connection lost&quot;) instead of the revealing security message — while the
+<strong>webhook alert still fires</strong>, so admins keep full visibility without tipping off the blocked
+player (useful against account sharers who adapt to specific block messages).</p>
+<h3 id="auto-whitelist">📜 Auto-Whitelist</h3>
+<p><code>session.auto-whitelist.enabled</code> (default off): successfully <strong>registered</strong> accounts are added
+to the <strong>vanilla server whitelist</strong> automatically (applies while the server whitelist is
+enabled). Works across 1.16.0 – 26.1-26.2 via the Compat layer, so a registered player is never
+locked out by an admin-managed whitelist.</p>
+<h3 id="honeypot-auto-banning-decoy-port">🍯 Honeypot (auto-banning decoy port)</h3>
+<p><code>session.honeypot</code> (default off) runs a <strong>fake server listener</strong> on its own port (default
+25599). <em>Every</em> connection to it is treated as an attacker scan:</p>
+<ul>
+<li>The connecting IP is logged with a <code>HONEYPOT_HIT</code> security-log entry and a console warning.</li>
+<li>A <strong>permanent</strong> <code>deny &lt;ip&gt;</code> rule is <strong>appended to <code>ip-rules.conf</code></strong> and immediately reloaded —
+the scanner is banned for good and kicked on any real join attempt.</li>
+<li>The listener runs on a daemon thread and never touches the server thread.</li>
+</ul>
+<p>Scenario: enable it on a public server so port scanners probing 25599 permanently ban
+themselves.</p>
+<h3 id="maintenance-mode">🛠️ Maintenance Mode</h3>
+<p><code>session.maintenance</code> (default off) blocks <strong>all</strong> joins with a custom <code>kick-message</code>. Toggle it
+at runtime with <code>/authcore maintenance on|off</code> (persisted to <code>settings.conf</code>) — useful during
+world updates, backups or security incidents. Combine with <code>security.webhook-url</code> so the
+maintenance window is visible in your alerting. <code>/authcore validate</code> performs a dry-run config
+check before you rely on any of these settings.</p>
+<h3 id="race-condition-hardening">🧵 Race-Condition Hardening</h3>
+<p>1.0.0 hardened the shared state that multiple threads (server thread, web panel daemon, Redis
+subscriber, honeypot, backup scheduler) touch:</p>
+<ul>
+<li><code>config</code> / <code>messages</code> and user session fields are <strong><code>volatile</code></strong> — reloads and toggles are
+immediately visible to every thread.</li>
+<li><strong>All database access is <code>synchronized</code></strong> — the single shared JDBC connection is never used
+concurrently (no interleaved statements / transactions).</li>
+<li>Cache-miss DB fetches are serialized under a dedicated <strong>canonical-cache lock</strong>, so there is
+exactly one <code>User</code> instance per account even under concurrent joins/logins.</li>
+</ul>
+<h3 id="database-migration-safety">🛑 Database Migration Safety</h3>
+<p>AuthCore migrates the <code>USERS</code> schema automatically at startup (dialect-aware <code>ALTER TABLE</code> for
+missing columns — SQLite <code>PRAGMA</code>, MySQL/PostgreSQL <code>information_schema</code>). If the migration
+<strong>fails</strong>:</p>
+<ul>
+<li><code>Database.migrationBlocked</code> is set to <code>true</code> and <strong>registration/login are suspended</strong> until
+the schema is fixed — AuthCore never writes to a half-migrated database.</li>
+<li><code>Database.printMigrationGuidance()</code> prints a <strong>clear banner</strong> with fix steps: back up + delete
+the DB file to let AuthCore recreate it, run the missing <code>ALTER TABLE</code> statements manually
+(shown in the log), or restore a backup from <code>config/authcore/backups/</code>.</li>
+<li>API lookups short-circuit to &quot;unknown account&quot; results while blocked, so no endpoint exposes
+schema errors; security-log/webhook alerts keep working.</li>
+</ul>
+<blockquote>
+<p>🎬 <strong>Scenario:</strong> <em>corrupt hand-edited schema</em> — an admin&#39;s manual column change breaks the
+migration; the server refuses new registrations, prints exact fix instructions, and only
+resumes after the admin repairs or restores the database.</p>
+</blockquote>
+<h2 id="session-protection">🔄 Session Protection</h2>
+<ul>
+<li><strong>IP binding</strong> — <code>session-from-same-ip-only</code> (default true): a resumed session is only
+accepted from the IP that originally logged in, protecting against session hijacking.</li>
+<li><strong>Timeout</strong> — sessions expire after <code>timeout-ms</code> (default 60 min); with
+<code>kick-after-session-timeout</code> the player is kicked on expiry.</li>
+<li><strong>Remote logout</strong> — <code>/account logout</code>, the web panel&#39;s <code>logout</code> action, and
+<code>AuthCoreApi.logout(UUID)</code> all end a session instantly (and propagate network-wide when
+Redis is enabled).</li>
+<li><strong>Duplicate session protection</strong> — <code>block-duplicate-session</code> prevents the same account from
+being authenticated from multiple locations at once.</li>
+<li><strong>Bedrock / proxy / VPN gating</strong> — <code>allow-bedrock-players</code>, <code>allow-proxy-users</code> can
+completely block untrusted client classes.</li>
+</ul>
+<h2 id="cross-server-security-event-bus">📡 Cross-Server Security Event Bus</h2>
+<p>When <code>database.redis.enabled</code> is on, every server in a network participates in a <strong>Redis
+pub/sub security event bus</strong> (channel <code>authcore:events</code>) — no extra configuration:</p>
+<ul>
+<li>Events: <code>login</code>, <code>logout</code>, <code>register</code>, <code>brute-force</code>, <code>account-locked</code>, <code>kick</code>, each
+carrying <code>{type, username, detail, server, ts}</code>.</li>
+<li><strong>Receivers act locally:</strong> the event is written to <code>security.log</code> with an <code>EVENT_BUS_*</code> tag,
+forwarded to the local Discord webhook as a &quot;Cross-Server Event&quot; embed, and executed locally
+(<code>kick</code> / <code>logout</code> events kick the matching player on that backend).</li>
+<li><strong>Attack propagation:</strong> a brute-force lock or admin kick on one backend takes effect on
+<strong>every</strong> backend immediately — there is no window where a locked/compromised account can
+hop to another server in the network. Events from the local server are ignored (no loops).</li>
+</ul>
+<h2 id="discord-link-codes">🔗 Discord Link Codes</h2>
+<p>Discord account linking (<code>/discord link</code>) uses short-lived, single-use codes:</p>
+<ul>
+<li>Codes are <strong>6 chars</strong> drawn from an unambiguous charset (<code>A–Z</code> minus <code>I/O</code>, <code>2–9</code>) via
+<code>SecureRandom</code> — no visually confusable characters.</li>
+<li>Stored in Redis (<code>authcore:discordlink:&lt;code&gt;</code>) with a <strong>10-minute TTL</strong> and <strong>consumed on
+first use</strong>, so a captured code cannot be replayed.</li>
+<li>The command requires a registered account with user permissions; code issuance is written to
+the security log (<code>DISCORD_LINK_CODE</code>), the completed link (<code>DISCORD_LINK</code>) and unlinks
+(<code>DISCORD_UNLINK</code>) are logged, and the Discord ↔ account mapping is published to Redis
+(<code>authcore:discord:&lt;discordId&gt;</code>, 30-day TTL).</li>
+<li>The <code>link</code> action is only exposed on the token-protected web panel API
+(<code>POST /api/action</code>), never in-game.</li>
+</ul>
+<h2 id="automated-test-suite">🧪 Automated Test Suite</h2>
+<p>Security is enforced by code, and that code is continuously verified: <strong><code>tools/security-tests/</code></strong>
+is a standalone suite (no Minecraft required) with <strong>57 checks</strong>, run with
+<code>tools/security-tests/run-tests.ps1</code> after a build. It covers password hashing round-trips for
+all 6 algorithms, unique per-hash salts, captcha lifecycle (generation, case-insensitive
+verification, single-use consumption, expiry), email recovery codes (validation, case handling,
+single-use), the rate limiter (window behavior, per-key isolation), proxy IP parsing (IPv4/IPv6,
+garbage rejection), device fingerprints and time formatting. It already caught and fixed a real
+vulnerability — the PBKDF2 server-thread hang (see <a href="#password-hashing">Password Hashing</a>) —
+and any regression in these paths fails the suite.</p>
+<h2 id="premium-api-outage-safety">☁️ Premium API Outage Safety</h2>
+<ul>
+<li><code>premium-api-strict = false</code> (default): when the Mojang session API is unreachable, premium
+checks <strong>degrade gracefully</strong> — no legitimate premium player is blocked.</li>
+<li><code>premium-api-strict = true</code> (legacy): the premium-name restriction is enforced even during an
+outage (riskier — use only if you understand the lockout implications).</li>
+<li><code>premium-auto-login</code> / <code>premium-auto-register</code> make hybrid online/offline servers seamless
+while <code>allow-online-name-by-offline</code> (default false) prevents username squatting by offline
+players.</li>
+</ul>
+<h2 id="account-enumeration-prevention">👤 Account Enumeration Prevention</h2>
+<ul>
+<li>Login and registration responses are deliberately uniform; the system does not reveal
+whether a name exists before authentication.</li>
+<li><code>block-duplicate-register</code> stops one account name being registered from multiple locations at
+once, and <code>look-up-by-username</code> can enforce globally unique names.</li>
+<li>Login history records every attempt (<code>LOGIN_HISTORY</code> table) so mass enumeration attempts are
+visible in the web panel and security log.</li>
+</ul>
+<h2 id="op-safety">👑 OP Safety</h2>
+<ul>
+<li><code>lobby.safe-operators</code> (default true): a player&#39;s OP status is <strong>temporarily removed</strong> while
+unauthenticated and restored only after a successful login (and only if they were originally
+OP). Combined with lobby restrictions, an unauthenticated player with a known UUID cannot
+execute operator commands.</li>
+<li>Admin commands require LuckPerms nodes (<code>authcore.admin.*</code>) or permission level 3, and the
+<code>commands</code> section lets you tune every node individually.</li>
+</ul>
+<h2 id="limbo-isolation">🏠 Limbo Isolation</h2>
+<p>Unauthenticated players are quarantined in the auth lobby:</p>
+<ul>
+<li>Movement, chat, commands, block/entity interaction, item use/drop/pickup and combat are
+disabled by default.</li>
+<li><code>force-adventure-mode</code>, <code>prevent-damage</code>, <code>prevent-status-effect</code>, <code>prevent-player-damage</code>
+and <code>allow-mob-damage = false</code> make lobby players effectively invulnerable and passive.</li>
+<li><code>invisible-unauthorized</code> hides them from authenticated players; <code>apply-blindness-effect</code>
+focuses them on the login prompt.</li>
+<li><code>max-lobby-users</code> (50) caps concurrent unauthenticated players, and <code>rate-limit</code> throttles
+connection floods.</li>
+</ul>
+<h2 id="ssrf--https-only-outbound">🌍 SSRF &amp; HTTPS-Only Outbound</h2>
+<ul>
+<li>Webhook and email endpoints accept only <code>https://</code> URLs in their documented configuration
+(Discord webhook, SMTP over STARTTLS/SSL).</li>
+<li>The web panel&#39;s optional HTTPS mode uses a self-signed certificate generated on first start
+with its SHA-256 fingerprint printed to the console, or a user-supplied PKCS12/JKS keystore.</li>
+<li>The panel binds to <code>127.0.0.1</code> by default, requires a bearer token on <strong>every</strong> request
+(including <code>/metrics</code>), sets <code>Cache-Control: no-store</code>, and supports a separate
+<strong>read-only token</strong> (<code>web-panel.readonly-token</code>) for viewers that must never run actions —
+read-only tokens get <code>403</code> on <code>POST /api/action</code>.</li>
+</ul>
+<h2 id="resource-safety">🧮 Resource Safety</h2>
+<ul>
+<li><strong>Lazy user loading (1.0.0)</strong> — the server <strong>no longer loads the full user table at startup</strong>.
+Users are fetched from the database on demand (join/login/whois) into a <strong>bounded LRU cache
+(20 000 entries max)</strong> with idle eviction; <strong>online users are never evicted</strong>. A 100k-user
+database therefore costs no more memory than the online player count — and <strong>nobody can DoS
+the server by registering 100k accounts</strong> just to inflate a startup load.</li>
+<li><strong>Database-backed admin queries</strong> — <code>list</code>, <code>whois</code>, <code>export</code> and the web panel player list
+run bounded, searchable SQL queries instead of iterating the cache, so even giant databases
+stay O(rows-returned).</li>
+<li><strong>Bounded caches</strong> — captcha entries (512), email recovery codes (256), rate-limiter
+windows (10 000), user cache (20 000) all purge expired entries automatically.</li>
+<li><strong>No netty blocking</strong> — all security checks are synchronous, in-memory, and O(1)-ish map
+operations; nothing blocks netty&#39;s event loop.</li>
+<li>The web panel runs on a <strong>daemon thread pool</strong> (<code>AuthCore-WebPanel</code>), never the server thread.</li>
+</ul>
+<h2 id="webhook--email-alerting">📣 Webhook &amp; Email Alerting</h2>
+<ul>
+<li><strong>Discord webhook</strong> (<code>session.security.webhook-url</code>) receives join, login, failed-login,
+lockout and suspicious-login events.</li>
+<li><strong>Extra webhooks</strong> (<code>session.security.extra-webhook-urls</code>, list) — Slack, Telegram or custom
+webhook URLs that receive the <strong>same</strong> events as the Discord webhook (multi-channel alerting).</li>
+<li><strong>Role-sync webhook</strong> (<code>session.security.role-sync-webhook-url</code>) — a <em>separate</em> webhook used
+only for registration announcements, typically consumed by a Discord bot that assigns roles;
+falls back to <code>webhook-url</code> when empty.</li>
+<li><strong>Email</strong> (<code>session.email</code>) sends login alerts for new IPs/countries and supports recovery
+codes for forgotten passwords via <code>/account recover</code> (6-digit, single-use, 15-minute TTL).
+⚠️ Completing a recovery also <strong>clears the account&#39;s 2FA (TOTP) secret</strong> — the player must
+re-setup 2FA, so a recovered account cannot be held hostage by a lost authenticator.</li>
+<li><strong>Security log file</strong> (<code>session.security.log-file</code>, default <code>security.log</code>) records every
+event with tags such as <code>WEB_KICK</code>, <code>PROXY_FORWARD</code>, <code>NICKNAME_INVALID</code>, <code>DB_EXPORT</code>,
+lockouts, and risk alerts.</li>
+<li><strong>Log rotation</strong> (<code>session.security.log-max-bytes</code>, default 5 MB) — when the security log
+exceeds the limit it rotates to <code>security.log.1</code> → <code>.2</code> → <code>.3</code> (oldest discarded), so the
+log can never fill the disk.</li>
+</ul>
+<hr>
+<h2 id="multi-version--build-compatibility">🔮 Multi-Version &amp; Build Compatibility</h2>
+<ul>
+<li><strong>Version-fragile mixins are <code>required:false</code></strong> — <code>ServerHandshakeNetworkHandlerMixin</code>,
+<code>ServerLoginNetworkHandlerMixin</code> and <code>ServerPlayNetworkHandlerChatMixin</code> are declared
+<code>required:false</code> in <code>authcore.server.mixins.json</code>. When a future Minecraft version changes a
+target signature, the mixin is <strong>skipped instead of crashing the server</strong>, and the rest of
+the mod&#39;s defenses (commands, hashing, rate limits, lobby restrictions) stay active.</li>
+<li><strong>Stonecraft/Stonecutter workspace, Mojang mappings everywhere</strong> — a single merged source
+tree (<code>src/main/java</code> + <code>src/main/resources</code>) is compiled per version-group × loader variant
+by the Stonecraft 1.10 + Stonecutter 0.9 workspace (<code>settings.gradle.kts</code>,
+<code>stonecutter.gradle.kts</code>, central <code>build.gradle.kts</code> Kotlin DSL, <code>versions/dependencies/*.properties</code>;
+variants <code>:1.18.2-fabric</code> / <code>:1.18.2-forge</code> / <code>:1.21.11-fabric</code> / <code>:1.21.11-forge</code> /
+<code>:1.21.11-neoforge</code> / <code>:26.2-fabric</code> / <code>:26.2-neoforge</code>, active <code>1.21.11-fabric</code>).
+Every group uses official (Mojang) mappings; 26.1-26.2 is additionally unobfuscated (Mojang names
+at runtime). Java toolchains follow the group: 17 (1.16–1.18), 21 (1.19–1.21), 25 (26.1-26.2).</li>
+<li><strong>Range jars</strong> — one jar per group × loader: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code>
+(built at 1.18.2, covers 1.16.0 – 1.18.2), <code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code>
+(built at 1.21.11, covers 1.19.0 – 1.21.11) and <code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code>
+(built at 26.2, covers 26.1 – 26.2).
+The legacy <code>authcore-classic</code>/<code>authcore-modern</code> split is gone.</li>
+<li><strong>Host-compatibility harness</strong> — <code>tools/host-tests/run-host-tests.ps1</code> boots every range jar
+on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 /
+26.2) in Docker containers, driven by the <code>versions.json</code> range-group matrix (options
+<code>-Groups</code>, <code>-Version</code>, <code>-Jar</code>, <code>-Smoke</code>, <code>-Build</code>, <code>-Parallel</code>, <code>-KeepReports</code> and more),
+with live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix
+passed on 2026-08-10.</li>
+<li><strong>Client companion (bundled)</strong> — every range jar ships <code>environment: &quot;*&quot;</code> with the client
+login-screen companion built in (1.20.2+ clients; older clients load safely and skip the
+screen). There is no separate build flag — the companion, server mod and the
+BungeeCord/Velocity proxy plugin all live in the same jar.</li>
+</ul>
+<hr>
+<h2 id="threat-model">🧨 Threat Model</h2>
+<table>
+<thead>
+<tr>
+<th>Threat</th>
+<th>Category</th>
+<th>Mitigation in AuthCore</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Broken Authentication (password guessing)</td>
+<td>OWASP A01 / A07</td>
+<td>Argon2id hashing, max attempts, cooldowns, progressive punishment, account locks, captcha</td>
+</tr>
+<tr>
+<td>Credential stuffing / bots</td>
+<td>OWASP A01 / Minecraft-specific</td>
+<td>Per-IP rate limits, <code>allow-proxy-users = false</code>, captcha, risk scoring</td>
+</tr>
+<tr>
+<td>Session hijacking / replay</td>
+<td>OWASP A07 / A02</td>
+<td>IP-bound sessions, timeout, remote logout, duplicate-session blocking</td>
+</tr>
+<tr>
+<td>Sensitive Data Exposure (password dumps)</td>
+<td>OWASP A02</td>
+<td>Memory-hard hashing with per-user salt; raw passwords never stored; <code>md5</code> disabled</td>
+</tr>
+<tr>
+<td>Injection (SQL / command)</td>
+<td>OWASP A03</td>
+<td>Parameterized queries (dialect-aware UPSERT), no string-built SQL from user input</td>
+</tr>
+<tr>
+<td>Security Misconfiguration (panel exposure)</td>
+<td>OWASP A05</td>
+<td>Web panel off by default, token required, 127.0.0.1 binding, HTTPS option</td>
+</tr>
+<tr>
+<td>Vulnerable/legacy components (weak hashes)</td>
+<td>OWASP A06</td>
+<td>Strong defaults (Argon2id); weak-algorithm risk warnings; migration columns auto-added</td>
+</tr>
+<tr>
+<td>Identification failures (premium impersonation)</td>
+<td>OWASP A07</td>
+<td>Premium API verification, <code>premium-api-strict</code> switch, risk-scored logins</td>
+</tr>
+<tr>
+<td>Logging &amp; monitoring gaps</td>
+<td>OWASP A09</td>
+<td>Security log file, Discord webhook, email alerts, LOGIN_HISTORY, web panel overview</td>
+</tr>
+<tr>
+<td>SSRF via webhook/panel config</td>
+<td>OWASP A10</td>
+<td>HTTPS-only outbound URLs; panel bound locally; token auth</td>
+</tr>
+<tr>
+<td>Account enumeration</td>
+<td>Minecraft-specific</td>
+<td>Uniform auth responses, blocked duplicate registrations, attempt history</td>
+</tr>
+<tr>
+<td>Username squatting / theft</td>
+<td>Minecraft-specific</td>
+<td><code>allow-online-name-by-offline = false</code>, <code>block-duplicate-register</code>, premium auto-register</td>
+</tr>
+<tr>
+<td>OP abuse pre-auth</td>
+<td>Minecraft-specific</td>
+<td><code>safe-operators</code>, permission-level gating of admin commands</td>
+</tr>
+<tr>
+<td>Combat logging</td>
+<td>Minecraft-specific</td>
+<td>Combat detection + optional <code>combat-log.kill-on-disconnect</code></td>
+</tr>
+<tr>
+<td>Lobby grief / free-roaming exploits</td>
+<td>Minecraft-specific</td>
+<td>Full lobby restriction matrix, adventure mode, damage prevention, invisibility</td>
+</tr>
+<tr>
+<td>Login flood / server overload</td>
+<td>Minecraft-specific</td>
+<td>Join rate limiting, <code>max-lobby-users</code>, bounded caches, no netty blocking</td>
+</tr>
+<tr>
+<td>IP spoofing via proxy payloads</td>
+<td>Minecraft-specific</td>
+<td>Forwarded-IP validation (<code>isValidIp</code>), config-gated parsing, Velocity shared secret</td>
+</tr>
+<tr>
+<td>Account sharing / trading</td>
+<td>Minecraft-specific</td>
+<td>Network device fingerprint (+15 risk, &quot;Possible Account Sharing&quot; alert), optional <code>block-on-new-country</code></td>
+</tr>
+<tr>
+<td>Targeted IP abuse</td>
+<td>Minecraft-specific</td>
+<td>IP allow/deny rules file (first-match-wins, default-allow, kick on join) + <strong>honeypot auto-bans</strong> (decoy port appends <code>deny</code> rules)</td>
+</tr>
+<tr>
+<td>Adaptive attackers learning block messages</td>
+<td>Minecraft-specific</td>
+<td>Shadow-ban mode: generic disconnect reason + silent webhook alerts</td>
+</tr>
+<tr>
+<td>Scripted auth-command spam</td>
+<td>Minecraft-specific</td>
+<td>Per-player command cooldowns on <code>/login</code> &amp; <code>/register</code></td>
+</tr>
+<tr>
+<td>Fast-rejoin bot patterns</td>
+<td>Minecraft-specific</td>
+<td><code>rate-limit.alert-on-fast-rejoin</code> webhook/security-log alert</td>
+</tr>
+<tr>
+<td>Password reuse / hash cycling</td>
+<td>OWASP A01</td>
+<td><code>password-rules.history-size</code> blocks reuse of the last N passwords</td>
+</tr>
+<tr>
+<td>DoS via huge user databases</td>
+<td>Minecraft-specific</td>
+<td><strong>Lazy user loading</strong> (bounded 20k LRU, online users never evicted) + database-backed admin/panel queries</td>
+</tr>
+<tr>
+<td>Race conditions on shared state</td>
+<td>OWASP A07</td>
+<td><code>volatile</code> config/messages/session fields, <code>synchronized</code> DB access, canonical cache under a lock</td>
+</tr>
+<tr>
+<td>Maintenance window exposure</td>
+<td>Minecraft-specific</td>
+<td><code>session.maintenance</code> blocks all joins with a custom kick message</td>
+</tr>
+<tr>
+<td>Lost authenticator lockout</td>
+<td>Minecraft-specific</td>
+<td><code>/account recover</code> clears the TOTP secret so 2FA can be re-setup</td>
+</tr>
+<tr>
+<td>Cross-server attack hopping</td>
+<td>Minecraft-specific</td>
+<td>Redis event bus: locks/kicks/brute-force propagate to every backend instantly</td>
+</tr>
+<tr>
+<td>Discord-link code theft / replay</td>
+<td>Minecraft-specific</td>
+<td>6-char <code>SecureRandom</code> codes, 10-min TTL, single-use consumption, token-protected <code>link</code> API</td>
+</tr>
+<tr>
+<td>Unauthorized panel viewing</td>
+<td>OWASP A05</td>
+<td><code>readonly-token</code>: view-only access; actions return 403 for read-only tokens</td>
+</tr>
+</tbody></table>
+<h3 id="proxy--forwarding">Proxy &amp; forwarding</h3>
+<ul>
+<li>Handshake forwarding payloads are validated (<code>ProxySupport.isValidIp</code> - IPv4/IPv6 with zone
+indexes) before any address rewrite; garbage handshake data is ignored.</li>
+<li>Velocity modern forwarding (<code>velocity:player_info</code>) is verified with <strong>HMAC-SHA256</strong> using
+the shared secret (<code>ProxySupport.verifyVelocityHmac</code> / <code>VelocitySupport.parsePlayerInfo</code>) -
+tampered or unauthenticated payloads are rejected.</li>
+<li>Web-panel tokens, captcha codes and email-recovery codes are compared in <strong>constant time</strong>
+(MessageDigest.isEqual); recovery codes are single-use with a 5-attempt cap and a 60s
+re-issue cooldown.</li>
+<li>All caches (users, GeoIP, premium lookups, rate limits, captcha, web-panel lockouts,
+proxy session cache) are <strong>bounded and self-pruning</strong> - no unbounded growth under attack.</li>
+</ul>
+<h3 id="proxy-side-full-auth">Proxy-side full auth</h3>
+<ul>
+<li>With <code>block-unauthenticated=true</code> the proxy plugin validates <code>authcore:session:&lt;uuid&gt;</code> in
+Redis BEFORE a player reaches any backend - unauthenticated players are disconnected at the
+proxy (BungeeCord <code>LoginEvent</code> / Velocity <code>LoginEvent</code>).</li>
+<li>The check is <strong>fail-open</strong>: Redis unreachable -&gt; connections allowed with a warning, so a
+Redis outage can never lock a network.</li>
+<li>Session keys are written by backends with <code>database.redis.enabled</code> and carry the configured
+TTL; the proxy&#39;s zero-dependency RESP client uses short timeouts (1.5s) so the login path
+is never stalled by a hung Redis.</li>
+</ul>
+
+    </article>
+  </main>
+</div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<footer>
+  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
+  <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
+</footer>
+<script>
+(function () {
+  // scroll progress
+  const bar = document.getElementById("progress");
+  const toTop = document.getElementById("toTop");
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+    toTop.classList.toggle("show", h.scrollTop > 400);
+  };
+  document.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  // mobile nav
+  const toggle = document.querySelector(".nav-toggle");
+  const nav = document.querySelector(".site-nav");
+  if (toggle && nav) {
+    toggle.addEventListener("click", () => {
+      const open = nav.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+  }
+
+  // copy buttons on code blocks
+  document.querySelectorAll("article pre").forEach((pre) => {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", async () => {
+      const text = pre.querySelector("code").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        btn.classList.add("done");
+      } catch {
+        btn.textContent = "Error";
+      }
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+    });
+    pre.appendChild(btn);
+  });
+
+  // scrollspy for the sidebar TOC
+  const links = document.querySelectorAll(".toc-item a");
+  if (links.length) {
+    const map = new Map();
+    links.forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const el = document.getElementById(id);
+      if (el) map.set(el, a);
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            links.forEach((l) => l.classList.remove("active"));
+            const a = map.get(e.target);
+            if (a) a.classList.add("active");
+          }
+        });
+      },
+      { rootMargin: "-90px 0px -70% 0px" },
+    );
+    map.forEach((_, el) => io.observe(el));
+  }
+})();
+</script>
+</body>
+</html>
