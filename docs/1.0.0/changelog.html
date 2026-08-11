@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -274,7 +277,7 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#100---2026-08-10">[1.0.0] - 2026-08-10</a></li><li class="toc-item toc-3"><a href="#modrinth-version-range-fix">Modrinth version range fix</a></li><li class="toc-item toc-3"><a href="#bot--backend-separation">Bot / backend separation</a></li><li class="toc-item toc-3"><a href="#cleanup">Cleanup</a></li><li class="toc-item toc-3"><a href="#multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader & multi-version workspace (Stonecutter / Stonecraft)</a></li><li class="toc-item toc-3"><a href="#security--anti-bypass">Security & anti-bypass</a></li><li class="toc-item toc-3"><a href="#tooling">Tooling</a></li><li class="toc-item toc-2"><a href="#100---2026-08-09">[1.0.0] - 2026-08-09</a></li><li class="toc-item toc-3"><a href="#universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</a></li><li class="toc-item toc-3"><a href="#performance-for-100k-users">Performance for 100k+ users</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">Race-condition hardening</a></li><li class="toc-item toc-3"><a href="#security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</a></li><li class="toc-item toc-3"><a href="#new-features">New features</a></li><li class="toc-item toc-3"><a href="#quality">Quality</a></li><li class="toc-item toc-2"><a href="#100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#100---2026-08-11">[1.0.0] - 2026-08-11</a></li><li class="toc-item toc-3"><a href="#universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</a></li><li class="toc-item toc-3"><a href="#multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader & multi-version workspace (Stonecutter / Stonecraft)</a></li><li class="toc-item toc-3"><a href="#modrinth-version-range-fix">Modrinth version range fix</a></li><li class="toc-item toc-3"><a href="#security--anti-bypass">Security & anti-bypass</a></li><li class="toc-item toc-3"><a href="#security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</a></li><li class="toc-item toc-3"><a href="#performance-for-100k-users">Performance for 100k+ users</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">Race-condition hardening</a></li><li class="toc-item toc-3"><a href="#new-features">New features</a></li><li class="toc-item toc-3"><a href="#quality">Quality</a></li><li class="toc-item toc-3"><a href="#bot--backend-separation">Bot / backend separation</a></li><li class="toc-item toc-3"><a href="#tooling">Tooling</a></li><li class="toc-item toc-3"><a href="#cleanup">Cleanup</a></li><li class="toc-item toc-2"><a href="#100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</a></li></ul>
   </aside>
   <main>
     <article>
@@ -282,71 +285,7 @@
 <p>All notable changes to AuthCore, from the first alpha to the current release.</p>
 <p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
-<h2 id="100---2026-08-10">[1.0.0] - 2026-08-10</h2>
-<h3 id="modrinth-version-range-fix">Modrinth version range fix</h3>
-<ul>
-<li>Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
-exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
-of the full grid:<ul>
-<li>Fabric (<code>fabric.mod.json</code>): <code>&gt;=1.16 &lt;=1.18.2</code> / <code>&gt;=1.19 &lt;=1.21.11</code> / <code>&gt;=26.1 &lt;=26.2</code>.</li>
-<li>Forge / NeoForge (<code>mods.toml</code> / <code>neoforge.mods.toml</code>): <code>[1.16,1.18.2]</code> / <code>[1.19,1.21.11]</code> /
-<code>[26.1,26.2]</code> (maven syntax).</li>
-</ul>
-</li>
-<li>Loader minimums are now the exact pins of the build target instead of <code>*</code> / <code>[1,)</code>:
-Fabric loader <code>&gt;=0.19.3</code>, FML <code>[40.3.12,)</code> / <code>[61.2.0,)</code>, NeoForge <code>[21.11.45,)</code> /
-<code>[26.2.0.57,)</code>.</li>
-<li>Root cause: the range placeholders never reached the built jars - <code>fabric.mod.json</code> shipped
-<code>&quot;minecraft&quot;: &quot;*&quot;</code> (Modrinth reads this as &quot;all versions&quot;) and <code>mods.toml</code> shipped only the
-single build target. All 7 jars were rebuilt and their metadata verified.</li>
-</ul>
-<h3 id="bot--backend-separation">Bot / backend separation</h3>
-<ul>
-<li>The Discord bot integration is now strictly backend-owned: the bot <strong>never touches the
-database</strong>. Every write is executed by the mod backend through the web panel API; the bot
-communicates over <strong>Redis</strong> (link codes <code>authcore:discordlink:*</code>, mapping
-<code>authcore:discord:*</code>, <code>authcore:events</code> pub/sub) plus the API. Docs (<code>API.md</code>,
-<code>WEBPANEL.md</code>) state the rule explicitly.</li>
-</ul>
-<h3 id="cleanup">Cleanup</h3>
-<ul>
-<li>Removed legacy / migration leftovers: <code>src/common/</code>, <code>src/client/</code>, <code>_migration/</code>,
-<code>postman/</code>, <code>release.sh</code>, <code>docs/migration.md</code>.</li>
-<li>Removed IDE artifacts (<code>.settings/</code>, <code>bin/</code>, <code>.classpath</code>, <code>.project</code>, <code>.factorypath</code>),
-stale <code>dist/</code> jars and the obsolete <code>authcore-26.x-*</code> jars.</li>
-<li>Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
-sections, corrected stale wording (&quot;26.0+&quot; → 26.1-26.2, Java 17/21/25, multi-loader
-tagline).</li>
-</ul>
-<h3 id="multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader &amp; multi-version workspace (Stonecutter / Stonecraft)</h3>
-<ul>
-<li>One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
-1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).</li>
-<li>Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
-26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.</li>
-</ul>
-<h3 id="security--anti-bypass">Security &amp; anti-bypass</h3>
-<ul>
-<li><strong>ClientGuard</strong>: behavioral profiles, 16 detection signals (ghost clients, missing
-client settings, packet/click/chat/payload floods, tab probing, fake companions,
-confusable names, concurrent logins), weighted risk score with a decision matrix.</li>
-<li><strong>Companion attestation</strong>: challenge-response HMAC, periodic re-challenges, session
-tokens (rotated on every login, hashed at rest) and token-based session resume.</li>
-<li><strong>MFA / 2FA</strong>: TOTP + single-use recovery codes + optional email OTP + MFA step-up
-for sensitive commands.</li>
-<li><strong>Network SSO</strong>: Redis-backed single sign-on across a server network (optional).</li>
-<li><strong>Error codes</strong>: console-only AC-... codes at every failure site, decodable by the
-author; no internals leak to clients.</li>
-</ul>
-<h3 id="tooling">Tooling</h3>
-<ul>
-<li>Host-compat harness: range/loader/version selection, forward-compat scan, live logs,
-parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.</li>
-<li>GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
-weekly compat scan that auto-releases new validated versions with changelog entries.</li>
-</ul>
-<hr>
-<h2 id="100---2026-08-09">[1.0.0] - 2026-08-09</h2>
+<h2 id="100---2026-08-11">[1.0.0] - 2026-08-11</h2>
 <h3 id="universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</h3>
 <ul>
 <li><strong>One source, every Minecraft version</strong> - the old per-version source sets are gone; version
@@ -374,8 +313,6 @@ effects (lost e.g. by milk) and teleports lobby players back when movement is di
 they drifted - fallbacks for environments where the version-specific mixins cannot apply.</li>
 <li><strong>Defense in depth</strong>: <code>/login</code> and <code>/register</code> re-verify their prerequisites at execution
 time, not only in the command <code>requires</code> predicate.</li>
-<li><strong>Migration guide</strong>: new <code>docs/migration.md</code> covers automatic config/messages/database/password
-migration from any previous version, what changed, and a manual checklist.</li>
 <li><strong>Release automation</strong>: tag-triggered GitHub workflow (<code>ci.yml</code> - the ONLY workflow now)
 builds the universal jar, extracts the changelog section for the tag and drafts a release
 with the jar attached.</li>
@@ -389,14 +326,56 @@ versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.10
 <li><strong>Interop channel</strong> authcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).</li>
 <li><strong>Separate database config</strong>: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.</li>
 <li><strong>Config per role</strong>: server = settings.conf, client = authcore-client.json, proxy = authcore-proxy.properties, database = database.conf.</li>
-<li><strong>Repository restructure</strong>: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.1-26.2 code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via <code>-Pmodern=true</code>.</li>
 <li><strong>26.1-26.2 support (real build)</strong>: Minecraft 26.0+ is <strong>unobfuscated</strong> (Mojang names at runtime,
-intermediary gone), so AuthCore now ships a <strong>second jar</strong> built from the Mojang-mapped
+intermediary gone), so AuthCore ships a <strong>second jar</strong> built from the Mojang-mapped
 source (<code>src/modern/java</code>, <code>-Pmodern=true</code>, loom 1.16.x, Java 25, no mappings):
 <code>authcore-modern-1.0.0.jar</code> for <strong>26.0+</strong> servers/clients. The classic universal jar covers
 <strong>1.16.0 - 1.21.11</strong>. Both jars carry the client login-screen companion (<code>environment &quot;*&quot;</code>),
 and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
 <code>docs/26x.md</code> for the migration/sync workflow.</li>
+</ul>
+<h3 id="multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader &amp; multi-version workspace (Stonecutter / Stonecraft)</h3>
+<ul>
+<li>One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
+1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).</li>
+<li>Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
+26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.</li>
+</ul>
+<h3 id="modrinth-version-range-fix">Modrinth version range fix</h3>
+<ul>
+<li>Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
+exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
+of the full grid:<ul>
+<li>Fabric (<code>fabric.mod.json</code>): <code>&gt;=1.16 &lt;=1.18.2</code> / <code>&gt;=1.19 &lt;=1.21.11</code> / <code>&gt;=26.1 &lt;=26.2</code>.</li>
+<li>Forge / NeoForge (<code>mods.toml</code> / <code>neoforge.mods.toml</code>): <code>[1.16,1.18.2]</code> / <code>[1.19,1.21.11]</code> /
+<code>[26.1,26.2]</code> (maven syntax).</li>
+</ul>
+</li>
+<li>Loader minimums are now the exact pins of the build target instead of <code>*</code> / <code>[1,)</code>:
+Fabric loader <code>&gt;=0.19.3</code>, FML <code>[40.3.12,)</code> / <code>[61.2.0,)</code>, NeoForge <code>[21.11.45,)</code> /
+<code>[26.2.0.57,)</code>.</li>
+<li>Root cause: the range placeholders never reached the built jars - <code>fabric.mod.json</code> shipped
+<code>&quot;minecraft&quot;: &quot;*&quot;</code> (Modrinth reads this as &quot;all versions&quot;) and <code>mods.toml</code> shipped only the
+single build target. All 7 jars were rebuilt and their metadata verified.</li>
+</ul>
+<h3 id="security--anti-bypass">Security &amp; anti-bypass</h3>
+<ul>
+<li><strong>ClientGuard</strong>: behavioral profiles, 16 detection signals (ghost clients, missing
+client settings, packet/click/chat/payload floods, tab probing, fake companions,
+confusable names, concurrent logins), weighted risk score with a decision matrix.</li>
+<li><strong>Companion attestation</strong>: challenge-response HMAC, periodic re-challenges, session
+tokens (rotated on every login, hashed at rest) and token-based session resume.</li>
+<li><strong>MFA / 2FA</strong>: TOTP + single-use recovery codes + optional email OTP + MFA step-up
+for sensitive commands.</li>
+<li><strong>Network SSO</strong>: Redis-backed single sign-on across a server network (optional).</li>
+<li><strong>Error codes</strong>: console-only AC-... codes at every failure site, decodable by the
+author; no internals leak to clients.</li>
+</ul>
+<h3 id="security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</h3>
+<ul>
+<li><strong>PBKDF2 DoS fixed</strong> - password4j&#39;s PBKDF2 <code>check()</code> could hang the server thread during
+login. PBKDF2 is now a self-contained JDK <code>SecretKeyFactory</code> implementation
+(<code>$pbkdf2-sha256$iter$salt$hash</code>, constant-time comparison).</li>
 </ul>
 <h3 id="performance-for-100k-users">Performance for 100k+ users</h3>
 <ul>
@@ -415,12 +394,6 @@ connection are now <code>volatile</code>.</li>
 <li>All database access is <code>synchronized</code> (single shared JDBC connection is never used
 concurrently).</li>
 <li>User cache-miss fetches are serialized under a dedicated lock.</li>
-</ul>
-<h3 id="security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</h3>
-<ul>
-<li><strong>PBKDF2 DoS fixed</strong> - password4j&#39;s PBKDF2 <code>check()</code> could hang the server thread during
-login. PBKDF2 is now a self-contained JDK <code>SecretKeyFactory</code> implementation
-(<code>$pbkdf2-sha256$iter$salt$hash</code>, constant-time comparison).</li>
 </ul>
 <h3 id="new-features">New features</h3>
 <ul>
@@ -452,6 +425,31 @@ round-trips, captcha lifecycle, email recovery, rate limiting, proxy parsing, de
 fingerprints. Run via <code>tools/security-tests/run-tests.ps1</code>.</li>
 <li>Access control validation pass: every command re-verified (player vs admin vs console),
 <code>/discord</code> guarded in lobby, read-only web token.</li>
+</ul>
+<h3 id="bot--backend-separation">Bot / backend separation</h3>
+<ul>
+<li>The Discord bot integration is now strictly backend-owned: the bot <strong>never touches the
+database</strong>. Every write is executed by the mod backend through the web panel API; the bot
+communicates over <strong>Redis</strong> (link codes <code>authcore:discordlink:*</code>, mapping
+<code>authcore:discord:*</code>, <code>authcore:events</code> pub/sub) plus the API. Docs (<code>API.md</code>,
+<code>WEBPANEL.md</code>) state the rule explicitly.</li>
+</ul>
+<h3 id="tooling">Tooling</h3>
+<ul>
+<li>Host-compat harness: range/loader/version selection, forward-compat scan, live logs,
+parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.</li>
+<li>GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
+weekly compat scan that auto-releases new validated versions with changelog entries.</li>
+</ul>
+<h3 id="cleanup">Cleanup</h3>
+<ul>
+<li>Removed legacy / migration leftovers: <code>src/common/</code>, <code>src/client/</code>, <code>_migration/</code>,
+<code>postman/</code>, <code>release.sh</code>, <code>docs/migration.md</code>.</li>
+<li>Removed IDE artifacts (<code>.settings/</code>, <code>bin/</code>, <code>.classpath</code>, <code>.project</code>, <code>.factorypath</code>),
+stale <code>dist/</code> jars and the obsolete <code>authcore-26.x-*</code> jars.</li>
+<li>Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
+sections, corrected stale wording (&quot;26.0+&quot; → 26.1-26.2, Java 17/21/25, multi-loader
+tagline).</li>
 </ul>
 <hr>
 <h2 id="100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</h2>
