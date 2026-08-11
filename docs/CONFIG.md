@@ -16,10 +16,10 @@ Defaults are the values shipped with a fresh install.
 
 > All paths below are relative to the `session` section unless stated otherwise.
 
-> 🎁 **Range jars** — AuthCore ships one Fabric jar per supported version range:
-> `authcore-1.16-1.18-fabric-<v>.jar` (1.16.0 – 1.18.2, built at 1.18.2),
-> `authcore-1.19-1.21-fabric-<v>.jar` (1.19.0 – 1.21.11, built at 1.21.11) and
-> `authcore-26.1-26.2-fabric-<v>.jar` (26.1 – 26.2, built at 26.2). Every jar runs standalone **and**
+> 🎁 **Range jars, every loader** — AuthCore ships one jar per supported version range **and
+> loader**: `authcore-1.16-1.18-{fabric,forge}-<v>.jar` (1.16.0 – 1.18.2, built at 1.18.2),
+> `authcore-1.19-1.21-{fabric,forge,neoforge}-<v>.jar` (1.19.0 – 1.21.11, built at 1.21.11) and
+> `authcore-26.1-26.2-{fabric,neoforge}-<v>.jar` (26.1 – 26.2, built at 26.2). Every jar runs standalone **and**
 > behind Velocity/BungeeCord. The same `settings.conf` works in both setups; proxy IP
 > forwarding is the only thing you toggle (`session.proxy-support`). The cross-server security
 > event bus and Discord link-code storage need **no new settings** — they activate

@@ -440,13 +440,15 @@ Every range jar ships `environment: "*"` with the client login-screen companion 
 ### 🔮 Multi-Version Workspace & Host-Compatibility Matrix
 
 - The **Stonecraft 1.10 + Stonecutter 0.9** workspace compiles one merged source tree
-  (`src/main/java`, Mojang mappings) per version-group variant (`:1.18.2-fabric`,
-  `:1.21.11-fabric`, `:26.2-fabric`; active `1.21.11-fabric`) into the three range jars
-  (`authcore-<range>-fabric-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
+  (`src/main/java`, Mojang mappings) per version-group × loader variant (`:1.18.2-fabric`,
+  `:1.18.2-forge`, `:1.21.11-fabric`, `:1.21.11-forge`, `:1.21.11-neoforge`,
+  `:26.2-fabric`, `:26.2-neoforge`; active `1.21.11-fabric`) into the seven range jars
+  (`authcore-<range>-<loader>-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
 - The host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots each range jar
   on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
   26.1.2 / 26.2 — with live log streaming and report pruning
-  (`reports/latest.md|html|json`). Full matrix: **8/8 PASS** (2026-08-10).
+  (`reports/latest.md|html|json`). Full matrix: **8/8 endpoints × 7/7 loader targets PASS**
+  (2026-08-10).
 
 ---
 

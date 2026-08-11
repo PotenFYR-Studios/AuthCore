@@ -24,7 +24,9 @@
 
 [![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://adoptium.net)
 [![Fabric](https://img.shields.io/badge/Fabric-Loader%20%2B%20API-blueviolet?style=for-the-badge&logo=fabric&logoColor=white)](https://fabricmc.net)
-[![Server](https://img.shields.io/badge/Server%20Compatible-Fabric%20%7C%20Velocity%20%7C%20BungeeCord-blueviolet?style=for-the-badge&logo=serverfault&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
+[![Forge](https://img.shields.io/badge/Forge-1.16%20%E2%80%93%201.21-orange?style=for-the-badge&logo=forge&logoColor=white)](https://files.minecraftforge.net)
+[![NeoForge](https://img.shields.io/badge/NeoForge-1.20.1%20%E2%80%93%2026.x-lightgrey?style=for-the-badge&logo=neoforge&logoColor=white)](https://neoforged.net)
+[![Server](https://img.shields.io/badge/Server%20Compatible-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity%20%7C%20BungeeCord-blueviolet?style=for-the-badge&logo=serverfault&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
 [![Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A?style=for-the-badge&logo=gradle&logoColor=white)](https://gradle.org)
 [![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore?style=for-the-badge&label=License&color=lightgrey)](https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE)
 
@@ -45,9 +47,10 @@
 
 ---
 
-> ✅ **One codebase, every Minecraft version** — **1.16.0 → 26.1-26.2**, on servers AND clients,
-> behind Velocity/BungeeCord or standalone, on **Fabric / Forge / NeoForge** (see
-> [🔮 Multi-Version](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version-compatibility)).
+> ✅ **One codebase, every Minecraft version & every loader** — **1.16.0 → 26.1-26.2**, on
+> servers AND clients, behind Velocity/BungeeCord or standalone, on **Fabric / Forge /
+> NeoForge** (see
+> [🔮 Multi-Version & Multi-Loader](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version--multi-loader-compatibility)).
 >
 > 🧭 **New here?** Read the [**Server Admin Guide**](docs/GUIDE.md) — jar selection, install,
 > every config option explained, how the auth flows work, commands and troubleshooting.
@@ -74,21 +77,27 @@
 | 🌍 | **7 built-in locales** + custom `messages-<lang>.conf` with completeness check |
 | ⚡ | **Lazy-loading for 100k+ users** — bounded caches, zero per-tick work, non-blocking I/O, ≤250 MB RAM profile |
 | 🖥️ | **Client login-screen companion** — bundled in every jar, auto-login after joining |
-| 🧩 | **One jar, three roles** — Fabric/Forge/NeoForge server mod + client companion + BungeeCord/Velocity plugin (auto-detected) |
-| 🔮 | **Future-proof** — reflection compat layer, version-stable mixins, honest 3-role CI |
+| 🧩 | **Multi-loader, one codebase** — Fabric / Forge / NeoForge server mods for every version range, 7 jars from a single source tree |
+| 🎯 | **One jar, three roles** — server mod + client companion + BungeeCord/Velocity plugin (auto-detected) |
+| 🔮 | **Future-proof** — reflection compat layer, version-stable mixins, honest 3-role × 3-loader CI |
 
 ---
 
 ## 📦 Which jar do I need?
 
 Each jar plays **all three roles** — server mod (Fabric/Forge/NeoForge), client companion,
-and a BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into):
+and a BungeeCord/Velocity proxy plugin (auto-detected by the loader you drop it into).
+Pick the jar matching your **Minecraft version range and loader**:
 
-| Jar | Minecraft | Java | Notes |
-|:----|:----------|:-----|:------|
-| `authcore-1.16-1.18-fabric-<v>.jar` / `-forge-` | **1.16.0 – 1.18.2** | 17 | Intermediary era |
-| `authcore-1.19-1.21-fabric-<v>.jar` / `-forge-` / `-neoforge-` | **1.19.0 – 1.21.11** | 21 | Intermediary era |
-| `authcore-26.1-26.2-fabric-<v>.jar` / `-neoforge-` | **26.1 – 26.2** | 25 | Unobfuscated era (Mojang names, no intermediary) |
+| Jar | Minecraft | Loader | Java | Notes |
+|:----|:----------|:-------|:-----|:------|
+| `authcore-1.16-1.18-fabric-<v>.jar` | **1.16.0 – 1.18.2** | Fabric | 17 | Intermediary era |
+| `authcore-1.16-1.18-forge-<v>.jar` | **1.16.0 – 1.18.2** | Forge | 17 | Intermediary era |
+| `authcore-1.19-1.21-fabric-<v>.jar` | **1.19.0 – 1.21.11** | Fabric | 21 | Intermediary era |
+| `authcore-1.19-1.21-forge-<v>.jar` | **1.19.0 – 1.21.11** | Forge | 21 | Intermediary era |
+| `authcore-1.19-1.21-neoforge-<v>.jar` | **1.19.0 – 1.21.11** | NeoForge | 21 | Intermediary era |
+| `authcore-26.1-26.2-fabric-<v>.jar` | **26.1 – 26.2** | Fabric | 25 | Unobfuscated era (Mojang names, no intermediary) |
+| `authcore-26.1-26.2-neoforge-<v>.jar` | **26.1 – 26.2** | NeoForge | 25 | Unobfuscated era (Mojang names, no intermediary) |
 
 Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
 longer exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
@@ -99,8 +108,8 @@ Details in [docs/26x.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs
 
 ## 🚀 Installation
 
-1. Install [Fabric Loader](https://fabricmc.net/use/) + [Fabric API](https://modrinth.com/mod/fabric-api) on your server.
-2. Grab the right jar from [Modrinth](https://modrinth.com/mod/authCore) or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases).
+1. Install your loader: **Fabric** (Loader + [Fabric API](https://modrinth.com/mod/fabric-api)), **Forge**, or **NeoForge**.
+2. Grab the right jar (version range × loader) from [Modrinth](https://modrinth.com/mod/authCore) or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases).
 3. Drop it into `mods/`, start the server — config is generated automatically in `config/authcore/`.
 
 **First join:** premium → auto-logged-in · offline → moved to the lobby → `/register <pw> <pw>` or
@@ -192,7 +201,8 @@ Custom locales: drop a `messages-<lang>.conf` into `config/authcore/` — missin
 
 ## 🔁 Proxy & Network (Velocity / BungeeCord)
 
-AuthCore runs on the **Fabric server** and supports every proxy setup properly:
+AuthCore runs on the **mod server — Fabric, Forge or NeoForge** — and supports every proxy
+setup properly:
 
 - **IP forwarding auto-detect** (`session.proxy-support.protocol = "auto"`) — BungeeCord and
   Velocity-legacy (`ip\0uuid\0properties`) parsed from the handshake; real client IP used for
@@ -245,26 +255,31 @@ web panel disabled (`session.web-panel.enabled = false` — the default).
 
 ---
 
-## 🔮 Multi-Version Compatibility
+## 🔮 Multi-Version & Multi-Loader Compatibility
 
-Three range jars from one codebase, verified by the host-test harness:
+Seven jars from one codebase — 3 version ranges × Fabric/Forge/NeoForge — verified by the
+host-test harness:
 
 | Jar | Versions | How |
 |:----|:---------|:----|
-| `authcore-1.16-1.18` | 1.16.0 – 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
-| `authcore-1.19-1.21` | 1.19.0 – 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
-| `authcore-26.1-26.2` | 26.1 – 26.2 | built @26.2 (unobfuscated, Mojang names) |
+| `authcore-1.16-1.18-{fabric,forge}` | 1.16.0 – 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
+| `authcore-1.19-1.21-{fabric,forge,neoforge}` | 1.19.0 – 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
+| `authcore-26.1-26.2-{fabric,neoforge}` | 26.1 – 26.2 | built @26.2 (unobfuscated, Mojang names) |
 
+- **Multi-loader is the core of the project** — **Fabric, Forge and NeoForge** variants share
+  the same tree (loader constants `fabric`/`forge`/`neoforge`/`forgeLike`), with thin
+  per-loader entrypoints (`FabricEntry`, `ForgeEntry`/`ForgeEntryModern`, `NeoForgeEntry`)
+  and per-loader metadata (`fabric.mod.json`, `mods.toml`, `neoforge.mods.toml`). Adding or
+  bumping a loader is one line in the Stonecutter matrix, not a port.
 - **Multi-version workspace (Stonecutter + Stonecraft)** — one Mojang-mapped source tree in
   [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
   `/*? if ... {*/` version/loader conditionals; per-version dependencies in `versions/dependencies/`.
-- **Multi-loader ready** — Fabric now, Forge/NeoForge variants share the same tree
-  (loader constants `fabric`/`forge`/`neoforge`/`forgeLike`).
 - **Merged client + server** — one jar is server mod, client companion and
   BungeeCord/Velocity proxy plugin at the same time.
 - **Host-test harness** ([`tools/host-tests`](https://github.com/DawnOfDedSec/AuthCore/tree/main/tools/host-tests)):
   boots every range jar inside Docker on every range endpoint (1.16.5 … 26.2) and runs the
-  functional checks (mod load, mixins, commands, web panel, honeypot, DB).
+  functional checks (mod load, mixins, commands, web panel, honeypot, DB) — **8/8 endpoints ×
+  7/7 loader targets PASS**.
 - **CI** ([one workflow](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)): builds all variants, runs the security checks, publishes to
   GitHub Releases on `v*` tags.
 - Untested versions get a **startup warning banner** (never refuse to load) — silence with
@@ -283,6 +298,9 @@ resolver downloads 17/21/25 automatically.
 
 # single variant:
 ./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
+./gradlew :1.18.2-forge:build      # -> versions/1.18.2-forge/build/libs/authcore-1.16-1.18-forge-1.0.0.jar
+./gradlew :1.21.11-neoforge:build  # -> versions/1.21.11-neoforge/build/libs/authcore-1.19-1.21-neoforge-1.0.0.jar
+./gradlew :26.2-fabric:build       # -> versions/26.2-fabric/build/libs/authcore-26.1-26.2-fabric-1.0.0.jar
 ./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
 ```
 
@@ -354,13 +372,17 @@ normal chat commands.
   identity forwarding (HMAC), interop channel with other auth mods, **full proxy-side auth**
   (block unauthenticated players before any backend, Redis session validation, fail-open)
 - 🖥️ **Client companion** — login screen + auto-login, bundled in every jar
+- 🧩 **Multi-loader** — Fabric / Forge / NeoForge server mods for every version range
+  (7 jars from one source tree, thin per-loader entrypoints, per-loader metadata)
 - 🔮 **26.1-26.2 support** — Mojang-named modern jar, unobfuscated era
-- 🧪 **Security suite** — 73 automated checks, honest 3-role CI (server/client/proxy)
+- 🧪 **Security suite** — 73 automated checks, honest 3-role × 3-loader CI
 
 **🔜 Planned:**
 
-- **NeoForge / Forge port** — the security core is loader-independent; the compat layer
-  already isolates version-specific APIs
+- **Loader parity finishing touches** — block/item-use restrictions and the Velocity
+  modern-identity receiver are Fabric-only today; Forge/NeoForge rely on the loader-neutral
+  mixins (lobby restrictions, handshake forwarding, chat). Porting the remaining hooks to
+  the Forge/NeoForge event buses is the top priority.
 - **26.1-26.2 snapshot compile checks** — ✅ already live: the CI runs a **daily snapshot job**
   that compiles the modern source against the newest 26.1-26.2 release the moment Fabric
   publishes mappings for it (fails visibly when a new release breaks)

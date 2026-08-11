@@ -12,7 +12,8 @@
 
 ## 📖 Overview
 
-AuthCore exposes a public, static developer API for other Fabric mods and server scripts:
+AuthCore exposes a public, static developer API for other mods (Fabric / Forge / NeoForge)
+and server scripts:
 
 > **`net.ded3ec.api.AuthCoreApi`**
 
@@ -176,12 +177,12 @@ login** until the schema is fixed:
 
 ### 🔄 Version Compatibility
 
-- AuthCore covers **Minecraft 1.16.0 – 26.1-26.2** with **three jars** built from one source tree
-  (Mojang mappings, Stonecutter conditionals): `authcore-1.16-1.18-fabric-<v>.jar` (built at
-  1.18.2, Java 17), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11, Java 21) and
-  `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, Java 25). Install the jar matching your
-  server version. Every jar runs standalone or behind Velocity/BungeeCord (it doubles as a
-  proxy plugin).
+- AuthCore covers **Minecraft 1.16.0 – 26.1-26.2** on **Fabric / Forge / NeoForge** with
+  **seven jars** (3 version ranges × loaders) built from one source tree (Mojang mappings,
+  Stonecutter conditionals): fabric/forge jars built at 1.18.2 (Java 17) and 1.21.11
+  (Java 21), a neoforge jar built at 1.21.11 (Java 21), and fabric/neoforge jars built at
+  26.2 (Java 25). Install the jar matching your server version **and loader**. Every jar runs
+  standalone or behind Velocity/BungeeCord (it doubles as a proxy plugin).
 - **Client companion (included)** — the client login-screen companion (a pre-connect
   username/password screen with auto-login via `/login` / `/register`) is compiled into
   **every** jar (`environment: "*"`). Version-specific client code is gated with Stonecutter
@@ -423,12 +424,13 @@ when a backend runs a different authentication mod.
 
 | Channel | Payload (ASCII) | When |
 |:--------|:----------------|:-----|
-| `authcore:auth` (Fabric custom) | `AUTH_CHANGED|<uuid>|<username>|<1\|0>` | join / login / register / logout / kick / unregister |
+| `authcore:auth` (loader-neutral custom payload) | `AUTH_CHANGED|<uuid>|<username>|<1\|0>` | join / login / register / logout / kick / unregister |
 | `bungeecord:main` subchannel `AuthCore` | `AuthCore\0AUTH_CHANGED|<uuid>|<username>|<1\|0>` | same |
 
 Config: `session.interop { enabled, channel, bungee-channel }` (default on).
 
 **Velocity modern forwarding** - with `session.proxy-support.velocity-secret` set, AuthCore
-registers a `ServerLoginNetworking` receiver for `velocity:player_info`, verifies the
-HMAC-SHA256 and applies the real UUID/username to the login profile. `Networking.VelocitySupport`
-(`parsePlayerInfo`, `verifyVelocityHmac`) is exposed for integration code.
+registers a `ServerLoginNetworking` receiver (Fabric; fabric-api, reflectively) for
+`velocity:player_info`, verifies the HMAC-SHA256 and applies the real UUID/username to the
+login profile. `Networking.VelocitySupport` (`parsePlayerInfo`, `verifyVelocityHmac`) is
+exposed for integration code.

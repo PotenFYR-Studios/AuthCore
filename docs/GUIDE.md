@@ -27,6 +27,10 @@ AuthCore ships **range jars** — one jar covers a whole Minecraft version range
 The **same jar is your server mod, your client companion and your BungeeCord/Velocity proxy
 plugin** — install it once wherever AuthCore should run.
 
+> 💡 **Which loader?** Use the loader your server already runs — every range ships all
+> supported loaders. Fabric needs **Fabric API** installed alongside the jar; Forge and
+> NeoForge need nothing extra. All three drop the jar into `mods/`.
+
 ## 2. Install
 
 1. Download the jar that matches your **Minecraft version and loader** (Fabric/Forge/NeoForge).
@@ -260,7 +264,7 @@ Player commands: `/register`, `/login`, `/account set-password`, `/account unreg
 | 2FA prompt but no TOTP setup link | 2FA secret is generated on first lobby join — check `Lobby.java` flow; re-register or reset the secret |
 | Sessions always ask for password | `enable-sessions` off, or `session-from-same-ip-only` with a changing IP |
 | Web panel unreachable | Panel binds 127.0.0.1 by default — connect from the same machine or tunnel |
-| "Mod requires fabric-api" | Install Fabric API alongside the jar (fabric loader only) |
+| "Mod requires fabric-api" | Install Fabric API alongside the jar (Fabric loader only — Forge/NeoForge need nothing extra) |
 | Console shows `AC-7-3-1-...` | Database connection failure (module 7 = DATABASE, kind 3 = connection) — send the code to the author |
 | Server won't start on a newer version | Use the matching range jar; a newer stable may not be covered yet — the weekly compat scan catches these automatically |
 
