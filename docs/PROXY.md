@@ -14,9 +14,9 @@ AuthCore works behind network proxies and uses the forwarded real client IP for 
 session IP binding, rate limiting and login intelligence. This document explains the forwarding
 format, the configuration, how it works server-side, and how to set up BungeeCord and Velocity.
 
-> 🎁 **One jar, both worlds.** Each **range jar** (`authcore-1.16-1.18-fabric-<v>.jar` for
-> 1.16.0 – 1.18.2, `authcore-1.19-1.21-fabric-<v>.jar` for 1.19.0 – 1.21.11,
-> `authcore-26.1-26.2-fabric-<v>.jar` for 26.1 – 26.2) runs **standalone and behind a proxy** — the
+> 🎁 **One jar, both worlds.** Every **range jar** — for any loader (`authcore-<range>-fabric`,
+> `-forge` or `-neoforge`, see the jar table in the [README](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md))
+> — runs **standalone and behind a proxy**: the
 > BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
 > build. Proxy behavior is entirely configuration-driven via `session.proxy-support`; with it
 > disabled, AuthCore is a plain server-side mod, and nothing else changes.
@@ -195,17 +195,18 @@ forwarding format is identical for BungeeCord and Velocity-legacy, so `auto` wor
 
 ---
 
-## 🚀 Velocity Modern Identity Forwarding (Fabric server)
+## 🚀 Velocity Modern Identity Forwarding (mod server, all loaders)
 
 With `player-info-forwarding-mode = "modern"` in `velocity.toml`, the proxy forwards the REAL
 client identity (UUID + username, HMAC-signed) in a login-phase plugin message
-(`velocity:player_info`). AuthCore handles this on the FABRIC SERVER:
+(`velocity:player_info`). AuthCore handles this on the mod server:
 
 1. Set `session.proxy-support.velocity-secret` to the same `forwarding-secret` from
    `velocity.toml` (no secret configured -> forwarding is skipped safely).
-2. AuthCore registers a `ServerLoginNetworking` receiver (fabric-api, reflectively - missing
-   APIs are skipped) that verifies the HMAC-SHA256 and applies the forwarded UUID/username to
-   the login profile - players keep their real identity instead of the offline UUID.
+2. AuthCore registers a login-phase receiver (fabric-api `ServerLoginNetworking` on Fabric,
+   reflectively - missing APIs are skipped) that verifies the HMAC-SHA256 and applies the
+   forwarded UUID/username to the login profile - players keep their real identity instead of
+   the offline UUID.
 
 ```hocon
 session {
@@ -220,6 +221,10 @@ session {
 > ⚠️ Velocity MODERN forwards identity only - NOT the client IP. If you need the real IP for
 > GeoIP / login intelligence / IP-bound sessions, use **legacy** mode (the IP travels in the
 > handshake and is parsed automatically with `protocol = "auto"`).
+>
+> ℹ️ The login-phase receiver is registered on **Fabric** today (fabric-api, reflectively);
+> on Forge/NeoForge it is skipped gracefully — use **legacy** forwarding
+> (`protocol = "auto"`, works on every loader) there.
 
 ---
 
@@ -233,15 +238,16 @@ can react (or so the admin can mix and match). `session.interop` (default on):
 session {
   interop {
     enabled = true
-    channel = "authcore:auth"   # custom Fabric channel - other mods can listen
+    channel = "authcore:auth"   # custom plugin-message channel - other mods can listen
     bungee-channel = true       # also broadcast on bungeecord:main (subchannel "AuthCore")
   }
 }
 ```
 
 Broadcasts happen on join/login/register/logout/kick/unregister:
-`AUTH_CHANGED|<uuid>|<username>|<1|0>` (ASCII). Other Fabric mods listen on `authcore:auth`;
-proxy-side plugins listen on `bungeecord:main` (`AuthCore` subchannel).
+`AUTH_CHANGED|<uuid>|<username>|<1|0>` (ASCII). Other mods listen on `authcore:auth`
+(loader-neutral custom payload via `minecraft:register`); proxy-side plugins listen on
+`bungeecord:main` (`AuthCore` subchannel).
 
 ---
 
@@ -249,7 +255,7 @@ proxy-side plugins listen on `bungeecord:main` (`AuthCore` subchannel).
 
 | Role | File |
 |:-----|:-----|
-| Server (Fabric, behind the proxy) | `config/authcore/settings.conf` |
+| Server (Fabric / Forge / NeoForge, behind the proxy) | `config/authcore/settings.conf` |
 | Client companion | `config/authcore-client.json` |
 | Database (optional override) | `config/authcore/database.conf` (only the `database { }` block, merged over settings.conf) |
 
@@ -318,13 +324,15 @@ intercepts connections before the server handshake.
 ### 🔮 Multi-Version Workspace & Host-Compatibility Matrix
 
 - The **Stonecraft 1.10 + Stonecutter 0.9** workspace compiles one merged source tree
-  (`src/main/java`, Mojang mappings) per version-group variant (`:1.18.2-fabric`,
-  `:1.21.11-fabric`, `:26.2-fabric`; active `1.21.11-fabric`) into the three range jars
-  (`authcore-<range>-fabric-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
+  (`src/main/java`, Mojang mappings) per version-group × loader variant (`:1.18.2-fabric`,
+  `:1.18.2-forge`, `:1.21.11-fabric`, `:1.21.11-forge`, `:1.21.11-neoforge`,
+  `:26.2-fabric`, `:26.2-neoforge`; active `1.21.11-fabric`) into the seven range jars
+  (`authcore-<range>-<loader>-<v>.jar`); Java toolchains are 17 / 21 / 25 per group.
 - The host-compatibility harness (`tools/host-tests/run-host-tests.ps1`) boots each range jar
   on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
   26.1.2 / 26.2 — with live log streaming and report pruning
-  (`reports/latest.md|html|json`). Full matrix: **8/8 PASS** (2026-08-10).
+  (`reports/latest.md|html|json`). Full matrix: **8/8 endpoints × 7/7 loader targets PASS**
+  (2026-08-10).
 
 ---
 

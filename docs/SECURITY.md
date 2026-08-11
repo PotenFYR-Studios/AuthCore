@@ -343,12 +343,14 @@ Unauthenticated players are quarantined in the auth lobby:
   tree (`src/main/java` + `src/main/resources`) is compiled per version-group × loader variant
   by the Stonecraft 1.10 + Stonecutter 0.9 workspace (`settings.gradle.kts`,
   `stonecutter.gradle.kts`, central `build.gradle.kts` Kotlin DSL, `versions/dependencies/*.properties`;
-  variants `:1.18.2-fabric` / `:1.21.11-fabric` / `:26.2-fabric`, active `1.21.11-fabric`).
+  variants `:1.18.2-fabric` / `:1.18.2-forge` / `:1.21.11-fabric` / `:1.21.11-forge` /
+  `:1.21.11-neoforge` / `:26.2-fabric` / `:26.2-neoforge`, active `1.21.11-fabric`).
   Every group uses official (Mojang) mappings; 26.1-26.2 is additionally unobfuscated (Mojang names
   at runtime). Java toolchains follow the group: 17 (1.16–1.18), 21 (1.19–1.21), 25 (26.1-26.2).
-- **Range jars** — one Fabric jar per group: `authcore-1.16-1.18-fabric-<v>.jar` (built at
-  1.18.2, covers 1.16.0 – 1.18.2), `authcore-1.19-1.21-fabric-<v>.jar` (built at 1.21.11,
-  covers 1.19.0 – 1.21.11) and `authcore-26.1-26.2-fabric-<v>.jar` (built at 26.2, covers 26.1 – 26.2).
+- **Range jars** — one jar per group × loader: `authcore-1.16-1.18-{fabric,forge}-<v>.jar`
+  (built at 1.18.2, covers 1.16.0 – 1.18.2), `authcore-1.19-1.21-{fabric,forge,neoforge}-<v>.jar`
+  (built at 1.21.11, covers 1.19.0 – 1.21.11) and `authcore-26.1-26.2-{fabric,neoforge}-<v>.jar`
+  (built at 26.2, covers 26.1 – 26.2).
   The legacy `authcore-classic`/`authcore-modern` split is gone.
 - **Host-compatibility harness** — `tools/host-tests/run-host-tests.ps1` boots every range jar
   on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11, 26.1.2 /

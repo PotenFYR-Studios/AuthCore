@@ -12,8 +12,8 @@ AuthCore is a universal authentication framework for Minecraft servers:
 
 - **One jar** is simultaneously a server mod, a client companion mod and a
   BungeeCord/Velocity proxy plugin (the loader picks the right entrypoint at runtime).
-- **One codebase** targets Minecraft **1.16.0 – 26.1-26.2** across loaders (**Fabric** today,
-  **Forge / NeoForge** in progress).
+- **One codebase** targets Minecraft **1.16.0 – 26.1-26.2** across **all three loaders —
+  Fabric, Forge and NeoForge** (7 released jars: 3 version ranges × loaders).
 - Compatibility is not assumed — it is **verified by the host-test harness** on every
   version-group endpoint inside Docker (see §6).
 
@@ -47,9 +47,9 @@ Every released jar is one **variant** (a generated Gradle project in `versions/<
 `stonecutter.shared` in `settings.gradle.kts` declares the matrix:
 
 ```kotlin
-mc("1.18.2", "fabric")     // G1 jar: authcore-1.16-1.18-fabric-<v>.jar
-mc("1.21.11", "fabric")    // G2 jar: authcore-1.19-1.21-fabric-<v>.jar
-mc("26.2", "fabric")       // G3 jar: authcore-26.1-26.2-fabric-<v>.jar
+mc("1.18.2", "fabric", "forge")              // G1 jars: authcore-1.16-1.18-{fabric,forge}-<v>.jar
+mc("1.21.11", "fabric", "forge", "neoforge") // G2 jars: authcore-1.19-1.21-{fabric,forge,neoforge}-<v>.jar
+mc("26.2", "fabric", "neoforge")             // G3 jars: authcore-26.1-26.2-{fabric,neoforge}-<v>.jar
 ```
 
 `vcsVersion = "1.21.11-fabric"` is the **active** variant: the raw template sources are
@@ -78,19 +78,23 @@ Notes:
 ## 3. Source architecture
 
 ```
-src/main/java/net/ded3ec/
-├── AuthCoreServer.java     # main entrypoint (DedicatedServerModInitializer) + startup banner
-├── api/                    # AuthCoreApi - public API for other mods
-├── client/                 # client companion: custom login screen (LoginScreen) + ClientAuthCore
-├── command/                # /authcore command trees (Admin, Account, Login, Register, Discord)
-├── compat/                 # Compat - reflection bridges for version-drifting APIs
-├── events/                 # block/item/entity interaction + player join handlers
-├── mixin/                  # server mixins (+ mixin/client for the companion)
-├── models/                 # Config, Lobby, Messages, User (session state)
-├── network/                # web panel, interop channel, Mojang/GeoIP lookups, Redis
-├── proxy/                  # BungeeCord / Velocity plugin entrypoints (same jar!)
-├── security/               # Security, Honeypot, RateLimiter, SecurityLog, Backups, ...
-└── util/                   # Database, HoconConf, Registry, FabricHooks, Logger, ...
+src/
+├── fabric/                  # fabric entrypoint only: FabricEntry.java
+├── neoforge/                # neoforge entrypoint only: NeoForgeEntry.java
+└── main/java/net/ded3ec/
+    ├── AuthCoreServer.java  # main entrypoint (loader-neutral start()) + startup banner
+    ├── api/                 # AuthCoreApi - public API for other mods
+    ├── client/              # client companion: custom login screen (LoginScreen) + ClientAuthCore
+    ├── command/             # /authcore command trees (Admin, Account, Login, Register, Discord)
+    ├── compat/              # Compat - reflection bridges for version-drifting APIs
+    ├── entrypoint/          # ForgeEntry (+ ForgeEntryModern) - forge @Mod classes
+    ├── events/              # block/item/entity interaction + player join handlers
+    ├── mixin/               # server mixins (+ mixin/client for the companion)
+    ├── models/              # Config, Lobby, Messages, User (session state)
+    ├── network/             # web panel, interop channel, Mojang/GeoIP lookups, Redis
+    ├── proxy/               # BungeeCord / Velocity plugin entrypoints (same jar!)
+    ├── security/            # Security, Honeypot, RateLimiter, SecurityLog, Backups, ...
+    └── util/                # Database, HoconConf, Registry, FabricHooks, Logger, ...
 src/main/resources/
 ├── fabric.mod.json         # fabric metadata (placeholders expanded at build time)
 ├── META-INF/mods.toml              # forge metadata (excluded from fabric jars)
@@ -176,18 +180,26 @@ inside JSON metadata** — Loom parses `fabric.mod.json` at configure time; use 
 
 - Loader constants are registered automatically by Stonecraft — usable as
   `/*? if fabric {*/` in code and as `mod.isFabric` etc. in the build script.
-- Each loader has its own entrypoint:
-  - Fabric: `net.ded3ec.AuthCoreServer` (`DedicatedServerModInitializer`), listed in
-    `fabric.mod.json`.
-  - Forge: `@Mod` class in `src/main/java/net/ded3ec/forge/…`, listed in
-    `META-INF/mods.toml`.
-  - NeoForge: `@Mod` class listed in `META-INF/neoforge.mods.toml`.
+- Each loader has its own thin entrypoint (delegating to the loader-neutral
+  `net.ded3ec.AuthCoreServer.start()`):
+  - Fabric: `src/fabric/java/net/ded3ec/entrypoint/FabricEntry.java`
+    (`DedicatedServerModInitializer`), listed in `fabric.mod.json`.
+  - Forge: `src/main/java/net/ded3ec/entrypoint/ForgeEntry.java` (1.16 – 1.20, classic
+    `EVENT_BUS.register` event bus) + `ForgeEntryModern.java` (1.21+, record-based event bus),
+    `@Mod` classes listed in `META-INF/mods.toml`.
+  - NeoForge: `src/neoforge/java/net/ded3ec/entrypoint/NeoForgeEntry.java` (1.20.1 – 26.x),
+    `@Mod` class listed in `META-INF/neoforge.mods.toml`.
 - Mixin configs are declared per loader in the respective metadata
   (`mixins` in fabric.mod.json, `MixinConfigs` entry in the forge/neoforge toml).
 - Loader-specific logic (e.g. fabric-api event registration in `Registry`/`FabricHooks`)
-  is gated with `/*? if fabric {*/`; forge-like loaders use their own event buses.
+  is gated with `/*? if fabric {*/`; forge-like loaders register the equivalents in their
+  entrypoints on the Forge/NeoForge event buses (commands, join/leave, server tick).
 - The proxy plugin side (`proxy/` package) is loader-agnostic — the same jar doubles as a
   Bungee/Velocity plugin via `bungee.yml` + `velocity-plugin.json`.
+- **Known loader gaps (documented honestly):** block/item-use interaction restrictions and
+  the Velocity modern-identity receiver are Fabric-only today (see `NeoForgeEntry`); the
+  loader-neutral mixins already cover lobby restrictions, handshake forwarding and chat on
+  every loader.
 
 Adding a loader for a group = add the loader to `mc(...)` in `settings.gradle.kts`,
 provide `versions/dependencies/<mc>.properties` pins, add the loader metadata + entrypoint,
