@@ -35,8 +35,11 @@
 > NeoForge** (see
 > [🔮 Multi-Version & Multi-Loader](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version--multi-loader-compatibility)).
 >
-> 🧭 **New here?** Read the [**Server Admin Guide**](docs/GUIDE.md) — jar selection, install,
-> every config option explained, how the auth flows work, commands and troubleshooting.
+> 🧭 **New here?** Start with the [**Server Admin Guide**](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/guide.html) — jar selection,
+> install, config walkthrough, auth flows, commands and troubleshooting, plus a **learning
+> path** that maps every topic to the deeper docs (CONFIG / PROXY / WEBPANEL / SECURITY /
+> DEVELOPMENT) so you can go from zero to expert step by step. All docs are also hosted as a
+> styled site: [authcore.potenfyr.in](https://authcore.potenfyr.in).
 
 ---
 
@@ -44,7 +47,7 @@
 
 | | |
 |:--|:--|
-| 📖 | **Newbie-friendly setup** — runs out of the box (SQLite default), every option optional ([guide](docs/GUIDE.md)) |
+| 📖 | **Newbie-friendly setup** — runs out of the box (SQLite default), every option optional ([guide](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/guide.html)) |
 | 🔑 | **Premium auto-login** — Mojang API outage-proof detection, cracked fallback |
 | 🔐 | **2FA / MFA** — TOTP authenticator codes, single-use recovery codes, email OTP, MFA step-up for sensitive actions |
 | 🕸️ | **Network SSO** — Redis-backed single sign-on across your server network |
@@ -85,7 +88,7 @@ Pick the jar matching your **Minecraft version range and loader**:
 Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
 longer exists there — see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
 Each jar is booted on **every version of its range** by the host-test harness before release.
-Details in [docs/26x.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md).
+Details in [26.x builds](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/26x.html).
 
 ---
 
@@ -165,7 +168,7 @@ session {
 }
 ```
 
-📖 **Every option (~180 settings), default and use-case:** [docs/CONFIG.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/CONFIG.md)
+📖 **Every option (~180 settings), default and use-case:** [Configuration Reference](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/config.html)
 
 ---
 
@@ -198,7 +201,7 @@ setup properly:
 - **Separate config per role** — server `settings.conf`, client `authcore-client.json`,
   optional `database.conf` override (credentials outside the main config); Redis config sync
   distributes network-wide settings
-- 📖 Full guide: [docs/PROXY.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
+- 📖 Full guide: [Proxy Support](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/proxy.html)
 
 ---
 
@@ -289,7 +292,7 @@ resolver downloads 17/21/25 automatically.
 
 Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
 host-test harness (`tools/host-tests`) verifies every jar on every version of its range —
-see [docs/DEVELOPMENT.md](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/DEVELOPMENT.md).
+see [Development & Architecture](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/development.html).
 
 ---
 
@@ -310,15 +313,15 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 
 | Doc | What's inside |
 |:----|:--------------|
-| [🧭 Server Admin Guide](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/GUIDE.md) | Newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting |
-| [📖 Configuration](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/CONFIG.md) | Every option, default and use-case |
-| [🔌 Developer API](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/API.md) | `AuthCoreApi`, database schema, integration guide |
-| [⚙️ Development & Architecture](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/DEVELOPMENT.md) | Build system, multi-version/multi-loader management, testing |
-| [🌐 Web Panel](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/WEBPANEL.md) | HTTP/HTTPS setup, REST reference, curl examples |
-| [🔁 Proxy Support](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md) | Velocity / BungeeCord forwarding |
-| [🛡️ Security Model](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/SECURITY.md) | Threat analysis (OWASP + Minecraft) |
-| [📦 26.1-26.2 Builds](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/26x.md) | Range jars, architecture, migration & sync |
-| [📜 Changelog](https://github.com/DawnOfDedSec/AuthCore/blob/main/changelogs/changelog.md) | Full release history |
+| [🧭 Server Admin Guide](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/guide.html) | ⭐ **START HERE** — newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path into every deeper doc |
+| [📖 Configuration](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/config.html) | Every option, default and use-case |
+| [🔌 Developer API](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/api.html) | `AuthCoreApi`, database schema, integration guide |
+| [⚙️ Development & Architecture](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/development.html) | Build system, multi-version/multi-loader management, testing |
+| [🌐 Web Panel](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/webpanel.html) | HTTP/HTTPS setup, REST reference, curl examples |
+| [🔁 Proxy Support](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/proxy.html) | Velocity / BungeeCord forwarding |
+| [🛡️ Security Model](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/security.html) | Threat analysis (OWASP + Minecraft) |
+| [📦 26.1-26.2 Builds](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/26x.html) | Range jars, architecture, migration & sync |
+| [📜 Changelog](https://potenfyr-studios.github.io/AuthCore/docs/1.0.0/changelog.html) | Full release history |
 
 ---
 

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog — AuthCore Docs</title>
+<meta name="description" content="Full release history — from the first alpha to 1.0.0.">
+<meta property="og:title" content="Changelog — AuthCore Docs">
+<meta property="og:description" content="Full release history — from the first alpha to 1.0.0.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/changelog.html">
+<style>
+  :root {
+    --bg0: #030508;
+    --bg1: #0a1128;
+    --bg2: #0d2a5e;
+    --panel: rgba(10, 17, 40, 0.72);
+    --panel-2: rgba(13, 42, 94, 0.35);
+    --accent: #3b82f6;
+    --accent-2: #60a5fa;
+    --accent-3: #93c5fd;
+    --green: #22c55e;
+    --text: #e2e8f0;
+    --muted: #8b95a7;
+    --border: rgba(59, 130, 246, 0.22);
+    --radius: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.65;
+    background:
+      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* ---------- scroll progress ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    z-index: 1000; border-radius: 0 3px 3px 0;
+  }
+
+  /* ---------- header ---------- */
+  .site-header {
+    position: sticky; top: 0; z-index: 500;
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 22px;
+    background: rgba(3, 5, 8, 0.72);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-text { font-size: 1.05em; }
+  .brand-dot { color: var(--accent-3); }
+  .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
+  .nav-link {
+    color: var(--muted); text-decoration: none; font-size: 0.86em; font-weight: 500;
+    padding: 6px 10px; border-radius: 8px; transition: color .18s, background .18s, box-shadow .18s;
+    position: relative;
+  }
+  .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
+  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-gh { margin-left: 6px; color: var(--accent-3); }
+  .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+  @media (max-width: 900px) {
+    .nav-toggle { display: block; }
+    .site-nav {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 4px;
+      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border); padding: 10px 14px;
+    }
+    .site-nav.open { display: flex; }
+  }
+
+  /* ---------- layout ---------- */
+  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---------- sidebar TOC ---------- */
+  .toc {
+    position: sticky; top: 78px; align-self: start;
+    max-height: calc(100vh - 100px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: fadeUp .5s ease both;
+  }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc ul { list-style: none; margin: 0; padding: 0; }
+  .toc-item { margin: 1px 0; }
+  .toc-item a {
+    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s;
+  }
+  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
+  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+
+  /* ---------- content ---------- */
+  article {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    padding: 36px 44px 52px;
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    animation: fadeUp .55s ease both;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  article > :first-child { margin-top: 0; }
+  article h1, article h2, article h3, article h4 { line-height: 1.3; scroll-margin-top: 90px; }
+  article h1 {
+    font-size: 2em; font-weight: 800; margin: 0 0 18px; padding-bottom: 14px;
+    background: linear-gradient(90deg, #fff 0%, var(--accent-3) 55%, var(--accent) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    border-bottom: 1px solid var(--border);
+  }
+  article h2 {
+    font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    animation: fadeUp .5s ease both;
+  }
+  article h2::before {
+    content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
+    background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+  }
+  article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
+  article h4 { font-size: 1em; color: #dbeafe; }
+  article p { margin: 0.85em 0; }
+  article strong { color: #f8fafc; }
+  article a {
+    color: var(--accent-2); text-decoration: none;
+    background-image: linear-gradient(90deg, var(--accent-3), var(--accent));
+    background-size: 0% 1.5px; background-position: 0 100%; background-repeat: no-repeat;
+    transition: background-size .25s, color .15s;
+  }
+  article a:hover { color: #fff; background-size: 100% 1.5px; }
+  article hr {
+    border: 0; height: 1px; margin: 2.2em 0;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  article blockquote {
+    margin: 1.1em 0; padding: 0.7em 1.2em;
+    border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+  }
+  article blockquote p { margin: 0.4em 0; }
+  article img { max-width: 100%; border-radius: 12px; }
+  article table {
+    width: 100%; margin: 1.2em 0; border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    display: block; overflow-x: auto;
+    animation: fadeUp .5s ease both;
+  }
+  article th {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
+    color: #dbeafe; font-weight: 600; text-align: left;
+  }
+  article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  article th:last-child, article td:last-child { white-space: normal; }
+  article tr:last-child td { border-bottom: 0; }
+  article tbody tr { transition: background .15s; }
+  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article code {
+    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
+    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
+  }
+  article pre {
+    position: relative; margin: 1.2em 0; padding: 18px 20px;
+    background: rgba(2, 6, 16, 0.88);
+    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    overflow-x: auto;
+  }
+  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
+    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
+  }
+  article pre:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
+
+  /* ---------- docs hub cards ---------- */
+  .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 24px 0; }
+  .doc-card {
+    display: block; text-decoration: none !important; background-image: none !important;
+    padding: 20px 20px 16px; border-radius: 14px; position: relative;
+    background: var(--panel-2); border: 1px solid var(--border);
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    animation: fadeUp .5s ease both;
+  }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
+  .doc-card .dc-icon { font-size: 1.7em; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; }
+  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.5; }
+
+  /* ---------- back to top ---------- */
+  #toTop {
+    position: fixed; right: 22px; bottom: 22px; z-index: 600;
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(59, 130, 246, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #02060d);
+    color: var(--accent-3); font-size: 1.2em;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity .25s, transform .25s;
+  }
+  #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 0.84em;
+    padding: 8px 0 30px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { color: #fff; }
+  @media (max-width: 720px) {
+    article { padding: 24px 18px 34px; border-radius: 12px; }
+    .layout { padding: 16px 10px 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark">🏰🔐</span>
+      <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav">
+      <a class="nav-link" href="../../index.html">Home</a>
+      <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
+      <a class="nav-link active" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+<div class="layout">
+  <aside class="toc" id="toc">
+    <div class="toc-title">On this page</div>
+    <ul><li class="toc-item toc-2"><a href="#100---2026-08-10">[1.0.0] - 2026-08-10</a></li><li class="toc-item toc-3"><a href="#modrinth-version-range-fix">Modrinth version range fix</a></li><li class="toc-item toc-3"><a href="#bot--backend-separation">Bot / backend separation</a></li><li class="toc-item toc-3"><a href="#cleanup">Cleanup</a></li><li class="toc-item toc-3"><a href="#multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader & multi-version workspace (Stonecutter / Stonecraft)</a></li><li class="toc-item toc-3"><a href="#security--anti-bypass">Security & anti-bypass</a></li><li class="toc-item toc-3"><a href="#tooling">Tooling</a></li><li class="toc-item toc-2"><a href="#100---2026-08-09">[1.0.0] - 2026-08-09</a></li><li class="toc-item toc-3"><a href="#universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</a></li><li class="toc-item toc-3"><a href="#performance-for-100k-users">Performance for 100k+ users</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">Race-condition hardening</a></li><li class="toc-item toc-3"><a href="#security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</a></li><li class="toc-item toc-3"><a href="#new-features">New features</a></li><li class="toc-item toc-3"><a href="#quality">Quality</a></li><li class="toc-item toc-2"><a href="#100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</a></li></ul>
+  </aside>
+  <main>
+    <article>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><h1>AuthCore Changelog</h1>
+<p>All notable changes to AuthCore, from the first alpha to the current release.</p>
+<p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+</div><hr>
+<h2 id="100---2026-08-10">[1.0.0] - 2026-08-10</h2>
+<h3 id="modrinth-version-range-fix">Modrinth version range fix</h3>
+<ul>
+<li>Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
+exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
+of the full grid:<ul>
+<li>Fabric (<code>fabric.mod.json</code>): <code>&gt;=1.16 &lt;=1.18.2</code> / <code>&gt;=1.19 &lt;=1.21.11</code> / <code>&gt;=26.1 &lt;=26.2</code>.</li>
+<li>Forge / NeoForge (<code>mods.toml</code> / <code>neoforge.mods.toml</code>): <code>[1.16,1.18.2]</code> / <code>[1.19,1.21.11]</code> /
+<code>[26.1,26.2]</code> (maven syntax).</li>
+</ul>
+</li>
+<li>Loader minimums are now the exact pins of the build target instead of <code>*</code> / <code>[1,)</code>:
+Fabric loader <code>&gt;=0.19.3</code>, FML <code>[40.3.12,)</code> / <code>[61.2.0,)</code>, NeoForge <code>[21.11.45,)</code> /
+<code>[26.2.0.57,)</code>.</li>
+<li>Root cause: the range placeholders never reached the built jars - <code>fabric.mod.json</code> shipped
+<code>&quot;minecraft&quot;: &quot;*&quot;</code> (Modrinth reads this as &quot;all versions&quot;) and <code>mods.toml</code> shipped only the
+single build target. All 7 jars were rebuilt and their metadata verified.</li>
+</ul>
+<h3 id="bot--backend-separation">Bot / backend separation</h3>
+<ul>
+<li>The Discord bot integration is now strictly backend-owned: the bot <strong>never touches the
+database</strong>. Every write is executed by the mod backend through the web panel API; the bot
+communicates over <strong>Redis</strong> (link codes <code>authcore:discordlink:*</code>, mapping
+<code>authcore:discord:*</code>, <code>authcore:events</code> pub/sub) plus the API. Docs (<code>API.md</code>,
+<code>WEBPANEL.md</code>) state the rule explicitly.</li>
+</ul>
+<h3 id="cleanup">Cleanup</h3>
+<ul>
+<li>Removed legacy / migration leftovers: <code>src/common/</code>, <code>src/client/</code>, <code>_migration/</code>,
+<code>postman/</code>, <code>release.sh</code>, <code>docs/migration.md</code>.</li>
+<li>Removed IDE artifacts (<code>.settings/</code>, <code>bin/</code>, <code>.classpath</code>, <code>.project</code>, <code>.factorypath</code>),
+stale <code>dist/</code> jars and the obsolete <code>authcore-26.x-*</code> jars.</li>
+<li>Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
+sections, corrected stale wording (&quot;26.0+&quot; → 26.1-26.2, Java 17/21/25, multi-loader
+tagline).</li>
+</ul>
+<h3 id="multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader &amp; multi-version workspace (Stonecutter / Stonecraft)</h3>
+<ul>
+<li>One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
+1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).</li>
+<li>Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
+26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.</li>
+</ul>
+<h3 id="security--anti-bypass">Security &amp; anti-bypass</h3>
+<ul>
+<li><strong>ClientGuard</strong>: behavioral profiles, 16 detection signals (ghost clients, missing
+client settings, packet/click/chat/payload floods, tab probing, fake companions,
+confusable names, concurrent logins), weighted risk score with a decision matrix.</li>
+<li><strong>Companion attestation</strong>: challenge-response HMAC, periodic re-challenges, session
+tokens (rotated on every login, hashed at rest) and token-based session resume.</li>
+<li><strong>MFA / 2FA</strong>: TOTP + single-use recovery codes + optional email OTP + MFA step-up
+for sensitive commands.</li>
+<li><strong>Network SSO</strong>: Redis-backed single sign-on across a server network (optional).</li>
+<li><strong>Error codes</strong>: console-only AC-... codes at every failure site, decodable by the
+author; no internals leak to clients.</li>
+</ul>
+<h3 id="tooling">Tooling</h3>
+<ul>
+<li>Host-compat harness: range/loader/version selection, forward-compat scan, live logs,
+parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.</li>
+<li>GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
+weekly compat scan that auto-releases new validated versions with changelog entries.</li>
+</ul>
+<hr>
+<h2 id="100---2026-08-09">[1.0.0] - 2026-08-09</h2>
+<h3 id="universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</h3>
+<ul>
+<li><strong>One source, every Minecraft version</strong> - the old per-version source sets are gone; version
+variants live under <code>src/</code> (<code>src/main/java</code> + <code>src/client/java</code> = classic yarn code,
+<code>src/modern/java</code> = Mojang 26.1-26.2 code) behind the <code>net.ded3ec.compat</code> reflection layer and
+version-stable mixin targets. Verified by compiling the identical source against <strong>1.16.5,
+1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11</strong> (all green), with a per-push CI matrix.</li>
+<li><strong>Universal mixins</strong>: login hello (reflects over <code>getProfile()</code> vs <code>name()/profileId()</code>, plus
+authlib&#39;s <code>getName()/getId()</code> vs record <code>name()/id()</code>), handshake proxy forwarding (record
+accessor vs private field), chat restriction (single mixin covering <code>onGameMessage</code> /
+<code>onChatMessage</code> / <code>handleChatMessage</code>).</li>
+<li><strong><code>FabricHooks</code></strong> registers commands (API v1/v2), item-use and damage events reflectively -
+missing fabric APIs are skipped gracefully.</li>
+<li><code>fabric.mod.json</code> declares <code>minecraft &gt;=1.16.0</code>, <code>java &gt;=16</code>, <code>environment &quot;*&quot;</code> - the same jar
+runs on servers AND clients, standalone or behind <strong>Velocity / BungeeCord</strong>.</li>
+<li>Version-independent features (commands, config, database, security, web panel, email, Redis)
+work unchanged on every version.</li>
+<li><strong>Client companion always included</strong>: the universal jar bundles the client login-screen
+companion (auto-login GUI) for 1.20.2+ clients. The companion is fully reflection-guarded,
+so the jar loads safely on older clients (1.16 - 1.20.1) and simply skips the screen there.</li>
+<li>If the client cannot send the auto-login command (e.g. signed-chat restrictions), the player
+gets an in-chat hint with the exact command to type instead of failing silently.</li>
+<li><strong>Limbo tick re-assert guards</strong>: every tick the lobby re-applies the blindness/invisibility
+effects (lost e.g. by milk) and teleports lobby players back when movement is disabled and
+they drifted - fallbacks for environments where the version-specific mixins cannot apply.</li>
+<li><strong>Defense in depth</strong>: <code>/login</code> and <code>/register</code> re-verify their prerequisites at execution
+time, not only in the command <code>requires</code> predicate.</li>
+<li><strong>Migration guide</strong>: new <code>docs/migration.md</code> covers automatic config/messages/database/password
+migration from any previous version, what changed, and a manual checklist.</li>
+<li><strong>Release automation</strong>: tag-triggered GitHub workflow (<code>ci.yml</code> - the ONLY workflow now)
+builds the universal jar, extracts the changelog section for the tag and drafts a release
+with the jar attached.</li>
+<li><strong>One workflow, honest CI</strong>: all previous workflows (build / client-check / lint-test /
+gradle-validate / dependency-audit / multi-version-check / release) were merged into a
+single <code>ci.yml</code>. Matrix builds no longer mask failures (<code>gradlew</code> exec-bit bug fixed, yarn
+versions corrected: 1.19.4+build.2, 1.20.6+build.3, fabric-api 0.46.1+1.17, 0.100.8+1.20.6).</li>
+<li><strong>Full proxy-side auth</strong>: the proxy plugin (BungeeCord + Velocity) can now disconnect players WITHOUT a valid Redis session (block-unauthenticated=true in config/authcore-proxy.properties) before they reach any backend - zero-dependency RESP Redis client, fail-open on Redis outage, /authcore status command.</li>
+<li><strong>26.1-26.2 snapshot compile checks</strong>: new daily CI job compiles the modern source against the NEWEST 26.1-26.2 release the moment Fabric publishes yarn mappings for it - fails visibly on breakage.</li>
+<li>**Velocity modern forwarding (Fabric server): HMAC-verified velocity:player_info login receiver applies the real UUID/username when velocity-secret is set; legacy/BungeeCord handshake parsing auto-detected (protocol = auto).</li>
+<li><strong>Interop channel</strong> authcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).</li>
+<li><strong>Separate database config</strong>: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.</li>
+<li><strong>Config per role</strong>: server = settings.conf, client = authcore-client.json, proxy = authcore-proxy.properties, database = database.conf.</li>
+<li><strong>Repository restructure</strong>: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.1-26.2 code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via <code>-Pmodern=true</code>.</li>
+<li><strong>26.1-26.2 support (real build)</strong>: Minecraft 26.0+ is <strong>unobfuscated</strong> (Mojang names at runtime,
+intermediary gone), so AuthCore now ships a <strong>second jar</strong> built from the Mojang-mapped
+source (<code>src/modern/java</code>, <code>-Pmodern=true</code>, loom 1.16.x, Java 25, no mappings):
+<code>authcore-modern-1.0.0.jar</code> for <strong>26.0+</strong> servers/clients. The classic universal jar covers
+<strong>1.16.0 - 1.21.11</strong>. Both jars carry the client login-screen companion (<code>environment &quot;*&quot;</code>),
+and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
+<code>docs/26x.md</code> for the migration/sync workflow.</li>
+</ul>
+<h3 id="performance-for-100k-users">Performance for 100k+ users</h3>
+<ul>
+<li><strong>Lazy user loading</strong> - users are fetched from the database on demand (join/login/whois)
+instead of loading the whole table at startup. A 100k-registered server keeps only online +
+recently-touched users in memory.</li>
+<li><strong>Bounded LRU cache</strong> (20k max) with idle eviction; online users are never evicted.</li>
+<li>Admin <code>list</code> commands, <code>whois</code>, export and the web panel are now <strong>database-backed</strong> (bounded,
+searchable queries) instead of iterating the in-memory map.</li>
+<li>Thread-safe canonical cache (a single User instance per account under concurrent access).</li>
+</ul>
+<h3 id="race-condition-hardening">Race-condition hardening</h3>
+<ul>
+<li><code>AuthCoreServer.config/messages</code>, user session fields, <code>TpsManager.tickCounter</code> and the DB
+connection are now <code>volatile</code>.</li>
+<li>All database access is <code>synchronized</code> (single shared JDBC connection is never used
+concurrently).</li>
+<li>User cache-miss fetches are serialized under a dedicated lock.</li>
+</ul>
+<h3 id="security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</h3>
+<ul>
+<li><strong>PBKDF2 DoS fixed</strong> - password4j&#39;s PBKDF2 <code>check()</code> could hang the server thread during
+login. PBKDF2 is now a self-contained JDK <code>SecretKeyFactory</code> implementation
+(<code>$pbkdf2-sha256$iter$salt$hash</code>, constant-time comparison).</li>
+</ul>
+<h3 id="new-features">New features</h3>
+<ul>
+<li><strong>Cross-server security event bus</strong> (Redis pub/sub <code>authcore:events</code>): login, logout, register,
+brute-force, account-locked and kick events are broadcast network-wide; receivers log, webhook
+and execute remote kicks.</li>
+<li><strong>Discord account linking</strong>: <code>/discord link|unlink</code>, 6-char link codes (webhook + Redis,
+10-min TTL), bot completion via the web panel <code>link</code> action, <code>discordId</code> stored per account.</li>
+<li><strong>Maintenance mode</strong>: <code>/authcore maintenance on|off</code> blocks all joins with a custom message.</li>
+<li><strong>Honeypot</strong>: a fake listener port auto-bans every connecting IP (writes <code>deny</code> rules to
+<code>ip-rules.conf</code>).</li>
+<li><strong>Automated backups</strong>: scheduled SQLite copies / JSON exports with rotation (<code>session.backup</code>).</li>
+<li><strong>Rotating announcements</strong>: list-based, interval-driven (<code>lobby.announcements</code>).</li>
+<li><strong>Password history</strong>: <code>password-rules.history-size</code> blocks reuse of recent passwords.</li>
+<li><strong>Fast-rejoin alert</strong>: bot-pattern detection (alert-only).</li>
+<li><strong>Web panel</strong>: read-only token, <code>/metrics</code> endpoint, DB-backed player list.</li>
+<li><strong>Extra webhooks</strong>: <code>security.extra-webhook-urls</code> (Slack/Telegram/custom).</li>
+<li><strong><code>/authcore validate</code></strong> config dry-run, <strong><code>/authcore resetpw</code></strong> alias.</li>
+<li>New config surface for admins: <code>session.maintenance</code>, <code>session.honeypot</code>, <code>session.backup</code>,
+<code>session.authentication.auto-luck-perms-group</code>, <code>bind-bedrock-xuid</code>,
+<code>web-panel.readonly-token</code>, <code>rate-limit.alert-on-fast-rejoin</code>, <code>lobby.announcements</code>,
+<code>password-rules.history-size</code>, <code>security.extra-webhook-urls</code> - all fully commented in
+<code>settings.conf</code> and documented in <code>docs/CONFIG.md</code> with defaults + scenarios.</li>
+</ul>
+<h3 id="quality">Quality</h3>
+<ul>
+<li><code>tools/security-tests/</code> - standalone test suite (57 checks) covering password hashing
+round-trips, captcha lifecycle, email recovery, rate limiting, proxy parsing, device
+fingerprints. Run via <code>tools/security-tests/run-tests.ps1</code>.</li>
+<li>Access control validation pass: every command re-verified (player vs admin vs console),
+<code>/discord</code> guarded in lobby, read-only web token.</li>
+</ul>
+<hr>
+<h2 id="100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</h2>
+<ul>
+<li>Velocity / BungeeCord proxy support (server-side IP forwarding, <code>session.proxy-support</code>)</li>
+<li>Web admin panel (HTTP/HTTPS with auto self-signed cert, token auth)</li>
+<li>Email recovery &amp; alerts (SMTP login alerts, <code>/account recover</code>)</li>
+<li>Client login-screen companion (login GUI before joining)</li>
+</ul>
+<h2 id="100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</h2>
+<ul>
+<li>Combat-log punishment, Discord webhooks, security log + rotation, login history,
+intelligence (new IP/country), account locking, risk scores, CAPTCHA, recovery codes,
+progressive punishment, per-IP rate limits, PostgreSQL, Redis session/ban sync,
+<code>AuthCoreApi</code>, <code>/authcore backup|history</code>, 6 new localized messages in 7 languages.</li>
+</ul>
+<h2 id="100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</h2>
+<ul>
+<li><strong>Fixed premium (online-mode) detection</strong>: Mojang API-outage-safe, no player ever blocked
+by an API failure; transient failures retry; health-tracked lookups.</li>
+</ul>
+<h2 id="100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</h2>
+<ul>
+<li>Per-hash random salts (bcrypt/scrypt/pbkdf2 no longer broken), case-insensitive user lookup,
+UUID re-keying, no account enumeration, command <code>requires</code> version fix, console <code>/authcore</code>,
+MySQL URL fixes, localhost/LAN support, JDK HttpClient, structured startup banner.</li>
+</ul>
+<h2 id="100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</h2>
+<ul>
+<li>Initial framework: hybrid auth, limbo (lobby), session management, message system,
+granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages.conf).</li>
+</ul>
+
+    </article>
+  </main>
+</div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<footer>
+  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
+  <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
+</footer>
+<script>
+(function () {
+  // scroll progress
+  const bar = document.getElementById("progress");
+  const toTop = document.getElementById("toTop");
+  const onScroll = () => {
+    const h = document.documentElement;
+    const max = h.scrollHeight - h.clientHeight;
+    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
+    toTop.classList.toggle("show", h.scrollTop > 400);
+  };
+  document.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  // mobile nav
+  const toggle = document.querySelector(".nav-toggle");
+  const nav = document.querySelector(".site-nav");
+  if (toggle && nav) {
+    toggle.addEventListener("click", () => {
+      const open = nav.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+  }
+
+  // copy buttons on code blocks
+  document.querySelectorAll("article pre").forEach((pre) => {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", async () => {
+      const text = pre.querySelector("code").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        btn.classList.add("done");
+      } catch {
+        btn.textContent = "Error";
+      }
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+    });
+    pre.appendChild(btn);
+  });
+
+  // scrollspy for the sidebar TOC
+  const links = document.querySelectorAll(".toc-item a");
+  if (links.length) {
+    const map = new Map();
+    links.forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const el = document.getElementById(id);
+      if (el) map.set(el, a);
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            links.forEach((l) => l.classList.remove("active"));
+            const a = map.get(e.target);
+            if (a) a.classList.add("active");
+          }
+        });
+      },
+      { rootMargin: "-90px 0px -70% 0px" },
+    );
+    map.forEach((_, el) => io.observe(el));
+  }
+})();
+</script>
+</body>
+</html>
