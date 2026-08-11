@@ -10,71 +10,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ---
 
-## [1.0.0] - 2026-08-10
-
-### Modrinth version range fix
-
-- Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
-  exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
-  of the full grid:
-  - Fabric (`fabric.mod.json`): `>=1.16 <=1.18.2` / `>=1.19 <=1.21.11` / `>=26.1 <=26.2`.
-  - Forge / NeoForge (`mods.toml` / `neoforge.mods.toml`): `[1.16,1.18.2]` / `[1.19,1.21.11]` /
-    `[26.1,26.2]` (maven syntax).
-- Loader minimums are now the exact pins of the build target instead of `*` / `[1,)`:
-  Fabric loader `>=0.19.3`, FML `[40.3.12,)` / `[61.2.0,)`, NeoForge `[21.11.45,)` /
-  `[26.2.0.57,)`.
-- Root cause: the range placeholders never reached the built jars - `fabric.mod.json` shipped
-  `"minecraft": "*"` (Modrinth reads this as "all versions") and `mods.toml` shipped only the
-  single build target. All 7 jars were rebuilt and their metadata verified.
-
-### Bot / backend separation
-
-- The Discord bot integration is now strictly backend-owned: the bot **never touches the
-  database**. Every write is executed by the mod backend through the web panel API; the bot
-  communicates over **Redis** (link codes `authcore:discordlink:*`, mapping
-  `authcore:discord:*`, `authcore:events` pub/sub) plus the API. Docs (`API.md`,
-  `WEBPANEL.md`) state the rule explicitly.
-
-### Cleanup
-
-- Removed legacy / migration leftovers: `src/common/`, `src/client/`, `_migration/`,
-  `postman/`, `release.sh`, `docs/migration.md`.
-- Removed IDE artifacts (`.settings/`, `bin/`, `.classpath`, `.project`, `.factorypath`),
-  stale `dist/` jars and the obsolete `authcore-26.x-*` jars.
-- Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
-  sections, corrected stale wording ("26.0+" → 26.1-26.2, Java 17/21/25, multi-loader
-  tagline).
-
-### Multi-loader & multi-version workspace (Stonecutter / Stonecraft)
-
-- One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
-  1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).
-- Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
-  26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.
-
-### Security & anti-bypass
-
-- **ClientGuard**: behavioral profiles, 16 detection signals (ghost clients, missing
-  client settings, packet/click/chat/payload floods, tab probing, fake companions,
-  confusable names, concurrent logins), weighted risk score with a decision matrix.
-- **Companion attestation**: challenge-response HMAC, periodic re-challenges, session
-  tokens (rotated on every login, hashed at rest) and token-based session resume.
-- **MFA / 2FA**: TOTP + single-use recovery codes + optional email OTP + MFA step-up
-  for sensitive commands.
-- **Network SSO**: Redis-backed single sign-on across a server network (optional).
-- **Error codes**: console-only AC-... codes at every failure site, decodable by the
-  author; no internals leak to clients.
-
-### Tooling
-
-- Host-compat harness: range/loader/version selection, forward-compat scan, live logs,
-  parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.
-- GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
-  weekly compat scan that auto-releases new validated versions with changelog entries.
-
----
-
-## [1.0.0] - 2026-08-09
+## [1.0.0] - 2026-08-11
 
 ### Universal single-jar architecture (1.16.x - 26.1-26.2)
 - **One source, every Minecraft version** - the old per-version source sets are gone; version
@@ -102,8 +38,6 @@ All notable changes to AuthCore, from the first alpha to the current release.
   they drifted - fallbacks for environments where the version-specific mixins cannot apply.
 - **Defense in depth**: `/login` and `/register` re-verify their prerequisites at execution
   time, not only in the command `requires` predicate.
-- **Migration guide**: new `docs/migration.md` covers automatic config/messages/database/password
-  migration from any previous version, what changed, and a manual checklist.
 - **Release automation**: tag-triggered GitHub workflow (`ci.yml` - the ONLY workflow now)
   builds the universal jar, extracts the changelog section for the tag and drafts a release
   with the jar attached.
@@ -117,14 +51,53 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - **Interop channel** authcore:auth + BungeeCord AuthCore subchannel - other mods and proxies can coexist with a DIFFERENT auth mod on the backend; broadcasts on join/login/register/logout/kick/unregister (session.interop).
 - **Separate database config**: optional config/authcore/database.conf (only the database { } block) is merged over settings.conf, so credentials can live outside the main config.
 - **Config per role**: server = settings.conf, client = authcore-client.json, proxy = authcore-proxy.properties, database = database.conf.
-- **Repository restructure**: shared + versioned sources - src/common/java holds ALL pure-Java logic (used by both jars, edit once), src/classic/java + src/client/java = classic yarn code, src/modern/java = Mojang 26.1-26.2 code; the standalone 26x/ Gradle project is gone - one build.gradle, one wrapper and one loom version build both jars via `-Pmodern=true`.
 - **26.1-26.2 support (real build)**: Minecraft 26.0+ is **unobfuscated** (Mojang names at runtime,
-  intermediary gone), so AuthCore now ships a **second jar** built from the Mojang-mapped
+  intermediary gone), so AuthCore ships a **second jar** built from the Mojang-mapped
   source (`src/modern/java`, `-Pmodern=true`, loom 1.16.x, Java 25, no mappings):
   `authcore-modern-1.0.0.jar` for **26.0+** servers/clients. The classic universal jar covers
   **1.16.0 - 1.21.11**. Both jars carry the client login-screen companion (`environment "*"`),
   and the release workflow attaches both. The two name-spaces cannot coexist in one jar - see
   `docs/26x.md` for the migration/sync workflow.
+
+### Multi-loader & multi-version workspace (Stonecutter / Stonecraft)
+
+- One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
+  1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).
+- Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
+  26.1.2, 26.2 — all 22 harness checks PASS on all 7 loader build targets.
+
+### Modrinth version range fix
+
+- Uploaded jars no longer claim every Minecraft version. The shipped metadata now declares the
+  exact supported range per jar, so Modrinth pre-selects precisely the tested versions instead
+  of the full grid:
+  - Fabric (`fabric.mod.json`): `>=1.16 <=1.18.2` / `>=1.19 <=1.21.11` / `>=26.1 <=26.2`.
+  - Forge / NeoForge (`mods.toml` / `neoforge.mods.toml`): `[1.16,1.18.2]` / `[1.19,1.21.11]` /
+    `[26.1,26.2]` (maven syntax).
+- Loader minimums are now the exact pins of the build target instead of `*` / `[1,)`:
+  Fabric loader `>=0.19.3`, FML `[40.3.12,)` / `[61.2.0,)`, NeoForge `[21.11.45,)` /
+  `[26.2.0.57,)`.
+- Root cause: the range placeholders never reached the built jars - `fabric.mod.json` shipped
+  `"minecraft": "*"` (Modrinth reads this as "all versions") and `mods.toml` shipped only the
+  single build target. All 7 jars were rebuilt and their metadata verified.
+
+### Security & anti-bypass
+
+- **ClientGuard**: behavioral profiles, 16 detection signals (ghost clients, missing
+  client settings, packet/click/chat/payload floods, tab probing, fake companions,
+  confusable names, concurrent logins), weighted risk score with a decision matrix.
+- **Companion attestation**: challenge-response HMAC, periodic re-challenges, session
+  tokens (rotated on every login, hashed at rest) and token-based session resume.
+- **MFA / 2FA**: TOTP + single-use recovery codes + optional email OTP + MFA step-up
+  for sensitive commands.
+- **Network SSO**: Redis-backed single sign-on across a server network (optional).
+- **Error codes**: console-only AC-... codes at every failure site, decodable by the
+  author; no internals leak to clients.
+
+### Security fixes found by the new test suite
+- **PBKDF2 DoS fixed** - password4j's PBKDF2 `check()` could hang the server thread during
+  login. PBKDF2 is now a self-contained JDK `SecretKeyFactory` implementation
+  (`$pbkdf2-sha256$iter$salt$hash`, constant-time comparison).
 
 ### Performance for 100k+ users
 - **Lazy user loading** - users are fetched from the database on demand (join/login/whois)
@@ -141,11 +114,6 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - All database access is `synchronized` (single shared JDBC connection is never used
   concurrently).
 - User cache-miss fetches are serialized under a dedicated lock.
-
-### Security fixes found by the new test suite
-- **PBKDF2 DoS fixed** - password4j's PBKDF2 `check()` could hang the server thread during
-  login. PBKDF2 is now a self-contained JDK `SecretKeyFactory` implementation
-  (`$pbkdf2-sha256$iter$salt$hash`, constant-time comparison).
 
 ### New features
 - **Cross-server security event bus** (Redis pub/sub `authcore:events`): login, logout, register,
@@ -175,6 +143,31 @@ All notable changes to AuthCore, from the first alpha to the current release.
   fingerprints. Run via `tools/security-tests/run-tests.ps1`.
 - Access control validation pass: every command re-verified (player vs admin vs console),
   `/discord` guarded in lobby, read-only web token.
+
+### Bot / backend separation
+
+- The Discord bot integration is now strictly backend-owned: the bot **never touches the
+  database**. Every write is executed by the mod backend through the web panel API; the bot
+  communicates over **Redis** (link codes `authcore:discordlink:*`, mapping
+  `authcore:discord:*`, `authcore:events` pub/sub) plus the API. Docs (`API.md`,
+  `WEBPANEL.md`) state the rule explicitly.
+
+### Tooling
+
+- Host-compat harness: range/loader/version selection, forward-compat scan, live logs,
+  parallel 6, professional HTML dashboard + markdown coverage matrix, 22 checks.
+- GitHub Actions: builds all 7 variants, Docker host-tests on every push/schedule,
+  weekly compat scan that auto-releases new validated versions with changelog entries.
+
+### Cleanup
+
+- Removed legacy / migration leftovers: `src/common/`, `src/client/`, `_migration/`,
+  `postman/`, `release.sh`, `docs/migration.md`.
+- Removed IDE artifacts (`.settings/`, `bin/`, `.classpath`, `.project`, `.factorypath`),
+  stale `dist/` jars and the obsolete `authcore-26.x-*` jars.
+- Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
+  sections, corrected stale wording ("26.0+" → 26.1-26.2, Java 17/21/25, multi-loader
+  tagline).
 
 ---
 
