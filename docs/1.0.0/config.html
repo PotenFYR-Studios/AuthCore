@@ -135,9 +135,15 @@
   article h1, article h2, article h3, article h4 { line-height: 1.3; scroll-margin-top: 90px; }
   article h1 {
     font-size: 2em; font-weight: 800; margin: 0 0 18px; padding-bottom: 14px;
-    background: linear-gradient(90deg, #fff 0%, var(--accent-3) 55%, var(--accent) 100%);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    color: #f8fafc;
     border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  article h1::after {
+    content: ""; display: block; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent-3), var(--accent), transparent);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
   }
   article h2 {
     font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
@@ -211,16 +217,16 @@
   /* ---------- docs hub cards ---------- */
   .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 24px 0; }
   .doc-card {
-    display: block; text-decoration: none !important; background-image: none !important;
+    display: flex; flex-direction: column; text-decoration: none !important; background-image: none !important;
     padding: 20px 20px 16px; border-radius: 14px; position: relative;
     background: var(--panel-2); border: 1px solid var(--border);
     transition: transform .2s, box-shadow .2s, border-color .2s;
     animation: fadeUp .5s ease both;
   }
   .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
-  .doc-card .dc-icon { font-size: 1.7em; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
-  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; }
-  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.5; }
+  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; line-height: 1.35; }
+  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.55; }
 
   /* ---------- back to top ---------- */
   #toTop {
@@ -2288,6 +2294,7 @@ merged over settings.conf (credentials can live outside the main config)</li>
 </tr>
 </tbody></table>
 
+    
     
     </article>
   </main>
