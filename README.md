@@ -9,39 +9,22 @@
   <em>"No bots, no griefers, no password guessers — only real players."</em>
 </p>
 
-[![Modrinth](https://img.shields.io/modrinth/dt/qs5rvacf?style=for-the-badge&label=Modrinth%20Downloads&color=green&logo=modrinth&logoColor=white)](https://modrinth.com/mod/authCore)
-[![CurseForge](https://img.shields.io/curseforge/dt/1417839?style=for-the-badge&label=CurseForge%20Downloads&color=orange&logo=curseforge&logoColor=white)](https://www.curseforge.com/minecraft/mc-mods/authcore)
-[![GitHub Release](https://img.shields.io/github/v/release/DawnOfDedSec/AuthCore?style=for-the-badge&label=Release&color=blue&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases)
-[![Downloads](https://img.shields.io/github/downloads/DawnOfDedSec/AuthCore/total?style=for-the-badge&label=GitHub%20Downloads&logo=download&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions)
+<div align="center" style="padding: 22px 28px 24px; border-radius: 22px; margin: 14px 0 18px; background: radial-gradient(1100px 320px at 50% -60%, rgba(59, 130, 246, 0.16) 0%, rgba(59, 130, 246, 0) 65%), linear-gradient(140deg, #030508 0%, #0a1128 42%, #0d2a5e 100%); border: 1px solid rgba(59, 130, 246, 0.35); box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.10), 0 12px 44px rgba(0, 0, 0, 0.55), 0 0 64px rgba(37, 99, 235, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.08);">
 
-[![Stars](https://img.shields.io/github/stars/DawnOfDedSec/AuthCore?style=for-the-badge&label=Stars&color=gold&logo=github&logoColor=gold)](https://github.com/DawnOfDedSec/AuthCore/stargazers)
-[![Forks](https://img.shields.io/github/forks/DawnOfDedSec/AuthCore?style=for-the-badge&label=Forks&color=blue&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/forks)
-[![Contributors](https://img.shields.io/github/contributors/DawnOfDedSec/AuthCore?style=for-the-badge&label=Contributors&color=purple&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/graphs/contributors)
-[![Issues](https://img.shields.io/github/issues/DawnOfDedSec/AuthCore?style=for-the-badge&label=Issues&color=red&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/issues)
-[![PRs](https://img.shields.io/github/issues-pr/DawnOfDedSec/AuthCore?style=for-the-badge&label=PRs&color=brightgreen&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/pulls)
-[![Last Commit](https://img.shields.io/github/last-commit/DawnOfDedSec/AuthCore?style=for-the-badge&label=Last%20Commit&color=darkgreen&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/commits)
+<a href="https://modrinth.com/mod/authCore" title="Modrinth downloads">
+  <img src="https://shieldcn.dev/modrinth/qs5rvacf.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="Modrinth downloads" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
+</a>
+<a href="https://github.com/DawnOfDedSec/AuthCore/actions" title="CI build status">
+  <img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135&amp;statusDot=true&amp;animate=glow" alt="CI build status" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35), 0 0 34px rgba(34, 197, 94, 0.18); vertical-align: middle;" />
+</a>
+<a href="https://github.com/DawnOfDedSec/AuthCore/stargazers" title="GitHub stars">
+  <img src="https://shieldcn.dev/github/stars/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="GitHub stars" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
+</a>
+<a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE" title="License">
+  <img src="https://shieldcn.dev/github/license/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="License" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
+</a>
 
-[![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-orange?style=for-the-badge&logo=openjdk&logoColor=white)](https://adoptium.net)
-[![Fabric](https://img.shields.io/badge/Fabric-Loader%20%2B%20API-blueviolet?style=for-the-badge&logo=fabric&logoColor=white)](https://fabricmc.net)
-[![Forge](https://img.shields.io/badge/Forge-1.16%20%E2%80%93%201.21-orange?style=for-the-badge&logo=forge&logoColor=white)](https://files.minecraftforge.net)
-[![NeoForge](https://img.shields.io/badge/NeoForge-1.20.1%20%E2%80%93%2026.x-lightgrey?style=for-the-badge&logo=neoforge&logoColor=white)](https://neoforged.net)
-[![Server](https://img.shields.io/badge/Server%20Compatible-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity%20%7C%20BungeeCord-blueviolet?style=for-the-badge&logo=serverfault&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/blob/main/docs/PROXY.md)
-[![Gradle](https://img.shields.io/badge/Built%20with-Gradle-02303A?style=for-the-badge&logo=gradle&logoColor=white)](https://gradle.org)
-[![License](https://img.shields.io/github/license/DawnOfDedSec/AuthCore?style=for-the-badge&label=License&color=lightgrey)](https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE)
-
-[![Top language](https://img.shields.io/github/languages/top/DawnOfDedSec/AuthCore?style=for-the-badge&label=Top%20Language&color=blueviolet&logo=java&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore)
-[![Languages](https://img.shields.io/github/languages/count/DawnOfDedSec/AuthCore?style=for-the-badge&label=Languages&color=blue&logo=code&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore)
-[![Code size](https://img.shields.io/github/languages/code-size/DawnOfDedSec/AuthCore?style=for-the-badge&label=Code%20Size&color=darkgreen&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore)
-[![Repo size](https://img.shields.io/github/repo-size/DawnOfDedSec/AuthCore?style=for-the-badge&label=Repo%20Size&color=orange&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/DawnOfDedSec/AuthCore?style=for-the-badge&label=Commits%2Fmonth&color=red&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/commits)
-
-[![Made with ❤️](https://img.shields.io/badge/Made%20with-%E2%9D%A4%EF%B8%8F-red?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/pulls)
-[![Open Source](https://img.shields.io/badge/100%25%20Open%20Source-%E2%9C%93-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE)
-[![Report Bug](https://img.shields.io/badge/Report%20Bug-%F0%9F%90%9B-red?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/issues/new)
-[![Request Feature](https://img.shields.io/badge/Request%20Feature-%E2%9C%A8-yellow?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/issues/new)
-[![Discussions](https://img.shields.io/badge/Discussions-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/discussions)
+</div>
 
 </div>
 
