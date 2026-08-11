@@ -1,6 +1,6 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue?style=for-the-badge&logo=github&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://img.shields.io/github/actions/workflow/status/DawnOfDedSec/AuthCore/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://img.shields.io/badge/%F0%9F%93%9A-Back%20to%20README-5865F2?style=for-the-badge)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://shieldcn.dev/badge/version-1.0.0-blue.svg)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
 
 </div>
 
