@@ -52,8 +52,8 @@ body = body.replace(
 );
 
 const html = pageShell({
-  title: "AuthCore — The Fortress Framework for Minecraft Servers",
-  description: "Login & security for offline-mode Minecraft servers — one codebase for Minecraft 1.16.0 to 26.1-26.2 on Fabric/Forge/NeoForge, servers AND clients.",
+  title: "AuthCore - The Fortress Framework for Minecraft Servers",
+  description: "Login & security for offline-mode Minecraft servers, one codebase for Minecraft 1.16.0 to 26.1-26.2 on Fabric/Forge/NeoForge, servers AND clients.",
   canonical: `https://potenfyr-studios.github.io/${REPO}/`,
   body,
   toc: "",
@@ -73,7 +73,7 @@ writeFileSync(join(OUT, ".nojekyll"), "", "utf8");
 const changelogMd = readFileSync(join(ROOT, "changelogs", "changelog.md"), "utf8");
 const { html: changelogHtml } = await renderMdPage({
   title: "Changelog",
-  description: "Full release history — from the first alpha to 1.0.0.",
+  description: "Full release history, from the first alpha to 1.0.0.",
   canonical: `${BASE}changelog.html`,
   md: changelogMd,
   basePrefix: "../../",

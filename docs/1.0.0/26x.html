@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>26.1 – 26.2 Builds — AuthCore Docs</title>
+<title>26.1 – 26.2 Builds - AuthCore Docs</title>
 <meta name="description" content="Range jars, the unobfuscated era, architecture and verification.">
-<meta property="og:title" content="26.1 – 26.2 Builds — AuthCore Docs">
+<meta property="og:title" content="26.1 – 26.2 Builds - AuthCore Docs">
 <meta property="og:description" content="Range jars, the unobfuscated era, architecture and verification.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/26x.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -286,7 +289,7 @@
 Mojang names in the shipped jar, parameter names included) and <strong>Fabric&#39;s intermediary no
 longer exists</strong> for that era. The Fabric project <a href="https://fabricmc.net/2025/10/31/obfuscation.html">announced</a>
 that yarn is discontinued and mods must migrate to Mojang names.</p>
-<p>That is why AuthCore ships <strong>one jar per version range and loader</strong> — <strong>7 jars</strong> (3 ranges ×
+<p>That is why AuthCore ships <strong>one jar per version range and loader</strong>, <strong>7 jars</strong> (3 ranges ×
 Fabric/Forge/NeoForge), all built from the <strong>same source tree</strong> (<code>src/main/java</code>, Mojang
 names everywhere):</p>
 <table>
@@ -357,16 +360,16 @@ names everywhere):</p>
 <td align="left">25</td>
 </tr>
 </tbody></table>
-<p>Mappings are <strong>Mojang (mojmap) for every line</strong> — the old yarn line is gone. The 26.1-26.2 jar
+<p>Mappings are <strong>Mojang (mojmap) for every line</strong>, the old yarn line is gone. The 26.1-26.2 jar
 ships unobfuscated (Mojang names in the game jar itself, so no remap is needed), while the
 1.16–1.21 jars are remapped to intermediary for the game runtime. Because the game uses
 <strong>either</strong> intermediary (≤1.21.11) <strong>or</strong> Mojang names (≥26.1), the two name-spaces cannot
-coexist in one compiled jar — installing the right jar per server version is expected
+coexist in one compiled jar, installing the right jar per server version is expected
 behaviour for every mod today.</p>
 <blockquote>
 <p>🧩 <strong>Bonus: each jar also acts as a BungeeCord / Velocity plugin</strong> (<code>bungee.yml</code> +
 <code>velocity-plugin.json</code> + <code>net.ded3ec.proxy.*</code>). The proxy role is version-independent, so it
-is compiled once in <code>src/main/java</code> and lands in <strong>every</strong> jar — drop any jar into a proxy&#39;s
+is compiled once in <code>src/main/java</code> and lands in <strong>every</strong> jar, drop any jar into a proxy&#39;s
 <code>plugins/</code> folder and it auto-detects (config: <code>config/authcore-proxy.properties</code>).</p>
 </blockquote>
 <h2 id="source-layout">Source layout</h2>
@@ -381,9 +384,9 @@ is compiled once in <code>src/main/java</code> and lands in <strong>every</stron
 </code></pre>
 <h2 id="building">Building</h2>
 <p>The build is a <strong>Stonecraft 1.10 + Stonecutter 0.9 workspace</strong>: <code>settings.gradle.kts</code>
-registers one variant per (Minecraft, loader) — <code>:1.18.2-fabric</code>, <code>:1.18.2-forge</code>,
+registers one variant per (Minecraft, loader), <code>:1.18.2-fabric</code>, <code>:1.18.2-forge</code>,
 <code>:1.21.11-fabric</code>, <code>:1.21.11-forge</code>, <code>:1.21.11-neoforge</code>, <code>:26.2-fabric</code>, <code>:26.2-neoforge</code>
-(the active version is <code>1.21.11-fabric</code>) — all configured by the central
+(the active version is <code>1.21.11-fabric</code>), all configured by the central
 <code>build.gradle.kts</code> (Kotlin DSL). Per-version game/loader dependencies live in
 <code>versions/dependencies/&lt;mc&gt;.properties</code>.</p>
 <pre><code class="language-bash"># Default build - the active Stonecutter version (1.21.11-fabric):
@@ -407,7 +410,7 @@ registers one variant per (Minecraft, loader) — <code>:1.18.2-fabric</code>, <
 <p>Missing JDK toolchains are auto-downloaded by the foojay resolver (17 for the 1.16–1.18
 group, 21 for 1.19–1.21, 25 for 26.1-26.2).</p>
 <h2 id="version-specific-code-stonecutter-conditionals">Version-specific code (Stonecutter conditionals)</h2>
-<p>There is <strong>one</strong> source tree — no more mirrored <code>classic</code> / <code>modern</code> copies. Version-specific
+<p>There is <strong>one</strong> source tree, no more mirrored <code>classic</code> / <code>modern</code> copies. Version-specific
 code is gated inline with Stonecutter preprocessor comments, e.g. the inventory mixins use
 <code>ClickType</code> below 26 and the 26.1-26.2 <code>ContainerInput</code> API above:</p>
 <pre><code class="language-java">/*? if &lt; 26 {*/
@@ -432,7 +435,7 @@ actionType == ContainerInput.THROW
 </li>
 </ul>
 <h3 id="how-to-find-262-api-ground-truth">How to find 26.2 API ground truth</h3>
-<p>The 26.2 game jar is unobfuscated, so <code>javap</code> gives exact answers — point it at the 26.2
+<p>The 26.2 game jar is unobfuscated, so <code>javap</code> gives exact answers, point it at the 26.2
 merged game jar from the Gradle cache:</p>
 <pre><code class="language-bash">javap -cp &lt;path-to-26.2-minecraft-merged.jar&gt; \
   net.minecraft.client.gui.screens.Screen
@@ -475,7 +478,7 @@ config files created, <code>/authcore</code> console commands succeed). The rang
 <td align="center">25</td>
 </tr>
 </tbody></table>
-<p>Verified matrix — <strong>all PASS (2026-08-10)</strong>: every loader jar of the 1.16-1.18 group on
+<p>Verified matrix, <strong>all PASS (2026-08-10)</strong>: every loader jar of the 1.16-1.18 group on
 1.16.5 / 1.17.1 / 1.18.2, the 1.19-1.21 group on 1.19.4 / 1.20.6 / 1.21.11, and the
 26.1-26.2 group on 26.1.2 / 26.2 (8/8 endpoints × 7/7 loader build targets).</p>
 <p>Run it yourself (requires Docker + PowerShell 7):</p>
@@ -488,12 +491,13 @@ config files created, <code>/authcore</code> console commands succeed). The rang
 The harness streams live container logs, caches server images, prunes old report runs and
 writes <code>tools/host-tests/reports/latest.*</code> (markdown + html + json).</p>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

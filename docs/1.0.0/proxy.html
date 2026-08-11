@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Proxy Support — AuthCore Docs</title>
+<title>Proxy Support - AuthCore Docs</title>
 <meta name="description" content="Velocity / BungeeCord forwarding, modern identity, proxy-side auth.">
-<meta property="og:title" content="Proxy Support — AuthCore Docs">
+<meta property="og:title" content="Proxy Support - AuthCore Docs">
 <meta property="og:description" content="Velocity / BungeeCord forwarding, modern identity, proxy-side auth.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/proxy.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -286,16 +289,16 @@
 session IP binding, rate limiting and login intelligence. This document explains the forwarding
 format, the configuration, how it works server-side, and how to set up BungeeCord and Velocity.</p>
 <blockquote>
-<p>🎁 <strong>One jar, both worlds.</strong> Every <strong>range jar</strong> — for any loader (<code>authcore-&lt;range&gt;-fabric</code>,
+<p>🎁 <strong>One jar, both worlds.</strong> Every <strong>range jar</strong>, for any loader (<code>authcore-&lt;range&gt;-fabric</code>,
 <code>-forge</code> or <code>-neoforge</code>, see the jar table in the <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md">README</a>)
-— runs <strong>standalone and behind a proxy</strong>: the
+- runs <strong>standalone and behind a proxy</strong>: the
 BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
 build. Proxy behavior is entirely configuration-driven via <code>session.proxy-support</code>; with it
 disabled, AuthCore is a plain server-side mod, and nothing else changes.</p>
 </blockquote>
 <hr>
 <h2 id="how-ip-forwarding-works">📮 How IP Forwarding Works</h2>
-<p>In a proxy network the backend Minecraft server never talks to the client directly — it only sees
+<p>In a proxy network the backend Minecraft server never talks to the client directly, it only sees
 the proxy&#39;s IP. To recover the real client IP, proxies inject forwarding data into the handshake.</p>
 <p><strong>BungeeCord</strong> (and Velocity in <strong>legacy</strong> mode) pack the real IP into the handshake address
 field using NUL separators:</p>
@@ -338,7 +341,7 @@ legacy handshake parse is kept as a fallback and can be validated with the share
 <td><code>protocol</code></td>
 <td>string</td>
 <td><code>&quot;auto&quot;</code></td>
-<td><code>auto</code> — detect automatically; <code>bungeecord</code> — BungeeCord (or Velocity legacy) format; <code>velocity</code> — Velocity modern forwarding, legacy parse as fallback.</td>
+<td><code>auto</code>, detect automatically; <code>bungeecord</code>, BungeeCord (or Velocity legacy) format; <code>velocity</code>, Velocity modern forwarding, legacy parse as fallback.</td>
 </tr>
 <tr>
 <td><code>velocity-secret</code></td>
@@ -349,7 +352,7 @@ legacy handshake parse is kept as a fallback and can be validated with the share
 </tbody></table>
 <blockquote>
 <p>Enable this <strong>only</strong> when your network actually runs a proxy in IP-forwarding mode. If you
-enable it on a direct (non-proxy) server, nothing is rewritten — the parser simply finds no
+enable it on a direct (non-proxy) server, nothing is rewritten, the parser simply finds no
 forwarding payload and leaves the connection address untouched.</p>
 </blockquote>
 <hr>
@@ -359,7 +362,7 @@ forwarding payload and leaves the connection address untouched.</p>
 </li>
 <li><p>AuthCore&#39;s mixin <code>ServerHandshakeNetworkHandlerMixin</code> (in <code>net.ded3ec.mixin</code>) injects at the
 very beginning of <code>onHandshake</code>. The mixin is <strong>universal</strong> (1.16.0 – 26.1-26.2): it reads the
-handshake address via reflection — the record accessor (<code>address()</code>) on newer versions, the
+handshake address via reflection, the record accessor (<code>address()</code>) on newer versions, the
 private <code>address</code> field on 1.16–1.20.4.</p>
 </li>
 <li><p>If <code>proxy-support.enabled</code> is true, <code>net.ded3ec.network.ProxySupport.parseForwardedIp(...)</code>
@@ -386,14 +389,14 @@ security log.</p>
 <hr>
 <h2 id="compatibility-with-other-mods-behind-velocity">🤝 Compatibility With Other Mods Behind Velocity</h2>
 <ul>
-<li>The handshake mixin is <strong>targeted</strong> — it injects only into
+<li>The handshake mixin is <strong>targeted</strong>, it injects only into
 <code>ServerHandshakeNetworkHandler.onHandshake</code>, reads the packet address, and writes the
 connection address through a dedicated accessor interface. It does not touch packet bodies,
 login payloads, or other mods&#39; handlers.</li>
 <li>The injection is at <code>HEAD</code> of <code>onHandshake</code> and is a <strong>read-only + address-set</strong> operation,
 so it does not conflict with mods that also process handshakes (e.g. ViaVersion, packet
 libraries, or other proxy plugins).</li>
-<li>All changes are isolated behind the config flag — when <code>proxy-support.enabled</code> is <code>false</code>,
+<li>All changes are isolated behind the config flag, when <code>proxy-support.enabled</code> is <code>false</code>,
 the mixin short-circuits immediately and AuthCore behaves as a plain server-side mod.</li>
 </ul>
 <hr>
@@ -418,7 +421,7 @@ See <a href="config.html">CONFIG.md</a>
 </code></pre>
 </li>
 <li><p>On the backend server, set <code>online-mode=false</code> (or use a hybrid setup via AuthCore&#39;s
-<code>session.server-mode</code> and premium handling) — the proxy handles client authentication.</p>
+<code>session.server-mode</code> and premium handling), the proxy handles client authentication.</p>
 </li>
 <li><p>In AuthCore&#39;s <code>settings.conf</code>:</p>
 <pre><code class="language-hocon">session {
@@ -430,7 +433,7 @@ See <a href="config.html">CONFIG.md</a>
 </code></pre>
 </li>
 <li><p>Restart the backend server and verify: join through the proxy, then run <code>/authcore whois</code>
-or check the login history / web panel — the recorded IP must be the <strong>real client IP</strong>, not
+or check the login history / web panel, the recorded IP must be the <strong>real client IP</strong>, not
 the BungeeCord host IP.</p>
 </li>
 </ol>
@@ -491,7 +494,7 @@ the offline UUID.</li>
 GeoIP / login intelligence / IP-bound sessions, use <strong>legacy</strong> mode (the IP travels in the
 handshake and is parsed automatically with <code>protocol = &quot;auto&quot;</code>).</p>
 <p>ℹ️ The login-phase receiver is registered on <strong>Fabric</strong> today (fabric-api, reflectively);
-on Forge/NeoForge it is skipped gracefully — use <strong>legacy</strong> forwarding
+on Forge/NeoForge it is skipped gracefully, use <strong>legacy</strong> forwarding
 (<code>protocol = &quot;auto&quot;</code>, works on every loader) there.</p>
 </blockquote>
 <hr>
@@ -563,25 +566,25 @@ every backend has Redis-enabled sessions.</p>
 </blockquote>
 <h2 id="resilience--build-notes">🛡️ Resilience &amp; Build Notes</h2>
 <h3 id="version-fragile-mixins-requiredfalse">🧩 Version-Fragile Mixins (<code>required:false</code>)</h3>
-<p>The proxy-relevant mixins — <code>ServerHandshakeNetworkHandlerMixin</code> (handshake forwarding) and
-<code>ServerLoginNetworkHandlerMixin</code> (login hello) — are declared <strong><code>required:false</code></strong> in
+<p>The proxy-relevant mixins, <code>ServerHandshakeNetworkHandlerMixin</code> (handshake forwarding) and
+<code>ServerLoginNetworkHandlerMixin</code> (login hello), are declared <strong><code>required:false</code></strong> in
 <code>authcore.server.mixins.json</code>. If a future Minecraft version changes a method signature, the
 mixin <strong>does not apply instead of crashing the server</strong>: AuthCore keeps running, and the
 multi-version CI matrix reports exactly which mixin needs re-mapping.</p>
 <h3 id="database-migration-suspension">🛑 Database Migration Suspension</h3>
 <p>If AuthCore&#39;s automatic schema migration fails at startup, <code>Database.migrationBlocked</code> is set
-and <strong>registration/login are suspended</strong> until the database is fixed — the console prints
+and <strong>registration/login are suspended</strong> until the database is fixed, the console prints
 actionable fix steps (recreate the DB, run the manual <code>ALTER TABLE</code> statements, or restore a
 backup from <code>config/authcore/backups/</code>). On a proxy network this blocks auth on the affected
 backend only; other backends keep serving. Fix the database and <code>/authcore reload</code>.</p>
 <h3 id="encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</h3>
 <p>Unknown or failing hash algorithms fall back to <strong>Argon2id</strong> (with a warning) so registration
-and password resets never store an unusable hash — consistent behavior across all backends of a
+and password resets never store an unusable hash, consistent behavior across all backends of a
 proxy network. See <a href="security.html">SECURITY.md</a>.</p>
 <h3 id="client-companion-bundled">🎨 Client Companion (Bundled)</h3>
 <p>Every range jar ships <code>environment: &quot;*&quot;</code> with the client login-screen companion built in
-(1.20.2+ clients; older clients load safely and skip the screen) — no separate build flag.
-The proxy/IP-forwarding layer is untouched by the companion — it lives on the client and
+(1.20.2+ clients; older clients load safely and skip the screen), no separate build flag.
+The proxy/IP-forwarding layer is untouched by the companion, it lives on the client and
 intercepts connections before the server handshake.</p>
 <h3 id="multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
 <ul>
@@ -591,8 +594,8 @@ intercepts connections before the server handshake.</p>
 <code>:26.2-fabric</code>, <code>:26.2-neoforge</code>; active <code>1.21.11-fabric</code>) into the seven range jars
 (<code>authcore-&lt;range&gt;-&lt;loader&gt;-&lt;v&gt;.jar</code>); Java toolchains are 17 / 21 / 25 per group.</li>
 <li>The host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots each range jar
-on its verify versions in Docker — 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
-26.1.2 / 26.2 — with live log streaming and report pruning
+on its verify versions in Docker, 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.11,
+26.1.2 / 26.2, with live log streaming and report pruning
 (<code>reports/latest.md|html|json</code>). Full matrix: <strong>8/8 endpoints × 7/7 loader targets PASS</strong>
 (2026-08-10).</li>
 </ul>
@@ -607,22 +610,23 @@ on BungeeCord, <code>player-info-forwarding-mode</code> ≠ <code>none</code> on
 A: No. Legacy forwarding mode works too (<code>protocol = &quot;auto&quot;</code>). Modern forwarding additionally
 delivers the real IP natively and can be verified with the shared secret.</p>
 <p><strong>Q: Can I enable proxy support on a server that is NOT behind a proxy?</strong>
-A: It is safe but pointless — the parser finds no payload and nothing is rewritten. Keep it
+A: It is safe but pointless, the parser finds no payload and nothing is rewritten. Keep it
 <code>false</code> to avoid confusion.</p>
 <p><strong>Q: Will the forwarded IP affect session/IP checks?</strong>
 A: Yes, intentionally. <code>session-from-same-ip-only</code>, GeoIP country detection, per-IP rate
 limits and risk scoring all operate on the real client IP, which is exactly what you want.</p>
 <p><strong>Q: The mixin shows an error in the console.</strong>
 A: The universal mixin applies cleanly on every supported version (1.16.0 – 26.1-26.2). If another
-mod rewrites handshake addresses too, both may run — AuthCore&#39;s rewrite is idempotent and only
+mod rewrites handshake addresses too, both may run, AuthCore&#39;s rewrite is idempotent and only
 runs once per connection. Enable <code>debug-mode</code> for details.</p>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Server Admin Guide — AuthCore Docs</title>
-<meta name="description" content="START HERE — newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path.">
-<meta property="og:title" content="Server Admin Guide — AuthCore Docs">
-<meta property="og:description" content="START HERE — newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path.">
+<title>Server Admin Guide - AuthCore Docs</title>
+<meta name="description" content="START HERE, newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path.">
+<meta property="og:title" content="Server Admin Guide - AuthCore Docs">
+<meta property="og:description" content="START HERE, newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/guide.html">
 <style>
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -274,22 +277,22 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#what-youll-learn-here">📑 What you'll learn here</a></li><li class="toc-item toc-2"><a href="#1-pick-the-right-jar">1. Pick the right jar</a></li><li class="toc-item toc-2"><a href="#2-install">2. Install</a></li><li class="toc-item toc-2"><a href="#3-the-first-player-experience-how-it-works">3. The first player experience (how it works)</a></li><li class="toc-item toc-2"><a href="#4-settingsconf--the-important-parts">4. settings.conf — the important parts</a></li><li class="toc-item toc-3"><a href="#41-server-mode--authentication">4.1 Server mode & authentication</a></li><li class="toc-item toc-3"><a href="#42-lobby-the-waiting-area">4.2 Lobby (the waiting area)</a></li><li class="toc-item toc-3"><a href="#43-clientguard-anti-bot--anti-bypass">4.3 ClientGuard (anti-bot / anti-bypass)</a></li><li class="toc-item toc-3"><a href="#44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</a></li><li class="toc-item toc-3"><a href="#45-email-for-email-2fa--recovery">4.5 Email (for email 2FA + recovery)</a></li><li class="toc-item toc-3"><a href="#46-web-admin-panel">4.6 Web admin panel</a></li><li class="toc-item toc-3"><a href="#47-databases-all-optional">4.7 Databases (all optional)</a></li><li class="toc-item toc-2"><a href="#5-admin-commands">5. Admin commands</a></li><li class="toc-item toc-2"><a href="#6-security-recommendations-checklist">6. Security recommendations (checklist)</a></li><li class="toc-item toc-2"><a href="#7-troubleshooting">7. Troubleshooting</a></li><li class="toc-item toc-2"><a href="#8-learning-path--go-deeper">8. Learning path — go deeper</a></li><li class="toc-item toc-2"><a href="#9-getting-help">9. Getting help</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#what-youll-learn-here">📑 What you'll learn here</a></li><li class="toc-item toc-2"><a href="#1-pick-the-right-jar">1. Pick the right jar</a></li><li class="toc-item toc-2"><a href="#2-install">2. Install</a></li><li class="toc-item toc-2"><a href="#3-the-first-player-experience-how-it-works">3. The first player experience (how it works)</a></li><li class="toc-item toc-2"><a href="#4-settingsconf--the-important-parts">4. settings.conf, the important parts</a></li><li class="toc-item toc-3"><a href="#41-server-mode--authentication">4.1 Server mode & authentication</a></li><li class="toc-item toc-3"><a href="#42-lobby-the-waiting-area">4.2 Lobby (the waiting area)</a></li><li class="toc-item toc-3"><a href="#43-clientguard-anti-bot--anti-bypass">4.3 ClientGuard (anti-bot / anti-bypass)</a></li><li class="toc-item toc-3"><a href="#44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</a></li><li class="toc-item toc-3"><a href="#45-email-for-email-2fa--recovery">4.5 Email (for email 2FA + recovery)</a></li><li class="toc-item toc-3"><a href="#46-web-admin-panel">4.6 Web admin panel</a></li><li class="toc-item toc-3"><a href="#47-databases-all-optional">4.7 Databases (all optional)</a></li><li class="toc-item toc-2"><a href="#5-admin-commands">5. Admin commands</a></li><li class="toc-item toc-2"><a href="#6-security-recommendations-checklist">6. Security recommendations (checklist)</a></li><li class="toc-item toc-2"><a href="#7-troubleshooting">7. Troubleshooting</a></li><li class="toc-item toc-2"><a href="#8-learning-path--go-deeper">8. Learning path, go deeper</a></li><li class="toc-item toc-2"><a href="#9-getting-help">9. Getting help</a></li></ul>
   </aside>
   <main>
     <article>
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <h1>🧭 AuthCore Server Admin Guide</h1>
-<p>A step-by-step guide for server owners — from first install to a fully secured server.
+<p>A step-by-step guide for server owners, from first install to a fully secured server.
 AuthCore is an <strong>authentication framework for offline/cracked servers</strong>: it forces every
 player to register with a password and log in before they can play, with 2FA/MFA, a web
 admin panel, a honeypot, anti-bot protection and network-wide single sign-on.</p>
 <blockquote>
 <p>✨ AuthCore runs <strong>out of the box with zero configuration</strong> (SQLite database, no Redis, no
-email). Every database and service below is <em>optional</em> — enable only what you need.</p>
+email). Every database and service below is <em>optional</em>, enable only what you need.</p>
 <p>🧩 <strong>The same jar is your server mod, your client companion and your BungeeCord/Velocity
-proxy plugin</strong> — install it once wherever AuthCore should run.</p>
+proxy plugin</strong>, install it once wherever AuthCore should run.</p>
 </blockquote>
 <hr>
 <h2 id="what-youll-learn-here">📑 What you&#39;ll learn here</h2>
@@ -313,7 +316,7 @@ proxy plugin</strong> — install it once wherever AuthCore should run.</p>
 <td align="left">How register/login/lobby actually work</td>
 </tr>
 <tr>
-<td align="left"><a href="#4-settingsconf--the-important-parts">4. settings.conf — the important parts</a></td>
+<td align="left"><a href="#4-settingsconf--the-important-parts">4. settings.conf, the important parts</a></td>
 <td align="left">The ~10 settings you&#39;ll actually change</td>
 </tr>
 <tr>
@@ -329,13 +332,13 @@ proxy plugin</strong> — install it once wherever AuthCore should run.</p>
 <td align="left">Fix the common problems</td>
 </tr>
 <tr>
-<td align="left"><a href="#8-learning-path--go-deeper">8. Learning path — go deeper</a></td>
+<td align="left"><a href="#8-learning-path--go-deeper">8. Learning path, go deeper</a></td>
 <td align="left">Links to the advanced docs per topic</td>
 </tr>
 </tbody></table>
 <hr>
 <h2 id="1-pick-the-right-jar">1. Pick the right jar</h2>
-<p>AuthCore ships <strong>range jars</strong> — one jar covers a whole Minecraft version range. Pick the
+<p>AuthCore ships <strong>range jars</strong>, one jar covers a whole Minecraft version range. Pick the
 row matching your server&#39;s <strong>Minecraft version AND loader</strong>:</p>
 <table>
 <thead>
@@ -382,14 +385,14 @@ row matching your server&#39;s <strong>Minecraft version AND loader</strong>:</p
 </tr>
 </tbody></table>
 <blockquote>
-<p>💡 <strong>Which loader?</strong> Use the loader your server already runs — every range ships all
+<p>💡 <strong>Which loader?</strong> Use the loader your server already runs, every range ships all
 supported loaders. Fabric needs <strong>Fabric API</strong> installed alongside the jar; Forge and
 NeoForge need nothing extra. All three drop the jar into <code>mods/</code>.</p>
 </blockquote>
 <p><strong>Download from:</strong> <a href="https://modrinth.com/mod/authCore">Modrinth</a> or
 <a href="https://github.com/DawnOfDedSec/AuthCore/releases">GitHub Releases</a>.</p>
 <blockquote>
-<p>🧠 <em>Newbie question: &quot;why are there so many jars?&quot;</em> — Because Minecraft changed its code
+<p>🧠 <em>Newbie question: &quot;why are there so many jars?&quot;</em>, Because Minecraft changed its code
 format at 26.1, one jar cannot work on every version. Each range jar is tested on every
 version of its range before release. More background: <a href="26x.html">docs/26x.md</a>.</p>
 </blockquote>
@@ -417,11 +420,11 @@ version of its range before release. More background: <a href="26x.html">docs/26
     - 2FA (TOTP)              : disabled
     - Sessions                : enabled
 </code></pre>
-<p>If the banner shows a warning about an <em>untested version</em>, the mod still works — it just
+<p>If the banner shows a warning about an <em>untested version</em>, the mod still works, it just
 means the version wasn&#39;t in the officially tested set yet. If the server <strong>crashes or won&#39;t
 start</strong>, jump to <a href="#7-troubleshooting">section 7 (Troubleshooting)</a>.</p>
 <h2 id="3-the-first-player-experience-how-it-works">3. The first player experience (how it works)</h2>
-<p>This is the flow your players will see — understanding it makes every setting below obvious:</p>
+<p>This is the flow your players will see, understanding it makes every setting below obvious:</p>
 <ol>
 <li>A player joins → they land in the <strong>lobby</strong> (spawn): no chat, no commands, no movement
 (all configurable), blindness/invisibility if configured.</li>
@@ -430,22 +433,22 @@ start</strong>, jump to <a href="#7-troubleshooting">section 7 (Troubleshooting)
 <li>If 2FA is enabled, they are asked for their <strong>TOTP code</strong> (from their authenticator app)
 or an <strong>email code</strong>.</li>
 <li>They are released into the world. On their next join, their <strong>session resumes
-automatically</strong> (same IP) — no password needed until the session expires.</li>
+automatically</strong> (same IP), no password needed until the session expires.</li>
 <li>If they have the <strong>client companion</strong> (the same jar installed on their client), the login
 screen appears automatically, sessions resume with a secure <strong>session token</strong>, and the
 server can <strong>attest</strong> the client (anti-bot).</li>
 </ol>
 <blockquote>
-<p>🧠 <em>Newbie question: &quot;do my players need to install anything?&quot;</em> — No. The companion is
+<p>🧠 <em>Newbie question: &quot;do my players need to install anything?&quot;</em>, No. The companion is
 optional convenience. Plain vanilla players just type <code>/register</code> and <code>/login</code> in chat.</p>
 </blockquote>
-<h2 id="4-settingsconf--the-important-parts">4. settings.conf — the important parts</h2>
+<h2 id="4-settingsconf--the-important-parts">4. settings.conf, the important parts</h2>
 <p>All settings live in <code>config/authcore/settings.conf</code> (HOCON format). Reload changes with
-<code>/authcore reload</code> — no restart needed.</p>
+<code>/authcore reload</code>, no restart needed.</p>
 <blockquote>
 <p>⚠️ <strong>Recommended values, not defaults.</strong> The snippets below show <em>what to set</em> for a secure
 setup. Defaults differ (e.g. 2FA is <strong>off</strong> by default). The full reference with every
-default is <a href="config.html">docs/CONFIG.md</a> — bookmark it.</p>
+default is <a href="config.html">docs/CONFIG.md</a>, bookmark it.</p>
 </blockquote>
 <h3 id="41-server-mode--authentication">4.1 Server mode &amp; authentication</h3>
 <pre><code class="language-hocon">session {
@@ -523,7 +526,7 @@ chat/payload floods, tab-completion probing, fake companion clients, confusable 
 </code></pre>
 <blockquote>
 <p><strong>Vanilla players are never locked out.</strong> Every check is risk-based; the normal chat
-login always works. The companion (same jar on the client) is optional — it just earns
+login always works. The companion (same jar on the client) is optional, it just earns
 more trust and convenience.</p>
 </blockquote>
 <h3 id="44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</h3>
@@ -571,7 +574,7 @@ brute force after repeated failures (429). A <code>readonly-token</code> exists 
 }
 </code></pre>
 <blockquote>
-<p>🧠 <em>Newbie question: &quot;which database should I use?&quot;</em> — Start with <strong>SQLite</strong> (zero
+<p>🧠 <em>Newbie question: &quot;which database should I use?&quot;</em>, Start with <strong>SQLite</strong> (zero
 setup). Move to MySQL/PostgreSQL only when you run several servers on one account
 database, and add Redis when you want network-wide sessions/SSO.</p>
 </blockquote>
@@ -647,15 +650,15 @@ database, and add Redis when you want network-wide sessions/SSO.</p>
 <h2 id="6-security-recommendations-checklist">6. Security recommendations (checklist)</h2>
 <ol>
 <li>Set <code>session.server-mode = &quot;offline&quot;</code> on cracked servers.</li>
-<li><strong>Enable 2FA</strong> (<code>allow-totp-support = true</code>) — recovery codes are single-use.</li>
+<li><strong>Enable 2FA</strong> (<code>allow-totp-support = true</code>), recovery codes are single-use.</li>
 <li>Keep <code>password-hash-algorithm = &quot;argon2&quot;</code> (never <code>md5</code>).</li>
 <li>Put a <strong>long random token</strong> on the web panel and keep it on 127.0.0.1 (tunnel it).</li>
 <li>Keep ClientGuard defaults on; check <code>/authcore whois</code> + <code>security.log</code> for signals.</li>
 <li>Use a proxy (Velocity/BungeeCord) with <strong>modern forwarding</strong> for networks; enable SSO
 with Redis when you run multiple servers.</li>
-<li>Backups are automatic (<code>session.backup.interval-hours</code>) — store them off-server.</li>
+<li>Backups are automatic (<code>session.backup.interval-hours</code>), store them off-server.</li>
 <li>When something looks wrong, share the <strong>error code</strong> from the console
-(format <code>AC-&lt;hex&gt;-&lt;hex&gt;-&lt;hex&gt;-&lt;hex&gt;</code>) with the mod author — it pinpoints the exact
+(format <code>AC-&lt;hex&gt;-&lt;hex&gt;-&lt;hex&gt;-&lt;hex&gt;</code>) with the mod author, it pinpoints the exact
 failure without exposing internals.</li>
 </ol>
 <blockquote>
@@ -672,11 +675,11 @@ failure without exposing internals.</li>
 </thead>
 <tbody><tr>
 <td align="left">&quot;Players are not asked to register&quot;</td>
-<td align="left"><code>server-mode</code> is <code>&quot;online&quot;</code> — set it to <code>&quot;offline&quot;</code> (section 4.1)</td>
+<td align="left"><code>server-mode</code> is <code>&quot;online&quot;</code>, set it to <code>&quot;offline&quot;</code> (section 4.1)</td>
 </tr>
 <tr>
 <td align="left">2FA prompt but no TOTP setup link</td>
-<td align="left">2FA secret is generated on first lobby join — have the player re-register or <code>/authcore whois</code> to inspect the account</td>
+<td align="left">2FA secret is generated on first lobby join, have the player re-register or <code>/authcore whois</code> to inspect the account</td>
 </tr>
 <tr>
 <td align="left">Sessions always ask for password</td>
@@ -684,30 +687,30 @@ failure without exposing internals.</li>
 </tr>
 <tr>
 <td align="left">Web panel unreachable</td>
-<td align="left">Panel binds 127.0.0.1 by default — connect from the same machine or tunnel it (<a href="webpanel.html">WEBPANEL.md</a>)</td>
+<td align="left">Panel binds 127.0.0.1 by default, connect from the same machine or tunnel it (<a href="webpanel.html">WEBPANEL.md</a>)</td>
 </tr>
 <tr>
 <td align="left">&quot;Mod requires fabric-api&quot;</td>
-<td align="left">Install Fabric API alongside the jar (Fabric loader only — Forge/NeoForge need nothing extra)</td>
+<td align="left">Install Fabric API alongside the jar (Fabric loader only, Forge/NeoForge need nothing extra)</td>
 </tr>
 <tr>
 <td align="left">Console shows <code>AC-7-3-1-...</code></td>
-<td align="left">Database connection failure (module 7 = DATABASE, kind 3 = connection) — send the code to the author</td>
+<td align="left">Database connection failure (module 7 = DATABASE, kind 3 = connection), send the code to the author</td>
 </tr>
 <tr>
 <td align="left">Server won&#39;t start on a newer version</td>
-<td align="left">Use the matching range jar; a newer stable may not be covered yet — the weekly compat scan catches these automatically</td>
+<td align="left">Use the matching range jar; a newer stable may not be covered yet, the weekly compat scan catches these automatically</td>
 </tr>
 <tr>
 <td align="left">Something behaves oddly after an update</td>
-<td align="left">Run <code>/authcore validate</code>, then <code>/authcore reload</code> — config migrations run automatically</td>
+<td align="left">Run <code>/authcore validate</code>, then <code>/authcore reload</code>, config migrations run automatically</td>
 </tr>
 <tr>
 <td align="left">Players on proxies/VPNs are blocked</td>
-<td align="left">That&#39;s <code>allow-proxy-users = false</code> (section 4.1) — disable it to allow them</td>
+<td align="left">That&#39;s <code>allow-proxy-users = false</code> (section 4.1), disable it to allow them</td>
 </tr>
 </tbody></table>
-<h2 id="8-learning-path--go-deeper">8. Learning path — go deeper</h2>
+<h2 id="8-learning-path--go-deeper">8. Learning path, go deeper</h2>
 <p>This guide intentionally keeps things simple. When you&#39;re ready, each topic links to its
 full documentation:</p>
 <table>
@@ -769,15 +772,16 @@ then read <a href="proxy.html">PROXY.md</a> and <a href="webpanel.html">WEBPANEL
 <li><strong>Questions:</strong> <a href="https://github.com/DawnOfDedSec/AuthCore/discussions">Discussions</a></li>
 <li><strong>Discord / webhook alerts:</strong> see section 4.6 and <a href="webpanel.html">WEBPANEL.md</a></li>
 <li><strong>When reporting a bug:</strong> include the console <strong>error code</strong> (<code>AC-...</code>) and the version
-from the startup banner — it pinpoints the failure without exposing internals.</li>
+from the startup banner, it pinpoints the failure without exposing internals.</li>
 </ul>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>

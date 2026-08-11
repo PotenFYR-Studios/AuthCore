@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Development & Architecture — AuthCore Docs</title>
+<title>Development & Architecture - AuthCore Docs</title>
 <meta name="description" content="Build system, multi-version / multi-loader management, testing.">
-<meta property="og:title" content="Development & Architecture — AuthCore Docs">
+<meta property="og:title" content="Development & Architecture - AuthCore Docs">
 <meta property="og:description" content="Build system, multi-version / multi-loader management, testing.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/development.html">
@@ -93,6 +93,9 @@
 
   /* ---------- layout ---------- */
   .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 980px; }
   @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
 
   /* ---------- sidebar TOC ---------- */
@@ -278,7 +281,7 @@
   </aside>
   <main>
     <article>
-<h1>AuthCore — Development &amp; Architecture</h1>
+<h1>AuthCore, Development &amp; Architecture</h1>
 <p>This document explains <strong>how AuthCore is built</strong>, <strong>how the codebase is organized</strong> and
 <strong>how multi-version / multi-loader support is managed</strong> so contributors can extend the mod
 without breaking the 1.16.x – 26.1-26.2 compatibility promise.</p>
@@ -288,9 +291,9 @@ without breaking the 1.16.x – 26.1-26.2 compatibility promise.</p>
 <ul>
 <li><strong>One jar</strong> is simultaneously a server mod, a client companion mod and a
 BungeeCord/Velocity proxy plugin (the loader picks the right entrypoint at runtime).</li>
-<li><strong>One codebase</strong> targets Minecraft <strong>1.16.0 – 26.1-26.2</strong> across <strong>all three loaders —
+<li><strong>One codebase</strong> targets Minecraft <strong>1.16.0 – 26.1-26.2</strong> across <strong>all three loaders -
 Fabric, Forge and NeoForge</strong> (7 released jars: 3 version ranges × loaders).</li>
-<li>Compatibility is not assumed — it is <strong>verified by the host-test harness</strong> on every
+<li>Compatibility is not assumed, it is <strong>verified by the host-test harness</strong> on every
 version-group endpoint inside Docker (see §6).</li>
 </ul>
 <hr>
@@ -426,19 +429,19 @@ silently at the edges:</p>
 <p>The runtime namespace and method signatures drift between these eras. Concrete examples
 found while building the range jars (each one <em>crashed a real server</em> until handled):</p>
 <ul>
-<li><code>ServerCommandSource.getPlayer()</code> — intermediary id <code>method_9207</code> (1.16–1.18) vs
+<li><code>ServerCommandSource.getPlayer()</code>, intermediary id <code>method_9207</code> (1.16–1.18) vs
 <code>method_44023</code> (1.19.4+) → resolved via <code>Compat.sourcePlayer()</code> (reflection over the
 candidate ids; also works on unobfuscated 26.1-26.2 via the mojmap name).</li>
-<li><code>ActionResult</code> constants — on 1.20.5+ they became classes with nested subclasses and the
+<li><code>ActionResult</code> constants, on 1.20.5+ they became classes with nested subclasses and the
 1.21.11 mappings type them as <code>ActionResult$Pass</code> etc. A direct field reference
 compiled for 1.21.11 fails to load on 1.20.6 → <code>Compat.actionResultPass()/Fail()</code>
 resolve by field name (&quot;PASS&quot;/&quot;FAIL&quot;, or stable intermediary ids <code>field_5811</code>/<code>field_5814</code>).</li>
-<li><code>ScreenHandler.clicked</code> — <code>(…ClickType…)LItemStack;</code> on 1.16, <code>(…ClickType…)V</code> on 1.17–1.21,
+<li><code>ScreenHandler.clicked</code>, <code>(…ClickType…)LItemStack;</code> on 1.16, <code>(…ClickType…)V</code> on 1.17–1.21,
 <code>(…ContainerInput…)V</code> on 26.1-26.2 → two mixins with <strong>descriptor-based selectors</strong>,
 each <code>require = 0</code>, so exactly one matches per runtime.</li>
-<li><code>ServerPlayer.setGameMode</code> — returns <code>void</code> on 1.16, <code>boolean</code> on 1.17+ → two <code>@Inject</code>
+<li><code>ServerPlayer.setGameMode</code>, returns <code>void</code> on 1.16, <code>boolean</code> on 1.17+ → two <code>@Inject</code>
 handlers (one <code>CallbackInfo</code>, one <code>CallbackInfoReturnable</code>), descriptor-gated.</li>
-<li><code>CommandManager.execute</code> — <code>(ServerCommandSource, String)I</code> (1.16–1.18),
+<li><code>CommandManager.execute</code>, <code>(ServerCommandSource, String)I</code> (1.16–1.18),
 <code>(ParseResults, String)I</code> (1.19.4), <code>(ParseResults, String)V</code> (1.20.6+) → three mixins
 with stable-intermediary descriptors (<code>method_9249</code>, <code>remap = false</code>).</li>
 <li>fabric-api callback interfaces are compiled <strong>per version</strong> and reference
@@ -448,7 +451,7 @@ linkage exists in the jar.</li>
 </ul>
 <h3 id="43-stonecutter-conditionals">4.3 Stonecutter conditionals</h3>
 <p>Code that differs between versions is written with preprocessor comments. The template
-files are kept in the <strong>active (1.21.11) output state</strong> — the branch that matches 1.21.11
+files are kept in the <strong>active (1.21.11) output state</strong>, the branch that matches 1.21.11
 is active code, every other branch is <code>/*...*/</code>-commented:</p>
 <pre><code class="language-java">  @Inject(
       method =
@@ -460,11 +463,11 @@ is active code, every other branch is <code>/*...*/</code>-commented:</p>
 </code></pre>
 <p>Supported: <code>if</code>, <code>else if</code>, <code>else</code>, version comparisons (<code>&lt; 1.19.4</code>, <code>&gt;= 1.20.5</code>, <code>= 26.2</code>),
 loader constants (<code>fabric</code>, <code>forge</code>, <code>neoforge</code>, <code>forgeLike</code>). <strong>Never put conditionals
-inside JSON metadata</strong> — Loom parses <code>fabric.mod.json</code> at configure time; use the
+inside JSON metadata</strong>, Loom parses <code>fabric.mod.json</code> at configure time; use the
 <code>${placeholder}</code> expansion from <code>modSettings.variableReplacements</code> instead.</p>
 <h3 id="44-discipline-what-keeps-the-promise-alive">4.4 Discipline (what keeps the promise alive)</h3>
 <ol>
-<li>Never call an MC API whose intermediary id or signature is known to drift — go through
+<li>Never call an MC API whose intermediary id or signature is known to drift, go through
 <code>Compat</code> or use a conditional.</li>
 <li>Mixins that may not exist on a version get <strong>descriptor selectors + <code>require = 0</code></strong>
 (one shape per era), never a bare method name with <code>defaultRequire = 1</code>.</li>
@@ -474,7 +477,7 @@ inside JSON metadata</strong> — Loom parses <code>fabric.mod.json</code> at co
 <hr>
 <h2 id="5-managing-multiple-loaders">5. Managing multiple loaders</h2>
 <ul>
-<li>Loader constants are registered automatically by Stonecraft — usable as
+<li>Loader constants are registered automatically by Stonecraft, usable as
 <code>/*? if fabric {*/</code> in code and as <code>mod.isFabric</code> etc. in the build script.</li>
 <li>Each loader has its own thin entrypoint (delegating to the loader-neutral
 <code>net.ded3ec.AuthCoreServer.start()</code>):<ul>
@@ -492,7 +495,7 @@ inside JSON metadata</strong> — Loom parses <code>fabric.mod.json</code> at co
 <li>Loader-specific logic (e.g. fabric-api event registration in <code>Registry</code>/<code>FabricHooks</code>)
 is gated with <code>/*? if fabric {*/</code>; forge-like loaders register the equivalents in their
 entrypoints on the Forge/NeoForge event buses (commands, join/leave, server tick).</li>
-<li>The proxy plugin side (<code>proxy/</code> package) is loader-agnostic — the same jar doubles as a
+<li>The proxy plugin side (<code>proxy/</code> package) is loader-agnostic, the same jar doubles as a
 Bungee/Velocity plugin via <code>bungee.yml</code> + <code>velocity-plugin.json</code>.</li>
 <li><strong>Known loader gaps (documented honestly):</strong> block/item-use interaction restrictions and
 the Velocity modern-identity receiver are Fabric-only today (see <code>NeoForgeEntry</code>); the
@@ -531,7 +534,7 @@ probes the Fabric meta + NeoForge/Forge maven for new stables, boots them via <c
 and automatically creates a <code>v&lt;mod&gt;-&lt;mc&gt;</code> tag + GitHub Release with a generated changelog
 entry when a new version is detected and validated.</p>
 <p><strong>Current status: 8/8 range endpoints + 7/7 loader build targets PASS</strong> (1.16.5 ... 26.2 ×
-fabric/forge/neoforge) — 2026-08-10.</p>
+fabric/forge/neoforge), 2026-08-10.</p>
 <h3 id="63-mfa--sso-verification">6.3 MFA / SSO verification</h3>
 <ul>
 <li>2FA: TOTP (RFC 6238) + single-use recovery codes + optional email OTP (10-min TTL,
@@ -547,12 +550,13 @@ mapping-stability check (intermediary-id diff between range endpoints) in CI.</l
 <li><strong>P4</strong> Modrinth / CurseForge publish automation.</li>
 </ul>
 
+    
     </article>
   </main>
 </div>
 <button id="toTop" aria-label="Back to top">↑</button>
 <footer>
-  <strong>AuthCore</strong> — The Fortress Framework for Minecraft Servers ·
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
   <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
   <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
 </footer>
