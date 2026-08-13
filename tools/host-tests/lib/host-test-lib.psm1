@@ -382,9 +382,18 @@ function Invoke-HostTest {
     Copy-Item -LiteralPath $Desc.authcoreJar -Destination (Join-Path $modsDir "authcore.jar") -Force
 
     # ---- fresh runtime state -----------------------------------------------
+    # Best-effort on the host: the CONTAINER entrypoint performs the authoritative
+    # cleanup as root (bind-mount files created by an earlier container are
+    # root-owned and cannot always be removed by the host user - e.g. Linux CI).
+    # A cleanup failure here must never crash the harness.
     foreach ($clean in @("world", "world_nether", "world_the_end", "config", "logs", ".authcore-test")) {
       $p = Join-Path $workDir $clean
-      if (Test-Path $p) { Remove-Item -Recurse -Force $p }
+      if (Test-Path $p) {
+        try { Remove-Item -Recurse -Force $p -ErrorAction Stop }
+        catch {
+          Write-Host "  [$mc] WARN: host cleanup of $(Get-RepoRelativePath $p) failed (container will clean it as root): $($_.Exception.Message)"
+        }
+      }
     }
     New-TestServerFiles -WorkDir $workDir -ServerPort $Desc.port
 

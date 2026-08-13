@@ -113,7 +113,22 @@ jobs:
           name: authcore-jars
           path: dist
 
-      - name: Host-compatibility smoke (build targets, all loaders)
+      # Speed: persist the harness downloads + installed server state between
+      # runs (JBR tarballs, Fabric server launcher jars, vanilla servers,
+      # Forge/NeoForge installer jars + extracted libraries, Fabric API jars).
+      # The full matrix then skips almost every download and installer run.
+      - name: Restore harness caches (JBR tarballs + server files)
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/host-tests/.cache
+            tools/host-tests/work
+          key: hosttests-${{ runner.os }}-${{ hashFiles('tools/host-tests/versions.json', 'versions/dependencies/*.properties') }}
+          restore-keys: |
+            hosttests-${{ runner.os }}-
+
+      - name: Host-compatibility smoke (push/PR only, build targets)
+        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         run: |
           pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Smoke -Parallel 4
         env:
@@ -135,21 +150,6 @@ jobs:
             tools/host-tests/reports/latest.md
             tools/host-tests/reports/latest.html
             tools/host-tests/reports/latest.json
-
-      - name: Open an issue on harness failure
-        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let body = '## AuthCore host-compatibility failure\n\n';
-            try { body += fs.readFileSync('tools/host-tests/reports/latest.md', 'utf8').slice(0, 6000); } catch (e) {}
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'Host-compat matrix failure (' + new Date().toISOString().slice(0,10) + ')',
-              body: body
-            });
 
   # ------------------------------------------------------------------
   # Release: waits for build (the jars are the artifact), then replaces

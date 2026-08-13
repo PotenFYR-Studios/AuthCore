@@ -330,6 +330,97 @@ public final class FabricHooks {
   }
 
   /**
+   * Registers the fabric-api player join/leave + server tick events reflectively.
+   *
+   * <p>Never linked directly: the fabric-api jar's mod id renamed from {@code fabric} to
+   * {@code fabric-api} between 1.17 and 1.18, and servers may run without fabric-api at all -
+   * a direct import would throw NoClassDefFoundError during Registry.register(). When
+   * fabric-api is missing on a fabric server, a clear warning is logged once instead.
+   */
+  public static void registerServerEvents() {
+    boolean anyRegistered = false;
+    anyRegistered |=
+        registerReflectEvent(
+            "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
+            "JOIN",
+            "onPlayReady",
+            args -> {
+              net.ded3ec.events.ServerEvents.onPlayerJoin(
+                  (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
+              return null;
+            });
+    anyRegistered |=
+        registerReflectEvent(
+            "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
+            "DISCONNECT",
+            "onPlayDisconnect",
+            args -> {
+              net.ded3ec.events.ServerEvents.onPlayerLeave(
+                  (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
+              return null;
+            });
+    anyRegistered |=
+        registerReflectEvent(
+            "net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents",
+            "END_SERVER_TICK",
+            "onEndTick",
+            args -> {
+              net.ded3ec.events.ServerEvents.onEndServerTick(
+                  (net.minecraft.server.MinecraftServer) args[0]);
+              return null;
+            });
+
+    // Fabric server WITHOUT fabric-api: warn loudly once (Forge/NeoForge register their
+    // own equivalents in the entrypoints, so only warn when the fabric loader is active).
+    if (!anyRegistered
+        && net.ded3ec.compat.Compat.getLoaderVersion() != null
+        && !net.ded3ec.compat.Compat.getLoaderVersion().startsWith("FML")) {
+      net.ded3ec.AuthCoreServer.LOGGER.warn(
+          false,
+          "Fabric API was not found - AuthCore commands and player/tick events are "
+              + "DISABLED. Install Fabric API (Modrinth: fabric-api) next to the jar.");
+    }
+  }
+
+  /**
+   * Registers a fabric-api event field (e.g. {@code ServerPlayConnectionEvents.JOIN}) through
+   * a reflective proxy listener. The listener interface is resolved from the field's generic
+   * {@code Event<T>} type; invocations of {@code methodName} are forwarded to {@code handler}.
+   *
+   * @return true when the listener was registered
+   */
+  private static boolean registerReflectEvent(
+      String holderClass,
+      String fieldName,
+      String methodName,
+      java.util.function.Function<Object[], Object> handler) {
+    try {
+      Class<?> holder = Class.forName(holderClass);
+      java.lang.reflect.Field eventField = holder.getField(fieldName);
+      Object event = eventField.get(null);
+      Class<?> listenerType = resolveListenerType(eventField, event);
+      if (listenerType == null) return false;
+      Object listener =
+          java.lang.reflect.Proxy.newProxyInstance(
+              holder.getClassLoader(),
+              new Class<?>[] {listenerType},
+              (proxy, method, args) ->
+                  method.getName().equals(methodName) && args != null
+                      ? handler.apply(args)
+                      : null);
+      try {
+        registerEvent(event, listenerType, listener);
+      } catch (ReflectiveOperationException e) {
+        event.getClass().getMethod("register", Object.class).invoke(event, listener);
+      }
+      return true;
+    } catch (ReflectiveOperationException ignored) {
+      // event/field/interface not available on this fabric-api version
+    }
+    return false;
+  }
+
+  /**
    * Registers a listener on a fabric-api event. The concrete event class (ArrayBackedEvent) is
    * package-private and erases {@code register(T)} to {@code register(Object)}, so fall back to
    * the erased signature and open the method with setAccessible when needed.

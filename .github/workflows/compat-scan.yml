@@ -5,7 +5,9 @@ name: Compat Scan (weekly)
 #  2. Builds all seven variants (3 ranges x fabric/forge/neoforge).
 #  3. Runs the Docker harness with -ScanStable so every group also boots the NEWEST
 #     stable version of its range (forward-compat probe).
-#  4. Uploads the report; opens a GitHub issue on failure.
+#  4. Uploads the report; opens a GitHub issue ONLY when a probed (snapshot) version
+#     fails and no open issue for that version exists yet (deduped - see
+#     tools/host-tests/report-issue.ps1). Known-version failures never open issues.
 #  5. When a NEW stable version is detected AND the harness passes on it: creates a
 #     version tag (v<mod.version>-<mc>), publishes the jars to a GitHub Release and
 #     commits an auto-generated changelog entry for the new version.
@@ -85,6 +87,16 @@ jobs:
           cp versions/*/build/libs/authcore-*.jar dist/
           rm -f dist/*sources*.jar
 
+      - name: Restore harness caches (JBR tarballs + server files)
+        uses: actions/cache@v4
+        with:
+          path: |
+            tools/host-tests/.cache
+            tools/host-tests/work
+          key: hosttests-${{ runner.os }}-${{ hashFiles('tools/host-tests/versions.json', 'versions/dependencies/*.properties') }}
+          restore-keys: |
+            hosttests-${{ runner.os }}-
+
       - name: Host-compat matrix with forward-compat scan
         run: |
           pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -ScanStable -Parallel 4
@@ -119,20 +131,18 @@ jobs:
             sed -n '1,40p' tools/host-tests/reports/latest.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
-      - name: Open an issue on scan failure
+      - name: Open an issue on scan failure (snapshot compatibility only)
+        # Creates an issue ONLY when a forward-compat probe (newest stable in a
+        # range, outside the declared matrix) fails - i.e. a real snapshot
+        # compatibility break. Known-version failures and harness bugs never
+        # open issues, and existing open issues for the same version are not
+        # duplicated (see tools/host-tests/report-issue.ps1).
         if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            let body = '## AuthCore weekly compat scan failed\n\n**Newest stable 26.1-26.2:** `${{ steps.probe.outputs.new_version }}`\n\n**Report excerpt:**\n\n';
-            try { body += '``````\n' + fs.readFileSync('tools/host-tests/reports/latest.md', 'utf8').slice(0, 4000) + '\n``````'; } catch (e) {}
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '${{ steps.probe.outputs.report_title }} - FAILED',
-              body: body
-            });
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File tools/host-tests/report-issue.ps1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ------------------------------------------------------------------
   # New-version release: runs only when the scan detected a NEW stable

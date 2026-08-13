@@ -390,7 +390,19 @@ foreach ($j in $ctxJars) {
 if ($tests.Count -gt 1 -and $Parallel -gt 1) {
   $results = $tests | ForEach-Object -Parallel {
     Import-Module $using:modulePath -Force
-    Invoke-HostTest -Ctx $using:ctx -Desc $_
+    try {
+      Invoke-HostTest -Ctx $using:ctx -Desc $_
+    } catch {
+      # A crashing test must never kill the whole matrix - record it as a FAIL.
+      $r = @{
+        version = $_.version; groupRange = $_.groupRange; loader = $_.loader
+        jar = $_.jarName; status = "FAIL"; bootSec = ""; authcoreStartedMs = ""
+        mcDetected = ""; javaVersion = ""; checks = @{}; excerpt = ""
+        failures = "harness crash: $((Get-SanitizedText $_.Exception.Message) -replace '[\r\n]+', ' ')"; note = $_.note
+      }
+      Write-Host "  [HARNESS ERROR] $($_.groupRange)/$($_.loader) on $($_.version): $(Get-SanitizedText $_.Exception.Message)"
+      $r
+    }
   } -ThrottleLimit $Parallel
 } else {
   $results = foreach ($d in $tests) {
