@@ -44,6 +44,15 @@ CONSOLE="$RESULT_DIR/console.out"
 mkdir -p "$RESULT_DIR" "$LOG_DIR"
 cd "$SERVER_DIR" || { echo "FATAL: cannot cd to $SERVER_DIR"; exit 1; }
 
+# --- authoritative cleanup of generated server state --------------------------
+# Runs as root INSIDE the container, so it can delete bind-mount files the host
+# user cannot remove (root-owned leftovers from earlier containers on Linux CI).
+# The harness pre-provisions config/authcore/settings.conf on the host - that
+# directory is intentionally NOT touched here.
+rm -rf "$SERVER_DIR/world" "$SERVER_DIR/world_nether" "$SERVER_DIR/world_the_end" "$SERVER_DIR/logs" 2>/dev/null || true
+rm -f "$RESULT_FILE" 2>/dev/null || true
+mkdir -p "$RESULT_DIR" "$LOG_DIR"
+
 echo "== authcore host-test container: MC=$MC_VERSION jar=$JAR_TYPE =="
 
 fail() { # reason...
@@ -78,16 +87,45 @@ case "$LOADER" in
   forge|neoforge)
     # Installer-based boot: forge/neoforge download their libraries at install time.
     [ -f "$SERVER_DIR/installer.jar" ] || fail "installer.jar is missing (download failed on host?)"
-    UNIX_ARGS=$(find "$SERVER_DIR/libraries" -name unix_args.txt 2>/dev/null | head -1)
-    # The unix_args.txt alone is not enough - the loader's server jar must be present too
-    # (a timed-out install can leave a half-populated libraries/ directory).
-    LOADER_SERVER_JAR=$(find "$SERVER_DIR/libraries" \( -name 'forge-*-server.jar' -o -name 'minecraft-server-patched-*.jar' \) 2>/dev/null | head -1)
-    if [ -z "$UNIX_ARGS" ] || [ -z "$LOADER_SERVER_JAR" ]; then
-      echo "running installer (--installServer; one-time, cached in the work dir)..."
-      rm -rf "$SERVER_DIR/libraries"
+
+    # A truncated/corrupt library jar (flaky download during --installServer) makes the
+    # boot die with "zip END header not found". Scan only the boot-critical jars:
+    # unix_args.txt, the vanilla server set and the loader server jar. (Scanning every
+    # library jar spawns thousands of processes and can exceed the container timeout
+    # on slow bind mounts.)
+    is_valid_zip() { [ -n "$1" ] && [ -f "$1" ] && tail -c 22 "$1" | head -c 4 | od -An -tx1 | grep -q '50 4b 05 06'; }
+    critical_ok() {
+      [ -n "$(find "$SERVER_DIR/libraries" -name unix_args.txt 2>/dev/null | head -1)" ] || return 1
+      local f any=0
+      while IFS= read -r f; do
+        any=1
+        is_valid_zip "$f" || return 1
+      done < <(find "$SERVER_DIR/libraries" \( -name 'server-*.jar' -o -name 'forge-*-server.jar' -o -name 'minecraft-server-patched-*.jar' \) 2>/dev/null)
+      [ "$any" -eq 1 ]
+    }
+    clean_critical() {
+      local f
+      while IFS= read -r f; do is_valid_zip "$f" || rm -f "$f"; done \
+        < <(find "$SERVER_DIR/libraries" \( -name 'server-*.jar' -o -name 'forge-*-server.jar' -o -name 'minecraft-server-patched-*.jar' \) 2>/dev/null)
+    }
+    run_installer() {
+      echo "running installer (--installServer; reuses complete cached files)..."
       java -jar "$SERVER_DIR/installer.jar" --installServer < /dev/null >> "$CONSOLE" 2>&1 || fail "forge/neoforge installer failed"
-      UNIX_ARGS=$(find "$SERVER_DIR/libraries" -name unix_args.txt 2>/dev/null | head -1)
+    }
+
+    if ! critical_ok; then
+      # Resume-friendly reinstall: drop only the corrupt/incomplete outputs so the
+      # installer skips every download it can verify (a full wipe restarts the whole
+      # download on every attempt - the failure mode on flaky connections).
+      clean_critical
+      run_installer
+      if ! critical_ok; then
+        clean_critical
+        run_installer
+      fi
+      critical_ok || fail "boot-critical library jars are corrupt after two installer runs"
     fi
+    UNIX_ARGS=$(find "$SERVER_DIR/libraries" -name unix_args.txt 2>/dev/null | head -1)
     [ -n "$UNIX_ARGS" ] || fail "no unix_args.txt found after install"
     REL_ARGS=${UNIX_ARGS#"$SERVER_DIR/"}
     echo "booting with $REL_ARGS"

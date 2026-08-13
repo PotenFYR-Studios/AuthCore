@@ -72,6 +72,8 @@ public class AuthCoreServer {
 
   /** Starts the automated backup and rotating-announcement tasks (server tick based). */
   private static void startMaintenanceTasks() {
+    if (config == null) return;
+
     // Automated database backups
     if (config.session.backup.intervalHours > 0)
       net.ded3ec.util.TaskScheduler.getInstance()

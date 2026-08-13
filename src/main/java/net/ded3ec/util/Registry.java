@@ -3,10 +3,6 @@ package net.ded3ec.util;
 import net.ded3ec.events.ServerEvents;
 import net.ded3ec.models.User;
 import net.ded3ec.security.IpRules;
-/*? if fabric {*/
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-/*?}*/
 
 /**
  * Utility class for registering hooks, commands, and events in AuthCoreServer.
@@ -44,12 +40,11 @@ public class Registry {
   /** Registers event listeners for server and player events. */
   private static void registerEvents() {
 
-    /*? if fabric {*/
-    ServerPlayConnectionEvents.JOIN.register(
-        (connection, sender, server) -> ServerEvents.onPlayerJoin(connection));
-    ServerPlayConnectionEvents.DISCONNECT.register((connection, server) -> ServerEvents.onPlayerLeave(connection));
-    ServerTickEvents.END_SERVER_TICK.register(ServerEvents::onEndServerTick);
-    /*?}*/
+    // Player join/leave + server tick (fabric-api events, registered reflectively -
+    // the fabric-api jar spans the id rename "fabric" -> "fabric-api" across 1.16-26.x
+    // and may be absent entirely; a direct import would NoClassDefFoundError the boot.
+    // Forge/NeoForge register their equivalents in the loader entrypoints).
+    FabricHooks.registerServerEvents();
 
     // Version-sensitive hooks (item use, damage/death) are registered reflectively
     FabricHooks.registerInteractionEvents();
