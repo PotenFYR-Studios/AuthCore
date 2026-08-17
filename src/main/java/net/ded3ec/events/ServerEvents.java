@@ -676,7 +676,12 @@ public class ServerEvents {
                 u.username + " vertical velocity detected in limbo - velocity zeroed");
             lobby.teleportBack();
           }
-          if (lobby.isFarFromLobbyPos(p.getX(), p.getY(), p.getZ())) lobby.handleTeleport();
+          // Tight 0.25-block anchor: on runtimes without the movement-cancel mixin
+          // (Fabric/Forge 1.16-1.21 without a mixin refmap) this per-tick re-assert is
+          // the ONLY server-side lock - a loose radius there lets the player visibly
+          // walk up to a full block before the snap-back.
+          if (lobby.isFarFromLobbyPos(p.getX(), p.getY(), p.getZ(), 0.25))
+            lobby.handleTeleport();
         }
 
         if (invisible && !p.isInvisible())
