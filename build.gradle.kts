@@ -250,7 +250,6 @@ sourceSets.main.get().java.srcDir(
     }
 )
 
-// ----------------------------------------------------------------------------
 // Build + collect
 // ----------------------------------------------------------------------------
 
@@ -268,7 +267,7 @@ val collectJars = tasks.register<Copy>("collectJars") {
     into(rootProject.layout.projectDirectory.dir("dist"))
     dependsOn("build")
 }
-
 tasks.withType<JavaCompile> {
     options.compilerArgs.add("-Xlint:-deprecation")
 }
+

@@ -29,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(ServerPlayer.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerPlayerMixin {
 
   @Unique

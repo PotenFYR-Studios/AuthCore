@@ -22,6 +22,7 @@ import net.fabricmc.api.Environment;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(ServerGamePacketListenerImpl.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerEventsFallbackLeaveMixin {
 
   @Inject(method = "handleDisconnection", at = @At("HEAD"), require = 0)

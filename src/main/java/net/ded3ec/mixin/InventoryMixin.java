@@ -28,6 +28,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(Inventory.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class InventoryMixin {
 
   @Inject(

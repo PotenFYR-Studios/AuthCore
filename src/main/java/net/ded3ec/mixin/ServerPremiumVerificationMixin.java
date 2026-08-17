@@ -42,14 +42,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
   /*?}*/
 @Pseudo
 @Mixin(ServerLoginPacketListenerImpl.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerPremiumVerificationMixin {
 
-  /** Handlers currently waiting for the client's key packet: handler → original hello. */
+  /** Handlers currently waiting for the client's key packet: handler â†’ original hello. */
   private static final Map<Object, Object> PENDING = new ConcurrentHashMap<>();
 
   /** Handlers whose premium verification already completed (success, failure or fallback).
    *  The hello replay after a verification must NOT re-arm the encryption handshake -
-   *  otherwise a failed verification loops forever (handshake → key → replay → handshake)
+   *  otherwise a failed verification loops forever (handshake â†’ key â†’ replay â†’ handshake)
    *  and the player can never finish logging in. */
   private static final java.util.Set<Object> HANDLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 

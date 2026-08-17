@@ -22,6 +22,7 @@ import net.fabricmc.api.Environment;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(MinecraftServer.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerEventsFallbackTickMixin {
 
   @Inject(

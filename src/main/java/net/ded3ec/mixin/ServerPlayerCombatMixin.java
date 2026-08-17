@@ -29,6 +29,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(LivingEntity.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerPlayerCombatMixin {
 
   /** 1.16 - 1.21.1 shape: boolean hurt(DamageSource, float). */
