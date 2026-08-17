@@ -51,14 +51,21 @@ public final class IpRules {
   /**
    * Checks the rules for the given IP.
    *
+   * <p>The first matching rule wins. When the admin configured at least one {@code allow}
+   * rule, unmatched IPs are denied (whitelist semantics) - otherwise an {@code allow} line
+   * would be a silent no-op and offer no protection.
+   *
    * @param ip the player IP
-   * @return {@code true} if the IP is explicitly denied
+   * @return {@code true} if the IP is not allowed to join
    */
   public static synchronized boolean isDenied(String ip) {
     if (ip == null) return false;
+
+    boolean hasAllowRule = false;
     for (String[] rule : RULES) {
+      if (rule[0].equals("allow")) hasAllowRule = true;
       if (rule[1].equals(ip)) return rule[0].equals("deny");
     }
-    return false;
+    return hasAllowRule;
   }
 }

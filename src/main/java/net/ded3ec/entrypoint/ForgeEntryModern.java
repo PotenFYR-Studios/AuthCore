@@ -18,25 +18,36 @@ public class ForgeEntryModern {
   public ForgeEntryModern() {
     net.ded3ec.AuthCoreServer.start();
 
+    // Native event-bus hooks are active: the fallback mixins must not fire in parallel.
+    net.ded3ec.events.ServerEvents.nativeJoinActive = true;
+    net.ded3ec.events.ServerEvents.nativeLeaveActive = true;
+    net.ded3ec.events.ServerEvents.nativeTickActive = true;
+
     RegisterCommandsEvent.BUS.addListener(
         (RegisterCommandsEvent event) ->
             net.ded3ec.util.FabricHooks.registerCommands(event.getDispatcher()));
 
+    // The fabric-api hooks (present e.g. via Sinytra Connector) fire for the same events -
+    // skip when they are active.
     PlayerEvent.PlayerLoggedInEvent.BUS.addListener(
         (PlayerEvent.PlayerLoggedInEvent event) -> {
-          if (event.getEntity() instanceof ServerPlayer player)
+          if (event.getEntity() instanceof ServerPlayer player
+              && !net.ded3ec.events.ServerEvents.fabricJoinActive)
             net.ded3ec.events.ServerEvents.onPlayerJoin(player.connection);
         });
 
     PlayerEvent.PlayerLoggedOutEvent.BUS.addListener(
         (PlayerEvent.PlayerLoggedOutEvent event) -> {
-          if (event.getEntity() instanceof ServerPlayer player)
+          if (event.getEntity() instanceof ServerPlayer player
+              && !net.ded3ec.events.ServerEvents.fabricLeaveActive)
             net.ded3ec.events.ServerEvents.onPlayerLeave(player.connection);
         });
 
     TickEvent.ServerTickEvent.Post.BUS.addListener(
-        (TickEvent.ServerTickEvent.Post event) ->
-            net.ded3ec.events.ServerEvents.onEndServerTick(ServerLifecycleHooks.getCurrentServer()));
+        (TickEvent.ServerTickEvent.Post event) -> {
+          if (!net.ded3ec.events.ServerEvents.fabricTickActive)
+            net.ded3ec.events.ServerEvents.onEndServerTick(ServerLifecycleHooks.getCurrentServer());
+        });
   }
 }
 *//*?}*/

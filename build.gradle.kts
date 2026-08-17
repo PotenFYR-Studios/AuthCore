@@ -70,12 +70,36 @@ val variantDependencies = Properties().apply {
 }
 
 // Precise loader minimums (maven range syntax) declared in mods.toml so the loader
-// resolves the exact FML/NeoForge line of the build target instead of a loose "[1,)".
-// Fabric jars carry no mods.toml, so missing pins fall back to a safe minimum.
+// resolves the exact supported range. IMPORTANT: the minimum is the FIRST version that
+// supports the group's LOWEST Minecraft version - never the build target, otherwise a
+// server on an in-range version (e.g. 26.1 with the 26.2-built jar) is rejected.
+//   G1 (1.16-1.18): forge 36.1.0+ (1.16.5 line)
+//   G2 (1.19-1.21): forge 41.1.0+ (1.19 line), neoforge 20.2.59-beta+ (1.20.2 line)
+//   G3 (26.1-26.2): neoforge 26.1.0+ (26.1 line)
 val forgeRange: String =
-    variantDependencies.getProperty("forge_version")?.let { "[${it.substringAfterLast("-")},)" } ?: "[40,)"
+    if (stonecutter.current.parsed < "1.19") "[36.1.0,)"
+    else "[41.1.0,)"
 val neoforgeRange: String =
-    variantDependencies.getProperty("neoforge_version")?.let { "[$it,)" } ?: "[1,)"
+    if (stonecutter.current.parsed < "26") "[20.2.59-beta,)"
+    else "[26.1.0,)"
+val fabricLoaderRange: String =
+    when {
+        stonecutter.current.parsed < "1.19" -> ">=0.10.8"
+        stonecutter.current.parsed < "26" -> ">=0.14.24"
+        else -> ">=0.16.0"
+    }
+
+// Fabric API minimum per group (the first version supporting the group's LOWEST
+// Minecraft version - never the build target, otherwise in-range servers are rejected):
+//   G1 (1.16-1.18): fabric-api 0.28.x (1.16.5 line)
+//   G2 (1.19-1.21): fabric-api 0.59.x (1.19 line)
+//   G3 (26.1-26.2): fabric-api 0.134.x (26.1 line)
+val fabricApiRange: String =
+    when {
+        stonecutter.current.parsed < "1.19" -> ">=0.28.0"
+        stonecutter.current.parsed < "26" -> ">=0.59.0"
+        else -> ">=0.134.0"
+    }
 
 val modId: String = property("mod.id") as String
 val modVersion: String = property("mod.version") as String
@@ -92,21 +116,8 @@ base { archivesName.set("$modId-$rangeLabel-$loader") }
 // ----------------------------------------------------------------------------
 
 modSettings {
-    // Headless-friendly test client options (avoids the "eyes and ears blown
-    // out" defaults when running the client variant in CI).
-    clientOptions {
-        fov = 90
-        guiScale = 3
-        narrator = false
-        darkBackground = true
-        musicVolume = 0.0
-    }
-
     // Shared run directory for every variant (kept out of the version dirs).
     runDirectory = rootProject.layout.projectDirectory.dir("run")
-
-    // GameTest junit reports land in each variant's build dir.
-    fabricClientJunitReportLocation = project.layout.buildDirectory.file("fabric-client-junit-report.xml")
 
     // Per-variant placeholders expanded into resources (fabric.mod.json etc.).
     // NOTE: fabric.mod.json is parsed by Loom at configure time, so it must stay
@@ -115,7 +126,8 @@ modSettings {
         mapOf(
             "minecraftRange" to minecraftRange,
             "minecraftRangeForge" to minecraftRangeForge,
-            "fabricLoaderVersion" to ">=${variantDependencies.getProperty("loader_version")}",
+            "fabricLoaderVersion" to fabricLoaderRange,
+            "fabricApiVersion" to fabricApiRange,
             "forgeRange" to forgeRange,
             "neoforgeRange" to neoforgeRange,
             "javaVersion" to
@@ -194,12 +206,17 @@ dependencies {
     // bcpkix's module-info requires the org.bouncycastle.util module - forge 1.18.x
     // resolves the jar-in-jar dependencies through JPMS and fails without it.
     implementation(include("org.bouncycastle:bcutil-jdk18on:${property("bouncycastle_version")}")!!)
-    // Forge 1.18.x resolves nested jars through JPMS and the game already provides a
-    // com.google.gson module - a second one fails module resolution. The other loaders
-    // tolerate the shaded copy, so only forge drops it (the game's gson is API-compatible
-    // for everything AuthCore uses).
-    if (!mod.isForge) {
+    // Forge AND NeoForge resolve nested jars through the JPMS module layer, where the game
+    // already provides a com.google.gson module - a second one makes the layer ambiguous
+    // ("Module mysql.connector.j reads more than one module named com.google.gson") and the
+    // server fails to boot. The other loaders tolerate the shaded copy, so only forge-like
+    // builds drop it (the game's gson is API-compatible for everything AuthCore uses and
+    // stays on the compile classpath via Minecraft itself). Jedis also pulls gson in as a
+    // TRANSITIVE dependency of the include set, so the whole configuration excludes it.
+    if (!(mod.isForge || mod.isNeoforge)) {
         implementation(include("com.google.code.gson:gson:${property("gson_version")}")!!)
+    } else {
+        configurations.include.get().exclude(group = "com.google.code.gson", module = "gson")
     }
     implementation(include("net.kyori:option:${property("option_version")}")!!)
     implementation(include("io.leangen.geantyref:geantyref:${property("geantyref_version")}")!!)
@@ -237,21 +254,18 @@ sourceSets.main.get().java.srcDir(
 // Build + collect
 // ----------------------------------------------------------------------------
 
-// The client companion (login screen + client mixins) is fabric-only today: the classes are
-// gated out of forge-like variants, so their mixin config must not ship there either.
-if (!mod.isFabric) {
-    project.tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("processResources") {
-        exclude("authcore.client.mixins.json")
-    }
-}
-
-// Copies the built jar of every variant into the root build/libs so a single
+// Copies the built jar of every variant into the top-level dist/ folder so a single
 // `gradlew build` over all versions collects every released artifact in one
-// place (used by the release pipeline and the host-test harness).
+// place (used by the release pipeline, the host-test harness and manual deploys).
+// The remapped jar is the deployable artifact on intermediary-mapped variants
+// (G1/G2 fabric+forge), while the unobfuscated G3 variants only produce a plain jar.
 val collectJars = tasks.register<Copy>("collectJars") {
     group = "build"
-    from(provider { tasks.named("remapJar") })
-    into(rootProject.layout.buildDirectory.dir("libs"))
+    val archiveTask = provider<org.gradle.api.tasks.bundling.AbstractArchiveTask> {
+        (tasks.findByName("remapJar") ?: tasks.findByName("jar")) as org.gradle.api.tasks.bundling.AbstractArchiveTask
+    }
+    from(archiveTask.flatMap { it.archiveFile })
+    into(rootProject.layout.projectDirectory.dir("dist"))
     dependsOn("build")
 }
 

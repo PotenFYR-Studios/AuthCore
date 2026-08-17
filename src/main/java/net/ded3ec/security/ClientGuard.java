@@ -18,13 +18,13 @@ import net.minecraft.server.level.ServerPlayer;
 
 
 /**
- * ClientGuard - the anti-bypass detection engine.
+ * ClientGuard, the anti-bypass detection engine.
  *
  * <p>Builds a per-player behavioral profile from packet-level and gameplay signals and turns
  * them into a weighted risk score with a decision matrix (alert / 2FA-required / kick).
- * The companion mod (client side of the SAME jar) is always OPTIONAL: every check is
- * risk-based, and vanilla clients keep the normal chat-login flow - they only accrue small
- * risk penalties where a signal genuinely suggests automation.
+ * The companion mod (client side of the same jar) is always optional: every check is
+ * risk-based, and vanilla clients keep the normal chat-login flow, only accruing small risk
+ * penalties where a signal genuinely suggests automation.
  *
  * <p>Signals tracked: brand anomaly, missing client settings, ghost behaviour, packet/click/
  * chat/payload floods, tab-completion probing, companion attestation failures, confusable
@@ -46,6 +46,11 @@ public final class ClientGuard {
   public static final String MSG_CHALLENGE_RESP = "CHALLENGE_RESP";
   public static final String MSG_SESSION_TOKEN = "SESSION_TOKEN";
   public static final String MSG_SESSION_TOKEN_ECHO = "SESSION_TOKEN_ECHO";
+  /** Server -> client: the player is locked in the auth lobby - the companion opens its
+   *  in-game GUI (login/register) automatically. */
+  public static final String MSG_IN_LOBBY = "IN_LOBBY";
+  /** Server -> client: the player authenticated - the companion closes its in-game GUI. */
+  public static final String MSG_OUT_OF_LOBBY = "OUT_OF_LOBBY";
 
   /** Individual detection signals (each maps to a risk weight). */
   public enum Signal {
@@ -112,6 +117,9 @@ public final class ClientGuard {
     public volatile String brand = "";
     public volatile boolean settingsSeen = false;
     public volatile long lastActivityMs;
+
+    /** Timestamp of the last view-rotation (look) packet - bots never rotate. */
+    public volatile long lastLookChangeMs = 0L;
     public volatile int chatCount = 0;
     public volatile int commandCount = 0;
 
@@ -143,6 +151,13 @@ public final class ClientGuard {
 
     public void addSignal(Signal signal) {
       if (signals.add(signal)) {
+        AuthCoreServer.LOGGER.debug(
+            false,
+            "{} | ClientGuard signal {} (+{} risk) - {}",
+            username,
+            signal.name(),
+            signal.weight,
+            signal.description);
         SecurityLog.log("CLIENT_SIGNAL", username + " | " + signal.name() + " (" + signal.description + ")");
         net.ded3ec.network.Webhook.sendEmbed(
             "AuthCore - Client Signal",
@@ -176,11 +191,16 @@ public final class ClientGuard {
   public static Profile onJoin(ServerPlayer player) {
     Profile p = new Profile(player.getUUID(), player.getName().getString());
     PROFILES.put(p.uuid, p);
+    AuthCoreServer.LOGGER.debug(
+        false, "{} | ClientGuard profile created (join)", p.username);
     return p;
   }
 
   public static void onLeave(UUID uuid) {
-    PROFILES.remove(uuid);
+    Profile p = PROFILES.remove(uuid);
+    if (p != null)
+      AuthCoreServer.LOGGER.debug(
+          false, "{} | ClientGuard profile dropped (leave, risk {})", p.username, p.risk);
   }
 
   public static Profile profile(UUID uuid) {
@@ -200,6 +220,22 @@ public final class ClientGuard {
     Config.Session.ClientGuardConfig cfg = config();
     if (cfg != null && cfg.movePacketRatePerSec > 0 && p.moves.bump() > cfg.movePacketRatePerSec)
       p.addSignal(Signal.MOVE_FLOOD);
+  }
+
+  /** Records a view-rotation (look) packet - genuine players rotate constantly. */
+  public static void recordLook(ServerPlayer player) {
+    Profile p = profile(player);
+    if (p == null) return;
+    p.lastLookChangeMs = System.currentTimeMillis();
+    p.touch();
+  }
+
+  /** Whether the player rotated their view within the given window (ms). */
+  public static boolean hasLookedRecently(ServerPlayer player, long windowMs) {
+    Profile p = profile(player);
+    return p != null
+        && p.lastLookChangeMs > 0
+        && (System.currentTimeMillis() - p.lastLookChangeMs) < windowMs;
   }
 
   public static void recordClick(net.minecraft.world.entity.player.Player player) {
@@ -359,12 +395,18 @@ public final class ClientGuard {
         // full-trust resume - clear the vanilla-resume penalty
         p.signals.remove(Signal.VANILLA_RESUME);
         p.recomputeRisk();
+        // Auth intelligence: session-token replay from a different IP.
+        net.ded3ec.security.AuthIntelligence.recordSessionClaim(user, player.getIpAddress());
         AuthCoreServer.LOGGER.debug(
             true, "{} resumed session with a valid companion session token", p.username);
       } else {
         p.addSignal(Signal.SESSION_TOKEN_MISSING);
-        // the client claims the companion but cannot prove the session - revoke it
-        if (user.isActiveSession.get()) {
+        // Only revoke the session when the player is STILL unauthenticated in the lobby. An
+        // already-authenticated player (premium auto-login, manual login this join) must never
+        // be kicked over a stale/absent companion token (e.g. the payload channel is disabled
+        // or the client never received the rotated token) - the session was not resumed via
+        // the token claim, so there is nothing to revoke.
+        if (user.isInLobby.get() && user.isActiveSession.get()) {
           AuthCoreServer.LOGGER.toKick(false, player.connection, AuthCoreServer.messages.promptUserSessionExpired);
           AuthCoreServer.LOGGER.warn(
               false,
@@ -409,7 +451,8 @@ public final class ClientGuard {
       // ---- ghost detection ---------------------------------------------------
       if (cfg.ghostKickAfterSec > 0 && inLobby) {
         long idle = now - p.lastActivityMs;
-        if (!p.ghostArmed && idle > (cfg.ghostKickAfterSec - 5) * 1000L) {
+        int ghostWarnSec = Math.max(0, cfg.ghostKickAfterSec - 5);
+        if (!p.ghostArmed && idle > ghostWarnSec * 1000L) {
           p.addSignal(Signal.GHOST);
           p.ghostArmed = true;
         }
@@ -444,6 +487,12 @@ public final class ClientGuard {
       // ---- decision matrix -----------------------------------------------------
       if (inLobby) {
         if (p.risk >= cfg.riskKickThreshold) {
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "{} | risk {} >= kick threshold {} - kicking from lobby",
+              p.username,
+              p.risk,
+              cfg.riskKickThreshold);
           SecurityLog.log(
               "RISK_KICK",
               p.username + " kicked at risk " + p.risk + " (signals: " + p.signals + ")");
@@ -456,6 +505,12 @@ public final class ClientGuard {
         }
         if (p.risk >= cfg.riskAlertThreshold && !p.notified) {
           p.notified = true;
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "{} | risk {} >= alert threshold {} - alert emitted",
+              p.username,
+              p.risk,
+              cfg.riskAlertThreshold);
           SecurityLog.log(
               "RISK_ALERT", p.username + " reached risk " + p.risk + " (signals: " + p.signals + ")");
         }

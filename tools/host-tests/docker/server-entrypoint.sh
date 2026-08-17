@@ -55,11 +55,18 @@ mkdir -p "$RESULT_DIR" "$LOG_DIR"
 
 echo "== authcore host-test container: MC=$MC_VERSION jar=$JAR_TYPE =="
 
+# Minimal JSON string escape (backslash, quote, control chars) for safe embedding.
+json_escape() {
+  printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' \
+    -e 's/\t/\\t/g' -e 's/\r/\\r/g' -e 's/\x01/\\u0001/g'
+}
+
 fail() { # reason...
-  local reason="$1"
+  local reason
+  reason=$(json_escape "$1")
   printf '{"mc":"%s","jar":"%s","status":"FAIL","failures":["%s"]}\n' \
     "$MC_VERSION" "$JAR_TYPE" "$reason" > "$RESULT_FILE"
-  echo "FAIL: $reason"
+  echo "FAIL: $1"
   exit 1
 }
 
@@ -190,10 +197,26 @@ chk_honeypot=0; chk_maintenance=0; chk_portListen=0; chk_cleanStop=0
 BOOT_SEC=""; AUTH_START_MS=""; MC_DETECTED=""; DB_TYPE=""; HASH_ALGO=""; TWOFA=""
 
 if [ "$STATUS" = "ready" ]; then
-  sleep 5   # let the server tick a few times after Done
+  sleep 2   # let the server tick a few times after Done
+
+  GAME_PORT=$(grep -E '^server-port=' "$SERVER_DIR/server.properties" 2>/dev/null | cut -d= -f2)
+  GAME_PORT=${GAME_PORT:-25565}
+
+  # --- player simulation (real protocol client, runs parallel to the checks) ---
+  # The bot joins as a real player, walks the register/login/violation flows and
+  # writes its verdict to /tmp (SIM_* vars + chk_sim* check values, sourced later).
+  SIM_PID=""
+  if command -v node >/dev/null 2>&1 && [ -d /opt/authcore-sim ]; then
+    echo "player simulation starting (port $GAME_PORT, MC $MC_VERSION)..."
+    ( cd /opt/authcore-sim \
+        && SIM_PORT="$GAME_PORT" SIM_MC="$MC_VERSION" node sim.js > /tmp/sim.log 2>&1 ) &
+    SIM_PID=$!
+  else
+    echo "player simulation skipped: node or /opt/authcore-sim missing"
+  fi
 
   # --- admin console commands (each proves a live code path) -----------------
-  cmd() { echo "$1" >&3; sleep 3; }
+  cmd() { echo "$1" >&3; sleep 2; }
 
   cmd "authcore reload"
   cmd "authcore list players"
@@ -258,8 +281,6 @@ if [ "$STATUS" = "ready" ]; then
   fi
 
   # --- game port is actually listening (the server.properties port) ------------
-  GAME_PORT=$(grep -E '^server-port=' "$SERVER_DIR/server.properties" 2>/dev/null | cut -d= -f2)
-  GAME_PORT=${GAME_PORT:-25565}
   if command -v timeout >/dev/null 2>&1 && [ "$GAME_PORT" != "" ]; then
     if exec 5<>"/dev/tcp/127.0.0.1/$GAME_PORT" 2>/dev/null; then
       chk_portListen=1
@@ -279,30 +300,78 @@ if [ "$STATUS" = "ready" ]; then
   [ -z "$HASH_ALGO" ] && HASH_ALGO=$(sed -n 's/.*Password Hashing *: *\([A-Za-z0-9_-]*\).*/\1/p' "$CONSOLE" | head -1)
   TWOFA=$(sed -n 's/.*2FA (TOTP) *: *\([A-Za-z]*\).*/\1/p' "$LOG" | head -1)
   [ -z "$TWOFA" ] && TWOFA=$(sed -n 's/.*2FA (TOTP) *: *\([A-Za-z]*\).*/\1/p' "$CONSOLE" | head -1)
+
+  # --- player simulation results (waits for the bot, merges its verdict) ------
+  chk_simLimbo=0; chk_simRegister=0; chk_simWrongPw=0; chk_simViolKick=0
+  chk_simLogin=0; chk_simChatAfter=0; SIM_STATUS=""; SIM_FAILURES=""
+  if [ -n "$SIM_PID" ]; then
+    echo "waiting for player simulation (pid $SIM_PID)..."
+    SIM_DEADLINE=$(( $(date +%s) + 240 ))
+    while kill -0 "$SIM_PID" 2>/dev/null && [ "$(date +%s)" -lt "$SIM_DEADLINE" ]; do sleep 2; done
+    if kill -0 "$SIM_PID" 2>/dev/null; then
+      kill "$SIM_PID" 2>/dev/null
+      SIM_STATUS="FAIL"
+      SIM_FAILURES="player simulation timed out"
+      echo "player simulation TIMEOUT"
+    else
+      # Capture the sim's real exit code (0 = PASS/SKIP, 1 = FAIL, 2 = crash/timeout).
+      SIM_EXIT_CODE=0
+      wait "$SIM_PID" 2>/dev/null; SIM_EXIT_CODE=$?
+      # shellcheck disable=SC1091
+      [ -f /tmp/sim-checks.sh ] && . /tmp/sim-checks.sh
+      if [ -z "$SIM_STATUS" ] && [ "$SIM_EXIT_CODE" -ne 0 ]; then
+        # The sim died without writing its verdict (crash) - this is a real failure.
+        SIM_STATUS="FAIL"
+        SIM_FAILURES="player simulation crashed (exit $SIM_EXIT_CODE) without writing its result"
+        echo "player simulation CRASHED (exit $SIM_EXIT_CODE, no check file)"
+      fi
+      if [ -f /tmp/sim.log ]; then
+        tail -n 8 /tmp/sim.log | sed 's/^/sim: /' || true
+      fi
+      echo "player simulation: status=${SIM_STATUS:-unknown} exit=$SIM_EXIT_CODE failures='${SIM_FAILURES:-}'"
+    fi
+  fi
 fi
 
 # --- verdict -----------------------------------------------------------------
 FAILURES=""
+chk_mcVersionMatch=1
 if [ "$STATUS" != "ready" ]; then
   FAILURES="server $STATUS (no 'Done (' line)"
 elif [ "$chk_modLoaded" -eq 0 ]; then FAILURES="$FAILURES mod-not-loaded"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_banner" -eq 0 ]; then FAILURES="$FAILURES banner-missing"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_started" -eq 0 ]; then FAILURES="$FAILURES authcore-startup-missing"; fi
+if [ "$STATUS" = "ready" ] && [ "$chk_securitySummary" -eq 0 ]; then FAILURES="$FAILURES security-summary-missing"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_reload" -eq 0 ]; then FAILURES="$FAILURES command-reload-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_listPlayers" -eq 0 ]; then FAILURES="$FAILURES command-list-players-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_listOnline" -eq 0 ]; then FAILURES="$FAILURES command-list-online-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_listOffline" -eq 0 ]; then FAILURES="$FAILURES command-list-offline-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_validate" -eq 0 ]; then FAILURES="$FAILURES command-validate-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_backup" -eq 0 ]; then FAILURES="$FAILURES command-backup-failed"; fi
+if [ "$STATUS" = "ready" ] && [ "$chk_maintenance" -eq 0 ]; then FAILURES="$FAILURES command-maintenance-failed"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_config" -eq 0 ]; then FAILURES="$FAILURES config-files-not-created"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_db" -eq 0 ]; then FAILURES="$FAILURES sqlite-db-not-created"; fi
 if [ "$STATUS" = "ready" ] && [ "$chk_noCrash" -eq 0 ]; then FAILURES="$FAILURES crash-markers-in-log"; fi
+if [ "$STATUS" = "ready" ] && [ "$chk_portListen" -eq 0 ]; then FAILURES="$FAILURES game-port-not-listening"; fi
+# The booted MC version must match what the harness requested - otherwise the
+# loader pin was wrong and the run tested a DIFFERENT server (false positive).
+if [ "$STATUS" = "ready" ] && [ -n "$MC_DETECTED" ] && [ "$MC_DETECTED" != "$MC_VERSION" ]; then
+  chk_mcVersionMatch=0
+  FAILURES="$FAILURES mc-version-mismatch(detected=$MC_DETECTED expected=$MC_VERSION)"
+fi
+if [ "$STATUS" = "ready" ] && [ "$SIM_STATUS" != "" ] && [ "$SIM_STATUS" != "PASS" ] && [ "$SIM_STATUS" != "SKIP" ]; then
+  FAILURES="$FAILURES player-simulation-$SIM_STATUS"
+  [ -z "$SIM_FAILURES" ] || FAILURES="$FAILURES ($SIM_FAILURES)"
+fi
 if [ "$STATUS" = "ready" ] && [ "$WEB_PANEL_PORT" != "0" ] && [ "$WEB_PANEL_PORT" != "" ]; then
   [ "$chk_panel401" -eq 0 ] && FAILURES="$FAILURES web-panel-auth-required-failed"
   [ "$chk_panelAuth" -eq 0 ] && FAILURES="$FAILURES web-panel-token-auth-failed"
+  [ "$chk_panelBadToken" -eq 0 ] && FAILURES="$FAILURES web-panel-bad-token-failed"
+  [ "$chk_panelLockout" -eq 0 ] && FAILURES="$FAILURES web-panel-lockout-failed"
 fi
 if [ "$STATUS" = "ready" ] && [ "$HONEYPOT_PORT" != "0" ] && [ "$HONEYPOT_PORT" != "" ]; then
   [ "$chk_honeypot" -eq 0 ] && FAILURES="$FAILURES honeypot-not-listening"
+fi
 
 # --- graceful shutdown check (before the verdict) -----------------------------
 if [ "$STATUS" = "ready" ]; then
@@ -323,7 +392,6 @@ fi
 if [ "$STATUS" = "ready" ] && [ "$chk_cleanStop" -eq 0 ]; then
   FAILURES="$FAILURES clean-stop-failed"
 fi
-fi
 
 if [ -n "$FAILURES" ]; then
   STATUS_OUT="FAIL"
@@ -333,15 +401,26 @@ fi
 
 EXCERPT=$( (tail -n 50 "$LOG" 2>/dev/null; tail -n 30 "$CONSOLE" 2>/dev/null) | sed 's/\\/ /g; s/"/ /g' | tr '\n' ' ' | cut -c1-2200)
 
-printf '{"mc":"%s","jar":"%s","jdk":"%s","javaVersion":"%s","status":"%s","bootSec":"%s","authcoreStartedMs":"%s","mcDetected":"%s","dbType":"%s","hashAlgo":"%s","twoFA":"%s","checks":{"modLoaded":%s,"banner":%s,"started":%s,"ready":%s,"reload":%s,"listPlayers":%s,"listOnline":%s,"listOffline":%s,"validate":%s,"backup":%s,"config":%s,"db":%s,"noCrash":%s,"securitySummary":%s,"panel401":%s,"panelAuth":%s,"panelBadToken":%s,"panelLockout":%s,"honeypot":%s,"maintenance":%s,"portListen":%s,"cleanStop":%s},"failures":"%s","excerpt":"%s"}\n' \
-  "$MC_VERSION" "$JAR_TYPE" "${JBR_LABEL:-unknown}" "$JAVA_VERSION" "$STATUS_OUT" \
-  "$BOOT_SEC" "$AUTH_START_MS" "$MC_DETECTED" "$DB_TYPE" "$HASH_ALGO" "$TWOFA" \
+# Every string field is JSON-escaped so a stray quote/backslash in a failure
+# message or log excerpt can never corrupt result.json.
+MC_J=$(json_escape "$MC_VERSION"); JAR_J=$(json_escape "$JAR_TYPE")
+JBR_J=$(json_escape "${JBR_LABEL:-unknown}"); JAVA_J=$(json_escape "$JAVA_VERSION")
+MCD_J=$(json_escape "$MC_DETECTED"); DBT_J=$(json_escape "$DB_TYPE")
+HASH_J=$(json_escape "$HASH_ALGO"); TWO_J=$(json_escape "$TWOFA")
+SIMST_J=$(json_escape "$SIM_STATUS"); SIMF_J=$(json_escape "$SIM_FAILURES")
+FAIL_J=$(json_escape "$FAILURES"); EXC_J=$(json_escape "$EXCERPT")
+
+printf '{"mc":"%s","jar":"%s","jdk":"%s","javaVersion":"%s","status":"%s","bootSec":"%s","authcoreStartedMs":"%s","mcDetected":"%s","dbType":"%s","hashAlgo":"%s","twoFA":"%s","checks":{"modLoaded":%s,"banner":%s,"started":%s,"ready":%s,"reload":%s,"listPlayers":%s,"listOnline":%s,"listOffline":%s,"validate":%s,"backup":%s,"config":%s,"db":%s,"noCrash":%s,"securitySummary":%s,"panel401":%s,"panelAuth":%s,"panelBadToken":%s,"panelLockout":%s,"honeypot":%s,"maintenance":%s,"portListen":%s,"cleanStop":%s,"simLimbo":%s,"simRegister":%s,"simWrongPw":%s,"simViolKick":%s,"simLogin":%s,"simChatAfter":%s,"mcVersionMatch":%s},"simStatus":"%s","simFailures":"%s","failures":"%s","excerpt":"%s"}\n' \
+  "$MC_J" "$JAR_J" "$JBR_J" "$JAVA_J" "$STATUS_OUT" \
+  "$BOOT_SEC" "$AUTH_START_MS" "$MCD_J" "$DBT_J" "$HASH_J" "$TWO_J" \
   "$chk_modLoaded" "$chk_banner" "$chk_started" "$chk_ready" \
   "$chk_reload" "$chk_listPlayers" "$chk_listOnline" "$chk_listOffline" \
   "$chk_validate" "$chk_backup" "$chk_config" "$chk_db" "$chk_noCrash" "$chk_securitySummary" \
   "$chk_panel401" "$chk_panelAuth" "$chk_panelBadToken" "$chk_panelLockout" \
   "$chk_honeypot" "$chk_maintenance" "$chk_portListen" "$chk_cleanStop" \
-  "$FAILURES" "$EXCERPT" > "$RESULT_FILE"
+  "$chk_simLimbo" "$chk_simRegister" "$chk_simWrongPw" "$chk_simViolKick" \
+  "$chk_simLogin" "$chk_simChatAfter" "$chk_mcVersionMatch" \
+  "$SIMST_J" "$SIMF_J" "$FAIL_J" "$EXC_J" > "$RESULT_FILE"
 
 echo "== result: $STATUS_OUT (boot=${BOOT_SEC}s authcore=${AUTH_START_MS}ms failures='$FAILURES') =="
 

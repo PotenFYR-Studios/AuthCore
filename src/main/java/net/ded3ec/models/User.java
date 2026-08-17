@@ -27,11 +27,24 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nullable;
 
-/** User model class for the AuthCoreServer! */
+/**
+ * The in-memory model of one player account.
+ *
+ * <p>Every online player has one User instance that tracks their state (premium or standard,
+ * in lobby or not, session timestamps, lock state, risk data) and mirrors the account to the
+ * database. Users are loaded lazily from the database on first touch and cached, so a server
+ * with 100k+ accounts only keeps the online and recently used ones in memory.
+ */
 public class User {
 
   /** Collection of users (thread-safe; accessed from netty and server threads). */
   public static Map<UUID, User> users = new ConcurrentHashMap<>();
+
+  /** Lowercase-username index (O(1) lookups instead of scanning {@link #users}). */
+  private static final Map<String, User> byLowerName = new ConcurrentHashMap<>();
+
+  /** Precomputed lowercase username (set at construction; avoids per-lookup toLowerCase). */
+  public transient String lowerName = null;
 
   /** UUID value of the minecraft player. */
   public UUID uuid;
@@ -108,36 +121,52 @@ public class User {
   /** Count of kicked user by the server. */
   public volatile int kickAttempts = 0;
 
+  /** Lobby restriction violations this limbo session (resets on login/register/lock). */
+  public volatile int violationCount = 0;
+
+  /** Timestamp of the last movement-warning message (throttles the chat spam). */
+  public volatile long lastMovementWarningMs = 0;
+
+  /** Increments and returns the lobby violation counter. */
+  public int incrementViolations() {
+    return ++violationCount;
+  }
+
   /** Json data from GeoIP search via api. */
   public volatile JsonObject geoIpData;
 
   /** Lobby Instance for the user model; Queue mode. */
   public Lobby lobby = new Lobby(this);
 
-  /** Supplier edition for minecraft server. */
+  /**
+   * Supplier edition for minecraft server. Null-safe: the world supplier can resolve to null
+   * while the player is mid-join (loader-dependent), so fall back to the reflective player
+   * server lookup before giving up.
+   */
   public Supplier<MinecraftServer> server =
-      () -> this.world != null ? this.world.get().getServer() : null;
+      () -> {
+        ServerLevel level = this.world != null ? this.world.get() : null;
+        if (level != null) {
+          MinecraftServer ms = level.getServer();
+          if (ms != null) return ms;
+        }
+        ServerPlayer p = this.player != null ? this.player.get() : null;
+        return p != null ? net.ded3ec.compat.Compat.getServer(p) : null;
+      };
 
   /** Supplier edition for if user is active in the server! */
   public volatile boolean isActive = false;
 
   /** Supplier edition for the world in the server! */
   public Supplier<ServerLevel> world =
-      /*? if < 1.20.2 {*/
-      /*() -> this.connection != null ? (net.minecraft.server.level.ServerLevel) this.connection.player.getLevel() : null;
-      *//*?} else {*/
-      () -> this.connection != null ? (net.minecraft.server.level.ServerLevel) this.connection.player.level() : null;
-      /*?}*/
+      () ->
+          this.connection != null
+              ? net.ded3ec.compat.Compat.playerLevel(this.connection.player)
+              : null;
 
   /** Supplier edition for the player data in the server! */
   public Supplier<ServerPlayer> player =
       () -> this.connection != null ? this.connection.player : null;
-
-  /** Supplier edition for if the username is online-mode! */
-  public Supplier<Boolean> isPremiumUsername = () -> McApiManager.getPremiumUuid(this.username) != null;
-
-  /** Supplier edition for if the uuid is online-mode! */
-  public Supplier<Boolean> isPremiumUuid = () -> McApiManager.getPremiumUsername(this.uuid) != null;
 
   /** Supplier edition for if the user is registered successfully in authCore! */
   public Supplier<Boolean> isRegistered = () -> !StringUtils.isBlank(this.password);
@@ -234,10 +263,12 @@ public class User {
   public User(UUID uuid, String username, long userCreatedMs, boolean premium) {
     this.uuid = uuid;
     this.username = username;
+    this.lowerName = username != null ? username.toLowerCase(Locale.ROOT) : null;
     this.userCreatedMs = userCreatedMs;
     this.isPremium = premium;
 
     User.users.put(this.uuid, this);
+    if (this.lowerName != null) byLowerName.put(this.lowerName, this);
   }
 
   /**
@@ -268,9 +299,14 @@ public class User {
       CACHE_MAX_USERS = AuthCoreServer.config.cacheMaxUsers;
   }
 
+  /** Throttled last-access touch: the map put (allocation) happens at most once/minute. */
   private static void touch(UUID uuid) {
-    lastAccess.put(uuid, System.currentTimeMillis());
-    if (users.size() > CACHE_MAX_USERS) pruneCache();
+    long now = System.currentTimeMillis();
+    Long last = lastAccess.get(uuid);
+    if (last == null || now - last > 60_000L) {
+      lastAccess.put(uuid, now);
+      if (users.size() > CACHE_MAX_USERS) pruneCache();
+    }
   }
 
   /** Evicts offline users that have not been touched for 30 minutes (bounds memory). */
@@ -288,19 +324,34 @@ public class User {
   }
 
   /**
-   * Retrieves a {@link User} instance based on either username or UUID, depending on the
-   * authentication configuration.
+   * O(1) hot-path lookup by UUID only - no strings, no scans, no DB. The per-packet mixin
+   * guards (movement, clicks, chat, ticks) use this; the throttled touch keeps the
+   * last-access map from allocating on every packet.
+   */
+  public static @Nullable User getUser(UUID uuid) {
+    if (uuid == null) return null;
+    return User.users.get(uuid);
+  }
+
+  /** O(1) hot-path lookup from the player object (no name string allocation). */
+  public static @Nullable User getUser(net.minecraft.server.level.ServerPlayer player) {
+    return player == null ? null : getUser(player.getUUID());
+  }
+
+  /** O(1) hot-path lookup from a base player entity (mixin guards on Player). */
+  public static @Nullable User getUser(net.minecraft.world.entity.player.Player player) {
+    return player == null ? null : getUser(player.getUUID());
+  }
+
+  /**
+   * Retrieves a {@link User} by username or UUID, depending on the authentication config.
    *
-   * <p>If {@code lookUpByUsername} is enabled, this method searches through all registered users
-   * and returns the one whose username matches the provided {@code username} (case-insensitive, as
-   * Minecraft offline-mode names are case-insensitive).
+   * <p>With {@code lookUpByUsername} enabled, the search is case-insensitive (offline-mode
+   * names are). Otherwise the user is looked up by {@code uuid} in the {@code User.users}
+   * map, falling back to a case-insensitive username search on a miss.
    *
-   * <p>If {@code lookUpByUsername} is disabled, the method first looks up the user by their {@code
-   * uuid} key in the {@code User.users} map. If no user is found for the given UUID, it falls back
-   * to a case-insensitive username search.
-   *
-   * <p>Cache misses are resolved lazily from the database, so the in-memory cache stays small
-   * even for databases with 100k+ registered users.
+   * <p>Cache misses load lazily from the database, so the in-memory cache stays small even
+   * for databases with 100k+ registered users.
    *
    * @param username the username string to match against {@link User#username}
    * @param uuid the unique identifier used as a key in {@code User.users}
@@ -310,11 +361,12 @@ public class User {
     if (migrationBlockedGuard()) return null;
     if (AuthCoreServer.config.session.authentication.lookUpByUsername)
       return getUserByUsername(username);
-
-    User tempUser = User.users.get(uuid);
-    if (tempUser != null) {
-      touch(uuid);
-      return tempUser;
+    if (uuid != null) {
+      User tempUser = User.users.get(uuid);
+      if (tempUser != null) {
+        touch(uuid);
+        return tempUser;
+      }
     }
     return getUserByUsername(username);
   }
@@ -330,8 +382,21 @@ public class User {
     if (username == null) return null;
 
     String lower = username.toLowerCase(Locale.ROOT);
+
+    // O(1) index hit (the index is maintained on insert/rename/delete and lazily validated).
+    User indexed = byLowerName.get(lower);
+    if (indexed != null) {
+      if (users.containsKey(indexed.uuid) && lower.equals(indexed.lowerName)) {
+        touch(indexed.uuid);
+        return indexed;
+      }
+      byLowerName.remove(lower, indexed);
+    }
+
+    // Index miss -> scan (rare) then lazily load from the database.
     for (User user : User.users.values())
-      if (user != null && lower.equals(user.username.toLowerCase(Locale.ROOT))) {
+      if (user != null && lower.equals(user.lowerName)) {
+        byLowerName.put(lower, user);
         touch(user.uuid);
         return user;
       }
@@ -341,11 +406,14 @@ public class User {
     synchronized (CACHE_LOCK) {
       // double-check under the lock (another thread may have loaded it meanwhile)
       for (User user : User.users.values())
-        if (user != null && lower.equals(user.username.toLowerCase(Locale.ROOT))) {
+        if (user != null && lower.equals(user.lowerName)) {
+          byLowerName.put(lower, user);
           touch(user.uuid);
           return user;
         }
-      return db.fetchByUsername(lower);
+      User loaded = db.fetchByUsername(lower);
+      if (loaded != null) byLowerName.put(lower, loaded);
+      return loaded;
     }
   }
 
@@ -357,6 +425,7 @@ public class User {
     if (oldUuid == null || oldUuid.equals(this.uuid)) return;
     User.users.remove(oldUuid);
     User.users.put(this.uuid, this);
+    if (this.lowerName != null) byLowerName.put(this.lowerName, this);
   }
 
   /**
@@ -374,7 +443,7 @@ public class User {
         "username: {} | Type: {} | Mode: {} | IP: {} | UUID: {} | Country: {}",
         this.username,
         this.isBedrock.get() ? "Bedrock" : "Java",
-        this.isPremium ? "Online" : "Offline",
+        this.isPremium ? "online-mode" : "offline-mode",
         connection.player.getIpAddress(),
         this.uuid,
         this.country.get());
@@ -382,7 +451,8 @@ public class User {
     this.isActive = true;
 
     // GeoIP lookup runs asynchronously off the main thread (and is skipped entirely for
-    // private/localhost addresses - no external calls for LAN servers).
+    // private/localhost addresses - no external calls for LAN servers). The country shown
+    // in the join log above may still be null here - it resolves when this lookup finishes.
     if (!StringUtils.isBlank(this.ipAddress)) {
       String ip = this.ipAddress;
       AuthCoreServer.IO_EXECUTOR.execute(
@@ -390,8 +460,15 @@ public class User {
             JsonObject json = McApiManager.geoIp(ip);
             if (json != null
                 && json.has("status")
-                && "success".equalsIgnoreCase(json.get("status").getAsString()))
+                && "success".equalsIgnoreCase(json.get("status").getAsString())) {
               this.geoIpData = json;
+              AuthCoreServer.LOGGER.debug(
+                  false,
+                  "{} | GeoIP resolved: country={}, org={}",
+                  this.username,
+                  this.country.get(),
+                  json.has("org") ? json.get("org").getAsString() : "?");
+            }
           });
     }
   }
@@ -412,6 +489,10 @@ public class User {
           "Failed to hash the password for '{}' with algorithm '{}'!",
           this.username,
           this.passwordEncryption);
+      // Security fallback: never leave the player authenticated-but-unregistered in free roam.
+      // Lock them into the lobby so they can retry /register - the premium auto-login paths
+      // call register() and return without locking otherwise.
+      if (this.isActive && !this.isInLobby.get()) this.lobby.lock();
       return;
     }
 
@@ -468,18 +549,32 @@ public class User {
   public void login(ServerPlayer player) {
     if (player == null) return;
 
+    AuthCoreServer.LOGGER.debug(
+        false,
+        "{} | login() - path: {}",
+        this.username,
+        player.getClass().getSimpleName());
+
     this.loginAttempts = 0;
     this.lockUntilMs = 0;
     this.lastAuthenticatedMs = System.currentTimeMillis();
     this.lastKickedMs = 0;
     this.kickAttempts = 0;
+    this.violationCount = 0;
 
-    // Mark the account as trusted (skips captcha on rejoins)
+    // Mark the account as trusted (reduces the human-verification score on rejoins -
+    // it does NOT bypass verification; every login is still scored independently).
     if (AuthCoreServer.config.session.trusted.enabled
-        && AuthCoreServer.config.session.trusted.bypassCaptchaHours > 0)
+        && AuthCoreServer.config.session.trusted.bypassCaptchaHours > 0) {
       this.trustedUntilMs =
           System.currentTimeMillis()
               + AuthCoreServer.config.session.trusted.bypassCaptchaHours * 3600_000L;
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | account marked trusted until {} (trusted signal)",
+          this.username,
+          this.trustedUntilMs);
+    }
 
     // Server announcement for authenticated players
     if (AuthCoreServer.config.lobby.announcement.enabled
@@ -553,6 +648,27 @@ public class User {
                   AuthCoreServer.config.session.timeoutMs);
 
     AuthCoreServer.LOGGER.debug(true, "{} have been logged in successfully!", this.username);
+
+    // Tell other mods / the proxy that this player is now authenticated. Centralized here so
+    // EVERY login path broadcasts (command login/register, premium auto-login, session resume,
+    // deferred premium verification, SSO) - previously the non-command paths stayed silent.
+    net.ded3ec.network.AuthInterop.broadcast(player, true);
+
+    // Single human verification: observe the player's behavior after login; only
+    // challenge when it is clearly bot-like (ghost pattern / high risk). Genuine players
+    // are never bothered. Centralized here so every login path is covered.
+    net.ded3ec.security.ActionCaptcha.onLogin(player);
+
+    // Optional third-party integrations (DiscordSRV link import etc.) - best-effort no-ops
+    // when the mods are not installed.
+    net.ded3ec.integration.ModIntegrations.onAuthSuccess(player, this);
+
+    // Record the login in the login history (centralized so every path is accounted for).
+    try {
+      logLogin(this, player.getIpAddress(), this.country.get(), "success", this.riskScore);
+    } catch (Exception ignored) {
+      // login history is best-effort
+    }
   }
 
   /**
@@ -566,6 +682,11 @@ public class User {
     TaskScheduler.getInstance().stopTask(this.sessionTimeoutId);
     net.ded3ec.network.RedisManager.removeSession(this.uuid);
     net.ded3ec.network.RedisManager.publishEvent("logout", this.username, "logged out");
+
+    // Notify other mods / the proxy that this player is no longer authenticated
+    // (idempotent - the leave handler also broadcasts on disconnect).
+    net.ded3ec.network.AuthInterop.broadcast(this.player.get(), false);
+
     AuthCoreServer.LOGGER.debug(true, "{}'s session has been terminated!", this.username);
 
     if (this.isActive) AuthCoreServer.LOGGER.toKick(false, this.connection, payload);
@@ -650,6 +771,7 @@ public class User {
     if (this.isInLobby.get()) this.lobby.unlock();
 
     User.users.remove(this.uuid);
+    if (this.lowerName != null) byLowerName.remove(this.lowerName, this);
     db.remove(this);
 
     if (delFromServer && this.server.get() != null && this.player.get() != null) {
@@ -1054,10 +1176,40 @@ public class User {
     return db.countWhere("mode = '" + mode.replace("'", "''") + "'");
   }
 
+  /**
+   * Whether another account already uses the given display nickname (case-insensitive).
+   * Checks the in-memory cache first (online users), then the database.
+   *
+   * @param nickname the nickname to check
+   * @param excludeUuid the player's own UUID (their own nickname never conflicts)
+   */
+  public static boolean isNicknameTaken(String nickname, UUID excludeUuid) {
+    if (nickname == null || nickname.isBlank()) return false;
+
+    for (User u : User.users.values())
+      if (u != null
+          && u.nickname != null
+          && u.nickname.equalsIgnoreCase(nickname)
+          && !u.uuid.equals(excludeUuid))
+        return true;
+
+    String escaped = nickname.replace("'", "''");
+    return db.countWhere(
+            "LOWER(nickname) = LOWER('" + escaped + "') AND uuid <> '"
+                + (excludeUuid != null ? excludeUuid.toString() : "") + "'")
+        > 0;
+  }
+
   /** Records a login attempt in the login history (public wrapper). */
   public static void logLogin(
       User user, String ip, String country, String result, int riskScore) {
     db.logLogin(user, ip, country, result, riskScore);
+  }
+
+  /** Inserts an already-populated user into the database (used by external imports). */
+  public static void importUser(User user) {
+    if (user == null) return;
+    db.insert(user);
   }
 
   /** Fetches the recent login history for a user (public wrapper). */

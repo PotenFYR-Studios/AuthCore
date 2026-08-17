@@ -114,6 +114,58 @@ public class Logger {
   }
 
   /**
+   * Records a lobby restriction violation: increments the player's violation counter,
+   * shows the violation feedback plus how many violations remain before the kick, and
+   * kicks the player once the configured limit is reached.
+   *
+   * @param <T> the return type
+   * @param value the value to return
+   * @param user the violating user (must be resolvable)
+   * @param connection the server play network connection
+   * @param payload the violation message payload
+   * @param args the arguments for the message
+   * @return the returnValue
+   */
+  public <T> T violation(
+      T value, User user, ServerGamePacketListenerImpl connection, Messages.ColTemplate payload,
+      Object... args) {
+    if (user == null || connection == null || connection.player == null) return value;
+
+    int limit = AuthCoreServer.config.lobby.maxViolationsBeforeKick;
+    if (limit <= 0) return toUser(value, connection, payload, args);
+
+    int count = user.incrementViolations();
+
+    if (count >= limit) {
+      net.ded3ec.security.SecurityLog.log(
+          "LIMBO_VIOLATION_KICK",
+          user.username + " exceeded the violation limit (" + limit + ") in the lobby");
+      AuthCoreServer.LOGGER.warn(
+          false,
+          "{} kicked after {} lobby violations (limit {}).",
+          user.username,
+          count,
+          limit);
+      return toKick(value, connection, AuthCoreServer.messages.promptUserViolationsExceeded);
+    }
+
+    toUser(value, connection, payload, args);
+
+    // Show how many violations remain before the kick
+    int remaining = limit - count;
+    try {
+      toUser(
+          value,
+          connection,
+          AuthCoreServer.messages.promptUserViolationRemaining,
+          remaining);
+    } catch (RuntimeException ignored) {
+      // the remaining-count hint is best-effort
+    }
+    return value;
+  }
+
+  /**
    * Sending Message/Title/Subtitle to the Player in Minecraft Server!
    *
    * @param <T> the return type
@@ -157,6 +209,7 @@ public class Logger {
     lastUser.set(user);
     String message = format(payload.logout.text, args);
 
+    // Feedback channels (message/title/action bar) - only when the user is still resolvable
     if (user != null) this.toUser(false, connection, payload, args);
 
     // Capture the connection at scheduling time so a delayed disconnect always targets the
@@ -164,15 +217,21 @@ public class Logger {
     ServerGamePacketListenerImpl target = connection;
     Component reason = net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.logout));
 
+    // The live connection is the source of truth for the disconnect: a user that was removed
+    // from the cache/database in the meantime (unregister/delete) must never silently skip
+    // the kick - the player would stay online with a broken account state.
     if (payload.logout.delaySec > 0)
       TaskScheduler.getInstance()
           .setTimeout(
               () -> {
-                if (user != null && user.isActive && user.connection != null && user.connection == target)
+                // The player entity + the user's active flag gate the disconnect; a user
+                // that was deleted in the meantime (unregister/delete) must NOT prevent it.
+                if (target.player != null && (user == null || user.isActive))
                   disconnectSafely(target, reason);
               },
               payload.logout.delaySec * 1000L);
-    else if (user != null && user.isActive && user.connection != null) disconnectSafely(target, reason);
+    else if (target.player != null && (user == null || user.isActive))
+      disconnectSafely(target, reason);
 
     return value;
   }
@@ -180,6 +239,10 @@ public class Logger {
   /** Disconnects a player connection, swallowing any state issues on disconnect. */
   private void disconnectSafely(ServerGamePacketListenerImpl connection, Component reason) {
     try {
+      // Never disconnect twice: a second disconnect (e.g. a queued kick racing the
+      // client's own close) triggers vanilla's "handleDisconnection() called twice"
+      // warning and can leave the connection in a broken state.
+      if (connection.player != null && connection.player.hasDisconnected()) return;
       connection.disconnect(reason);
     } catch (Exception err) {
       this.debug(false, "Failed to disconnect a player gracefully:", err);
@@ -301,55 +364,17 @@ public class Logger {
   }
 
   /**
-   * Setting up Font for Text. Uses reflection so the font API (Identifier on 1.16-1.19.3,
-   * StyleSpriteSource.Font on 1.19.4+) works on every Minecraft version.
+   * Setting up Font for Text. Deliberately a NO-OP: the font API keeps changing shape per
+   * version ({@code ResourceLocation} -> {@code StyleSpriteSource.Font} ->
+   * {@code FontDescription}) and the previous reflective lookups threw
+   * NoSuchMethodException on every call, which hung the server thread in
+   * fillInStackTrace until the watchdog killed the server. The default font is used.
    *
    * @param payload the template payload
    * @param style the current style
-   * @return the updated style with font
+   * @return the unchanged style
    */
   private Style setFont(Messages.Template payload, Style style) {
-    if (payload.font == null || payload.font.length < 2 || payload.font[0] == null) return style;
-    try {
-      String fontId =
-          payload.font[0].equals("minecraft") && payload.font[1].equals("default")
-              ? "minecraft:default"
-              : payload.font[0] + ":" + payload.font[1];
-
-      // 1.19.4+ : Style.withFont(StyleSpriteSource.Font)
-      try {
-        Class<?> fontClass = Class.forName("net.minecraft.text.StyleSpriteSource$Font");
-        /*? if < 1.21.11 {*/
-        /*Object font = fontClass.getConstructor(net.minecraft.resources.ResourceLocation.class).newInstance(
-            net.minecraft.resources.ResourceLocation.tryParse(fontId));
-        *//*?} else {*/
-        Object font = fontClass.getConstructor(net.minecraft.resources.Identifier.class).newInstance(
-            net.minecraft.resources.Identifier.tryParse(fontId));
-        /*?}*/
-        return (Style) Style.class.getMethod("withFont", fontClass).invoke(style, font);
-      } catch (ReflectiveOperationException ignored) {
-        // fall through to the legacy API
-      }
-
-      // 1.16-1.19.3 : Style.withFont(Identifier)
-      try {
-        /*? if < 1.21.11 {*/
-        /*return (Style)
-            Style.class
-                .getMethod("withFont", net.minecraft.resources.ResourceLocation.class)
-                .invoke(style, net.minecraft.resources.ResourceLocation.tryParse(fontId));
-        *//*?} else {*/
-        return (Style)
-            Style.class
-                .getMethod("withFont", net.minecraft.resources.Identifier.class)
-                .invoke(style, net.minecraft.resources.Identifier.tryParse(fontId));
-        /*?}*/
-      } catch (ReflectiveOperationException ignored) {
-        // font API not available
-      }
-    } catch (Exception err) {
-      this.debug(style, "Invalid font '{}' in message config:", String.join(",", payload.font));
-    }
     return style;
   }
 
@@ -369,28 +394,56 @@ public class Logger {
     lastUser.set(user);
     String message = format(payload.message.text, args);
 
+    // Clickable "button" support: when the template defines a click command, the chat
+    // message runs/suggests it on click (fallback-safe - plain text otherwise). Clickable
+    // buttons are underlined so players recognize them as interactive.
+    net.minecraft.network.chat.Style style = getStyle(payload.message);
+    if (payload.message.clickCommand != null && !payload.message.clickCommand.isBlank())
+      style = style.withUnderlined(true);
+    net.minecraft.network.chat.Component component =
+        net.ded3ec.compat.Compat.withClickCommand(
+            net.ded3ec.compat.Compat.text(message).setStyle(style),
+            payload.message.clickCommand);
+
     if (payload.message.delay > 0)
       TaskScheduler.getInstance()
           .setTimeout(
               () -> {
                 if (user != null && user.isActive && user.connection != null)
-                  /*? if < 1.19.4 {*/
-                  /*connection.player.displayClientMessage(
-                      net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.message)), false);
-                  *//*?} else {*/
-                  connection.player.sendSystemMessage(
-                      net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.message)), false);
-                  /*?}*/
+                  sendChatMessage(connection.player, component);
               },
               payload.message.delay * 1000L);
     else if (user != null && user.isActive && user.connection != null)
-      /*? if < 1.19.4 {*/
-      /*connection.player.displayClientMessage(
-          net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.message)), false);
-      *//*?} else {*/
-      connection.player.sendSystemMessage(
-          net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.message)), false);
-      /*?}*/
+      sendChatMessage(connection.player, component);
+  }
+
+  /**
+   * Sends a system chat message across every era: {@code sendSystemMessage(Component, boolean)}
+   * (1.19.4+) with a reflective fallback to {@code displayClientMessage(Component, boolean)}
+   * (1.16-1.19.3) - the G2 jar is compiled against 1.21.11 and must run on 1.19.0-1.19.3 too.
+   */
+  private static void sendChatMessage(
+      net.minecraft.server.level.ServerPlayer player, net.minecraft.network.chat.Component component) {
+    /*? if < 1.19.4 {*/
+    /*try {
+      player.displayClientMessage(component, false);
+    } catch (RuntimeException ignored) {
+      // message send is best-effort
+    }
+    *//*?} else {*/
+    try {
+      player.sendSystemMessage(component, false);
+      return;
+    } catch (Throwable ignored) {
+      // 1.19.0-1.19.3 mid-range: displayClientMessage
+    }
+    try {
+      player.getClass().getMethod("displayClientMessage", net.minecraft.network.chat.Component.class, boolean.class)
+          .invoke(player, component, false);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // message send is best-effort
+    }
+    /*?}*/
   }
 
   /**
@@ -411,20 +464,69 @@ public class Logger {
 
     Runnable sendPackets =
         () -> {
-          if (!(user != null && user.isActive && user.connection != null)) return;
+          if (!(user != null && user.isActive && user.connection != null)) {
+            this.warn(
+                false,
+                "Title '{}' not sent to '{}' - user={}, isActive={}, connection={}",
+                titleMessage,
+                username,
+                user != null,
+                user != null && user.isActive,
+                user != null && user.connection != null);
+            return;
+          }
+
+          // Ticks per second for the fade timings (never below 1 so titles always render)
+          int tps = Math.max(1, (int) TpsManager.get());
 
           // TITLE + SUBTITLE + TIMES (version-agnostic packet API)
-          net.ded3ec.compat.Compat.sendTitle(
-              connection,
-              net.ded3ec.compat.Compat.text(titleMessage)
-                  .setStyle(getStyleWithShadow(payload.title)),
-              payload.title.subtitle != null && !payload.title.subtitle.text.isBlank()
-                  ? net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
-                      .setStyle(getStyleWithShadow(payload.title.subtitle))
-                  : null,
-              Math.abs(payload.title.fadeInSec * (int) TpsManager.get()),
-              Math.abs(payload.title.staySec * (int) TpsManager.get()),
-              Math.abs(payload.title.fadeOutSec * (int) TpsManager.get()));
+          boolean sent =
+              net.ded3ec.compat.Compat.sendTitle(
+                  connection,
+                  net.ded3ec.compat.Compat.text(titleMessage)
+                      .setStyle(getStyleWithShadow(payload.title)),
+                  payload.title.subtitle != null && !payload.title.subtitle.text.isBlank()
+                      ? net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
+                          .setStyle(getStyleWithShadow(payload.title.subtitle))
+                      : null,
+                  Math.abs(payload.title.fadeInSec * tps),
+                  Math.abs(payload.title.staySec * tps),
+                  Math.abs(payload.title.fadeOutSec * tps));
+
+          // Safety net: when no title API matched on this version, deliver the title text as
+          // a chat message so the content is never silently lost.
+          if (!sent) {
+            try {
+              /*? if < 1.19.4 {*/
+              /*connection.player.displayClientMessage(
+                  net.ded3ec.compat.Compat.text(titleMessage)
+                      .setStyle(getStyleWithShadow(payload.title)),
+                  false);
+              if (payload.title.subtitle != null && !payload.title.subtitle.text.isBlank())
+                connection.player.displayClientMessage(
+                    net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
+                        .setStyle(getStyleWithShadow(payload.title.subtitle)),
+                    false);
+              *//*?} else {*/
+              connection.player.sendSystemMessage(
+                  net.ded3ec.compat.Compat.text(titleMessage)
+                      .setStyle(getStyleWithShadow(payload.title)),
+                  false);
+              if (payload.title.subtitle != null && !payload.title.subtitle.text.isBlank())
+                connection.player.sendSystemMessage(
+                    net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
+                        .setStyle(getStyleWithShadow(payload.title.subtitle)),
+                    false);
+              /*?}*/
+            } catch (RuntimeException fallbackErr) {
+              this.warn(
+                  false,
+                  "Title + chat fallback both failed for '{}' - the player received no "
+                      + "feedback. Reported error: {}",
+                  titleMessage,
+                  fallbackErr.toString());
+            }
+          }
         };
 
     if (payload.title.delay > 0)
@@ -452,22 +554,17 @@ public class Logger {
           .setTimeout(
               () -> {
                 if (user != null && user.isActive && user.connection != null)
-                  /*? if < 1.19.4 {*/
-                  /*connection.player.displayClientMessage(
-                      net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.actionBar)), true);
-                  *//*?} else {*/
-                  connection.player.sendSystemMessage(
-                      net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.actionBar)), true);
-                  /*?}*/
+                  net.ded3ec.compat.Compat.sendSystemMessage(
+                      connection.player,
+                      net.ded3ec.compat.Compat.text(message)
+                          .setStyle(getStyleWithShadow(payload.actionBar)),
+                      true);
               },
               payload.actionBar.delay * 1000L);
     else if (user != null && user.isActive && user.connection != null)
-      /*? if < 1.19.4 {*/
-      /*connection.player.displayClientMessage(
-          net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.actionBar)), true);
-      *//*?} else {*/
-      connection.player.sendSystemMessage(
-          net.ded3ec.compat.Compat.text(message).setStyle(getStyle(payload.actionBar)), true);
-      /*?}*/
+      net.ded3ec.compat.Compat.sendSystemMessage(
+          connection.player,
+          net.ded3ec.compat.Compat.text(message).setStyle(getStyleWithShadow(payload.actionBar)),
+          true);
   }
 }

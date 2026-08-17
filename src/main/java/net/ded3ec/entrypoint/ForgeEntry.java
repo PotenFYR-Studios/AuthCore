@@ -18,10 +18,18 @@ public class ForgeEntry {
 
   public ForgeEntry() {
     net.ded3ec.AuthCoreServer.start();
+
+    // Native event-bus hooks are active: the fallback mixins must not fire in parallel.
+    net.ded3ec.events.ServerEvents.nativeJoinActive = true;
+    net.ded3ec.events.ServerEvents.nativeLeaveActive = true;
+    net.ded3ec.events.ServerEvents.nativeTickActive = true;
+
     MinecraftForge.EVENT_BUS.register(ForgeEvents.class);
   }
 
   // Forge event handlers (scanned via EVENT_BUS.register - no per-version addListener APIs).
+  // The fabric-api hooks (present e.g. via Sinytra Connector) fire for the same events -
+  // skip when they are active.
   public static class ForgeEvents {
 
     @SubscribeEvent
@@ -31,19 +39,21 @@ public class ForgeEntry {
 
     @SubscribeEvent
     public static void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
-      if (event.getEntity() instanceof ServerPlayer player)
+      if (event.getEntity() instanceof ServerPlayer player
+          && !net.ded3ec.events.ServerEvents.fabricJoinActive)
         net.ded3ec.events.ServerEvents.onPlayerJoin(player.connection);
     }
 
     @SubscribeEvent
     public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-      if (event.getEntity() instanceof ServerPlayer player)
+      if (event.getEntity() instanceof ServerPlayer player
+          && !net.ded3ec.events.ServerEvents.fabricLeaveActive)
         net.ded3ec.events.ServerEvents.onPlayerLeave(player.connection);
     }
 
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
-      if (isEndTick(event))
+      if (isEndTick(event) && !net.ded3ec.events.ServerEvents.fabricTickActive)
         net.ded3ec.events.ServerEvents.onEndServerTick(ServerLifecycleHooks.getCurrentServer());
     }
 

@@ -27,7 +27,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class CommandManagerSourceMixin {
 
   @Inject(
-      method = "method_9249(Lnet/minecraft/class_2168;Ljava/lang/String;)I",
+      method = {
+        "method_9249(Lnet/minecraft/class_2168;Ljava/lang/String;)I", // yarn (1.16-1.18.2)
+        "performCommand(Lnet/minecraft/commands/CommandSourceStack;Ljava/lang/String;)I" // mojmap (forge)
+      },
       at = @At("HEAD"),
       cancellable = true,
       remap = false,
@@ -42,7 +45,7 @@ public abstract class CommandManagerSourceMixin {
     // ClientGuard: command-rate accounting (lobby command flood detection).
     net.ded3ec.security.ClientGuard.recordChat(player, true);
 
-    User user = User.getUser(player.getName().getString(), player.getUUID());
+    User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
     // Extract root command
@@ -52,8 +55,9 @@ public abstract class CommandManagerSourceMixin {
     if (AuthCoreServer.config.lobby.useWhitelistAsBlacklist
         && AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
 
-      AuthCoreServer.LOGGER.toUser(
+      AuthCoreServer.LOGGER.violation(
           false,
+          user,
           player.connection,
           AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
           root);
@@ -66,8 +70,9 @@ public abstract class CommandManagerSourceMixin {
     if (!AuthCoreServer.config.lobby.allowCommands
         && !AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
 
-      AuthCoreServer.LOGGER.toUser(
+      AuthCoreServer.LOGGER.violation(
           false,
+          user,
           player.connection,
           AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
           root);

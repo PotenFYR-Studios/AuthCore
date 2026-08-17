@@ -70,3 +70,10 @@ scripts/package-lock.json
 
 # IDE
 .factorypath
+
+# runtime logs
+logs/
+
+# security-tests compiled output
+tools/security-tests/out/
+tools/security-tests/out-mig/

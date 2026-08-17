@@ -46,6 +46,12 @@ public class Database {
   public static synchronized boolean connect() {
     if (AuthCoreServer.config == null) return false;
 
+    AuthCoreServer.LOGGER.debug(
+        false,
+        "Database | connect() - postgres={}, mysql={} (fallback SQLite)",
+        AuthCoreServer.config.database.postgres.enabled,
+        AuthCoreServer.config.database.mysql.enabled);
+
     if (AuthCoreServer.config.database.postgres.enabled) return connectPostgres();
     if (AuthCoreServer.config.database.mysql.enabled) return connectMySql();
     return connectSqlite();
@@ -394,6 +400,26 @@ public class Database {
               + "] Failed to load registered names: {}",
           e.getLocalizedMessage());
       return REGISTERED_NAMES;
+    }
+  }
+
+  /**
+   * Auto-migration: clears the premium ("online-mode") flag from every account. Used once per
+   * boot when the server is detected to run in offline-mode - on such servers no account can
+   * be premium (the server authenticates nobody), so stale flags from earlier builds must not
+   * keep bypassing registration. Genuinely online-mode accounts are re-flagged automatically when
+   * the server runs online-mode again.
+   *
+   * @return the number of accounts downgraded
+   */
+  public static int downgradePremiumAccounts() {
+    if (!connect()) return 0;
+    try (Statement stmt = connection.createStatement()) {
+      return stmt.executeUpdate("UPDATE USERS SET mode = 'offline-mode' WHERE mode = 'online-mode'");
+    } catch (SQLException err) {
+      AuthCoreServer.LOGGER.debug(
+          false, "Online-mode flag auto-migration failed (best-effort):", err);
+      return 0;
     }
   }
 }

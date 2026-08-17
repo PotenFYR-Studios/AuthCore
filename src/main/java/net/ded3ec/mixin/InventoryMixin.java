@@ -33,7 +33,8 @@ abstract class InventoryMixin {
   @Inject(
       method = "removeItem(II)Lnet/minecraft/world/item/ItemStack;",
       at = @At("HEAD"),
-      cancellable = true)
+      cancellable = true,
+      require = 0)
   private void authCore$onRemoveStack(int slot, int count, CallbackInfoReturnable<ItemStack> cir) {
 
     Inventory inventory = (Inventory) (Object) this;
@@ -41,14 +42,25 @@ abstract class InventoryMixin {
 
     if (player == null) return;
 
-    UUID uuid = player.getUUID();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+    User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemDrop) {
 
-      AuthCoreServer.LOGGER.toUser(
-          false, user.connection, AuthCoreServer.messages.promptUserDropItemNotAllowed);
+      // Direct chat feedback only - a title send from inside Inventory.removeItem runs the
+      // full style/packet chain on EVERY internal removal (recipe-book placement, crafting,
+      // shift-clicks) and previously hung the server thread until the watchdog killed it.
+      try {
+        net.ded3ec.models.Messages.ColTemplate tpl =
+            AuthCoreServer.messages.promptUserDropItemNotAllowed;
+        String text =
+            tpl.title.subtitle != null && !tpl.title.subtitle.text.isBlank()
+                ? tpl.title.subtitle.text
+                : tpl.title.text;
+        if (text != null && !text.isBlank())
+          net.ded3ec.compat.Compat.sendMessage((net.minecraft.server.level.ServerPlayer) player, net.ded3ec.compat.Compat.text(text), false);
+      } catch (RuntimeException ignored) {
+        // feedback is best-effort
+      }
 
       // Sync inventory
       player.containerMenu.broadcastChanges();

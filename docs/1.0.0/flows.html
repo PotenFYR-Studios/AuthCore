@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authentication Flows - AuthCore - AuthCore Docs</title>
+<meta name="description" content="Every AuthCore flow explained step by step: join, limbo lockdown, register, login, session resume, premium verification and auto-migration - with the functions involved, in simple terms.">
+<meta property="og:title" content="Authentication Flows - AuthCore - AuthCore Docs">
+<meta property="og:description" content="Every AuthCore flow explained step by step: join, limbo lockdown, register, login, session resume, premium verification and auto-migration - with the functions involved, in simple terms.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://authcore.potenfyr.in/docs/1.0.0/flows.html">
+<style>
+  :root {
+    --bg0: #060607;
+    --bg1: #0c0a0a;
+    --bg2: #1a0c0c;
+    --panel: rgba(14, 8, 8, 0.78);
+    --panel-2: rgba(70, 12, 12, 0.32);
+    --accent: #ef4444;
+    --accent-2: #f87171;
+    --accent-3: #fca5a5;
+    --green: #22c55e;
+    --text: #e9e7ea;
+    --muted: #a29aa0;
+    --border: rgba(239, 68, 68, 0.24);
+    --radius: 16px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 16px;
+    line-height: 1.65;
+    background:
+      radial-gradient(1200px 420px at 50% -100px, rgba(239, 68, 68, 0.13) 0%, rgba(239, 68, 68, 0) 65%),
+      linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  /* ---------- scroll progress ---------- */
+  #progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
+    z-index: 1000; border-radius: 0 3px 3px 0;
+  }
+
+  /* ---------- header ---------- */
+  .site-header {
+    position: sticky; top: 0; z-index: 500;
+    display: flex; align-items: center; gap: 18px;
+    padding: 10px 22px;
+    background: rgba(6, 6, 7, 0.74);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(239,68,68,.7)); }
+  .brand-text { font-size: 1.05em; }
+  .brand-dot { color: var(--accent-3); }
+  .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
+  .nav-link {
+    color: var(--muted); text-decoration: none; font-size: 0.86em; font-weight: 500;
+    padding: 6px 10px; border-radius: 8px; transition: color .18s, background .18s, box-shadow .18s;
+    position: relative;
+  }
+  .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
+  .nav-link:hover { color: #fff; background: rgba(239, 68, 68, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(239,68,68,.28), rgba(70,12,12,.5)); box-shadow: inset 0 0 0 1px rgba(239,68,68,.4), 0 0 14px rgba(239,68,68,.3); }
+  .nav-gh { margin-left: 6px; color: var(--accent-3); }
+  .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5px) rotate(45deg); }
+  .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+  .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5px) rotate(-45deg); }
+  @media (max-width: 900px) {
+    .nav-toggle { display: block; }
+    .site-nav {
+      display: none; position: absolute; top: 100%; left: 0; right: 0;
+      flex-direction: column; align-items: stretch; gap: 4px;
+      background: rgba(6, 6, 7, 0.97); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border); padding: 10px 14px;
+    }
+    .site-nav.open { display: flex; }
+  }
+
+  /* ---------- layout (wide, content spreads out) ---------- */
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 34px; max-width: 1580px; margin: 0 auto; padding: 34px 28px 70px; align-items: start; }
+  /* pages without a sidebar TOC (home, docs hub) span the full width */
+  .layout > :only-child { grid-column: 1 / -1; }
+  .layout:has(> :only-child) { max-width: 1500px; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
+
+  /* ---------- sidebar TOC (enhanced navigation) ---------- */
+  .toc {
+    position: sticky; top: 82px; align-self: start;
+    max-height: calc(100vh - 104px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 14px 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    animation: fadeUp .5s ease both;
+    scrollbar-width: thin; scrollbar-color: rgba(239,68,68,.45) transparent;
+  }
+  .toc::-webkit-scrollbar { width: 6px; }
+  .toc::-webkit-scrollbar-thumb { background: rgba(239,68,68,.45); border-radius: 6px; }
+  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px 10px; }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-3); }
+  .toc-count { font-size: 0.68em; color: var(--muted); letter-spacing: 0.04em; background: rgba(239,68,68,.14); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
+  .toc ul { list-style: none; margin: 0; padding: 0; }
+  .toc-item { margin: 1px 0; }
+  .toc-item a {
+    display: flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 5px 10px 5px 8px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s, padding-left .15s;
+    position: relative;
+  }
+  .toc-item a::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; transition: background .15s, box-shadow .15s; }
+  .toc-item a:hover { color: #fff; background: rgba(239, 68, 68, 0.1); padding-left: 12px; }
+  .toc-item a:hover::before { background: var(--accent-3); box-shadow: 0 0 8px rgba(239,68,68,.7); }
+  .toc-item.toc-3 a { padding-left: 24px; font-size: 0.8em; }
+  .toc-item.toc-3 a:hover { padding-left: 28px; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(239,68,68,.22), rgba(239,68,68,.02)); font-weight: 600; }
+  .toc-item a.active::before { background: var(--accent); box-shadow: 0 0 8px rgba(239,68,68,.8); }
+  .toc-progress { height: 3px; border-radius: 3px; background: rgba(239,68,68,.15); margin: 10px 4px 4px; overflow: hidden; }
+  .toc-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-3)); box-shadow: 0 0 10px rgba(239,68,68,.6); transition: width .1s linear; }
+  .toc-top { display: block; margin: 10px 4px 0; text-align: center; font-size: 0.74em; color: var(--accent-2); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; transition: background .15s, color .15s; }
+  .toc-top:hover { background: rgba(239,68,68,.12); color: #fff; }
+  .toc-top::before { content: "↑ "; }
+
+  /* ---------- content ---------- */
+  article {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    padding: 36px 44px 52px;
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(220, 38, 38, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    animation: fadeUp .55s ease both;
+  }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+  article > :first-child { margin-top: 0; }
+  article h1, article h2, article h3, article h4 { line-height: 1.3; scroll-margin-top: 90px; }
+  article h1 {
+    font-size: 2em; font-weight: 800; margin: 0 0 18px; padding-bottom: 14px;
+    color: #f8fafc;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  article h1::after {
+    content: ""; display: block; position: absolute; left: 0; right: 0; bottom: -1px;
+    height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent-3), var(--accent), transparent);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+  }
+  article h2 {
+    font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
+    border-bottom: 1px solid rgba(239, 68, 68, 0.18);
+    animation: fadeUp .5s ease both;
+  }
+  article h2::before {
+    content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
+    background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); vertical-align: -0.08em;
+  }
+  article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
+  article h4 { font-size: 1em; color: #fee2e2; }
+  article p { margin: 0.85em 0; }
+  article strong { color: #f8fafc; }
+  article a {
+    color: var(--accent-2); text-decoration: none;
+    background-image: linear-gradient(90deg, var(--accent-3), var(--accent));
+    background-size: 0% 1.5px; background-position: 0 100%; background-repeat: no-repeat;
+    transition: background-size .25s, color .15s;
+  }
+  article a:hover { color: #fff; background-size: 100% 1.5px; }
+  article hr {
+    border: 0; height: 1px; margin: 2.2em 0;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
+  article blockquote {
+    margin: 1.1em 0; padding: 0.7em 1.2em;
+    border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(239, 68, 68, 0.02));
+  }
+  article blockquote p { margin: 0.4em 0; }
+  article img { max-width: 100%; border-radius: 12px; }
+  article table {
+    width: 100%; margin: 1.2em 0; border-collapse: separate; border-spacing: 0;
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+    display: block; overflow-x: auto;
+    animation: fadeUp .5s ease both;
+  }
+  article th {
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.1));
+    color: #fee2e2; font-weight: 600; text-align: left;
+  }
+  article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  article th:last-child, article td:last-child { white-space: normal; }
+  article tr:last-child td { border-bottom: 0; }
+  article tbody tr { transition: background .15s; }
+  article tbody tr:hover { background: rgba(239, 68, 68, 0.08); }
+  article code {
+    background: rgba(239, 68, 68, 0.12); color: var(--accent-3);
+    border: 1px solid rgba(239, 68, 68, 0.22); border-radius: 6px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
+  }
+  article pre {
+    position: relative; margin: 1.2em 0; padding: 18px 20px;
+    background: rgba(10, 4, 4, 0.9);
+    border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(220, 38, 38, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    overflow-x: auto;
+  }
+  article pre code { background: none; border: 0; padding: 0; color: #fdecec; font-size: 0.87em; line-height: 1.6; }
+  .copy-btn {
+    position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
+    background: rgba(70, 12, 12, 0.85); color: var(--accent-3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
+  }
+  article pre:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(220, 38, 38, 0.5); }
+  .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
+
+  /* ---------- docs hub cards ---------- */
+  .docs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin: 24px 0; }
+  .doc-card {
+    display: flex; flex-direction: column; text-decoration: none !important; background-image: none !important;
+    padding: 20px 20px 16px; border-radius: 14px; position: relative;
+    background: var(--panel-2); border: 1px solid var(--border);
+    transition: transform .2s, box-shadow .2s, border-color .2s;
+    animation: fadeUp .5s ease both;
+  }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(239, 68, 68, 0.28); }
+  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(239,68,68,.6)); }
+  .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; line-height: 1.35; }
+  .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.55; }
+
+  /* ---------- back to top ---------- */
+  #toTop {
+    position: fixed; right: 22px; bottom: 22px; z-index: 600;
+    width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #060607);
+    color: var(--accent-3); font-size: 1.2em;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(239, 68, 68, 0.3);
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity .25s, transform .25s;
+  }
+  #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(239, 68, 68, 0.6); color: #fff; }
+
+  footer {
+    text-align: center; color: var(--muted); font-size: 0.84em;
+    padding: 8px 0 30px;
+  }
+  footer a { color: var(--accent-2); text-decoration: none; }
+  footer a:hover { color: #fff; }
+  @media (max-width: 720px) {
+    article { padding: 24px 18px 34px; border-radius: 12px; }
+    .layout { padding: 16px 10px 40px; }
+  }
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<div id="top" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <a class="brand" href="../../index.html">
+      <span class="brand-mark">🏰🔐</span>
+      <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
+    </a>
+    <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="site-nav">
+      <a class="nav-link" href="../../index.html">Home</a>
+      <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
+    </nav>
+  </header>
+<div class="layout">
+  <aside class="toc">
+  <div class="toc-title">On this page</div>
+  <ul>
+    <li class="toc-item toc-2"><a href="#how-to-read-this-page">How to read this page</a></li>
+    <li class="toc-item toc-2"><a href="#1-the-join-flow">1. The join flow</a></li>
+    <li class="toc-item toc-2"><a href="#2-the-limbo-lockdown-flow">2. The limbo (lockdown) flow</a></li>
+    <li class="toc-item toc-2"><a href="#3-the-register-flow">3. The register flow</a></li>
+    <li class="toc-item toc-2"><a href="#4-the-login-flow">4. The login flow</a></li>
+    <li class="toc-item toc-2"><a href="#5-the-session-resume-flow">5. The session resume flow</a></li>
+    <li class="toc-item toc-2"><a href="#6-the-logout-flow">6. The logout flow</a></li>
+    <li class="toc-item toc-2"><a href="#7-the-premium-verification-flow">7. The premium verification flow</a></li>
+    <li class="toc-item toc-2"><a href="#8-the-auto-migration-flow">8. The auto-migration flow</a></li>
+    <li class="toc-item toc-2"><a href="#failure-safety-guarantees">Failure safety guarantees</a></li>
+  </ul>
+</aside>
+  <main>
+    <article>
+<h1 id="authentication-flows">Authentication Flows</h1>
+<p>This page walks through every flow in AuthCore, step by step, and names the functions
+involved at each point. It is written for server owners who want to understand what the mod
+does and why, without reading the source. Each flow ends with a short
+<strong>&quot;why it exists&quot;</strong> note.</p>
+
+<h2 id="how-to-read-this-page">How to read this page</h2>
+<ul>
+<li><code>Class.method</code> names point at the actual code so you can jump in and look around.</li>
+<li>&quot;Lobby&quot; and &quot;limbo&quot; are the same thing: the restricted waiting area every
+unauthenticated player is held in.</li>
+<li>&quot;Premium&quot; means a paid (Mojang) Minecraft account. &quot;Standard&quot; means a cracked/offline account.</li>
+</ul>
+
+<h2 id="1-the-join-flow">1. The join flow</h2>
+<p><strong>Goal:</strong> decide, for every incoming player, whether they are premium or standard, and
+then either let them in or lock them into the limbo.</p>
+<ol>
+<li><strong>The login packet arrives.</strong>
+<code>ServerLoginNetworkHandlerMixin.handleHello</code> reads the player name and UUID from the hello
+packet (the shape differs between Minecraft versions, so it is read reflectively).</li>
+<li><strong>Server mode is detected.</strong>
+<code>AuthCoreServer.detectServerOnlineMode</code> + <code>Compat.serverUsesAuthentication</code> read the real
+<code>server.properties online-mode</code> setting. This decides whether the server verifies Mojang
+sessions at all (see flow 7).</li>
+<li><strong>Optional premium verification starts.</strong>
+On offline-mode servers with premium auto-login enabled,
+<code>ServerPremiumVerificationMixin</code> starts the vanilla encryption handshake so the client hands
+over its session token (flow 7 explains the details).</li>
+<li><strong>The play connection becomes ready.</strong>
+<code>ServerEvents.onPlayerJoin</code> is the main gate. In order it checks:
+<ul>
+<li>duplicate login (<code>user.isActive</code>, <code>blockDuplicateRegister</code>, <code>blockDuplicateSession</code>),</li>
+<li>maintenance mode, join rate limits (<code>RateLimiter</code>), IP rules (<code>IpRules.isDenied</code>),
+proxy/VPN blocking (<code>McApiManager.geoIp</code> + <code>user.isProxy</code>),</li>
+<li>the same-IP session rule and the persistent account lock (<code>user.isLocked</code>),</li>
+<li>then <code>user.connect(connection)</code> wires the connection to the account.</li>
+</ul>
+</li>
+<li><strong>Three ways to get in:</strong>
+<ul>
+<li><strong>Session resume</strong> (same IP + still-valid session) calls <code>user.login(player)</code>
+directly (flow 5).</li>
+<li><strong>Premium auto-login</strong> (verified premium, or a brand-new account on a server that
+verified the session) calls <code>user.login(player)</code> directly - auto-login players are
+<strong>never given a generated password</strong> (their stored password stays null). A player who
+explicitly switched their account to password login (<code>/account set-mode offline</code>) is
+<strong>not</strong> auto-logged-in: they are asked to <code>/register</code> or <code>/login</code> like any
+offline account.</li>
+<li><strong>Everyone else</strong> is locked into the limbo with <code>user.lobby.lock()</code> (flow 2)
+and asked to <code>/register</code> or <code>/login</code>.</li>
+</ul>
+</li>
+</ol>
+<p><strong>Why it exists:</strong> without this gate, anyone could walk onto the server, claim a name,
+and play or grief before proving who they are. The join flow is the single place where every
+account is classified and every security rule is applied.</p>
+
+<h2 id="2-the-limbo-lockdown-flow">2. The limbo (lockdown) flow</h2>
+<p><strong>Goal:</strong> hold unauthenticated players in a tiny, fully restricted bubble until they
+prove their identity.</p>
+<ol>
+<li><strong>Locking:</strong> <code>Lobby.lock()</code> takes a <code>Lobby.Snapshot</code> (inventory, effects,
+health, food, XP, position, game mode, operator status) so everything can be restored later.
+Then <code>Lobby.handleTeleport()</code> picks the anchor position: the configured limbo spawn for new
+players, or the player's own position for returning players when
+<code>limbo-config.only-on-first-time</code> is on. Blindness, invisibility and adventure mode are
+applied, and the player is dismounted from any vehicle.</li>
+<li><strong>Enforcement:</strong> every restriction is enforced at the packet or game-mode level by a mixin:
+<ul>
+<li>movement: <code>ServerPlayNetworkHandlerMixin</code> cancels move packets and snaps the client back
+with <code>Lobby.teleportBack()</code>; <code>EntityMixin</code> stops server-side movement; the per-tick guard
+in <code>ServerEvents.onEndServerTick</code> (<code>Lobby.isFarFromLobbyPos</code>) re-teleports any drift,</li>
+<li>chat: <code>ServerPlayNetworkHandlerChatMixin</code>,</li>
+<li>commands: the <code>CommandManager*</code> mixins enforce the whitelist (login/register/account stay
+allowed),</li>
+<li>blocks and items: <code>ServerPlayerInteractionManagerMixin</code> blocks breaking, placing and item
+use; <code>ServerPlayerMixin</code> blocks item drops; <code>InventoryMixin</code>, <code>ItemEntityMixin</code> and the
+<code>ScreenHandler*</code> mixins block inventory/pickup tricks,</li>
+<li>attacks and interactions: <code>EntityEvents</code> plus <code>MobEntityMixin</code> (mobs cannot target you),
+<code>ServerPlayerRestrictionsMixin</code> blocks riding and sleeping,</li>
+<li>damage: <code>EntityEvents.onEntityDamage</code> makes the player invulnerable in the lobby.</li>
+</ul>
+</li>
+<li><strong>Reminders:</strong> <code>Lobby.handleTimeout</code> schedules periodic &quot;use /register or
+/login&quot; action-bar messages and the login-timeout kick.</li>
+<li><strong>Unlocking:</strong> after a successful login, <code>Lobby.unlock()</code> calls
+<code>Snapshot.reset(player)</code>, which restores everything: inventory, effects, health, position,
+game mode, operator status, the previous vehicle, and lands airborne players safely (no
+fall damage, no suffocation).</li>
+</ol>
+<p><strong>Why it exists:</strong> the limbo is the core of a secure server: attackers, bots and
+name-squatters have nothing to interact with until they authenticate, and legitimate players
+get back exactly what they had when they leave.</p>
+
+<h2 id="3-the-register-flow">3. The register flow</h2>
+<p><strong>Goal:</strong> let a brand-new player create an account with a password.</p>
+<ol>
+<li><code>/register &lt;password&gt; &lt;confirm&gt;</code> runs <code>Register.registerCommand</code>. It re-verifies the
+prerequisites (the player must be in the lobby and unregistered), applies the command
+cooldown, and checks the account lock.</li>
+<li>The password is validated against the policy with <code>Security.Password.check</code> (upper/lower/
+digit counts and total length from <code>password-rules</code>).</li>
+<li><code>User.register(player, password)</code> hashes the password with <code>Encrypter.hash</code> (argon2 by
+default, self-contained salt), writes the account to the database (<code>User.db.insert</code>), and
+either logs the player straight in (<code>allowLoginAfterRegistration</code>) or keeps them in the
+lobby.</li>
+<li>If hashing ever fails, the player is locked into the lobby instead of being left in a
+broken half-registered state.</li>
+</ol>
+<p><strong>Why it exists:</strong> registration gives each player a secret only they know, so later
+logins can prove it is really them.</p>
+
+<h2 id="4-the-login-flow">4. The login flow</h2>
+<p><strong>Goal:</strong> let a registered player prove their password and leave the limbo.</p>
+<ol>
+<li><code>/login &lt;password&gt;</code> runs <code>Login.execute</code>: cooldown, then it checks the attempt counter
+and the account lock. After a successful login the human-verification observation window
+starts (only bot-like players are ever challenged).</li>
+<li>The stored hash is checked with <code>Encrypter.verify</code>. The verifier tries the stored
+algorithm first and falls back through the others, so old or imported hashes still verify
+without console errors.</li>
+<li>If the stored hash uses a weak or outdated algorithm, <code>Login.upgradeHashIfNeeded</code>
+transparently re-hashes it with the configured algorithm (you never notice).</li>
+<li>If 2FA is enabled, a TOTP or email code is required (<code>Security.TOTPManager</code>,
+<code>Security.EmailOtp</code>).</li>
+<li><code>User.login(player)</code> records the login, issues a fresh session token, broadcasts the auth
+state (<code>AuthInterop.broadcast</code>) so proxies and other mods know, imports any DiscordSRV link,
+and unlocks the lobby, which restores the player (flow 2, step 4).</li>
+</ol>
+<p><strong>Why it exists:</strong> login is the proof step: the password plus any second factor is how
+the server knows the player behind the name is the account owner.</p>
+
+<h2 id="5-the-session-resume-flow">5. The session resume flow</h2>
+<p><strong>Goal:</strong> players who logged in recently should not type their password every time they
+rejoin.</p>
+<ol>
+<li>During the join flow, <code>ServerEvents.onPlayerJoin</code> checks: same UUID, same IP
+(<code>session-from-same-ip-only</code>) and an active session (<code>user.isActiveSession</code>, within
+<code>session.timeout-ms</code>).</li>
+<li>If all match, <code>user.login(player)</code> runs directly and the player skips the lobby.</li>
+<li>Clients that echo a valid session token over the interop channel resume with full trust
+(<code>ClientGuard.verifySessionClaim</code>); plain vanilla clients resume by IP with a small risk
+penalty when <code>require-token-for-resume</code> is enabled.</li>
+</ol>
+<p><strong>Why it exists:</strong> sessions are the convenience layer. The IP lock keeps the convenience
+from becoming a hijack vector: a stolen IP alone is not enough, and tokens rotate on every
+login.</p>
+
+<h2 id="6-the-logout-flow">6. The logout flow</h2>
+<p><strong>Goal:</strong> end a session cleanly.</p>
+<ol>
+<li><code>/account logout</code> calls <code>User.logout(payload)</code>: the session is invalidated, the Redis
+session is removed, the interop channel is told the player is no longer authenticated
+(<code>AuthInterop.broadcast(player, false)</code>), and the player is disconnected.</li>
+<li>When a player simply leaves, <code>ServerEvents.onPlayerLeave</code> does the same cleanup: lobby
+unlock, in-memory caches dropped (ClientGuard, DiscordSRV), combat-log punishment applied if
+configured.</li>
+</ol>
+<p><strong>Why it exists:</strong> logout protects the account on shared computers and keeps every other
+system (proxies, Discord bridges, the web panel) in sync with reality.</p>
+
+<h2 id="7-the-premium-verification-flow">7. The premium verification flow</h2>
+<p><strong>Goal:</strong> let genuine premium (paid) accounts auto-login on online <em>and</em> offline-mode
+servers without AuthCore ever calling the Mojang web API.</p>
+<ol>
+<li><strong>Online-mode servers:</strong> vanilla itself verifies every profile with Mojang
+(<code>hasJoinedServer</code>). The login mixin captures the verified profile and calls
+<code>AuthCoreServer.markPremiumVerified</code>.</li>
+<li><strong>Offline-mode servers</strong> (premium auto-login enabled):
+<ul>
+<li><code>ServerPremiumVerificationMixin</code> forces the vanilla encryption handshake during login
+(<code>Compat.loginStartHandshake</code>). The client answers with its session token.</li>
+<li><code>Compat.loginFinishHandshake</code> decrypts the token and activates connection encryption.</li>
+<li><code>Compat.loginVerifyProfile</code> calls the server's OWN <code>MinecraftSessionService.hasJoinedServer</code>
+- exactly what vanilla does in online mode, no external HTTP from AuthCore.</li>
+<li>Success marks the account premium; the join flow then auto-logs-in with a null password
+(no generated password is ever stored for auto-login accounts).</li>
+<li>Failure (cracked client, fake session, Mojang outage) simply continues the join as a
+standard player: lobby + register/login. Nobody is ever kicked.</li>
+<li>If the client never answers the handshake, a 15 second watchdog replays the hello and
+continues offline.</li>
+</ul>
+</li>
+<li><strong>Own-mode choice wins:</strong> an account the player or an admin explicitly set to password
+login (<code>/account set-mode offline</code> / <code>/authcore set-mode offline &lt;player&gt;</code>) is never
+auto-logged-in, even when the server verified its Mojang session - it is asked to register
+or login. Switching back is just <code>/account set-mode online</code>.</li>
+<li><strong>Stale flags:</strong> accounts flagged premium in the database from older builds are
+downgraded on standard-auth servers (flow 8).</li>
+</ol>
+<p><strong>Why it exists:</strong> online-mode players are trusted (Mojang already verified them), so they
+skip the password step. Doing it through the server's own session service keeps it
+unforgeable and removes the fragile HTTP name-lookups entirely.</p>
+
+<h2 id="8-the-auto-migration-flow">8. The auto-migration flow</h2>
+<p><strong>Goal:</strong> upgrade old configs, databases and messages without manual work.</p>
+<ul>
+<li><strong>Config:</strong> <code>ConfigMigrator.migrate()</code> runs after config load, applies registered
+version steps, bumps <code>config.version</code> and saves. New keys are added automatically by
+Configurate.</li>
+<li><strong>Messages:</strong> enriched multi-channel defaults are copied only for templates that still
+hold the old single-channel values (custom messages are preserved).</li>
+<li><strong>Database schema:</strong> <code>Database.load()</code> adds missing columns automatically (and suspends
+auth with clear instructions if that is impossible).</li>
+<li><strong>Account flags:</strong> on the first detection of a standard-auth server,
+<code>Database.downgradePremiumAccounts()</code> clears stale premium flags once per boot.</li>
+<li><strong>Password hashes:</strong> weak legacy hashes are upgraded on the next successful login
+(flow 4).</li>
+</ul>
+<p><strong>Why it exists:</strong> upgrades should never ask the owner to rebuild databases or hunt for
+new settings. Every migration is fail-safe: if it cannot run, the mod keeps working and tells
+you what to fix.</p>
+
+<h2 id="failure-safety-guarantees">Failure safety guarantees</h2>
+<ul>
+<li>No code path can crash the server: every mixin uses exact descriptors with
+<code>require = 0</code>, so version-specific signatures are skipped, never fatal.</li>
+<li>Every external call (GeoIP, session verification) is cached, timeout-limited and
+best-effort; failures downgrade the experience, never the server.</li>
+<li>Unverified players are always held in the limbo, never silently admitted and never
+accidentally kicked.</li>
+</ul>
+<h2 id="scale--concurrency-guarantees">🚀 Scale &amp; concurrency guarantees</h2>
+<ul>
+<li><strong>500k+ accounts, thousands of concurrent players</strong>: every hot path is a constant-time
+<code>ConcurrentHashMap</code> lookup (<code>User.getUser</code>), the database is only touched on cache miss,
+and bounded structures everywhere keep memory flat at any player count.</li>
+<li><strong>No resource spikes</strong>: per-user throttles (touches, teleports, reminders), cached external
+lookups, rate limits and a fixed-size daemon I/O pool absorb join/login bursts without a CPU,
+memory or thread cliff.</li>
+<li><strong>Race-condition-free</strong>: canonical single-instance-per-account cache under one lock,
+<code>synchronized</code> database access (single shared connection), <code>volatile</code> shared config/messages,
+deduped join/leave hooks and atomic counters - concurrent joins, logins, web-panel actions,
+Redis events and backups never interleave or deadlock.</li>
+</ul>
+    
+    </article>
+  </main>
+</div>
+<button id="toTop" aria-label="Back to top">↑</button>
+<footer>
+  <strong>AuthCore</strong>, The Fortress Framework for Minecraft Servers ·
+  <a href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub</a> ·
+  <a href="https://modrinth.com/mod/authCore" target="_blank" rel="noopener">Modrinth</a>
+</footer>
+<script>
+(function () {
+  const h = () => document.documentElement;
+  const bar = document.getElementById("progress");
+  const toTop = document.getElementById("toTop");
+
+  // ---- TOC navigation enhancements: head + topic count, progress bar, back-to-top ----
+  const toc = document.querySelector(".toc");
+  let tocBar = null;
+  if (toc) {
+    const items = toc.querySelectorAll(".toc-item a");
+    const title = toc.querySelector(".toc-title");
+    if (title && !toc.querySelector(".toc-head")) {
+      const head = document.createElement("div");
+      head.className = "toc-head";
+      toc.insertBefore(head, title);
+      head.appendChild(title);
+      const badge = document.createElement("span");
+      badge.className = "toc-count";
+      badge.textContent = items.length + (items.length === 1 ? " topic" : " topics");
+      head.appendChild(badge);
+    }
+    if (!toc.querySelector(".toc-progress")) {
+      const p = document.createElement("div");
+      p.className = "toc-progress";
+      p.innerHTML = "<span></span>";
+      toc.appendChild(p);
+      tocBar = p.firstElementChild;
+    } else tocBar = toc.querySelector(".toc-progress span");
+    if (!toc.querySelector(".toc-top")) {
+      const top = document.createElement("a");
+      top.className = "toc-top";
+      top.href = "#top";
+      top.textContent = "Back to top";
+      top.addEventListener("click", (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+      toc.appendChild(top);
+    }
+    // clicking a topic also closes the mobile nav
+    items.forEach((a) => a.addEventListener("click", () => {
+      const nav = document.querySelector(".site-nav");
+      const toggle = document.querySelector(".nav-toggle");
+      if (nav && toggle && nav.classList.contains("open")) { nav.classList.remove("open"); toggle.setAttribute("aria-expanded", "false"); }
+    }));
+  }
+
+  // ---- scroll progress (top bar + in-TOC bar) ----
+  const onScroll = () => {
+    const max = h().scrollHeight - h().clientHeight;
+    const pct = max > 0 ? (h().scrollTop / max) * 100 : 0;
+    bar.style.width = pct + "%";
+    if (tocBar) tocBar.style.width = pct + "%";
+    toTop.classList.toggle("show", h().scrollTop > 400);
+  };
+  document.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+  toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+
+  // ---- mobile nav ----
+  const toggle = document.querySelector(".nav-toggle");
+  const nav = document.querySelector(".site-nav");
+  if (toggle && nav) {
+    toggle.addEventListener("click", () => {
+      const open = nav.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+  }
+
+  // ---- copy buttons on code blocks ----
+  document.querySelectorAll("article pre").forEach((pre) => {
+    const btn = document.createElement("button");
+    btn.className = "copy-btn";
+    btn.textContent = "Copy";
+    btn.addEventListener("click", async () => {
+      const text = pre.querySelector("code").innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = "Copied!";
+        btn.classList.add("done");
+      } catch {
+        btn.textContent = "Error";
+      }
+      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1500);
+    });
+    pre.appendChild(btn);
+  });
+
+  // ---- scrollspy for the sidebar TOC (highlights the nearest heading) ----
+  const links = document.querySelectorAll(".toc-item a");
+  if (links.length) {
+    const map = new Map();
+    links.forEach((a) => {
+      const id = a.getAttribute("href").slice(1);
+      const el = document.getElementById(id);
+      if (el) map.set(el, a);
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            links.forEach((l) => l.classList.remove("active"));
+            const a = map.get(e.target);
+            if (a) a.classList.add("active");
+          }
+        });
+      },
+      { rootMargin: "-90px 0px -70% 0px" },
+    );
+    map.forEach((_, el) => io.observe(el));
+  }
+})();
+</script>
+</body>
+</html>

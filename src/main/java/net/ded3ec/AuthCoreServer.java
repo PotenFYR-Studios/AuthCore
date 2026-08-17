@@ -18,8 +18,13 @@ import net.ded3ec.models.Messages;
 import net.ded3ec.util.Logger;
 
 /**
- * AuthCore core - loader-neutral. Thin loader entrypoints (Fabric/Forge/NeoForge) in the
- * {@code net.ded3ec.entrypoint} package call {@link #start()}; everything else lives here.
+ * AuthCore core, shared by every loader.
+ *
+ * <p>Loader entrypoints (Fabric, Forge, NeoForge) all call {@link #start()}; everything the
+ * mod actually does lives here or in the packages below. This class also tracks the two
+ * facts the whole mod depends on: the loaded config and the real server mode (detected from
+ * server.properties instead of trusting the config, so cracked and premium servers both work
+ * without setup).
  */
 public class AuthCoreServer {
   public static final String MOD_ID = "authcore";
@@ -45,11 +50,111 @@ public class AuthCoreServer {
   public static volatile Config config;
   public static volatile Messages messages;
 
+  /**
+   * The real online-mode of the server (server.properties), detected lazily from the running
+   * {@link net.minecraft.server.MinecraftServer}. {@code null} until the first detection.
+   *
+   * <p>The mod ALWAYS follows the real server.properties mode - there is no config override.
+   * Trusting only the config previously made online-mode players get kicked with a bogus
+   * "Authentication Token is invalid" (premium-UUID mismatch against their offline-mode UUID)
+   * and offline-mode players silently auto-registered as premium on offline servers.
+   */
+  private static volatile Boolean serverOnlineMode = null;
+
+  /** Records the detected server online-mode (idempotent; logs the mismatch only once). */
+  public static void detectServerOnlineMode(boolean online) {
+    if (serverOnlineMode != null && serverOnlineMode == online) return;
+
+    serverOnlineMode = online;
+
+    // Auto-migration: on a server without Mojang session verification no account can be
+    // premium - stale premium flags from earlier builds are bulk-cleared once per boot so
+    // they cannot keep bypassing registration. Genuinely online-mode accounts are re-flagged
+    // automatically when the server verifies Mojang sessions again.
+    if (!online && !premiumFlagMigrationDone) {
+      premiumFlagMigrationDone = true;
+      try {
+        int cleared = net.ded3ec.util.Database.downgradePremiumAccounts();
+        if (cleared > 0)
+          LOGGER.info(
+              true,
+              "Auto-migration: {} account(s) marked as online-mode were moved to offline-mode "
+                  + "authentication - this server does not verify Mojang sessions, so online-mode "
+                  + "auto-login is unavailable here.",
+              cleared);
+      } catch (Exception err) {
+        LOGGER.debug(false, "Online-mode flag migration failed (best-effort):", err);
+      }
+    }
+
+    LOGGER.info(
+        true,
+        "Server session-authentication detected: {}",
+        online
+            ? "online-mode (Mojang session checks active)"
+            : "offline-mode (no Mojang session checks)");
+  }
+
+  /** Guards the one-per-boot premium-flag bulk migration. */
+  private static volatile boolean premiumFlagMigrationDone = false;
+
+  /**
+   * Effective server mode for premium decisions: the REAL server.properties mode, detected
+   * from the running server. There is no config override - the mod always follows the
+   * Minecraft server. Before the first detection it defaults to online (the safest
+   * assumption - a detection failure must never weaken an online-mode server).
+   *
+   * @return {@code true} when the server is (or is assumed to be) in online mode
+   */
+  public static boolean isServerOnline() {
+    return serverOnlineMode == null || serverOnlineMode;
+  }
+
+  /**
+   * UUIDs whose Minecraft profile was verified by the server's OWN Mojang session
+   * authentication during login (captured by the login mixin). AuthCore performs no Mojang
+   * API calls for premium detection - this marker is the single source of truth, and it is
+   * only ever set on online-mode servers where vanilla authenticated the profile.
+   */
+  private static final java.util.Set<java.util.UUID> PREMIUM_VERIFIED =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+  /** Records that the server's Mojang session authentication verified this profile. */
+  public static void markPremiumVerified(java.util.UUID uuid) {
+    if (uuid != null) PREMIUM_VERIFIED.add(uuid);
+  }
+
+  /** Whether the server's own Mojang session authentication verified this profile this boot. */
+  public static boolean isPremiumVerified(java.util.UUID uuid) {
+    return uuid != null && PREMIUM_VERIFIED.contains(uuid);
+  }
+
+  /** Drops the per-join verification marker (called on player leave). */
+  public static void clearPremiumVerified(java.util.UUID uuid) {
+    if (uuid != null) PREMIUM_VERIFIED.remove(uuid);
+  }
+
+  /**
+   * Whether the login mixin should run the server-side Mojang session verification for a
+   * player (premium auto-login on offline-mode servers). Requires an offline-mode server,
+   * premium auto-login enabled and no proxy IP-forwarding (proxy backends receive real
+   * profiles through the proxy and must not re-verify).
+   */
+  public static boolean isPremiumVerificationEnabled() {
+    if (config == null) return false;
+    if (isServerOnline()) return false;
+    if (!config.session.authentication.premiumAutoLogin) return false;
+    if (config.session.proxySupport.enabled) return false;
+    return true;
+  }
+
   /** Boots the mod - called by every loader entrypoint. Idempotent for safety. */
   public static void start() {
     if (started) return;
     started = true;
     long start = System.currentTimeMillis();
+
+    LOGGER.debug(false, "AuthCoreServer.start() - boot sequence begins");
 
     Registry.register();
 
@@ -66,6 +171,8 @@ public class AuthCoreServer {
     startMaintenanceTasks();
 
     printStartupBanner(start);
+    LOGGER.debug(
+        false, "AuthCoreServer.start() - boot completed in {}ms", System.currentTimeMillis() - start);
   }
 
   private static boolean started = false;
@@ -118,11 +225,16 @@ public class AuthCoreServer {
     if (showBanner)
       LOGGER.info(null, "  AuthCore - The Fortress Framework for Minecraft Servers");
     if (showSummary) {
+      String serverMode =
+          serverOnlineMode == null
+              ? "detecting..."
+              : (serverOnlineMode ? "online-mode" : "offline-mode");
+
       LOGGER.info(null, "==============================================================");
       LOGGER.info(null, "  Version          : {}", MOD_VERSION);
       LOGGER.info(null, "  Minecraft        : {}", mcVersion);
       LOGGER.info(null, "  Loader Platform  : {}", loaderVersion);
-      LOGGER.info(null, "  Server Mode      : {}", config != null ? config.session.serverMode : "?");
+      LOGGER.info(null, "  Server Mode      : {}", serverMode);
       LOGGER.info(null, "  Language         : {}", config != null ? config.language : "en");
       LOGGER.info(null, "  Database         : {}", dbType);
       LOGGER.info(null, "  Redis Sync       : {}", redis);
@@ -169,25 +281,31 @@ public class AuthCoreServer {
               || gameVersion.startsWith("1.18.")
               || gameVersion.startsWith("1.19.")
               || gameVersion.startsWith("1.20.")
-              || gameVersion.startsWith("1.21.");
+              || gameVersion.startsWith("1.21.")
+              || gameVersion.startsWith("26.");
       if (!tested && config.logging.showUntestedVersionWarning)
         LOGGER.warn(
             false,
-            "Minecraft {} is not in the officially tested set (1.16-1.21). The mod uses "
-                + "version-agnostic APIs, so it should work - but please report any issue!",
+            "Minecraft {} is not in the officially tested set (1.16-1.21 / 26.1-26.2). The "
+                + "mod uses version-agnostic APIs, so it should work - but please report any "
+                + "issue!",
             gameVersion);
-
-      if ("online".equalsIgnoreCase(config.session.serverMode))
-        LOGGER.warn(
-            false,
-            "serverMode is 'online'. Players will be auto-authenticated as premium accounts - "
-                + "set session.server-mode to 'offline' on cracked/offline servers!");
 
       if ("md5".equalsIgnoreCase(config.passwordRules.passwordHashAlgorithm))
         LOGGER.warn(
             false,
             "password-hash-algorithm is 'md5' which is cryptographically broken! "
                 + "Strongly recommend switching to 'argon2' or 'bcrypt'.");
+
+      // Online-mode servers must keep the secure chat profile disabled so clients without
+      // one (cracked / modded / hybrid offline players) can still join and chat - the secure
+      // profile requirement otherwise kicks them right after login.
+      if (isServerOnline())
+        LOGGER.warn(
+            false,
+            "server.properties online-mode=true - keep enable-secure-profile=false in "
+                + "server.properties so players without a secure chat profile (offline/"
+                + "modded clients) can still join and chat.");
 
       if (config.debugMode)
         LOGGER.warn(false, "debug-mode is enabled - this increases console log spam!");

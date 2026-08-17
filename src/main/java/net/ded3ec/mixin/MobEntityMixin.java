@@ -2,6 +2,7 @@ package net.ded3ec.mixin;
 
 import java.util.UUID;
 
+import net.ded3ec.AuthCoreServer;
 import net.ded3ec.models.User;
 /*? if fabric {*/
 import net.fabricmc.api.EnvType;
@@ -21,16 +22,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Mob.class)
 abstract class MobEntityMixin {
 
-  @Inject(method = "setTarget", at = @At("HEAD"), cancellable = true)
+  @Inject(
+      method = "setTarget(Lnet/minecraft/world/entity/LivingEntity;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
   private void authCore$disableAggression(LivingEntity target, CallbackInfo ci) {
 
     if (target instanceof ServerPlayer player) {
 
-      UUID uuid = player.getUUID();
-      String username = player.getName().getString();
-      User user = User.getUser(username, uuid);
+      User user = User.getUser(player);
 
-      if (user != null && user.isInLobby.get()) ci.cancel();
+      // Respect the allow-mob-damage config: only stop mobs from targeting lobby
+      // players when the config forbids mob damage against them.
+      if (user != null
+          && user.isInLobby.get()
+          && !AuthCoreServer.config.lobby.allowMobDamage)
+        ci.cancel();
     }
   }
 }

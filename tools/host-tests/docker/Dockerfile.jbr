@@ -9,8 +9,19 @@ RUN mkdir -p /opt/jbr \
  && tar -xzf /tmp/jbr.tar.gz --strip-components=1 -C /opt/jbr \
  && rm -f /tmp/jbr.tar.gz
 
+# Node.js for the player-simulation bot (node-minecraft-protocol).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl xz-utils \
+ && curl -fsSL https://nodejs.org/dist/v22.14.0/node-v22.14.0-linux-x64.tar.xz -o /tmp/node.tar.xz \
+ && tar -xJf /tmp/node.tar.xz -C /opt --strip-components=1 \
+ && rm -f /tmp/node.tar.xz \
+ && rm -rf /var/lib/apt/lists/*
+
 ENV JAVA_HOME=/opt/jbr
-ENV PATH=/opt/jbr/bin:${PATH}
+ENV PATH=/opt/bin:/opt/jbr/bin:${PATH}
+
+COPY docker/authcore-sim/ /opt/authcore-sim/
+RUN cd /opt/authcore-sim && npm install --omit=dev --no-audit --no-fund
 
 COPY docker/server-entrypoint.sh /usr/local/bin/authcore-entrypoint.sh
 RUN chmod +x /usr/local/bin/authcore-entrypoint.sh

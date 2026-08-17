@@ -64,7 +64,7 @@ public class Register {
                     .executes(
                         ctx ->
                             registerCommand(
-                                ctx.getSource(), getString(ctx, "password"), null, null, null))
+                                ctx.getSource(), getString(ctx, "password"), null, null))
                     .then(
                         argument("confirm-password", string())
                             .requires(
@@ -79,7 +79,6 @@ public class Register {
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         getString(ctx, "confirm-password"),
-                                        null,
                                         null))
                             .then(
                                 // Add the "2fa-code" argument to the command.
@@ -90,19 +89,7 @@ public class Register {
                                                 ctx.getSource(),
                                                 getString(ctx, "password"),
                                                 getString(ctx, "confirm-password"),
-                                                getString(ctx, "2fa-code"),
-                                                null))
-                                    .then(
-                                        // Add the "captcha-code" argument to the command.
-                                        argument("captcha-code", string())
-                                            .executes(
-                                                ctx ->
-                                                    registerCommand(
-                                                        ctx.getSource(),
-                                                        getString(ctx, "password"),
-                                                        getString(ctx, "confirm-password"),
-                                                        getString(ctx, "2fa-code"),
-                                                        getString(ctx, "captcha-code"))))))
+                                                getString(ctx, "2fa-code")))))
                     .then(
                         // Add the "2fa-code" argument to the command.
                         argument("2fa-code", string())
@@ -112,30 +99,7 @@ public class Register {
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         null,
-                                        getString(ctx, "2fa-code"),
-                                        null))
-                            .then(
-                                // Add the "captcha-code" argument to the command.
-                                argument("captcha-code", string())
-                                    .executes(
-                                        ctx ->
-                                            registerCommand(
-                                                ctx.getSource(),
-                                                getString(ctx, "password"),
-                                                null,
-                                                getString(ctx, "2fa-code"),
-                                                getString(ctx, "captcha-code")))))
-                    .then(
-                        // Add the "captcha-code" argument to the command.
-                        argument("captcha-code", string())
-                            .executes(
-                                ctx ->
-                                    registerCommand(
-                                        ctx.getSource(),
-                                        getString(ctx, "password"),
-                                        null,
-                                        null,
-                                        getString(ctx, "captcha-code"))))));
+                                        getString(ctx, "2fa-code"))))));
   }
 
   /**
@@ -151,8 +115,7 @@ public class Register {
       CommandSourceStack source,
       @NotNull String password,
       @Nullable String confirmPassword,
-      String authCode,
-      String captchaCode) {
+      String authCode) {
     try {
       ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
 
@@ -198,18 +161,10 @@ public class Register {
             TimeManager.toDuration(Math.max(remainingMs, 1000)));
       }
 
-      // Captcha verification (bot protection)
-      if (AuthCoreServer.config.lobby.captcha.enabled) {
-        if (captchaCode == null)
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserCaptchaRequired, "?");
-        if (!Security.CaptchaManager.verify(uuid, captchaCode)) {
-          net.ded3ec.security.SecurityLog.log(
-              "REGISTER_CAPTCHA_FAIL", username + " failed the captcha");
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserCaptchaWrong);
-        }
-      }
+      // Mass-registration penalty: this IP was flagged as a registration farm.
+      if (net.ded3ec.security.AuthIntelligence.isRegistrationBlocked(player.getIpAddress()))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
 
       // Validate the password and load the user if valid.
       if (checkPassword(player, password, confirmPassword)) {
@@ -227,12 +182,17 @@ public class Register {
         AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserRegisteredSuccessfully);
 
-        user.register(player, password);
+        AuthCoreServer.LOGGER.debug(
+            false,
+            "{} | /register completed from {} (2FA configured: {})",
+            username,
+            player.getIpAddress(),
+            AuthCoreServer.config.session.authentication.allowTOTPSupport);
 
-        // Tell other mods / the proxy that this player is now authenticated
-        net.ded3ec.network.AuthInterop.broadcast(player, true);
+        user.register(player, password); // broadcasts the auth state on login
 
         net.ded3ec.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIpAddress());
+        net.ded3ec.security.AuthIntelligence.recordRegistration(username, player.getIpAddress());
         net.ded3ec.network.Webhook.send(
             ":white_check_mark: **" + username + "** registered on the server.");
         return 1;

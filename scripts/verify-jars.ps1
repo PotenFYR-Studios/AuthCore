@@ -1,10 +1,9 @@
 # ============================================================================
-# AuthCore - verify jar roles (server / client / proxy / loader metadata).
+# AuthCore - verify jar roles (server / proxy / loader metadata).
 # Mirrors the CI verify step (.github/workflows/ci.yml): every jar in dist/
-# must carry its server entrypoint, client companion, proxy manifests and the
-# loader metadata of the loader it was built for. Hard-fails only on a jar
-# that is not a mod or that lost its server entrypoint; the other role checks
-# are informational (forge-like jars legitimately ship no client companion).
+# must carry its server entrypoint, proxy manifests and the loader metadata
+# of the loader it was built for. Hard-fails only on a jar that is not a mod
+# or that lost its server entrypoint.
 # Requires: PowerShell 7+ (pwsh), staged jars in dist/.
 # ============================================================================
 $ErrorActionPreference = "Stop"
@@ -44,14 +43,13 @@ foreach ($jar in $jars) {
       Write-Host "  FAIL: missing server entrypoint net/ded3ec/AuthCoreServer.class"
       $failed = $true
     }
-    if ($names -contains "net/ded3ec/client/ClientAuthCore.class") { Write-Host "  OK client companion" }
     if ($names -contains "bungee.yml") { Write-Host "  OK bungee manifest" }
     if ($names -contains "velocity-plugin.json") { Write-Host "  OK velocity manifest" }
     if ($names -contains "fabric.mod.json") {
-      if (Read-ZipEntry $zip "fabric.mod.json" -match '"environment"\s*:\s*"\*"') {
-        Write-Host "  OK fabric env *"
+      if (Read-ZipEntry $zip "fabric.mod.json" -match '"environment"\s*:\s*"server"') {
+        Write-Host "  OK fabric env server"
       } else {
-        Write-Host "  FAIL: fabric.mod.json has no environment *"
+        Write-Host "  FAIL: fabric.mod.json has no environment server"
         $failed = $true
       }
     }

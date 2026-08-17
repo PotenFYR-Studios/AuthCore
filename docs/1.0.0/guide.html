@@ -8,21 +8,21 @@
 <meta property="og:title" content="Server Admin Guide - AuthCore Docs">
 <meta property="og:description" content="START HERE, newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path.">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/guide.html">
+<link rel="canonical" href="https://authcore.potenfyr.in/docs/1.0.0/guide.html">
 <style>
   :root {
-    --bg0: #030508;
-    --bg1: #0a1128;
-    --bg2: #0d2a5e;
-    --panel: rgba(10, 17, 40, 0.72);
-    --panel-2: rgba(13, 42, 94, 0.35);
-    --accent: #3b82f6;
-    --accent-2: #60a5fa;
-    --accent-3: #93c5fd;
+    --bg0: #060607;
+    --bg1: #0c0a0a;
+    --bg2: #1a0c0c;
+    --panel: rgba(14, 8, 8, 0.78);
+    --panel-2: rgba(70, 12, 12, 0.32);
+    --accent: #ef4444;
+    --accent-2: #f87171;
+    --accent-3: #fca5a5;
     --green: #22c55e;
-    --text: #e2e8f0;
-    --muted: #8b95a7;
-    --border: rgba(59, 130, 246, 0.22);
+    --text: #e9e7ea;
+    --muted: #a29aa0;
+    --border: rgba(239, 68, 68, 0.24);
     --radius: 16px;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
@@ -37,7 +37,7 @@
     font-size: 16px;
     line-height: 1.65;
     background:
-      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      radial-gradient(1200px 420px at 50% -100px, rgba(239, 68, 68, 0.13) 0%, rgba(239, 68, 68, 0) 65%),
       linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
     background-attachment: fixed;
     overflow-x: hidden;
@@ -47,7 +47,7 @@
   #progress {
     position: fixed; top: 0; left: 0; height: 3px; width: 0;
     background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
     z-index: 1000; border-radius: 0 3px 3px 0;
   }
 
@@ -56,13 +56,13 @@
     position: sticky; top: 0; z-index: 500;
     display: flex; align-items: center; gap: 18px;
     padding: 10px 22px;
-    background: rgba(3, 5, 8, 0.72);
+    background: rgba(6, 6, 7, 0.74);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
-  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(239,68,68,.7)); }
   .brand-text { font-size: 1.05em; }
   .brand-dot { color: var(--accent-3); }
   .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
@@ -72,8 +72,8 @@
     position: relative;
   }
   .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
-  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
-  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-link:hover { color: #fff; background: rgba(239, 68, 68, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(239,68,68,.28), rgba(70,12,12,.5)); box-shadow: inset 0 0 0 1px rgba(239,68,68,.4), 0 0 14px rgba(239,68,68,.3); }
   .nav-gh { margin-left: 6px; color: var(--accent-3); }
   .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
   .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
@@ -85,40 +85,55 @@
     .site-nav {
       display: none; position: absolute; top: 100%; left: 0; right: 0;
       flex-direction: column; align-items: stretch; gap: 4px;
-      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      background: rgba(6, 6, 7, 0.97); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border); padding: 10px 14px;
     }
     .site-nav.open { display: flex; }
   }
 
-  /* ---------- layout ---------- */
-  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* ---------- layout (wide, content spreads out) ---------- */
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 34px; max-width: 1580px; margin: 0 auto; padding: 34px 28px 70px; align-items: start; }
   /* pages without a sidebar TOC (home, docs hub) span the full width */
   .layout > :only-child { grid-column: 1 / -1; }
-  .layout:has(> :only-child) { max-width: 980px; }
-  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+  .layout:has(> :only-child) { max-width: 1500px; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
 
-  /* ---------- sidebar TOC ---------- */
+  /* ---------- sidebar TOC (enhanced navigation) ---------- */
   .toc {
-    position: sticky; top: 78px; align-self: start;
-    max-height: calc(100vh - 100px); overflow-y: auto;
+    position: sticky; top: 82px; align-self: start;
+    max-height: calc(100vh - 104px); overflow-y: auto;
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px 16px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    padding: 16px 14px 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     animation: fadeUp .5s ease both;
+    scrollbar-width: thin; scrollbar-color: rgba(239,68,68,.45) transparent;
   }
-  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc::-webkit-scrollbar { width: 6px; }
+  .toc::-webkit-scrollbar-thumb { background: rgba(239,68,68,.45); border-radius: 6px; }
+  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px 10px; }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-3); }
+  .toc-count { font-size: 0.68em; color: var(--muted); letter-spacing: 0.04em; background: rgba(239,68,68,.14); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
   .toc ul { list-style: none; margin: 0; padding: 0; }
   .toc-item { margin: 1px 0; }
   .toc-item a {
-    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
-    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
-    transition: color .15s, border-color .15s, background .15s;
+    display: flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 5px 10px 5px 8px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s, padding-left .15s;
+    position: relative;
   }
-  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
-  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
-  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+  .toc-item a::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; transition: background .15s, box-shadow .15s; }
+  .toc-item a:hover { color: #fff; background: rgba(239, 68, 68, 0.1); padding-left: 12px; }
+  .toc-item a:hover::before { background: var(--accent-3); box-shadow: 0 0 8px rgba(239,68,68,.7); }
+  .toc-item.toc-3 a { padding-left: 24px; font-size: 0.8em; }
+  .toc-item.toc-3 a:hover { padding-left: 28px; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(239,68,68,.22), rgba(239,68,68,.02)); font-weight: 600; }
+  .toc-item a.active::before { background: var(--accent); box-shadow: 0 0 8px rgba(239,68,68,.8); }
+  .toc-progress { height: 3px; border-radius: 3px; background: rgba(239,68,68,.15); margin: 10px 4px 4px; overflow: hidden; }
+  .toc-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-3)); box-shadow: 0 0 10px rgba(239,68,68,.6); transition: width .1s linear; }
+  .toc-top { display: block; margin: 10px 4px 0; text-align: center; font-size: 0.74em; color: var(--accent-2); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; transition: background .15s, color .15s; }
+  .toc-top:hover { background: rgba(239,68,68,.12); color: #fff; }
+  .toc-top::before { content: "↑ "; }
 
   /* ---------- content ---------- */
   article {
@@ -126,7 +141,7 @@
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
     padding: 36px 44px 52px;
-    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(220, 38, 38, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(8px);
     animation: fadeUp .55s ease both;
   }
@@ -143,20 +158,20 @@
     content: ""; display: block; position: absolute; left: 0; right: 0; bottom: -1px;
     height: 2px; border-radius: 2px;
     background: linear-gradient(90deg, var(--accent-3), var(--accent), transparent);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
   }
   article h2 {
     font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.18);
     animation: fadeUp .5s ease both;
   }
   article h2::before {
     content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
     background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
-    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); vertical-align: -0.08em;
   }
   article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
-  article h4 { font-size: 1em; color: #dbeafe; }
+  article h4 { font-size: 1em; color: #fee2e2; }
   article p { margin: 0.85em 0; }
   article strong { color: #f8fafc; }
   article a {
@@ -173,7 +188,7 @@
   article blockquote {
     margin: 1.1em 0; padding: 0.7em 1.2em;
     border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(239, 68, 68, 0.02));
   }
   article blockquote p { margin: 0.4em 0; }
   article img { max-width: 100%; border-radius: 12px; }
@@ -184,34 +199,34 @@
     animation: fadeUp .5s ease both;
   }
   article th {
-    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
-    color: #dbeafe; font-weight: 600; text-align: left;
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.1));
+    color: #fee2e2; font-weight: 600; text-align: left;
   }
   article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   article th:last-child, article td:last-child { white-space: normal; }
   article tr:last-child td { border-bottom: 0; }
   article tbody tr { transition: background .15s; }
-  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article tbody tr:hover { background: rgba(239, 68, 68, 0.08); }
   article code {
-    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
-    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    background: rgba(239, 68, 68, 0.12); color: var(--accent-3);
+    border: 1px solid rgba(239, 68, 68, 0.22); border-radius: 6px;
     padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
   }
   article pre {
     position: relative; margin: 1.2em 0; padding: 18px 20px;
-    background: rgba(2, 6, 16, 0.88);
-    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
-    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    background: rgba(10, 4, 4, 0.9);
+    border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(220, 38, 38, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
     overflow-x: auto;
   }
-  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  article pre code { background: none; border: 0; padding: 0; color: #fdecec; font-size: 0.87em; line-height: 1.6; }
   .copy-btn {
     position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
-    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    background: rgba(70, 12, 12, 0.85); color: var(--accent-3); border: 1px solid var(--border);
     border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
   }
   article pre:hover .copy-btn { opacity: 1; }
-  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(220, 38, 38, 0.5); }
   .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
 
   /* ---------- docs hub cards ---------- */
@@ -223,8 +238,8 @@
     transition: transform .2s, box-shadow .2s, border-color .2s;
     animation: fadeUp .5s ease both;
   }
-  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
-  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(239, 68, 68, 0.28); }
+  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(239,68,68,.6)); }
   .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; line-height: 1.35; }
   .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.55; }
 
@@ -232,15 +247,15 @@
   #toTop {
     position: fixed; right: 22px; bottom: 22px; z-index: 600;
     width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
-    border: 1px solid rgba(59, 130, 246, 0.5);
-    background: linear-gradient(135deg, var(--bg2), #02060d);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #060607);
     color: var(--accent-3); font-size: 1.2em;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(239, 68, 68, 0.3);
     opacity: 0; transform: translateY(10px); pointer-events: none;
     transition: opacity .25s, transform .25s;
   }
   #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
-  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(239, 68, 68, 0.6); color: #fff; }
 
   footer {
     text-align: center; color: var(--muted); font-size: 0.84em;
@@ -256,6 +271,7 @@
 </head>
 <body>
 <div id="progress"></div>
+<div id="top" aria-hidden="true"></div>
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
@@ -269,6 +285,7 @@
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
       <a class="nav-link active" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
       <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
       <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
       <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
@@ -283,10 +300,11 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#what-youll-learn-here">📑 What you'll learn here</a></li><li class="toc-item toc-2"><a href="#1-pick-the-right-jar">1. Pick the right jar</a></li><li class="toc-item toc-2"><a href="#2-install">2. Install</a></li><li class="toc-item toc-2"><a href="#3-the-first-player-experience-how-it-works">3. The first player experience (how it works)</a></li><li class="toc-item toc-2"><a href="#4-settingsconf--the-important-parts">4. settings.conf, the important parts</a></li><li class="toc-item toc-3"><a href="#41-server-mode--authentication">4.1 Server mode & authentication</a></li><li class="toc-item toc-3"><a href="#42-lobby-the-waiting-area">4.2 Lobby (the waiting area)</a></li><li class="toc-item toc-3"><a href="#43-clientguard-anti-bot--anti-bypass">4.3 ClientGuard (anti-bot / anti-bypass)</a></li><li class="toc-item toc-3"><a href="#44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</a></li><li class="toc-item toc-3"><a href="#45-email-for-email-2fa--recovery">4.5 Email (for email 2FA + recovery)</a></li><li class="toc-item toc-3"><a href="#46-web-admin-panel">4.6 Web admin panel</a></li><li class="toc-item toc-3"><a href="#47-databases-all-optional">4.7 Databases (all optional)</a></li><li class="toc-item toc-2"><a href="#5-admin-commands">5. Admin commands</a></li><li class="toc-item toc-2"><a href="#6-security-recommendations-checklist">6. Security recommendations (checklist)</a></li><li class="toc-item toc-2"><a href="#7-troubleshooting">7. Troubleshooting</a></li><li class="toc-item toc-2"><a href="#8-learning-path--go-deeper">8. Learning path, go deeper</a></li><li class="toc-item toc-2"><a href="#9-getting-help">9. Getting help</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#what-youll-learn-here">📑 What you'll learn here</a></li><li class="toc-item toc-2"><a href="#1-pick-the-right-jar">1. Pick the right jar</a></li><li class="toc-item toc-2"><a href="#2-install">2. Install</a></li><li class="toc-item toc-2"><a href="#3-the-first-player-experience-how-it-works">3. The first player experience (how it works)</a></li><li class="toc-item toc-2"><a href="#4-settingsconf--the-important-parts">4. settings.conf, the important parts</a></li><li class="toc-item toc-3"><a href="#41-server-mode--authentication">4.1 Server mode & authentication</a></li><li class="toc-item toc-3"><a href="#42-lobby-the-waiting-area">4.2 Lobby (the waiting area)</a></li><li class="toc-item toc-3"><a href="#43-clientguard-anti-bot--anti-bypass">4.3 ClientGuard (anti-bot / anti-bypass)</a></li><li class="toc-item toc-3"><a href="#44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</a></li><li class="toc-item toc-3"><a href="#45-email-for-email-2fa--recovery">4.5 Email (for email 2FA + recovery)</a></li><li class="toc-item toc-3"><a href="#46-web-admin-panel">4.6 Web admin panel</a></li><li class="toc-item toc-3"><a href="#47-databases-all-optional">4.7 Databases (all optional)</a></li><li class="toc-item toc-2"><a href="#48-feature-by-feature-setup">4.8 Feature-by-feature setup (every feature, with scenarios)</a></li><li class="toc-item toc-3"><a href="#481-human-verification-action-captcha">4.8.1 Human verification (action captcha)</a></li><li class="toc-item toc-3"><a href="#482-mfa-two-factor">4.8.2 MFA / 2FA</a></li><li class="toc-item toc-3"><a href="#483-brute-force-and-account-lock">4.8.3 Brute force &amp; account lock</a></li><li class="toc-item toc-3"><a href="#484-sessions-and-trusted-players">4.8.4 Sessions &amp; trusted players</a></li><li class="toc-item toc-3"><a href="#485-clientguard">4.8.5 ClientGuard</a></li><li class="toc-item toc-3"><a href="#486-authintelligence-login-intelligence">4.8.6 AuthIntelligence</a></li><li class="toc-item toc-3"><a href="#487-rate-limits-and-ip-rules">4.8.7 Rate limits &amp; IP rules</a></li><li class="toc-item toc-3"><a href="#488-sso-and-redis">4.8.8 SSO &amp; Redis</a></li><li class="toc-item toc-3"><a href="#489-web-panel-and-honeypot">4.8.9 Web panel &amp; honeypot</a></li><li class="toc-item toc-3"><a href="#4810-premium-and-proxy-support">4.8.10 Premium &amp; proxy support</a></li><li class="toc-item toc-3"><a href="#4811-maintenance-shadowban-whitelist-announcements">4.8.11 Maintenance, shadow-ban, whitelist, announcements</a></li><li class="toc-item toc-3"><a href="#4812-backups-discord-linking-locales">4.8.12 Backups, Discord linking &amp; locales</a></li><li class="toc-item toc-2"><a href="#5-admin-commands">5. Admin commands</a></li><li class="toc-item toc-2"><a href="#6-security-recommendations-checklist">6. Security recommendations (checklist)</a></li><li class="toc-item toc-2"><a href="#7-troubleshooting">7. Troubleshooting</a></li><li class="toc-item toc-2"><a href="#8-learning-path--go-deeper">8. Learning path, go deeper</a></li><li class="toc-item toc-2"><a href="#9-getting-help">9. Getting help</a></li></ul>
   </aside>
   <main>
     <article>
+
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <h1>🧭 AuthCore Server Admin Guide</h1>
@@ -297,7 +315,7 @@ admin panel, a honeypot, anti-bot protection and network-wide single sign-on.</p
 <blockquote>
 <p>✨ AuthCore runs <strong>out of the box with zero configuration</strong> (SQLite database, no Redis, no
 email). Every database and service below is <em>optional</em>, enable only what you need.</p>
-<p>🧩 <strong>The same jar is your server mod, your client companion and your BungeeCord/Velocity
+<p>🧩 <strong>The same jar is your server mod and your BungeeCord/Velocity
 proxy plugin</strong>, install it once wherever AuthCore should run.</p>
 </blockquote>
 <hr>
@@ -356,37 +374,37 @@ row matching your server&#39;s <strong>Minecraft version AND loader</strong>:</p
 </thead>
 <tbody><tr>
 <td align="left"><code>authcore-1.16-1.18-fabric-&lt;v&gt;.jar</code></td>
-<td align="left">1.16.0 – 1.18.2</td>
+<td align="left">1.16.0 - 1.18.2</td>
 <td align="left">Fabric</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-1.16-1.18-forge-&lt;v&gt;.jar</code></td>
-<td align="left">1.16.0 – 1.18.2</td>
+<td align="left">1.16.0 - 1.18.2</td>
 <td align="left">Forge</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-1.19-1.21-fabric-&lt;v&gt;.jar</code></td>
-<td align="left">1.19.0 – 1.21.11</td>
+<td align="left">1.19.0 - 1.21.11</td>
 <td align="left">Fabric</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-1.19-1.21-forge-&lt;v&gt;.jar</code></td>
-<td align="left">1.19.0 – 1.21.11</td>
+<td align="left">1.19.0 - 1.21.11</td>
 <td align="left">Forge</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-1.19-1.21-neoforge-&lt;v&gt;.jar</code></td>
-<td align="left">1.19.0 – 1.21.11</td>
+<td align="left">1.19.0 - 1.21.11</td>
 <td align="left">NeoForge</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-26.1-26.2-fabric-&lt;v&gt;.jar</code></td>
-<td align="left">26.1 – 26.2</td>
+<td align="left">26.1 - 26.2</td>
 <td align="left">Fabric</td>
 </tr>
 <tr>
 <td align="left"><code>authcore-26.1-26.2-neoforge-&lt;v&gt;.jar</code></td>
-<td align="left">26.1 – 26.2</td>
+<td align="left">26.1 - 26.2</td>
 <td align="left">NeoForge</td>
 </tr>
 </tbody></table>
@@ -434,19 +452,23 @@ start</strong>, jump to <a href="#7-troubleshooting">section 7 (Troubleshooting)
 <ol>
 <li>A player joins → they land in the <strong>lobby</strong> (spawn): no chat, no commands, no movement
 (all configurable), blindness/invisibility if configured.</li>
-<li>They run <code>/register &lt;password&gt; &lt;confirm&gt;</code>.</li>
+<li><strong>Premium (paid) accounts are detected automatically</strong> - on online-mode servers
+the server itself verifies every session; on offline-mode servers AuthCore re-runs the
+vanilla encryption handshake and verifies with the server&#39;s own Mojang session service
+(never blocking the server thread). Verified players are auto-logged-in with a <strong>null
+password</strong> (no generated password is stored), including <strong>auto-retrying while the
+session API is temporarily unreachable</strong>. A player who chose password login
+(<code>/account set-mode offline</code>) is never auto-logged-in.</li>
+<li>Offline-mode players run <code>/register &lt;password&gt; &lt;confirm&gt;</code>.</li>
 <li>They run <code>/login &lt;password&gt;</code>.</li>
 <li>If 2FA is enabled, they are asked for their <strong>TOTP code</strong> (from their authenticator app)
 or an <strong>email code</strong>.</li>
 <li>They are released into the world. On their next join, their <strong>session resumes
 automatically</strong> (same IP), no password needed until the session expires.</li>
-<li>If they have the <strong>client companion</strong> (the same jar installed on their client), the login
-screen appears automatically, sessions resume with a secure <strong>session token</strong>, and the
-server can <strong>attest</strong> the client (anti-bot).</li>
 </ol>
 <blockquote>
-<p>🧠 <em>Newbie question: &quot;do my players need to install anything?&quot;</em>, No. The companion is
-optional convenience. Plain vanilla players just type <code>/register</code> and <code>/login</code> in chat.</p>
+<p>🧠 <em>Newbie question: &quot;do my players need to install anything?&quot;</em>, No. Plain vanilla players
+just type <code>/register</code> and <code>/login</code> in chat.</p>
 </blockquote>
 <h2 id="4-settingsconf--the-important-parts">4. settings.conf, the important parts</h2>
 <p>All settings live in <code>config/authcore/settings.conf</code> (HOCON format). Reload changes with
@@ -457,17 +479,19 @@ setup. Defaults differ (e.g. 2FA is <strong>off</strong> by default). The full r
 default is <a href="config.html">docs/CONFIG.md</a>, bookmark it.</p>
 </blockquote>
 <h3 id="41-server-mode--authentication">4.1 Server mode &amp; authentication</h3>
+<p>The server&#39;s online/offline mode is <strong>always taken automatically from
+<code>server.properties</code></strong> (the <code>online-mode</code> line) - there is no
+<code>server-mode</code> setting anymore. Premium auto-login is on by default and works the
+same on online <em>and</em> offline-mode servers:</p>
 <pre><code class="language-hocon">session {
-  server-mode = &quot;offline&quot;            # &quot;online&quot; = premium auto-auth, &quot;offline&quot; = passwords
-                                     # ← set to &quot;offline&quot; on cracked servers!
-
   authentication {
     allow-totp-support = true        # 2FA with an authenticator app (default: false)
     email-otp-support = false        # 2FA via email code (requires SMTP, see 4.5)
     require-mfa-for-sensitive = true # players with 2FA must verify it before /account set-password
     max-login-attempts = 8           # wrong-password attempts before kick (default: 8)
     block-duplicate-session = true   # the same account cannot be online twice
-    premium-auto-login = true        # premium (paid) players log in automatically
+    premium-auto-login = true        # verified Mojang accounts log in automatically (default: true)
+    allow-offline-players = true     # offline (cracked) players may join and register/login
     allow-proxy-users = false        # block players coming through proxies/VPNs
   }
 
@@ -486,6 +510,31 @@ default is <a href="config.html">docs/CONFIG.md</a>, bookmark it.</p>
 <p><strong>What to expect:</strong> with 2FA on, every login needs password + authenticator code. The
 recovery codes (shown at <code>/account codes</code>) can be used <strong>once each</strong> when the phone
 is lost.</p>
+<p><strong>Hybrid servers - offline players can join BOTH server modes:</strong> with
+<code>allow-offline-players = true</code> (the default), offline (cracked) players can join and
+register/login on <strong>online-mode servers too</strong> - AuthCore intercepts the login of
+offline-UUID clients on online-mode servers and runs them through vanilla&#39;s offline accept
+flow (online-mode players still use their real UUID and the normal Mojang session check).
+Set <code>allow-offline-players = false</code> to make the server online-mode-only everywhere:
+offline-mode players are kicked on arrival (and on online-mode servers vanilla rejects them
+at login). On online-mode servers keep <code>enable-secure-profile=false</code> in
+<code>server.properties</code> so clients without a secure chat profile (cracked/modded players)
+can still join and chat.</p>
+<p><strong>How it decides who is online-mode:</strong> only the server&#39;s own session verification counts
+(on online servers vanilla checks every real-UUID profile; on offline servers AuthCore
+re-runs the vanilla encryption handshake and verifies with the server&#39;s Mojang session
+service - no external API calls). The <code>premium-auto-login</code> config is <strong>always respected
+regardless of the server mode</strong> (on by default): verified players are signed in automatically
+and are <strong>never given a generated password</strong> (their stored password stays null). If
+auto-login is turned off, those players are treated like any standard account - since their
+password is null they are asked to <code>/register</code> on their next re-auth (their online-mode
+status is preserved, so auto-login resumes when the config is re-enabled). Everyone else is
+asked to <code>/register</code> or <code>/login</code>.</p>
+<p><strong>Players can switch their own login style</strong> with <code>/account set-mode online</code>
+(automatic login) or <code>/account set-mode offline</code> (password login - players who
+already have a password simply log in with it; auto-login accounts with no password are
+asked to register with <code>/register</code> on their next join). Admins can
+force either mode with <code>/authcore set-mode online|offline &lt;player&gt;</code>.</p>
 <h3 id="42-lobby-the-waiting-area">4.2 Lobby (the waiting area)</h3>
 <pre><code class="language-hocon">lobby {
   allow-chat = false                  # can players chat before logging in?
@@ -498,7 +547,7 @@ is lost.</p>
   allow-item-use = false
   allow-block-interaction = false
   max-lobby-users = 50                # lobby size limit (kicks extra joiners)
-  captcha { enabled = true }          # text captcha on register/login
+  captcha { enabled = true }          # human verification: physical task for bot-like players
   announcements = [&quot;Welcome! Register with /register &lt;password&gt; &lt;confirm&gt;&quot;]
 }
 </code></pre>
@@ -532,8 +581,7 @@ chat/payload floods, tab-completion probing, fake companion clients, confusable 
 </code></pre>
 <blockquote>
 <p><strong>Vanilla players are never locked out.</strong> Every check is risk-based; the normal chat
-login always works. The companion (same jar on the client) is optional, it just earns
-more trust and convenience.</p>
+login always works.</p>
 </blockquote>
 <h3 id="44-network-wide-single-sign-on-sso">4.4 Network-wide single sign-on (SSO)</h3>
 <p>With Redis enabled, a player who logs in on <strong>one</strong> server of your network is trusted on
@@ -584,6 +632,268 @@ brute force after repeated failures (429). A <code>readonly-token</code> exists 
 setup). Move to MySQL/PostgreSQL only when you run several servers on one account
 database, and add Redis when you want network-wide sessions/SSO.</p>
 </blockquote>
+<h2 id="48-feature-by-feature-setup">4.8 Feature-by-feature setup (every feature, with scenarios)</h2>
+<p>This section explains <strong>every feature</strong> AuthCore ships: what it protects, the exact config
+to enable it, and a real-world scenario showing when you want it. All settings live in
+<code>config/authcore/*.conf</code> and hot-reload with <code>/authcore reload</code>.</p>
+
+<h3 id="481-human-verification-action-captcha">4.8.1 Human verification (action captcha)</h3>
+<p><strong>What it does.</strong> AuthCore&#39;s single human-verification method. After <strong>every</strong> login or
+register it observes the player for a short window and scores the session across many
+independent signals: ghost pattern (no look/move/click/chat/settings), ClientGuard risk,
+<strong>instant login</strong> (password typed within seconds of joining - bots use stored credentials),
+failed attempts before success, missing 2FA on a TOTP account, fresh account age, and fast
+reconnect loops. Trust signals (premium, valid session token, previously trusted account,
+already passed the challenge) <em>subtract</em> from the score. Only when the total reaches
+<code>bot-score-threshold</code> is the player challenged with a physical task: <strong>sneak</strong> for N
+seconds, <strong>jump</strong> N times, or <strong>look up</strong> at the sky - things only a real client can do.</p>
+<pre><code class="language-hocon">lobby {
+  captcha {
+    enabled = true                  # the whole verification system (default: true)
+    observation-window-sec = 45     # how long we watch before deciding (default: 45)
+    auto-challenge-ghosts = true    # zero-behavior players are always challenged
+    trigger-risk-threshold = 60     # ClientGuard risk that alone justifies a challenge
+    bot-score-threshold = 60        # total score needed to challenge (default: 60)
+
+    # signal weights (bot signals ADD, trust signals SUBTRACT)
+    instant-login-sec = 5           # login within 5s of joining = +25 score
+    failed-attempt-score = 10       # 2+ wrong passwords this session
+    missing-mfa-score = 20          # TOTP account logged in without the code
+    fresh-account-hours = 24        # account younger than a day = +15
+    fast-rejoin-sec = 20            # reconnect within 20s = +20
+    trusted-score = 20              # previously trusted account = -20
+    premium-score = 20              # Mojang-verified = -20
+    session-token-score = 20        # valid companion token resume = -20
+    already-verified-score = 50     # passed earlier this session = -50
+
+    action-ttl-ms = 60000           # time to finish the task (default: 60s)
+    action-sneak-seconds = 3        # sneak challenge length
+    action-jump-count = 5           # jump challenge count
+    action-look-up-seconds = 3      # look-up challenge length
+    disable-when-tps-below = 0      # skip during lag spikes (0 = never)
+  }
+}
+</code></pre>
+<p><strong>Scenario - public survival server.</strong> Every login is scored. A returning player types
+their password slowly, moves, looks around and chats - they score 0 and never see the
+captcha. A bot that joins with a stolen password, logs in in 2 seconds and then stands
+still scores: instantLogin +25, ghost +40, freshAccount +15 = 80 &gt; 60 and is challenged
+(and kicked if it cannot sneak/jump/look up). To make verification stricter, raise
+<code>bot-score-threshold</code> to 80; to catch more bots, lower it to 40.</p>
+
+<h3 id="482-mfa-two-factor">4.8.2 MFA / 2FA (TOTP, email OTP, recovery codes)</h3>
+<p><strong>What it does.</strong> Adds a second factor after the password. TOTP uses an authenticator
+app (Google Authenticator, Aegis, Authy); email OTP sends a one-time code via SMTP;
+recovery codes are single-use backups shown at <code>/account codes</code>. Sensitive actions
+(password change, unregister) can require MFA again (<em>step-up</em>).</p>
+<pre><code class="language-hocon">session {
+  authentication {
+    allow-totp-support = true       # authenticator-app 2FA (default: false)
+    email-otp-support = false       # email-code 2FA (needs SMTP, see 4.5)
+    require-mfa-for-sensitive = true # step-up before /account set-password
+  }
+}
+email { enabled = true; host = &quot;smtp.gmail.com&quot;; port = 587; username = &quot;you@gmail.com&quot;; password = &quot;app-password&quot;; from = &quot;you@gmail.com&quot; }
+</code></pre>
+<p><strong>Scenario - staff accounts.</strong> Turn TOTP on and tell staff to scan the QR code shown at
+first join. Even if a staff password leaks in a credential dump, the attacker cannot
+answer the TOTP code. <code>missing-mfa-score</code> in the human verification then also flags
+password-only logins on these accounts as suspicious.</p>
+
+<h3 id="483-brute-force-and-account-lock">4.8.3 Brute force &amp; account lock</h3>
+<p><strong>What it does.</strong> Caps wrong-password attempts per session, applies an exponential kick
+cooldown for repeat offenders and can lock the account entirely after N failures (the lock
+is persisted and survives restarts).</p>
+<pre><code class="language-hocon">session {
+  authentication { max-login-attempts = 8 }
+  cooldown-after-kick-ms = 120000
+  progressive-punishment { enabled = true; base-cooldown-ms = 5000; multiplier = 3.0; max-cooldown-ms = 300000 }
+  account-lock { enabled = true; max-failed-logins = 8; lock-duration-ms = 600000 }
+}
+</code></pre>
+<p><strong>Scenario - credential-stuffing wave.</strong> An attacker tries leaked passwords against many
+accounts from one IP. Each failure counts; after 8 failures the account locks for 10
+minutes and the IP gets blocked by AuthIntelligence (see 4.8.6), so the wave burns itself
+out without ever succeeding.</p>
+
+<h3 id="484-sessions-and-trusted-players">4.8.4 Sessions &amp; trusted players</h3>
+<p><strong>What it does.</strong> Successful logins create a server-side session (token rotated every
+login, IP-bound by default) so players do not re-type their password every rejoin. The
+account is also marked &quot;trusted&quot; for <code>bypass-captcha-hours</code> - which now only <em>reduces</em>
+the verification score (it never bypasses it entirely).</p>
+<pre><code class="language-hocon">session {
+  enable-sessions = true
+  session-from-same-ip-only = true
+  timeout-ms = 3600000
+  trusted {
+    enabled = true
+    bypass-captcha-hours = 24
+  }
+}
+</code></pre>
+<p><strong>Scenario - minigame network with hub transfers.</strong> A player logs in once, then hops
+between hub and minigame servers. Sessions make every hop instant; on a Redis-backed
+network, SSO (4.8.8) extends the same trust across the whole network.</p>
+
+<h3 id="485-clientguard">4.8.5 ClientGuard (anti-bot / anti-bypass)</h3>
+<p><strong>What it does.</strong> Builds a per-player behavioral profile from packet-level signals
+(brand anomaly, missing settings, ghost behavior, move/click/chat/payload floods, tab
+probing, fake companion attestation, confusable names) and converts them into a 0-100 risk
+score with a decision matrix: alert → require 2FA → kick.</p>
+<pre><code class="language-hocon">session {
+  client-guard {
+    enabled = true
+    ghost-kick-after-sec = 45
+    settings-timeout-sec = 20
+    risk-alert-threshold = 40
+    risk-2fa-threshold = 50
+    risk-kick-threshold = 70
+    concurrent-login-policy = &quot;kick-new&quot;
+    detect-confusable-names = true
+    require-token-for-resume = true
+  }
+}
+</code></pre>
+<p><strong>Scenario - lobby flooders.</strong> A client joins, never sends its settings packet, spams
+movement packets and probes commands. Each signal adds weight; at risk 70 the lobby kicks
+it - before it can even attempt a login. The same risk score feeds the human-verification
+scoring from 4.8.1.</p>
+
+<h3 id="486-authintelligence-login-intelligence">4.8.6 AuthIntelligence (login intelligence)</h3>
+<p><strong>What it does.</strong> Detects attacks on the <em>login process itself</em>: password spraying (one
+password against many accounts), per-IP login floods, 2FA brute force (right password +
+wrong code = compromised password), guess-then-success, mass registration (bot farms),
+session-token replay and post-login account takeover (new network + fast password change).
+Each detection writes a security log + webhook alert and can block the IP.</p>
+<pre><code class="language-hocon">session {
+  auth-intelligence {
+    password-spray { enabled = true; window-min = 10; max-accounts = 8 }
+    login-flood { enabled = true; window-min = 10; max-failures-per-ip = 10; block-minutes = 30 }
+    totp-bruteforce { enabled = true; window-min = 10; max-failures = 5 }
+    success-after-failures { enabled = true; min-failures = 3 }
+    registration-farm { enabled = true; window-min = 10; max-accounts-per-ip = 3; block-minutes = 30 }
+    session-replay { enabled = true }
+    ato-pattern { enabled = true; window-min = 30 }
+  }
+}
+</code></pre>
+<p><strong>Scenario - bought-account reseller.</strong> A script tries one freshly bought password against
+hundreds of accounts: <code>password-spray</code> fires the webhook after 8 accounts. Later, one
+succeeds and the script immediately changes the password from a new IP: <code>ato-pattern</code>
+alerts that the account was taken over.</p>
+
+<h3 id="487-rate-limits-and-ip-rules">4.8.7 Rate limits &amp; IP rules</h3>
+<p><strong>What it does.</strong> Per-IP join/login rate limits stop bot floods before they reach the
+auth logic; ip-rules.conf allows or denies specific IPs/networks outright.</p>
+<pre><code class="language-hocon">session {
+  rate-limit {
+    enabled = true
+    max-joins-per-window = 5
+    window-ms = 60000
+    command-cooldown-ms = 1000
+    alert-on-fast-rejoin = true
+    fast-rejoin-window-ms = 500
+  }
+}
+# config/authcore/ip-rules.conf
+# allow = [&quot;127.0.0.1&quot;, &quot;192.168.0.0/16&quot;]
+# deny  = [&quot;45.155.0.0/16&quot;]
+</code></pre>
+<p><strong>Scenario - DDoS-grade join flood.</strong> Attackers cycle thousands of fake connections per
+minute. <code>max-joins-per-window</code> caps each IP; <code>alert-on-fast-rejoin</code> flags the
+disconnect-rejoin loop; a known abusive range goes straight to <code>deny</code> in ip-rules.conf.</p>
+
+<h3 id="488-sso-and-redis">4.8.8 SSO &amp; Redis network features</h3>
+<p><strong>What it does.</strong> With Redis enabled: network-wide single sign-on (login on one server =
+trusted on all), duplicate-session blocking across servers, remote bans and a cross-server
+security event bus.</p>
+<pre><code class="language-hocon">database { redis { enabled = true; host = &quot;localhost&quot;; port = 6379 } }
+session {
+  sso { enabled = true; session-ttl-min = 30; trust-vanilla = false }
+}
+</code></pre>
+<p><strong>Scenario - 3-server network.</strong> A player logs in on the lobby server. Without SSO they
+re-type the password on each game server; with SSO the lobby broadcasts the login via
+Redis and the game servers trust it instantly. A ban on one server propagates to all.</p>
+
+<h3 id="489-web-panel-and-honeypot">4.8.9 Web panel &amp; honeypot</h3>
+<p><strong>What it does.</strong> The web panel is a token-protected admin dashboard (player lists,
+lookups, actions, metrics) with brute-force lockout (429 after 5 wrong tokens). The
+honeypot opens a decoy port that logs any connection as <code>HONEYPOT_HIT</code> - perfect for
+spotting port scanners before they find the real game port.</p>
+<pre><code class="language-hocon">session {
+  web-panel {
+    enabled = true
+    host = &quot;127.0.0.1&quot;
+    port = 25570
+    token = &quot;change-me-long-random-token&quot;
+    # readonly-token = &quot;...&quot;
+    # https-enabled = true
+  }
+  honeypot { enabled = true; port = 25571 }
+}
+</code></pre>
+<p><strong>Scenario - hosting a server for strangers.</strong> Bind the panel to 127.0.0.1 and tunnel it
+over SSH; enable HTTPS with the self-signed keystore for remote admin. The honeypot on a
+random port logs every probe, so you see attackers &#39;knocking&#39; before they ever reach
+25565.</p>
+
+<h3 id="4810-premium-and-proxy-support">4.8.10 Online-mode accounts &amp; proxy support</h3>
+<p><strong>What it does.</strong> Premium (paid) accounts are auto-verified through the server&#39;s own
+Mojang session service (outage-proof, no API calls) and auto-login - on online <em>and</em>
+offline-mode servers, with no <code>server-mode</code> setting needed (it&#39;s always read from
+<code>server.properties</code>). Auto-login players keep a null password; they can switch to
+password login with <code>/account set-mode offline</code> (admins: <code>/authcore set-mode
+offline &lt;player&gt;</code>). Proxy support parses BungeeCord-style or Velocity-modern
+forwarding (HMAC-verified) so the real client IP is used for every check; the proxy plugin
+can even block unauthenticated players before they reach the backend.</p>
+<pre><code class="language-hocon">session {
+  authentication {
+    premium-auto-login = true
+  }
+  proxy-support { enabled = true; protocol = &quot;auto&quot; }  # auto | bungeecord | velocity-modern
+}
+</code></pre>
+<p><strong>Scenario - network behind Velocity.</strong> Enable <code>proxy-support</code> with the Velocity shared
+secret; every GeoIP, rate limit, session and intelligence check then uses the real player
+IP, and <code>proxy-side auth</code> (velocity-plugin) rejects unauthenticated joins at the proxy
+itself - the backend never even sees them.</p>
+
+<h3 id="4811-maintenance-shadowban-whitelist-announcements">4.8.11 Maintenance, shadow-ban, auto-whitelist &amp; announcements</h3>
+<p><strong>What it does.</strong> <code>/authcore maintenance on</code> blocks all joins with a custom message.
+Shadow-ban hides security blocks behind a generic &quot;connection lost&quot; so attackers cannot
+tell they were detected. Auto-whitelist adds every registered account to the vanilla
+whitelist. Rotating announcements greet authenticated players.</p>
+<pre><code class="language-hocon">session {
+  maintenance { enabled = false; kick-message = &quot;Server under maintenance.&quot; }
+  shadow-ban { enabled = false }
+  auto-whitelist { enabled = true }
+}
+lobby {
+  announcements = [&quot;Welcome, %player%!&quot;]
+  announcement-interval-sec = 300
+}
+</code></pre>
+<p><strong>Scenario - launching a new map.</strong> Flip maintenance on while uploading the world, then
+off. Shadow-ban keeps bot operators blind to your detection while you gather intel.
+Auto-whitelist keeps the server invite-only after a closed beta.</p>
+
+<h3 id="4812-backups-discord-linking-locales">4.8.12 Backups, Discord linking &amp; locales</h3>
+<p><strong>What it does.</strong> Automatic database backups (SQLite file copy, rotating) run on an
+interval; Discord account linking connects in-game accounts to Discord via a code flow;
+7 built-in locales plus custom <code>messages-&lt;lang&gt;.conf</code> files localize every message.</p>
+<pre><code class="language-hocon">session {
+  backup { interval-hours = 24; keep = 10 }
+  discord-link { enabled = true }
+}
+language = &quot;de&quot;   # or en, es, fr, pt, ru, zh, or a custom messages-&lt;lang&gt;.conf
+</code></pre>
+<p><strong>Scenario - community server ops.</strong> Backups run nightly and keep 10 copies, so a bad
+config or a deleted account is recoverable. Discord linking gives staff a way to recover
+accounts through the linked Discord ID. German players get <code>language = &quot;de&quot;</code> with the
+bundled translation.</p>
+
+<hr>
 <h2 id="5-admin-commands">5. Admin commands</h2>
 <p>All admin commands need <strong>OP 3+</strong>, a LuckPerms node, or console access:</p>
 <table>
@@ -630,8 +940,8 @@ database, and add Redis when you want network-wide sessions/SSO.</p>
 <td align="left">Reset a password</td>
 </tr>
 <tr>
-<td align="left"><code>/authcore set-mode &lt;player&gt; online/offline</code></td>
-<td align="left">Toggle premium/offline mode per account</td>
+<td align="left"><code>/authcore set-mode online|offline &lt;player&gt;</code></td>
+<td align="left">Force automatic login / password login per account (offline mode clears the password - the player registers a new one)</td>
 </tr>
 <tr>
 <td align="left"><code>/authcore set-spawn limbo &lt;x&gt; &lt;y&gt; &lt;z&gt;</code></td>
@@ -652,10 +962,14 @@ database, and add Redis when you want network-wide sessions/SSO.</p>
 </tbody></table>
 <p><strong>Player commands:</strong> <code>/register</code>, <code>/login</code>, <code>/account set-password</code>, <code>/account codes</code>
 (recovery codes), <code>/account email</code>, <code>/account nickname</code>, <code>/account logout</code>,
-<code>/account unregister</code>, <code>/account recover</code>, <code>/discord link</code>, <code>/discord unlink</code>.</p>
+<code>/account set-mode online|offline</code>, <code>/account unregister</code>, <code>/account recover</code>,
+<code>/discord link</code>, <code>/discord unlink</code>.</p>
 <h2 id="6-security-recommendations-checklist">6. Security recommendations (checklist)</h2>
 <ol>
-<li>Set <code>session.server-mode = &quot;offline&quot;</code> on cracked servers.</li>
+<li>The server&#39;s mode is <strong>always read from <code>server.properties</code></strong> (there is no
+<code>server-mode</code> setting anymore) - it needs no configuration; on online-mode servers keep
+<code>enable-secure-profile=false</code> in <code>server.properties</code> so clients without a secure chat
+profile can still join and chat.</li>
 <li><strong>Enable 2FA</strong> (<code>allow-totp-support = true</code>), recovery codes are single-use.</li>
 <li>Keep <code>password-hash-algorithm = &quot;argon2&quot;</code> (never <code>md5</code>).</li>
 <li>Put a <strong>long random token</strong> on the web panel and keep it on 127.0.0.1 (tunnel it).</li>
@@ -681,7 +995,7 @@ failure without exposing internals.</li>
 </thead>
 <tbody><tr>
 <td align="left">&quot;Players are not asked to register&quot;</td>
-<td align="left"><code>server-mode</code> is <code>&quot;online&quot;</code>, set it to <code>&quot;offline&quot;</code> (section 4.1)</td>
+<td align="left">The account was auto-detected as premium (the server&#39;s session verification passed) - that is the intended auto-login; to force password login, the player runs <code>/account set-mode offline</code> (or an admin runs <code>/authcore set-mode offline &lt;player&gt;</code>). On online-mode servers keep <code>enable-secure-profile=false</code> in <code>server.properties</code> so cracked/modded clients can still join.</td>
 </tr>
 <tr>
 <td align="left">2FA prompt but no TOTP setup link</td>
@@ -769,8 +1083,10 @@ full documentation:</p>
 </tr>
 </tbody></table>
 <blockquote>
-<p>🧭 <strong>Suggested order for a newbie:</strong> read this guide → skim <a href="config.html">CONFIG.md</a> once →
-then read <a href="proxy.html">PROXY.md</a> and <a href="webpanel.html">WEBPANEL.md</a> only when you set those up.</p>
+<p>🧭 <strong>Suggested order for a newbie:</strong> read this guide → read
+<a href="flows.html">FLOWS.md</a> to see exactly what happens on join, register, login and
+premium verification → skim <a href="config.html">CONFIG.md</a> once → then read
+<a href="proxy.html">PROXY.md</a> and <a href="webpanel.html">WEBPANEL.md</a> only when you set those up.</p>
 </blockquote>
 <h2 id="9-getting-help">9. Getting help</h2>
 <ul>
@@ -781,6 +1097,8 @@ then read <a href="proxy.html">PROXY.md</a> and <a href="webpanel.html">WEBPANEL
 from the startup banner, it pinpoints the failure without exposing internals.</li>
 </ul>
 
+    
+    
     
     
     </article>
@@ -794,20 +1112,62 @@ from the startup banner, it pinpoints the failure without exposing internals.</l
 </footer>
 <script>
 (function () {
-  // scroll progress
+  const h = () => document.documentElement;
   const bar = document.getElementById("progress");
   const toTop = document.getElementById("toTop");
+
+  // ---- TOC navigation enhancements: head + topic count, progress bar, back-to-top ----
+  const toc = document.querySelector(".toc");
+  let tocBar = null;
+  if (toc) {
+    const items = toc.querySelectorAll(".toc-item a");
+    const title = toc.querySelector(".toc-title");
+    if (title && !toc.querySelector(".toc-head")) {
+      const head = document.createElement("div");
+      head.className = "toc-head";
+      toc.insertBefore(head, title);
+      head.appendChild(title);
+      const badge = document.createElement("span");
+      badge.className = "toc-count";
+      badge.textContent = items.length + (items.length === 1 ? " topic" : " topics");
+      head.appendChild(badge);
+    }
+    if (!toc.querySelector(".toc-progress")) {
+      const p = document.createElement("div");
+      p.className = "toc-progress";
+      p.innerHTML = "<span></span>";
+      toc.appendChild(p);
+      tocBar = p.firstElementChild;
+    } else tocBar = toc.querySelector(".toc-progress span");
+    if (!toc.querySelector(".toc-top")) {
+      const top = document.createElement("a");
+      top.className = "toc-top";
+      top.href = "#top";
+      top.textContent = "Back to top";
+      top.addEventListener("click", (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+      toc.appendChild(top);
+    }
+    // clicking a topic also closes the mobile nav
+    items.forEach((a) => a.addEventListener("click", () => {
+      const nav = document.querySelector(".site-nav");
+      const toggle = document.querySelector(".nav-toggle");
+      if (nav && toggle && nav.classList.contains("open")) { nav.classList.remove("open"); toggle.setAttribute("aria-expanded", "false"); }
+    }));
+  }
+
+  // ---- scroll progress (top bar + in-TOC bar) ----
   const onScroll = () => {
-    const h = document.documentElement;
-    const max = h.scrollHeight - h.clientHeight;
-    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
-    toTop.classList.toggle("show", h.scrollTop > 400);
+    const max = h().scrollHeight - h().clientHeight;
+    const pct = max > 0 ? (h().scrollTop / max) * 100 : 0;
+    bar.style.width = pct + "%";
+    if (tocBar) tocBar.style.width = pct + "%";
+    toTop.classList.toggle("show", h().scrollTop > 400);
   };
   document.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
   toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
-  // mobile nav
+  // ---- mobile nav ----
   const toggle = document.querySelector(".nav-toggle");
   const nav = document.querySelector(".site-nav");
   if (toggle && nav) {
@@ -817,7 +1177,7 @@ from the startup banner, it pinpoints the failure without exposing internals.</l
     });
   }
 
-  // copy buttons on code blocks
+  // ---- copy buttons on code blocks ----
   document.querySelectorAll("article pre").forEach((pre) => {
     const btn = document.createElement("button");
     btn.className = "copy-btn";
@@ -836,7 +1196,7 @@ from the startup banner, it pinpoints the failure without exposing internals.</l
     pre.appendChild(btn);
   });
 
-  // scrollspy for the sidebar TOC
+  // ---- scrollspy for the sidebar TOC (highlights the nearest heading) ----
   const links = document.querySelectorAll(".toc-item a");
   if (links.length) {
     const map = new Map();

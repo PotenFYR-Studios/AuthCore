@@ -4,25 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Changelog - AuthCore Docs</title>
-<meta name="description" content="Full release history, from the first alpha to 1.0.0.">
+<meta name="description" content="Full release history, from the first alpha to 1.0.1.">
 <meta property="og:title" content="Changelog - AuthCore Docs">
-<meta property="og:description" content="Full release history, from the first alpha to 1.0.0.">
+<meta property="og:description" content="Full release history, from the first alpha to 1.0.1.">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/changelog.html">
+<link rel="canonical" href="https://authcore.potenfyr.in/docs/1.0.0/changelog.html">
 <style>
   :root {
-    --bg0: #030508;
-    --bg1: #0a1128;
-    --bg2: #0d2a5e;
-    --panel: rgba(10, 17, 40, 0.72);
-    --panel-2: rgba(13, 42, 94, 0.35);
-    --accent: #3b82f6;
-    --accent-2: #60a5fa;
-    --accent-3: #93c5fd;
+    --bg0: #060607;
+    --bg1: #0c0a0a;
+    --bg2: #1a0c0c;
+    --panel: rgba(14, 8, 8, 0.78);
+    --panel-2: rgba(70, 12, 12, 0.32);
+    --accent: #ef4444;
+    --accent-2: #f87171;
+    --accent-3: #fca5a5;
     --green: #22c55e;
-    --text: #e2e8f0;
-    --muted: #8b95a7;
-    --border: rgba(59, 130, 246, 0.22);
+    --text: #e9e7ea;
+    --muted: #a29aa0;
+    --border: rgba(239, 68, 68, 0.24);
     --radius: 16px;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
@@ -37,7 +37,7 @@
     font-size: 16px;
     line-height: 1.65;
     background:
-      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      radial-gradient(1200px 420px at 50% -100px, rgba(239, 68, 68, 0.13) 0%, rgba(239, 68, 68, 0) 65%),
       linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
     background-attachment: fixed;
     overflow-x: hidden;
@@ -47,7 +47,7 @@
   #progress {
     position: fixed; top: 0; left: 0; height: 3px; width: 0;
     background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
     z-index: 1000; border-radius: 0 3px 3px 0;
   }
 
@@ -56,13 +56,13 @@
     position: sticky; top: 0; z-index: 500;
     display: flex; align-items: center; gap: 18px;
     padding: 10px 22px;
-    background: rgba(3, 5, 8, 0.72);
+    background: rgba(6, 6, 7, 0.74);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
-  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(239,68,68,.7)); }
   .brand-text { font-size: 1.05em; }
   .brand-dot { color: var(--accent-3); }
   .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
@@ -72,8 +72,8 @@
     position: relative;
   }
   .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
-  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
-  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-link:hover { color: #fff; background: rgba(239, 68, 68, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(239,68,68,.28), rgba(70,12,12,.5)); box-shadow: inset 0 0 0 1px rgba(239,68,68,.4), 0 0 14px rgba(239,68,68,.3); }
   .nav-gh { margin-left: 6px; color: var(--accent-3); }
   .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
   .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
@@ -85,40 +85,55 @@
     .site-nav {
       display: none; position: absolute; top: 100%; left: 0; right: 0;
       flex-direction: column; align-items: stretch; gap: 4px;
-      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      background: rgba(6, 6, 7, 0.97); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border); padding: 10px 14px;
     }
     .site-nav.open { display: flex; }
   }
 
-  /* ---------- layout ---------- */
-  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* ---------- layout (wide, content spreads out) ---------- */
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 34px; max-width: 1580px; margin: 0 auto; padding: 34px 28px 70px; align-items: start; }
   /* pages without a sidebar TOC (home, docs hub) span the full width */
   .layout > :only-child { grid-column: 1 / -1; }
-  .layout:has(> :only-child) { max-width: 980px; }
-  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+  .layout:has(> :only-child) { max-width: 1500px; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
 
-  /* ---------- sidebar TOC ---------- */
+  /* ---------- sidebar TOC (enhanced navigation) ---------- */
   .toc {
-    position: sticky; top: 78px; align-self: start;
-    max-height: calc(100vh - 100px); overflow-y: auto;
+    position: sticky; top: 82px; align-self: start;
+    max-height: calc(100vh - 104px); overflow-y: auto;
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px 16px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    padding: 16px 14px 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     animation: fadeUp .5s ease both;
+    scrollbar-width: thin; scrollbar-color: rgba(239,68,68,.45) transparent;
   }
-  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc::-webkit-scrollbar { width: 6px; }
+  .toc::-webkit-scrollbar-thumb { background: rgba(239,68,68,.45); border-radius: 6px; }
+  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px 10px; }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-3); }
+  .toc-count { font-size: 0.68em; color: var(--muted); letter-spacing: 0.04em; background: rgba(239,68,68,.14); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
   .toc ul { list-style: none; margin: 0; padding: 0; }
   .toc-item { margin: 1px 0; }
   .toc-item a {
-    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
-    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
-    transition: color .15s, border-color .15s, background .15s;
+    display: flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 5px 10px 5px 8px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s, padding-left .15s;
+    position: relative;
   }
-  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
-  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
-  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+  .toc-item a::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; transition: background .15s, box-shadow .15s; }
+  .toc-item a:hover { color: #fff; background: rgba(239, 68, 68, 0.1); padding-left: 12px; }
+  .toc-item a:hover::before { background: var(--accent-3); box-shadow: 0 0 8px rgba(239,68,68,.7); }
+  .toc-item.toc-3 a { padding-left: 24px; font-size: 0.8em; }
+  .toc-item.toc-3 a:hover { padding-left: 28px; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(239,68,68,.22), rgba(239,68,68,.02)); font-weight: 600; }
+  .toc-item a.active::before { background: var(--accent); box-shadow: 0 0 8px rgba(239,68,68,.8); }
+  .toc-progress { height: 3px; border-radius: 3px; background: rgba(239,68,68,.15); margin: 10px 4px 4px; overflow: hidden; }
+  .toc-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-3)); box-shadow: 0 0 10px rgba(239,68,68,.6); transition: width .1s linear; }
+  .toc-top { display: block; margin: 10px 4px 0; text-align: center; font-size: 0.74em; color: var(--accent-2); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; transition: background .15s, color .15s; }
+  .toc-top:hover { background: rgba(239,68,68,.12); color: #fff; }
+  .toc-top::before { content: "↑ "; }
 
   /* ---------- content ---------- */
   article {
@@ -126,7 +141,7 @@
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
     padding: 36px 44px 52px;
-    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(220, 38, 38, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(8px);
     animation: fadeUp .55s ease both;
   }
@@ -143,20 +158,20 @@
     content: ""; display: block; position: absolute; left: 0; right: 0; bottom: -1px;
     height: 2px; border-radius: 2px;
     background: linear-gradient(90deg, var(--accent-3), var(--accent), transparent);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
   }
   article h2 {
     font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.18);
     animation: fadeUp .5s ease both;
   }
   article h2::before {
     content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
     background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
-    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); vertical-align: -0.08em;
   }
   article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
-  article h4 { font-size: 1em; color: #dbeafe; }
+  article h4 { font-size: 1em; color: #fee2e2; }
   article p { margin: 0.85em 0; }
   article strong { color: #f8fafc; }
   article a {
@@ -173,7 +188,7 @@
   article blockquote {
     margin: 1.1em 0; padding: 0.7em 1.2em;
     border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(239, 68, 68, 0.02));
   }
   article blockquote p { margin: 0.4em 0; }
   article img { max-width: 100%; border-radius: 12px; }
@@ -184,34 +199,34 @@
     animation: fadeUp .5s ease both;
   }
   article th {
-    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
-    color: #dbeafe; font-weight: 600; text-align: left;
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.1));
+    color: #fee2e2; font-weight: 600; text-align: left;
   }
   article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   article th:last-child, article td:last-child { white-space: normal; }
   article tr:last-child td { border-bottom: 0; }
   article tbody tr { transition: background .15s; }
-  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article tbody tr:hover { background: rgba(239, 68, 68, 0.08); }
   article code {
-    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
-    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    background: rgba(239, 68, 68, 0.12); color: var(--accent-3);
+    border: 1px solid rgba(239, 68, 68, 0.22); border-radius: 6px;
     padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
   }
   article pre {
     position: relative; margin: 1.2em 0; padding: 18px 20px;
-    background: rgba(2, 6, 16, 0.88);
-    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
-    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    background: rgba(10, 4, 4, 0.9);
+    border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(220, 38, 38, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
     overflow-x: auto;
   }
-  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  article pre code { background: none; border: 0; padding: 0; color: #fdecec; font-size: 0.87em; line-height: 1.6; }
   .copy-btn {
     position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
-    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    background: rgba(70, 12, 12, 0.85); color: var(--accent-3); border: 1px solid var(--border);
     border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
   }
   article pre:hover .copy-btn { opacity: 1; }
-  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(220, 38, 38, 0.5); }
   .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
 
   /* ---------- docs hub cards ---------- */
@@ -223,8 +238,8 @@
     transition: transform .2s, box-shadow .2s, border-color .2s;
     animation: fadeUp .5s ease both;
   }
-  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
-  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(239, 68, 68, 0.28); }
+  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(239,68,68,.6)); }
   .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; line-height: 1.35; }
   .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.55; }
 
@@ -232,15 +247,15 @@
   #toTop {
     position: fixed; right: 22px; bottom: 22px; z-index: 600;
     width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
-    border: 1px solid rgba(59, 130, 246, 0.5);
-    background: linear-gradient(135deg, var(--bg2), #02060d);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #060607);
     color: var(--accent-3); font-size: 1.2em;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(239, 68, 68, 0.3);
     opacity: 0; transform: translateY(10px); pointer-events: none;
     transition: opacity .25s, transform .25s;
   }
   #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
-  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(239, 68, 68, 0.6); color: #fff; }
 
   footer {
     text-align: center; color: var(--muted); font-size: 0.84em;
@@ -256,6 +271,7 @@
 </head>
 <body>
 <div id="progress"></div>
+<div id="top" aria-hidden="true"></div>
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
@@ -269,6 +285,7 @@
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
       <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
       <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
       <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
       <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
@@ -282,8 +299,10 @@
   </header>
 <div class="layout">
   <aside class="toc" id="toc">
-    <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#100---2026-08-11">[1.0.0] - 2026-08-11</a></li><li class="toc-item toc-3"><a href="#universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</a></li><li class="toc-item toc-3"><a href="#multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader & multi-version workspace (Stonecutter / Stonecraft)</a></li><li class="toc-item toc-3"><a href="#modrinth-version-range-fix">Modrinth version range fix</a></li><li class="toc-item toc-3"><a href="#security--anti-bypass">Security & anti-bypass</a></li><li class="toc-item toc-3"><a href="#security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</a></li><li class="toc-item toc-3"><a href="#performance-for-100k-users">Performance for 100k+ users</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">Race-condition hardening</a></li><li class="toc-item toc-3"><a href="#new-features">New features</a></li><li class="toc-item toc-3"><a href="#quality">Quality</a></li><li class="toc-item toc-3"><a href="#bot--backend-separation">Bot / backend separation</a></li><li class="toc-item toc-3"><a href="#tooling">Tooling</a></li><li class="toc-item toc-3"><a href="#cleanup">Cleanup</a></li><li class="toc-item toc-2"><a href="#100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</a></li></ul>
+    <div class="toc-head"><div class="toc-title">On this page</div><span class="toc-count">23 topics</span></div>
+    <ul><li class="toc-item toc-2"><a href="#100---2026-08-15">[1.0.0] - 2026-08-15</a></li><li class="toc-item toc-3"><a href="#hybrid-mode-per-account-login-style--release-hardening-latest">Hybrid mode, per-account login style & release hardening (latest)</a></li><li class="toc-item toc-3"><a href="#limbo-performance--configuration-overhaul">Limbo, performance & configuration overhaul</a></li><li class="toc-item toc-3"><a href="#119-121-backward-compatibility-neoforge-211x">1.19-1.21 backward compatibility (NeoForge 21.1.x)</a></li><li class="toc-item toc-3"><a href="#out-of-the-box-experience--hardening-2026-08-14">Out-of-the-box experience & hardening (2026-08-14)</a></li><li class="toc-item toc-3"><a href="#universal-single-jar-architecture-116x---261-262-2026-08-11">Universal single-jar architecture (1.16.x - 26.1-26.2) (2026-08-11)</a></li><li class="toc-item toc-3"><a href="#multi-loader--multi-version-workspace-stonecutter--stonecraft">Multi-loader & multi-version workspace (Stonecutter / Stonecraft)</a></li><li class="toc-item toc-3"><a href="#modrinth-version-range-fix">Modrinth version range fix</a></li><li class="toc-item toc-3"><a href="#security--anti-bypass">Security & anti-bypass</a></li><li class="toc-item toc-3"><a href="#security-fixes-found-by-the-new-test-suite">Security fixes found by the new test suite</a></li><li class="toc-item toc-3"><a href="#performance-for-100k-users">Performance for 100k+ users</a></li><li class="toc-item toc-3"><a href="#race-condition-hardening">Race-condition hardening</a></li><li class="toc-item toc-3"><a href="#new-features">New features</a></li><li class="toc-item toc-3"><a href="#quality">Quality</a></li><li class="toc-item toc-3"><a href="#bot--backend-separation">Bot / backend separation</a></li><li class="toc-item toc-3"><a href="#tooling">Tooling</a></li><li class="toc-item toc-3"><a href="#cleanup">Cleanup</a></li><li class="toc-item toc-3"><a href="#single-human-verification-map-captcha--gui-removal-intelligence-overhaul-2026-08-16">Single human verification (map captcha & GUI removal, intelligence overhaul) (2026-08-16)</a></li><li class="toc-item toc-2"><a href="#100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha4---2026-08-08">[1.0.0-alpha.4] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha3---2026-08-08">[1.0.0-alpha.3] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha2---2026-08-08">[1.0.0-alpha.2] - 2026-08-08</a></li><li class="toc-item toc-2"><a href="#100-alpha1---2026-01-01">[1.0.0-alpha.1] - 2026-01-01</a></li></ul>
+    <div class="toc-progress"><span></span></div>
+    <a class="toc-top" href="#top">Back to top</a>
   </aside>
   <main>
     <article>
@@ -291,14 +310,326 @@
 <p>All notable changes to AuthCore, from the first alpha to the current release.</p>
 <p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
-<h2 id="100---2026-08-11">[1.0.0] - 2026-08-11</h2>
-<h3 id="universal-single-jar-architecture-116x---261-262">Universal single-jar architecture (1.16.x - 26.1-26.2)</h3>
+<h2 id="100---2026-08-15">[1.0.0] - 2026-08-15</h2>
+<h3 id="hybrid-mode-per-account-login-style--release-hardening-latest">Hybrid mode, per-account login style &amp; release hardening (latest)</h3>
+<p><strong>Server mode is always taken from <code>server.properties</code> - the config override is gone</strong></p>
+<ul>
+<li>The <code>session.server-mode</code> setting is removed entirely: the mod always reads the real
+<code>online-mode</code> from the running Minecraft server (<code>MinecraftServer#usesAuthentication</code>).
+Premium auto-login works the same on online AND offline-mode servers (on offline servers
+AuthCore re-runs the vanilla encryption handshake and verifies with the server&#39;s own
+Mojang session service - no external API calls; failures fall back to offline
+register/login, players are never blocked or kicked).</li>
+<li>Online-mode servers get a startup warning to keep <code>enable-secure-profile=false</code> in
+<code>server.properties</code>, so clients without a secure chat profile (cracked/modded players)
+can still join and chat.</li>
+</ul>
+<p><strong>Hybrid servers: offline-mode players can join BOTH server modes</strong></p>
+<ul>
+<li>New <code>allow-offline-players</code> config (session.authentication, default <code>true</code>): with it on,
+offline (cracked) players can join and register/login on <strong>online-mode servers too</strong> -
+the login mixin intercepts offline-UUID clients on online-mode servers and runs them
+through vanilla&#39;s own offline accept flow (no Mojang session check, offline UUID kept;
+online-mode players still use their real UUID and the normal session verification).
+Fail-safe: on versions where the offline accept flow cannot be driven, vanilla&#39;s normal
+rejection takes over - nobody is stranded.</li>
+<li>With <code>allow-offline-players = false</code> the server is online-mode-only everywhere: offline
+players are kicked with a clear message on arrival (join gate, before session resume /
+register / login), and on online-mode servers they are disconnected at login.</li>
+</ul>
+<p><strong>Premium auto-login respects its config on BOTH modes; auto-login players keep a null password</strong></p>
+<ul>
+<li>The <code>premium-auto-login</code> config (on by default) is now honored regardless of the server&#39;s
+mode. Auto-login players are NEVER given an auto-generated password - their stored
+password stays null (the old <code>premium-auto-register</code> random-password path is removed).</li>
+<li>If auto-login is turned off (or a player switches to password login), verified online-mode
+players are treated like any standard account: because their password is null they are
+asked to <code>/register</code> on their next re-auth. Their online-mode status is preserved, so
+auto-login simply resumes when the config (or their mode choice) is switched back.</li>
+</ul>
+<p><strong>Per-account login style: players and admins can switch online/offline mode</strong></p>
+<ul>
+<li>New player command <code>/account set-mode online|offline</code> (permission <code>authcore.user.setmode</code>,
+level 0): switches the player&#39;s own account between automatic login and password login.</li>
+<li>Switching to password login is smart about passwords: a player who ALREADY has a stored
+password keeps it and simply logs in with it (<code>/login</code>); only auto-login accounts with a
+null password are asked to <code>/register</code> a new one. The active session is destroyed either
+way so the change takes effect on the next join.</li>
+<li><code>/authcore set-mode offline &lt;player&gt;</code> no longer takes a password argument and follows the
+same rule (existing password kept / register when null). Both admin mode commands destroy
+the session too.</li>
+<li>A player&#39;s own mode choice is honored on join: accounts explicitly set to password login
+are never auto-logged-in, even on an online-mode server where the session was verified.</li>
+</ul>
+<p><strong>Terminology: &quot;premium&quot;/&quot;cracked&quot; replaced project-wide</strong></p>
+<ul>
+<li>Non-user-facing text (console logs, debug output, admin commands, web panel labels, code
+comments, docs) now uses <strong>online-mode players</strong> and <strong>offline-mode players</strong> instead of
+&quot;premium players&quot; and &quot;cracked players&quot;. Internal identifiers and the <code>premium-auto-login</code>
+config key stay unchanged for API/config compatibility.</li>
+<li>Player-facing messages stay human: auto-login greets with &quot;Welcome to the Server!&quot;, mode
+switches talk about &quot;automatic login&quot; / &quot;password login&quot; - no technical jargon anywhere
+in chat, titles or kick screens.</li>
+</ul>
+<p><strong>Limbo guard debug output</strong></p>
+<ul>
+<li>The per-join limbo guard report is now debug-level and formatted like the startup banner:
+one aligned row per guard (movement / chat / commands / block-break / block-use / item-use
+/ item-drop / attacks, each <code>allowed</code> or <code>LOCKED</code>) plus a live lobby-usage line
+(&quot;35% used (7/20)&quot;, &quot;unlimited&quot; when no cap).</li>
+</ul>
+<p><strong>Scale, race-condition safety &amp; docs</strong></p>
+<ul>
+<li>Performance/scalability pass documented for <strong>500k+ registered accounts</strong> and thousands of
+concurrent players: O(1) user lookups on every hot path, lazy DB loading, bounded
+self-cleaning caches, no resource spikes under join/login bursts (per-user throttles,
+rate limits, fixed-size daemon IO pool), race-condition-free concurrency (canonical
+single-<code>User</code>-per-account cache, <code>synchronized</code> DB access, <code>volatile</code> shared state,
+deduped join/leave hooks, atomic counters).</li>
+<li>Docs re-skin: the hosted docs now use a black + red fortress-cyber theme with an enhanced
+sidebar table of contents (topic count, in-TOC scroll progress, back-to-top, glowing
+active states) and a wider, spread-out content layout; README and every docs page updated
+for the current behavior.</li>
+</ul>
+<h3 id="limbo-performance--configuration-overhaul">Limbo, performance &amp; configuration overhaul</h3>
+<p><strong>Limbo quality pass (no more screen vibration, no bypasses)</strong></p>
+<ul>
+<li><strong>Anti-vibration movement correction</strong>: the client was snapped back on EVERY violating
+movement packet (up to 40 position packets/s → rubber-banding). Corrections are now
+distance- and throttle-based: <code>lobby.movement-correction-radius</code> (default 1.5 blocks) and
+<code>lobby.movement-correction-interval-ms</code> (default 600ms), the classic AuthMe feel
+(ghost-walk a little, one clean snap). Movement packets are still cancelled on every
+packet, so the server entity never leaves the anchor (no bypass).</li>
+<li><strong>Vehicle-movement bypass closed</strong>: <code>handleMoveVehicle</code> was uncovered: lobby players on
+boats/minecarts (or spoofing the packet) could move freely. Now cancelled + anchored like
+player movement.</li>
+<li><strong>Inventory lock without touching chat</strong>: the inventory is fully inert in the limbo
+(every slot click blocked and force-closed on interaction, including shift-clicks and
+armor equipping), while the chat input is NEVER interrupted, so <code>/register</code> and <code>/login</code>
+always work. A periodic force-close packet was tried and removed again: the client closes
+ANY screen (including chat) on a container-close packet, and there is no server-side
+signal for &quot;inventory open&quot;; click-based blocking is the only safe approach.</li>
+<li><strong>Attack-callback fix (the &quot;can&#39;t hit mobs&quot; bug)</strong>: the fabric <code>AttackEntityCallback</code>
+listener was registered under the wrong method name (<code>attack</code> instead of <code>interact</code>),
+so the reflective proxy returned null for every attack and the fabric event cancelled
+ALL attacks for everyone, in and out of the lobby. One-line fix.</li>
+<li><strong>Server-side auth menu removed</strong> (chest menu + book input + <code>/menu</code> command): auth is
+purely chat-driven with clickable buttons; the menu system, its mixins and its command
+are deleted entirely.</li>
+<li><strong>Context-aware chat buttons</strong>: the login/register buttons build the EXACT command shape
+the player needs (password confirmation, 2FA code, captcha code) and show it in the
+action bar; no confusion about which auth factors apply.</li>
+<li><strong>Styling</strong>: clickable chat buttons are now underlined; the action bar gets the same
+drop-shadow as titles/subtitles.</li>
+<li><strong>Crash-safe limbo verified</strong>: the pre-limbo snapshot is saved at lock, restored before
+the fresh lock on rejoin after a crash, and deleted on clean unlock; the unlock lifts
+restrictions before any restore step so a failed restore can never keep a player stuck.</li>
+</ul>
+<p><strong>Performance pass (constant per-packet cost, bounded memory)</strong></p>
+<ul>
+<li><strong>O(1) user lookups on every hot path</strong>: new <code>User.getUser(UUID)</code> / <code>User.getUser(player)</code>
+. a single map get, no string allocations, no scans, no DB, and all per-packet mixin guards
+(movement, clicks, chat, ticks, entity events, commands) now use it.</li>
+<li><strong>Indexed username lookups</strong>: precomputed lowercase names + a <code>byLowerName</code> index make
+<code>lookUpByUsername</code> mode O(1) too (previously a full-map scan with per-entry
+<code>toLowerCase</code> allocations).</li>
+<li><strong>Throttled cache touches</strong>: the last-access map put now happens at most once per minute
+per user instead of on every packet.</li>
+</ul>
+<p><strong>Split configuration (one file per config block)</strong></p>
+<ul>
+<li><code>settings.conf</code> (root: language, debugMode, logging, cache) + <code>lobby.conf</code> +
+<code>session.conf</code> + <code>password-rules.conf</code> + <code>commands.conf</code> + <code>database.conf</code> +
+<code>messages-&lt;lang&gt;.conf</code>. Section files override the same block in settings.conf and are
+written with defaults on first boot; existing single-file configs migrate automatically
+(legacy sections are stripped from settings.conf on save; every setting has exactly one
+owner). Redis-distributed config overrides still merge on top.</li>
+</ul>
+<p><strong>Hybrid / hub networks</strong></p>
+<ul>
+<li>Session resume no longer requires the same IP when <code>session.session-from-same-ip-only</code>
+is disabled: on proxy networks the forwarded IP can legitimately differ hub ↔ game,
+which previously silently dropped sessions on every hub transfer.</li>
+</ul>
+<p><strong>Fixed since 1.0.1</strong></p>
+<ul>
+<li><code>ServerEventsFallbackLeaveMixin</code> silently missing from built jars (stale incremental
+compile state dropped the new class); rebuilt with <code>--rerun-tasks</code>; all 21 mixins
+verified present in every jar.</li>
+<li>Mixin handler descriptors now match the target methods exactly on 26.x
+(<code>placeNewPlayer</code> 3-arg, <code>tickServer(BooleanSupplier)</code>), so the server no longer aborts
+with <code>InvalidInjectionException</code>.</li>
+</ul>
+<h3 id="119-121-backward-compatibility-neoforge-211x">1.19-1.21 backward compatibility (NeoForge 21.1.x)</h3>
+<ul>
+<li><strong>NeoForge 21.1.x boot fixed</strong>: the <code>1.19-1.21</code> NeoForge jar crashed at startup on
+NeoForge 21.1.x (e.g. 21.1.248, Minecraft 1.21.1) with a <code>NoClassDefFoundError</code> on
+<code>net/minecraft/resources/Identifier</code> - the <code>ResourceLocation</code> → <code>Identifier</code> rename
+happened at 1.21.11, so the build target&#39;s class name could not load on older 1.21.x.
+The font style no longer calls <code>Identifier.tryParse()</code> directly (it is a deliberate
+no-op - the font API keeps changing shape every version and the old reflective lookups
+hung the server thread), and <code>Compat</code>/<code>Lobby</code> no longer import either class name - the
+compat layer stays fully reflective.</li>
+<li><strong>NeoForge loader minimum corrected</strong>: <code>neoforge.mods.toml</code> no longer requires
+<code>[21.11.45,)</code> (the build-target pin, which rejected every NeoForge 21.1.x server). The
+G2 jar now declares <code>[20.2.59-beta,)</code> (the first NeoForge supporting the group&#39;s lowest
+Minecraft version), matching the Forge/Fabric minimums.</li>
+<li><strong>gson no longer bundled in NeoForge jars</strong>: the shaded <code>com.google.gson</code> inside the
+jar-in-jar set made the NeoForge module layer ambiguous (<code>com.google.gson</code> is already
+provided by the game) and prevented startup. Forge AND NeoForge builds now exclude gson
+from the shaded configuration; Fabric keeps the shaded copy.</li>
+<li><strong><code>1.21.1</code> added to the host-test matrix</strong>: the Docker harness now boots the G2 jars on
+Minecraft 1.21.1 (with the matching NeoForge 21.1.x / Fabric / Forge loaders) in
+addition to 1.19.4, 1.20.6 and 1.21.11, so this regression is caught automatically.</li>
+</ul>
+<h3 id="out-of-the-box-experience--hardening-2026-08-14">Out-of-the-box experience &amp; hardening (2026-08-14)</h3>
+<p><strong>Server mode is now auto-detected (<code>server-mode = &quot;auto&quot;</code>, the new default)</strong></p>
+<ul>
+<li>The real <code>server.properties</code> online-mode is read from the running server
+(<code>MinecraftServer#usesAuthentication</code>) - cracked AND premium servers work with zero config
+changes. Explicit <code>online</code>/<code>offline</code> values still override, with a one-time mismatch warning.</li>
+<li>Previously the default (<code>&quot;online&quot;</code>) kicked online-mode players on offline-mode servers with a
+bogus &quot;Your Authentication Token is invalid&quot; (premium-UUID mismatch against their
+offline-mode UUID) and silently auto-registered offline-mode players as premium (no
+register/login prompt, no limbo). Both are fixed.</li>
+</ul>
+<p><strong>Premium auto-login works on offline-mode servers, outage-proof</strong></p>
+<ul>
+<li>Premium status of new accounts is verified <strong>asynchronously</strong> (IO pool) - the join path
+makes zero blocking Mojang API calls.</li>
+<li>If the Mojang API is unreachable at join, the player is shown &quot;Checking your premium
+account...&quot; and the check <strong>auto-retries in the background</strong> (every 20s, up to 4 min) -
+auto-register + auto-login resume the moment the API confirms the name.</li>
+<li>Tri-state premium lookups (<code>PREMIUM</code> / <code>NOT_PREMIUM</code> / <code>UNAVAILABLE</code>) so a cached null can
+never be mistaken for a definitive negative; API failures are throttled (30s error cache).</li>
+<li>HTTP 204 (&quot;not a premium profile&quot;) now counts as a healthy API response - previously every
+offline-UUID lookup decayed the API-health window and produced bogus &quot;Mojang API is
+currently unreachable&quot; warnings.</li>
+<li>The premium-name squatting guard only fires when premium auto-login is disabled (it used to
+kick legitimate online-mode players joining offline servers before auto-login could run).</li>
+<li>Auto-registered online-mode players now see &quot;Registered! Your account has been created!&quot; as
+clear feedback.</li>
+</ul>
+<p><strong>Messages display correctly on every version and loader</strong></p>
+<ul>
+<li>Title packets were broken on 26.x (the compat layer only knew the 1.16-1.21 Yarn class
+names) - every title/subtitle message was silently dropped. <code>Compat.sendTitle</code> now tries the
+26.x Mojang names (<code>ClientboundSetTitleTextPacket</code> / <code>ClientboundSetSubtitleTextPacket</code> /
+<code>ClientboundSetTitlesAnimationPacket</code>), the older Mojang fade name, Yarn names, then the
+1.16 combined API.</li>
+<li>Richer multi-channel templates: login, registration, wrong password, not registered, captcha,
+password change, session resume, premium auto-login and the lobby welcome now use
+title + subtitle + action bar combinations.</li>
+<li>Title fade timings are floored so a title can never render with 0-tick fades.</li>
+</ul>
+<p><strong>Audit fixes (logic, errors and bypasses)</strong></p>
+<ul>
+<li><strong>Chat restriction bypass on 26.x</strong>: the chat handler was renamed to <code>handleChat</code> - the
+mixin now targets it, so lobby players can no longer chat on 26.x.</li>
+<li><strong>Command restriction on Forge/NeoForge</strong>: the lobby command whitelist/blacklist only matched
+Yarn names (<code>method_9249</code>); the Mojang <code>performCommand</code>/<code>execute</code> targets are now covered,
+so it applies on Forge 1.16-1.21 and NeoForge too.</li>
+<li><strong>Stale companion-token kick</strong>: <code>verifySessionClaim</code> no longer kicks players who are already
+authenticated this join (premium auto-login etc.) over a stale/absent companion token.</li>
+<li><strong><code>allowMobDamage</code> honored</strong>: mobs can now target lobby players when the config allows it
+(previously the mixin blocked targeting unconditionally).</li>
+<li><strong>Hash-failure free-roam closed</strong>: if password hashing fails during register, the player is
+locked into the lobby instead of being left authenticated-but-unregistered with full access.</li>
+<li><strong>Interop parity</strong>: <code>User.login()</code>/<code>logout()</code> now broadcast the auth state on the
+<code>authcore:auth</code> channel - premium auto-login, session resume and deferred verification
+previously stayed silent to proxies/other mods.</li>
+<li><strong>Legacy-hash verification</strong>: <code>Encrypter.verify</code> falls back through all supported algorithms
+instead of throwing password4j parse errors (&quot;Bad salt length&quot; / &quot;Invalid salt version&quot;) on
+migrated/foreign DB rows; argon2 hashing uses an explicit spec-conformant 16-byte salt.</li>
+<li><strong>Ghost-detection window</strong> no longer goes negative with small config values.</li>
+<li><strong>Chat commands on 1.16-1.18.2</strong>: chat commands ride the chat packet there - the chat
+restriction now lets &quot;/&quot;-prefixed messages through to the command dispatcher (the lobby
+whitelist still blocks non-auth commands), so <code>/login</code> and <code>/register</code> were unblockable
+for lobby players on the classic line.</li>
+<li><strong>Adventure-mode limbo applied</strong>: <code>lobby.force-adventure-mode</code> now actually switches the
+player into adventure on lock (the game-mode-change mixin only blocked leaving it).</li>
+<li><strong>Mode-switch / proxy safety</strong>: online-mode players whose account is keyed by the offline UUID
+(server switched online-mode, or Velocity forwarding on an offline backend) are no longer
+kicked with the &quot;Authentication Token is invalid&quot; mismatch - the genuine premium profile
+is confirmed against the Mojang API and auto-logged-in instead.</li>
+<li><strong>Failed-hash guard</strong>: a password hashing failure in <code>/account set-password</code>, email
+recovery, <code>/authcore set-password</code>, mode changes or the web panel can no longer silently
+set the stored password to null and unregister the account.</li>
+<li><strong>IP-rules whitelist semantics</strong>: <code>allow</code> rules are no longer silent no-ops - when any
+<code>allow</code> rule exists, unmatched IPs are denied (whitelist mode).</li>
+<li><strong>Login history parity</strong>: every login path (premium auto-login, session resume, deferred
+verification, SSO) now records a login-history row, not just <code>/login</code>.</li>
+<li><strong>Returning-premium re-validation</strong>: on offline-mode servers the premium claim of returning
+accounts is re-checked against the Mojang API asynchronously - accounts auto-created as
+&quot;premium&quot; by earlier builds are downgraded to offline-mode (register/login prompt) while
+legit premium names keep auto-login (fail-open during API outages, cache-aware tri-state).</li>
+<li><strong>Mojang API removed for premium detection</strong>: premium status now comes ONLY from the
+server&#39;s OWN Mojang session authentication - a login mixin captures the profile that
+vanilla&#39;s <code>hasJoinedServer</code> verified (carries Mojang textures properties). All direct
+Mojang HTTP lookups (name/uuid profile APIs) were removed from the join flow. On
+offline-mode servers nobody can be premium (the server authenticates no one), so offline
+players are NEVER auto-registered or auto-logged-in anymore - stale &quot;online-mode&quot; DB flags
+from earlier builds are detected and downgraded on join (register/login prompt).</li>
+<li><strong>Server-side premium verification (offline servers)</strong>: with premium auto-login enabled the
+login mixin now runs the vanilla encryption handshake on offline-mode servers and verifies
+the session with the server&#39;s own <code>MinecraftSessionService</code> - genuine online-mode players are
+auto-logged-in while cracked clients (and any Mojang outage) fall back to the normal
+offline register/login flow. Fail-safe: handshake failures, API timeouts and clients that
+never answer (15s watchdog) all continue as offline - nobody is ever kicked or stranded.</li>
+<li><strong>Extra limbo restrictions</strong>: item usage (<code>useItem</code>), riding/vehicle entry (<code>startRiding</code>),
+sleeping in beds, and offhand-item swapping are now blocked in the lobby on EVERY loader;
+players riding into the lobby are dismounted on lock. New config keys
+<code>lobby.allow-sleeping</code> and <code>lobby.allow-item-swapping</code> (both default false).</li>
+<li><strong>Full-proof post-login restore</strong>: the snapshot restore now re-mounts the player&#39;s previous
+vehicle, lands airborne survival players on safe ground (elytra gliding / mid-air), rescues
+players from suffocation when blocks changed while they were in the lobby, keeps swimmers in
+the water column, and clears fall damage from the restore itself - flying (creative/
+spectator) is restored via the original game mode.</li>
+<li><strong>Auto-migration of everything</strong>: ConfigMigrator now also refreshes the enriched
+multi-channel message defaults for configs that still hold the old single-channel values
+(custom messages are preserved); on first offline-mode detection the database is
+bulk-migrated once per boot (stale &quot;online-mode&quot; flags cleared); schema and config keys
+migrate automatically as before.</li>
+<li><strong>Command availability fix</strong>: /register, /login and /account were reported as &quot;Unknown
+command&quot; on 1.20.5+ (26.x) because the OP-level permission check used APIs that no longer
+exist there (PermissionLevel / getPermissions). The check now short-circuits for level 0
+(all players) and resolves the new <code>net.minecraft.server.permissions</code> API on 26.x, the
+older permission API on 1.20.5-1.21, and the legacy method on 1.16-1.18.</li>
+<li><strong>New docs page - Authentication Flows</strong> (<code>docs/1.0.0/flows.html</code>, linked from the nav,
+README and guide learning path): every flow explained step by step in plain language with
+the functions involved (join, limbo lockdown, register, login, session resume, logout,
+premium verification, auto-migration) plus the failure-safety guarantees.</li>
+<li><strong>Repository hygiene</strong>: removed ~5.5 GB of generated artifacts from the working tree
+(host-test work dirs, variant build outputs, rendered site, node_modules) and removed
+dead code (unused config keys <code>allowOnlineNameByOffline</code> / <code>premiumApiStrict</code>, unused
+message template, unused User suppliers and Snapshot fields).</li>
+<li>Security suite now <strong>86 checks</strong> (legacy-hash fallback, wrong-algorithm verification,
+AuthMe <code>$SHA$</code> verification, algorithm inference, weak-algorithm detection).</li>
+<li><strong>Third-party mod integrations</strong> (<code>net.ded3ec.integration</code>): optional, reflection-based,
+best-effort support for <strong>DiscordSRV</strong> (the linked Discord account is auto-imported on
+authentication so webhooks/notifications can use it) and <strong>InteractiveChat</strong> (compatible -
+AuthCore restrictions are lobby-scoped and never touch other mods). New <code>/authcore compat</code>
+command reports loader, server mode and integration state.</li>
+<li><strong>Version-gated config migrations</strong> (<code>ConfigMigrator</code>): runs after config load, applies
+registered upgrade steps for newer versions, bumps <code>config.version</code> and persists - the
+pipeline for future structural config changes (1.0.0 -&gt; 1.0.1 ships with no transforms
+needed; runtime auto-detection handles the server-mode default change).</li>
+<li><strong>Transparent password-hash upgrade</strong>: weak (md5 / sha-256 / sha-512) or outdated stored
+hashes - including AuthMe-style imported ones - are re-hashed with the configured algorithm
+on the account&#39;s next successful login (never blocks the login, flagged in the security log).</li>
+<li><strong>AuthMe import</strong> (<code>/authcore import authme &lt;file&gt;</code>): imports accounts from an AuthMe
+SQLite database; existing accounts are never overwritten; legacy hash formats are supported
+(<code>$SHA$</code>, bcrypt, argon2, pbkdf2, scrypt, plain hex digests) and verified/upgraded on login.</li>
+<li>Security suite now <strong>82 checks</strong> (legacy-hash fallback, wrong-algorithm verification,
+AuthMe <code>$SHA$</code> verification, algorithm inference, weak-algorithm detection).</li>
+</ul>
+<h3 id="universal-single-jar-architecture-116x---261-262-2026-08-11">Universal single-jar architecture (1.16.x - 26.1-26.2) (2026-08-11)</h3>
 <ul>
 <li><strong>One source, every Minecraft version</strong> - the old per-version source sets are gone; version
 variants live under <code>src/</code> (<code>src/main/java</code> + <code>src/client/java</code> = classic yarn code,
 <code>src/modern/java</code> = Mojang 26.1-26.2 code) behind the <code>net.ded3ec.compat</code> reflection layer and
 version-stable mixin targets. Verified by compiling the identical source against <strong>1.16.5,
-1.17.1, 1.18.2, 1.19.4, 1.20.6 and 1.21.11</strong> (all green), with a per-push CI matrix.</li>
+1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.1 and 1.21.11</strong> (all green), with a per-push CI matrix.</li>
 <li><strong>Universal mixins</strong>: login hello (reflects over <code>getProfile()</code> vs <code>name()/profileId()</code>, plus
 authlib&#39;s <code>getName()/getId()</code> vs record <code>name()/id()</code>), handshake proxy forwarding (record
 accessor vs private field), chat restriction (single mixin covering <code>onGameMessage</code> /
@@ -344,8 +675,8 @@ and the release workflow attaches both. The two name-spaces cannot coexist in on
 <ul>
 <li>One Mojang-mapped source tree, three range jars per loader: fabric/forge/neoforge for
 1.16-1.18, 1.19-1.21 and 26.1-26.2 (7 release jars in total).</li>
-<li>Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.11,
-26.1.2, 26.2, all 22 harness checks PASS on all 7 loader build targets.</li>
+<li>Verified on every range endpoint: 1.16.5, 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.1,
+1.21.11, 26.1.2, 26.2, all 22 harness checks PASS on all 7 loader build targets.</li>
 </ul>
 <h3 id="modrinth-version-range-fix">Modrinth version range fix</h3>
 <ul>
@@ -357,9 +688,11 @@ of the full grid:<ul>
 <code>[26.1,26.2]</code> (maven syntax).</li>
 </ul>
 </li>
-<li>Loader minimums are now the exact pins of the build target instead of <code>*</code> / <code>[1,)</code>:
-Fabric loader <code>&gt;=0.19.3</code>, FML <code>[40.3.12,)</code> / <code>[61.2.0,)</code>, NeoForge <code>[21.11.45,)</code> /
-<code>[26.2.0.57,)</code>.</li>
+<li>Loader minimums are now the group-aware floors (the first loader version supporting each
+group&#39;s LOWEST Minecraft version, never the build target - otherwise in-range servers are
+rejected): Fabric loader <code>&gt;=0.14.24</code> (1.19 line) / <code>&gt;=0.16.0</code> (26.1 line), FML
+<code>[41.1.0,)</code> (1.19 line) / <code>[36.1.0,)</code> (1.16 line), NeoForge <code>[20.2.59-beta,)</code>
+(1.20.2 line) / <code>[26.1.0,)</code> (26.1 line).</li>
 <li>Root cause: the range placeholders never reached the built jars - <code>fabric.mod.json</code> shipped
 <code>&quot;minecraft&quot;: &quot;*&quot;</code> (Modrinth reads this as &quot;all versions&quot;) and <code>mods.toml</code> shipped only the
 single build target. All 7 jars were rebuilt and their metadata verified.</li>
@@ -457,6 +790,75 @@ stale <code>dist/</code> jars and the obsolete <code>authcore-26.x-*</code> jars
 sections, corrected stale wording (&quot;26.0+&quot; → 26.1-26.2, Java 17/21/25, multi-loader
 tagline).</li>
 </ul>
+<h3 id="single-human-verification-map-captcha--gui-removal-intelligence-overhaul-2026-08-16">Single human verification (map captcha &amp; GUI removal, intelligence overhaul) (2026-08-16)</h3>
+<p><strong>One verification method, scored on EVERY login</strong></p>
+<ul>
+<li>The map captcha and its remnants are gone completely (no map items, no map-data
+pipeline, no stale &quot;map&quot; text/config); the server-side screen/GUI code is removed too
+(screen mixins, force-close inventory on clicks, the <code>IN_LOBBY</code>/<code>OUT_OF_LOBBY</code> GUI
+signals - the client companion still ships its optional screens, the server no longer
+drives them).</li>
+<li>The legacy text captcha (<code>Security.CaptchaManager</code>), the post-login colored-items
+<code>HumanVerification</code> and the captcha-farm detection are deleted - <strong>ActionCaptcha</strong> is
+now the single human-verification method.</li>
+<li><strong>Every login is scored independently</strong> - a first login does not make an account trusted,
+and an account owner can hand their credentials to a bot, so sessions are never
+pre-trusted. Signals: ghost pattern, ClientGuard risk, instant login (within
+<code>instant-login-sec</code>), failed attempts before success, missing 2FA on a TOTP account,
+fresh account age, fast rejoin loops. Trust signals subtract: premium (Mojang-verified),
+valid companion session token, previously trusted account, already passed the challenge.
+A player is challenged (sneak / jump / look-up physical task) only when the score
+reaches <code>lobby.captcha.bot-score-threshold</code> (default 60). All weights are configurable
+and every decision is traced in debug logs.</li>
+<li><strong>No chat spam</strong>: the challenge prompt is a single message at start and one on success -
+no periodic progress spam.</li>
+<li>Fixed the &quot;broken captcha&quot; bug: trusted/TPS-bypass players were blocked at <code>/login</code>
+because the pre-auth gate checked <code>captchaVerified</code> while the lobby skipped issuing the
+captcha. The pre-auth gate is gone entirely; <code>/login</code> and <code>/register</code> no longer take a
+<code>captcha-code</code> argument.</li>
+</ul>
+<p><strong>Debug logging everywhere, off by default</strong></p>
+<ul>
+<li><code>debug-mode</code> now defaults to <strong>false</strong> (it was <code>true</code>). With <code>debug-mode = true</code> admins
+get a full trace of where and when the mod decides: join classification, lobby
+lock/unlock, login attempts, every ClientGuard signal (name + weight + description),
+every AuthIntelligence detection (flood/spray/2FA brute/registration-farm/session-replay/
+ATO with counters and windows), the complete human-verification score breakdown, web-panel
+lockout tracking, webhook delivery and database dialect selection.</li>
+</ul>
+<p><strong>Host-test harness rebuilt (correctness + speed + player simulation)</strong></p>
+<ul>
+<li>Verdict gaps closed: <code>securitySummary</code>, <code>maintenance</code>, <code>portListen</code>, <code>panelBadToken</code>,
+<code>panelLockout</code> now actually fail the run (they rendered FAIL cells while the run said
+PASS).</li>
+<li>The graceful-stop check was accidentally nested inside the honeypot <code>if</code> - it is now
+top-level and always runs.</li>
+<li>Player-simulation bugs fixed: the global timeout now writes its check file (a crashed/
+timed-out sim used to count as a silent green PASS), the entrypoint captures the sim&#39;s
+real exit code, markers reset per reconnect (the limbo prompt was never re-verified),
+the post-login chat check could never detect new violations (stale &quot;before&quot; snapshot),
+and a TDZ crash on every sim connect (<code>endPromise</code> referencing <code>handle</code> during its own
+construction) is fixed.</li>
+<li>JSON escaping on <code>fail()</code> and the result writer (quotes/backslashes can no longer
+corrupt <code>result.json</code>); parallel crash-recovery keeps the test identity (the caught
+exception overwrote <code>$_</code> → blank FAIL rows).</li>
+<li>Speed: JBR image builds run in parallel, shorter fixed sleeps (post-Done 5s→2s, command
+cadence 3s→2s, sim violation loop 60s→45s, post-login wait 7s→4s), default boot timeout
+900s→480s, container log poll 2s→4s. Sim SKIPs (no protocol data for brand-new MC
+versions) render as n/a instead of FAIL cells, with the reason in the report.</li>
+<li>The player simulation keeps using <code>minecraft-protocol</code> (the standard packet-event client;
+<code>protocolob</code> does not exist on npm). Verified: 1.18.2 / 1.21.11 / 26.1.2 resolve and
+connect; 26.2 cleanly SKIPs until protocol data is published.</li>
+</ul>
+<p><strong>Docs &amp; setup guide</strong></p>
+<ul>
+<li>New &quot;Feature-by-feature setup&quot; section in the guide: every feature (human verification,
+MFA, brute force, sessions, ClientGuard, AuthIntelligence, rate limits/IP rules, SSO,
+web panel + honeypot, premium/proxy, maintenance/shadow-ban/whitelist/announcements,
+backups/Discord/locales) with what it does, the exact config, and a real-world scenario.</li>
+<li>README gained a &quot;Feature setup at a glance&quot; table; the config reference documents the
+new captcha scoring settings.</li>
+</ul>
 <hr>
 <h2 id="100-alpha5---2026-08-08">[1.0.0-alpha.5] - 2026-08-08</h2>
 <ul>
@@ -489,8 +891,6 @@ MySQL URL fixes, localhost/LAN support, JDK HttpClient, structured startup banne
 granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages.conf).</li>
 </ul>
 
-    
-    
     </article>
   </main>
 </div>
@@ -502,20 +902,62 @@ granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages
 </footer>
 <script>
 (function () {
-  // scroll progress
+  const h = () => document.documentElement;
   const bar = document.getElementById("progress");
   const toTop = document.getElementById("toTop");
+
+  // ---- TOC navigation enhancements: head + topic count, progress bar, back-to-top ----
+  const toc = document.querySelector(".toc");
+  let tocBar = null;
+  if (toc) {
+    const items = toc.querySelectorAll(".toc-item a");
+    const title = toc.querySelector(".toc-title");
+    if (title && !toc.querySelector(".toc-head")) {
+      const head = document.createElement("div");
+      head.className = "toc-head";
+      toc.insertBefore(head, title);
+      head.appendChild(title);
+      const badge = document.createElement("span");
+      badge.className = "toc-count";
+      badge.textContent = items.length + (items.length === 1 ? " topic" : " topics");
+      head.appendChild(badge);
+    }
+    if (!toc.querySelector(".toc-progress")) {
+      const p = document.createElement("div");
+      p.className = "toc-progress";
+      p.innerHTML = "<span></span>";
+      toc.appendChild(p);
+      tocBar = p.firstElementChild;
+    } else tocBar = toc.querySelector(".toc-progress span");
+    if (!toc.querySelector(".toc-top")) {
+      const top = document.createElement("a");
+      top.className = "toc-top";
+      top.href = "#top";
+      top.textContent = "Back to top";
+      top.addEventListener("click", (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+      toc.appendChild(top);
+    }
+    // clicking a topic also closes the mobile nav
+    items.forEach((a) => a.addEventListener("click", () => {
+      const nav = document.querySelector(".site-nav");
+      const toggle = document.querySelector(".nav-toggle");
+      if (nav && toggle && nav.classList.contains("open")) { nav.classList.remove("open"); toggle.setAttribute("aria-expanded", "false"); }
+    }));
+  }
+
+  // ---- scroll progress (top bar + in-TOC bar) ----
   const onScroll = () => {
-    const h = document.documentElement;
-    const max = h.scrollHeight - h.clientHeight;
-    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
-    toTop.classList.toggle("show", h.scrollTop > 400);
+    const max = h().scrollHeight - h().clientHeight;
+    const pct = max > 0 ? (h().scrollTop / max) * 100 : 0;
+    bar.style.width = pct + "%";
+    if (tocBar) tocBar.style.width = pct + "%";
+    toTop.classList.toggle("show", h().scrollTop > 400);
   };
   document.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
   toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
-  // mobile nav
+  // ---- mobile nav ----
   const toggle = document.querySelector(".nav-toggle");
   const nav = document.querySelector(".site-nav");
   if (toggle && nav) {
@@ -525,7 +967,7 @@ granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages
     });
   }
 
-  // copy buttons on code blocks
+  // ---- copy buttons on code blocks ----
   document.querySelectorAll("article pre").forEach((pre) => {
     const btn = document.createElement("button");
     btn.className = "copy-btn";
@@ -544,7 +986,7 @@ granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages
     pre.appendChild(btn);
   });
 
-  // scrollspy for the sidebar TOC
+  // ---- scrollspy for the sidebar TOC (highlights the nearest heading) ----
   const links = document.querySelectorAll(".toc-item a");
   if (links.length) {
     const map = new Map();

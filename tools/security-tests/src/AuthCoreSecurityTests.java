@@ -20,7 +20,6 @@ public class AuthCoreSecurityTests {
   public static void main(String[] args) {
     testPasswordHashing();
     testPasswordGeneration();
-    testCaptcha();
     testEmailRecovery();
     testRateLimiter();
     testProxyParsing();
@@ -72,6 +71,56 @@ public class AuthCoreSecurityTests {
     String a = Encrypter.hash("argon2", "SamePassword1");
     String b = Encrypter.hash("argon2", "SamePassword1");
     check("unique per-hash salt (no identical hashes)", a != null && b != null && !a.equals(b));
+
+    // Legacy/foreign rows: a hash created with one algorithm but stored with a different (or
+    // missing) algorithm declaration used to throw password4j parse errors ("Bad salt length")
+    // and block the login. Verification must fall back through the supported algorithms.
+    String legacy = Encrypter.hash("sha-256", "LegacyPass-1");
+    check("legacy sha-256 hash produced", legacy != null);
+    check(
+        "legacy hash verifies with a wrong declared algorithm",
+        Encrypter.verify("LegacyPass-1", legacy, "bcrypt"));
+    check(
+        "legacy hash verifies with null declared algorithm",
+        Encrypter.verify("LegacyPass-1", legacy, null));
+    check("legacy hash still rejects wrong passwords", !Encrypter.verify("Wrong", legacy, "bcrypt"));
+    check(
+        "verify of garbage against unknown algorithm returns false",
+        !Encrypter.verify("x", "not-a-hash-at-all", "nope"));
+
+    // AuthMe-style imported hashes: "$SHA$<salt>$<sha256(sha256(pw)+salt)>"
+    String authMeSha = "$SHA$abcdef0123456789$" + authMeShaHash("AuthMePass-1", "abcdef0123456789");
+    check("authme $SHA$ hash verifies", Encrypter.verify("AuthMePass-1", authMeSha, "authme-sha"));
+    check("authme $SHA$ rejects wrong passwords", !Encrypter.verify("Wrong", authMeSha, "authme-sha"));
+    check(
+        "imported-algorithm inference ($SHA$ -> authme-sha)",
+        "authme-sha".equals(Encrypter.inferImportedAlgorithm(authMeSha)));
+    check(
+        "imported-algorithm inference (bcrypt prefix)",
+        "bcrypt".equals(Encrypter.inferImportedAlgorithm("$2a$10$abcdefghijklmnopqrstuu")));
+    check(
+        "imported-algorithm inference (hex sha-256)",
+        "sha-256".equals(Encrypter.inferImportedAlgorithm(legacy)));
+    check("weak-algorithm detection", Encrypter.isWeakAlgorithm("md5") && Encrypter.isWeakAlgorithm("sha-256"));
+    check("strong-algorithm detection", !Encrypter.isWeakAlgorithm("argon2") && !Encrypter.isWeakAlgorithm("bcrypt"));
+    check("unknown/null algorithm is treated as weak", Encrypter.isWeakAlgorithm(null));
+  }
+
+  private static String authMeShaHash(String password, String salt) {
+    try {
+      java.security.MessageDigest d = java.security.MessageDigest.getInstance("SHA-256");
+      String first = toHex(d.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+      return toHex(d.digest((first + salt).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+    } catch (Exception e) {
+      return "";
+    }
+  }
+
+  private static String toHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder(bytes.length * 2);
+    for (byte b : bytes)
+      sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+    return sb.toString();
   }
 
   private static void testPasswordGeneration() {
@@ -85,24 +134,6 @@ public class AuthCoreSecurityTests {
       threw = true;
     }
     check("generate(0) throws", threw);
-  }
-
-  private static void testCaptcha() {
-    System.out.println("== Captcha ==");
-    UUID player = UUID.randomUUID();
-    String code = Security.CaptchaManager.generate(player, 5, 60000);
-    check("generate returns a code", code != null && code.length() >= 4);
-    check("verify accepts the correct code (case-insensitive)", Security.CaptchaManager.verify(player, code.toLowerCase()));
-    check("verify fails after consumption", !Security.CaptchaManager.verify(player, code));
-
-    UUID player2 = UUID.randomUUID();
-    String code2 = Security.CaptchaManager.generate(player2, 5, 60000);
-    check("verify rejects a wrong code but keeps it", !Security.CaptchaManager.verify(player2, "WRONG"));
-    check("correct code still works after a typo", Security.CaptchaManager.verify(player2, code2));
-
-    UUID expired = UUID.randomUUID();
-    Security.CaptchaManager.generate(expired, 5, -1000); // already expired
-    check("expired captcha is rejected", !Security.CaptchaManager.verify(expired, "ABCDE"));
   }
 
   private static void testEmailRecovery() {

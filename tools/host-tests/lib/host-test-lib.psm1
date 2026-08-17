@@ -236,11 +236,22 @@ function Test-DockerAvailable {
 function Invoke-DockerImageBuild {
   param([string]$JbrMajor, [string]$JbrTarball, [string]$BuildDir)
 
-  # The entrypoint script is baked into the image - if it changed since the last build,
-  # the cached image is stale and must be rebuilt (this is why we hash it, not just
-  # check existence).
-  $entrypoint = Join-Path $BuildDir "docker/server-entrypoint.sh"
-  $entrypointHash = (Get-FileHash $entrypoint -Algorithm SHA256).Hash.Substring(0, 16)
+  # The entrypoint + Dockerfiles + player-sim sources are baked into the image -
+  # if any changed since the last build, the cached image is stale and must be
+  # rebuilt (this is why we hash them, not just check existence).
+  $hashInputs = @(
+    (Join-Path $BuildDir "docker/server-entrypoint.sh"),
+    (Join-Path $BuildDir "docker/Dockerfile.jbr"),
+    (Join-Path $BuildDir "docker/Dockerfile.temurin"),
+    (Join-Path $BuildDir "docker/authcore-sim/sim.js"),
+    (Join-Path $BuildDir "docker/authcore-sim/package.json")
+  )
+  $combo = ""
+  foreach ($file in $hashInputs) {
+    $h = (Get-FileHash $file -Algorithm SHA256 -ErrorAction SilentlyContinue).Hash
+    if ($h) { $combo += $h }
+  }
+  $entrypointHash = if ($combo.Length -ge 16) { $combo.Substring(0, 16) } else { "nomarker" }
 
   if ($JbrTarball) {
     $tag = "authcore-hosttest:jbr-$JbrMajor"
@@ -365,8 +376,12 @@ function Invoke-HostTest {
             if ($line -match "^([^#=]+)=(.+)$") { $deps[$matches[1].Trim()] = $matches[2].Trim() }
           }
         }
-        $ver = $deps["$($Desc.loader)_version"]
-        if (-not $ver) { throw "no $($Desc.loader)_version pin in $(Get-RepoRelativePath $depsFile)" }
+        $ver = if ($Desc.loaderPin) {
+          $Desc.loaderPin
+        } else {
+          $deps["$($Desc.loader)_version"]
+        }
+        if (-not $ver) { throw "no $($Desc.loader) loader pin for $($Desc.version) (loaderPins in versions.json or $($Desc.loader)_version in $(Get-RepoRelativePath $depsFile))" }
         $url =
           if ($Desc.loader -eq "forge") {
             "https://maven.minecraftforge.net/net/minecraftforge/forge/$ver/forge-$ver-installer.jar"
@@ -399,7 +414,10 @@ function Invoke-HostTest {
 
     # ---- harness test configuration -----------------------------------------
     # Pre-provision settings.conf enabling the web admin panel + honeypot so the
-    # entrypoint can exercise them (token auth, honeypot detection logging).
+    # entrypoint can exercise them (token auth, honeypot detection logging), and
+    # tuning the lobby for the player-simulation bot (captcha off - the bot would
+    # otherwise be unable to /register or /login; low violation limit so the
+    # violation-kick check finishes quickly).
     # Ports are unique per version so parallel host-network containers never collide.
     $settingsDir = Join-Path $workDir "config/authcore"
     New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
@@ -417,6 +435,12 @@ session {
     enabled = true
     port = $honeypotPort
   }
+}
+lobby {
+  captcha {
+    enabled = false
+  }
+  max-violations-before-kick = 3
 }
 "@
 
@@ -455,7 +479,7 @@ session {
           $lastTail = $tail
         }
       }
-      Start-Sleep -Seconds 2
+      Start-Sleep -Seconds 4
     }
     if (-not $done) {
       & docker rm -f $safeName 2>&1 | Out-Null
@@ -533,9 +557,20 @@ function Write-AuthReport {
     honeypot        = @{ label = "Honeypot"; cat = "Security"; desc = "The honeypot listener logged a probe hit." }
     portListen      = @{ label = "Game port listening"; cat = "Network"; desc = "The configured server-port accepts TCP connections." }
     cleanStop       = @{ label = "Graceful stop"; cat = "Runtime"; desc = "The 'stop' command produced a clean shutdown." }
+    simLimbo        = @{ label = "Sim: limbo prompt"; cat = "Player sim"; desc = "A real protocol client joins and is held in the limbo with the auth prompt (title/action-bar/chat)." }
+    simRegister     = @{ label = "Sim: /register"; cat = "Player sim"; desc = "The bot registered a new account and received the success feedback." }
+    simWrongPw      = @{ label = "Sim: wrong password"; cat = "Player sim"; desc = "A registered player received the incorrect-password feedback." }
+    simViolKick     = @{ label = "Sim: violation kick"; cat = "Player sim"; desc = "Repeated lobby violations (blocked chat) kicked the player as configured." }
+    simLogin        = @{ label = "Sim: /login"; cat = "Player sim"; desc = "The registered player logged in with the correct password." }
+    simChatAfter    = @{ label = "Sim: chat after login"; cat = "Player sim"; desc = "After login the player can chat without restriction violations." }
+    mcVersionMatch  = @{ label = "MC version match"; cat = "Boot"; desc = "The booted server reports the MC version the harness requested (guards wrong-loader false positives)." }
   }
 
   function Get-CheckValue($r, $key) {
+    # A skipped player-simulation (e.g. minecraft-protocol has no protocol data for a
+    # brand-new MC version) must render as n/a, not FAIL - the run still verifies every
+    # other check and the SKIP is an honest "library lacks protocol data", not a defect.
+    if ($key -like "sim*" -and $r.simStatus -eq "SKIP") { return $null }
     if ($r.checks) { $v = $r.checks[$key]; if ($null -ne $v) { return [int]$v } }
     return $null
   }
@@ -594,6 +629,7 @@ function Write-AuthReport {
     $lines.Add("- Jar: $($r.jar) &middot; JVM: $($r.jbrLabel) ($($r.javaVersion))")
     $lines.Add("- Detected Minecraft: $(if ($r.mcDetected) { $r.mcDetected } else { 'n/a' }) &middot; Boot: $($r.bootSec)s &middot; AuthCore startup: $($r.authcoreStartedMs)ms")
     $lines.Add("- Security summary: DB=$(if ($r.dbType) { $r.dbType } else { 'n/a' }), password hashing=$(if ($r.hashAlgo) { $r.hashAlgo } else { 'n/a' }), 2FA=$(if ($r.twoFA) { $r.twoFA } else { 'n/a' })")
+    if ($r.simStatus -and $r.simStatus -ne "PASS") { $lines.Add("- Player simulation: $($r.simStatus) $(if ($r.simFailures) { "- $($r.simFailures)" })") }
     if ($r.note) { $lines.Add("- Note: $($r.note)") }
     $lines.Add("")
     $lines.Add("| Check | Result |")
@@ -733,7 +769,7 @@ function Write-AuthReport {
   foreach ($r in $Results) {
     $cls = if ($r.status -eq "PASS") { "ok" } else { "bad" }
     $html.Add("<div class='run'><h3>$($r.version) <span class='chip'>$($r.groupRange)</span> <span class='chip'>$($r.loader)</span> <span class='$cls'>$($r.status)</span></h3>")
-    $html.Add("<div class='runmeta'>JVM: $($r.jbrLabel) ($(& $esc $r.javaVersion)) &middot; Boot: $($r.bootSec)s &middot; AuthCore startup: $($r.authcoreStartedMs)ms &middot; DB: $(if ($r.dbType) { $r.dbType } else { 'n/a' }) &middot; Hashing: $(if ($r.hashAlgo) { $r.hashAlgo } else { 'n/a' }) &middot; 2FA: $(if ($r.twoFA) { $r.twoFA } else { 'n/a' })$(if ($r.note) { ' &middot; ' + (& $esc $r.note) })</div>")
+    $html.Add("<div class='runmeta'>JVM: $($r.jbrLabel) ($(& $esc $r.javaVersion)) &middot; Boot: $($r.bootSec)s &middot; AuthCore startup: $($r.authcoreStartedMs)ms &middot; DB: $(if ($r.dbType) { $r.dbType } else { 'n/a' }) &middot; Hashing: $(if ($r.hashAlgo) { $r.hashAlgo } else { 'n/a' }) &middot; 2FA: $(if ($r.twoFA) { $r.twoFA } else { 'n/a' })$(if ($r.simStatus -and $r.simStatus -ne "PASS") { ' &middot; Sim: <b>' + (& $esc $r.simStatus) + '</b> ' + (& $esc $r.simFailures) })$(if ($r.note) { ' &middot; ' + (& $esc $r.note) })</div>")
     $html.Add("<div class='chips'>")
     foreach ($key in $checks.Keys) {
       $v = Get-CheckValue $r $key

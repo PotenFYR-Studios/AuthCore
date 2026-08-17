@@ -24,12 +24,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ItemEntity.class)
 public class ItemEntityMixin {
 
-  @Inject(method = "playerTouch", at = @At("HEAD"), cancellable = true)
+  @Inject(
+      method = "playerTouch(Lnet/minecraft/world/entity/player/Player;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
   private void authCore$onPlayerPickup(Player player, CallbackInfo ci) {
 
-    UUID uuid = player.getUUID();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+    User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemPickup) {
 

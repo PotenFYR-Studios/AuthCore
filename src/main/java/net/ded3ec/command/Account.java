@@ -39,18 +39,18 @@ import org.jetbrains.annotations.NotNull;
 public class Account {
 
   /**
-   * Registers the {@code /account} command and all its subcommands with the server's command
+   * Registers the {@code /account} command and its subcommands with the server's command
    * dispatcher.
    *
    * <p>Supported subcommands:
    *
    * <ul>
-   *   <li>{@code logout} – Ends the player's current session and forces re-authentication.
-   *   <li>{@code password set <new-password>} – Changes the player's password after validation.
-   *   <li>{@code unregister} – Permanently removes the player's registration from the database.
+   *   <li>{@code logout} - Ends the player's current session and forces re-authentication.
+   *   <li>{@code password set <new-password>} - Changes the player's password after validation.
+   *   <li>{@code unregister} - Permanently removes the player's registration from the database.
    * </ul>
    *
-   * <p>Each subcommand enforces its own permission requirements and authentication state checks.
+   * <p>Each subcommand enforces its own permission and authentication-state checks.
    *
    * @param dispatcher the Brigadier command dispatcher provided by the Minecraft server
    */
@@ -126,6 +126,44 @@ public class Account {
                                 ctx ->
                                     setPasswordCommand(
                                         ctx.getSource(), getString(ctx, "new-password")))))
+            .then(
+                literal("set-mode")
+                    .then(
+                        literal("online")
+                            .requires(
+                                (ctx) -> {
+                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUUID();
+                                  String username = player.getName().getString();
+                                  User user = User.getUser(username, uuid);
+
+                                  return user != null
+                                      && user.isAuthenticated.get()
+                                      && McApiManager.PermissionUtil.has(
+                                          player,
+                                          AuthCoreServer.config.commands.user.setMode.luckPermsNode,
+                                          AuthCoreServer.config.commands.user.setMode.permissionsLevel);
+                                })
+                            .executes(ctx -> setOnlineModeCommand(ctx.getSource())))
+                    .then(
+                        literal("offline")
+                            .requires(
+                                (ctx) -> {
+                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
+                                  if (player == null) return false;
+                                  UUID uuid = player.getUUID();
+                                  String username = player.getName().getString();
+                                  User user = User.getUser(username, uuid);
+
+                                  return user != null
+                                      && user.isAuthenticated.get()
+                                      && McApiManager.PermissionUtil.has(
+                                          player,
+                                          AuthCoreServer.config.commands.user.setMode.luckPermsNode,
+                                          AuthCoreServer.config.commands.user.setMode.permissionsLevel);
+                                })
+                            .executes(ctx -> setOfflineModeCommand(ctx.getSource()))))
             .then(
                 literal("codes")
                     .requires(
@@ -250,7 +288,7 @@ public class Account {
       if (trimmed.length() < 2 || trimmed.length() > 24 || trimmed.matches(".*\\s+.*")) {
         net.ded3ec.security.SecurityLog.log("NICKNAME_INVALID", player.getName().getString() + " tried to set invalid nickname");
         return AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserEmailInvalid);
+            1, player.connection, AuthCoreServer.messages.promptUserNicknameInvalid);
       }
 
       UUID uuid = player.getUUID();
@@ -260,6 +298,15 @@ public class Account {
       if (user == null)
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      // Unique nicknames (default on): no two players can copy each other's nickname.
+      if (AuthCoreServer.config.session.authentication.uniqueNicknames
+          && User.isNicknameTaken(trimmed, uuid)) {
+        net.ded3ec.security.SecurityLog.log(
+            "NICKNAME_TAKEN", username + " tried to use nickname '" + trimmed + "'");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserNicknameTaken);
+      }
 
       user.nickname = trimmed;
       user.update("Nickname set");
@@ -400,6 +447,12 @@ public class Account {
 
       user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
       user.password = net.ded3ec.security.Encrypter.hash(user.passwordEncryption, newPassword);
+      if (user.password == null) {
+        // Never leave the account unregistered because hashing failed
+        user.passwordEncryption = null;
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+      }
       user.loginAttempts = 0;
       user.authSecret = null; // 2FA secret must be re-set up after recovery
       user.update("Password recovered via email");
@@ -485,7 +538,7 @@ public class Account {
       AuthCoreServer.LOGGER.toUser(
           1, player.connection, AuthCoreServer.messages.promptUserLoggedOut);
 
-      user.logout(AuthCoreServer.messages.promptUserSessionExpired);
+      user.logout(AuthCoreServer.messages.promptUserLogoutComplete);
 
       // Tell other mods / the proxy that this player is no longer authenticated
       net.ded3ec.network.AuthInterop.broadcast(player, false);
@@ -493,6 +546,99 @@ public class Account {
 
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account logout' Command: ", err);
+    }
+  }
+
+  /**
+   * Handles execution of the {@code /account set-mode online} subcommand.
+   *
+   * <p>Switches the player's own account to online-mode authentication. On the next
+   * join the server verifies the account: online-mode players are auto-logged-in, players that
+   * fail the Mojang session check are treated as offline-mode (register/login). The active session
+   * is destroyed so the change takes effect immediately.
+   *
+   * @param source the command source (must be a player)
+   * @return 1 on success, 0 on error or invalid state
+   */
+  private static int setOnlineModeCommand(CommandSourceStack source) {
+    try {
+      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
+
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      AuthCoreServer.LOGGER.debug(
+          0, "{} used '/account set-mode online' command in the Server!", player.getName().getString());
+
+      UUID uuid = player.getUUID();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      net.ded3ec.security.SecurityLog.log(
+          "MODE_SET_ONLINE", username + " switched their account to online-mode");
+
+      user.isPremium = true;
+      user.update("Player Mode -> Online-mode");
+      user.logout(AuthCoreServer.messages.promptUserModeSetToOnline);
+
+      return 1;
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(
+          0, "Faced Error in '/account set-mode online' Command: ", err);
+    }
+  }
+
+  /**
+   * Handles execution of the {@code /account set-mode offline} subcommand.
+   *
+   * <p>Switches the player's own account to offline-mode (password login) authentication. A
+   * player who ALREADY has a stored password keeps it and logs in with it; only premium
+   * auto-login accounts (null password) are asked to register one. The active session is
+   * destroyed so the change takes effect on the next join.
+   *
+   * @param source the command source (must be a player)
+   * @return 1 on success, 0 on error or invalid state
+   */
+  private static int setOfflineModeCommand(CommandSourceStack source) {
+    try {
+      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
+
+      if (player == null)
+        return AuthCoreServer.LOGGER.info(0, "This command can't be executed from console!");
+
+      AuthCoreServer.LOGGER.debug(
+          0, "{} used '/account set-mode offline' command in the Server!", player.getName().getString());
+
+      UUID uuid = player.getUUID();
+      String username = player.getName().getString();
+      User user = User.getUser(username, uuid);
+
+      if (user == null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      net.ded3ec.security.SecurityLog.log(
+          "MODE_SET_OFFLINE", username + " switched their account to offline-mode");
+
+      // Offline-mode accounts authenticate with a password. A player who already registered
+      // one keeps it (they just log in with it); only auto-login accounts with a null
+      // password are asked to register a new one.
+      boolean hadPassword = !StringUtils.isBlank(user.password);
+      user.isPremium = false;
+      user.update("Player Mode -> Offline-mode");
+      user.logout(
+          hadPassword
+              ? AuthCoreServer.messages.promptUserModeSetToOfflineLogin
+              : AuthCoreServer.messages.promptUserModeSetToOffline);
+
+      return 1;
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(
+          0, "Faced Error in '/account set-mode offline' Command: ", err);
     }
   }
 
@@ -548,7 +694,17 @@ public class Account {
         user.password =
             Encrypter.hash(AuthCoreServer.config.passwordRules.passwordHashAlgorithm, password);
 
+        if (user.password == null) {
+          // Never leave the account unregistered because hashing failed
+          user.passwordEncryption = null;
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+        }
+
         user.update("Password Change");
+
+        // Auth intelligence: post-login account-takeover pattern.
+        net.ded3ec.security.AuthIntelligence.recordPasswordChange(user, player.getIpAddress());
 
         AuthCoreServer.LOGGER.debug(
             1, "{} password has been updated in the database!", user.username);
@@ -596,27 +752,27 @@ public class Account {
         return AuthCoreServer.LOGGER.toUser(
             0, player.connection, AuthCoreServer.messages.promptUserNotRegistered);
 
+      // Kick the player BEFORE deleting their data: toKick resolves the user from the
+      // cache, so deleting first would make the lookup return null and silently skip the
+      // disconnect - the player would stay online with a deleted account and no feedback.
+      int result =
+          AuthCoreServer.LOGGER.toKick(
+              1, player.connection, AuthCoreServer.messages.promptUserUnRegisteredSuccessfully);
+
       user.delete("Unregistered by the User", false);
 
-      return AuthCoreServer.LOGGER.toKick(
-          1, player.connection, AuthCoreServer.messages.promptUserUnRegisteredSuccessfully);
+      return result;
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account unregister' Command: ", err);
     }
   }
 
   /**
-   * Validates a proposed new password against server-defined policies.
+   * Validates a proposed new password against the server-defined policy.
    *
-   * <p>Validation steps include:
-   *
-   * <ul>
-   *   <li>Ensuring the password is not blank
-   *   <li>Preventing reuse if {@code allowReuse} is disabled in configuration
-   *   <li>Checking complexity requirements.
-   * </ul>
-   *
-   * <p>Appropriate feedback messages are sent to the player when validation fails.
+   * <p>Checks that the password is not blank, is not a reuse of the current one when
+   * {@code allowReuse} is disabled, and meets the configured complexity requirements.
+   * Failure feedback is sent to the player.
    *
    * @param player the player attempting the password change
    * @param newPassword the hashed candidate password

@@ -10,7 +10,7 @@ import { pageShell, SITE_TITLE, REPO, BRANCH } from "./site-template.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const DIR = join(ROOT, "docs", "1.0.0");
-const SITE = `https://potenfyr-studios.github.io/${REPO}/docs/1.0.0/`;
+const SITE = `https://authcore.potenfyr.in/docs/1.0.0/`;
 
 for (const file of readdirSync(DIR).filter((f) => f.endsWith(".html"))) {
   const c = readFileSync(join(DIR, file), "utf8");
