@@ -353,14 +353,16 @@ if ($descs.Count -eq 0) { Write-Error "No versions left to test." -ErrorAction C
 $images = @{}
 $majors = @($descs | ForEach-Object { $_.jbrMajor } | Sort-Object -Unique)
 Write-Host "Preparing $($majors.Count) JVM image(s) (parallel)..."
-foreach ($built in ($majors | ForEach-Object -Parallel {
+$imageLimit = [Math]::Min(3, $majors.Count)
+$builtImages = @($majors | ForEach-Object -Parallel {
   Import-Module $using:modulePath -Force
   $major = $_
   $tarball = Resolve-JbrTarball -Major $major
   $tag = Invoke-DockerImageBuild -JbrMajor $major -JbrTarball $tarball -BuildDir $using:toolDir
   $label = if ($tarball) { "jbr-$major" } else { "temurin-$major" }
   [pscustomobject]@{ major = $major; tag = $tag; label = $label }
-} -ThrottleLimit ([Math]::Min(3, $majors.Count))) {
+} -ThrottleLimit $imageLimit)
+foreach ($built in $builtImages) {
   $images["$($built.major)"] = @{ tag = $built.tag; label = $built.label }
   Write-Host "  image: $($built.tag) (JVM $($built.label))"
 }
