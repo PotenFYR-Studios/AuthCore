@@ -38,7 +38,7 @@ abstract class ServerPlayerMixin {
 
   /** Prevent item dropping for jailed/lobby users. */
   @Inject(
-      method = "drop",
+      method = "drop(Lnet/minecraft/world/item/ItemStack;ZZ)Lnet/minecraft/world/entity/item/ItemEntity;",
       at = @At("HEAD"),
       cancellable = true,
       require = 0)
@@ -50,14 +50,14 @@ abstract class ServerPlayerMixin {
 
     ServerPlayer player = self();
 
-    UUID uuid = player.getUUID();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+    User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemDrop) {
 
-      AuthCoreServer.LOGGER.toUser(
-          false, user.connection, AuthCoreServer.messages.promptUserDropItemNotAllowed);
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection, AuthCoreServer.messages.promptUserDropItemNotAllowed);
 
       // Sync inventory
       player.containerMenu.broadcastChanges();
@@ -70,10 +70,11 @@ abstract class ServerPlayerMixin {
   /**
    * Prevent game mode changes for jailed/lobby users - 1.16.x shape (void return).
    *
-   * <p>The same method returns boolean on 1.17+, so the two descriptor-based injects below
-   * cover the whole range; whichever descriptor does not exist at runtime is skipped
-   * (require = 0). The preprocessor cannot select the shape because one jar is built per
-   * range and must run on every range endpoint.
+   * <p>The method is named {@code setGameMode} (1.19+/Mojang) or {@code changeGameMode}
+   * (older mappings) and returns void or boolean depending on the version - the four
+   * descriptor-based injects below cover the whole matrix; whichever descriptor does not
+   * exist at runtime is skipped (require = 0). The preprocessor cannot select the shape
+   * because one jar is built per range and must run on every range endpoint.
    */
   @Inject(
       method = "setGameMode(Lnet/minecraft/world/level/GameType;)V",
@@ -97,22 +98,45 @@ abstract class ServerPlayerMixin {
     }
   }
 
+  /** Older mappings name the same method {@code changeGameMode} - void shape. */
+  @Inject(
+      method = "changeGameMode(Lnet/minecraft/world/level/GameType;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onChangeGameModeLegacyVoid(GameType newMode, CallbackInfo ci) {
+    if (blockGameModeChange(newMode)) ci.cancel();
+  }
+
+  /** Older mappings name the same method {@code changeGameMode} - boolean shape. */
+  @Inject(
+      method = "changeGameMode(Lnet/minecraft/world/level/GameType;)Z",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onChangeGameModeLegacy(GameType newMode, CallbackInfoReturnable<Boolean> cir) {
+    if (blockGameModeChange(newMode)) {
+      cir.setReturnValue(false);
+      cir.cancel();
+    }
+  }
+
   /** Shared game-mode restriction check; returns true when the change must be blocked. */
   @Unique
   private boolean blockGameModeChange(GameType newMode) {
     ServerPlayer player = self();
 
-    UUID uuid = player.getUUID();
-    String username = player.getName().getString();
-    User user = User.getUser(username, uuid);
+    User user = User.getUser(player);
 
     if (user != null
         && user.isInLobby.get()
         && AuthCoreServer.config.lobby.forceAdventureMode
         && newMode != GameType.ADVENTURE) {
 
-      AuthCoreServer.LOGGER.toUser(
-          false, user.connection, AuthCoreServer.messages.promptUserChangeGameModeNotAllowed);
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection, AuthCoreServer.messages.promptUserChangeGameModeNotAllowed);
       return true;
     }
     return false;

@@ -11,14 +11,18 @@
     "InventoryMixin",
     "ItemEntityMixin",
     "MobEntityMixin",
-    "ScreenHandlerMixin",
-    "ScreenHandlerStackMixin",
     "ServerHandshakeNetworkHandlerMixin",
     "ServerLoginNetworkHandlerMixin",
     "ServerPlayerInteractionManagerMixin",
     "ServerPlayerMixin",
+    "ServerPlayerRestrictionsMixin",
+    "ServerEventsFallbackJoinMixin",
+    "ServerEventsFallbackLeaveMixin",
+    "ServerEventsFallbackTickMixin",
     "ServerPlayNetworkHandlerChatMixin",
-    "ServerPlayNetworkHandlerMixin"
+    "ServerPlayNetworkHandlerMixin",
+    "ServerPlayerCombatMixin",
+    "ServerPremiumVerificationMixin"
   ],
   "injectors": {
     "defaultRequire": 1

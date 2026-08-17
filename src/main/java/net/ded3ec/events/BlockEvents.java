@@ -31,8 +31,10 @@ public class BlockEvents {
       // Sync inventory
       player.containerMenu.broadcastChanges();
 
-      return AuthCoreServer.LOGGER.toUser(
-          net.ded3ec.compat.Compat.actionResultFail(), user.connection, AuthCoreServer.messages.promptUserUseBlockNotAllowed);
+      return AuthCoreServer.LOGGER.violation(
+          net.ded3ec.compat.Compat.actionResultFail(),
+          user,
+          user.connection, AuthCoreServer.messages.promptUserUseBlockNotAllowed);
     }
 
     return net.ded3ec.compat.Compat.actionResultPass();
@@ -49,13 +51,16 @@ public class BlockEvents {
 
     // Prevent item usage
     if (user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemUse)
-      return AuthCoreServer.LOGGER.toUser(
-          net.ded3ec.compat.Compat.actionResultFail(), user.connection, AuthCoreServer.messages.promptUserUseItemNotAllowed);
+      return AuthCoreServer.LOGGER.violation(
+          net.ded3ec.compat.Compat.actionResultFail(),
+          user,
+          user.connection, AuthCoreServer.messages.promptUserUseItemNotAllowed);
 
     // Prevent item moving
     if (user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemMoving)
-      return AuthCoreServer.LOGGER.toUser(
+      return AuthCoreServer.LOGGER.violation(
           net.ded3ec.compat.Compat.actionResultFail(),
+          user,
           user.connection,
           AuthCoreServer.messages.promptUserShiftItemNotAllowed);
 

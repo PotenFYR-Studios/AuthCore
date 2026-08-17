@@ -37,9 +37,9 @@ public class Config {
   @Comment(
       """
             Enables detailed debug logging to the console.
-            • Useful for troubleshooting issues.
-            • Recommended: false in production to reduce log spam.
-            • Default: false""")
+            • Useful for troubleshooting issues and tracing exactly when/where the mod
+              makes decisions (join, lobby, login, intelligence checks, captcha, kicks).
+            • Default: false (off - recommended for production; no log spam).""")
   public boolean debugMode = false;
 
   @Comment(
@@ -155,6 +155,21 @@ public class Config {
         new CommandPermissions() {
           {
             luckPermsNode = "authcore.user.changepassword";
+            permissionsLevel = 0;
+          }
+        };
+
+    @Comment(
+        """
+                Permissions for the /account set-mode online|offline command.
+                • Allows players to switch their own account between online (premium) and
+                  offline (cracked) authentication mode.
+                • Switching to offline mode clears the password and asks the player to
+                  register with /register on their next join.""")
+    public CommandPermissions setMode =
+        new CommandPermissions() {
+          {
+            luckPermsNode = "authcore.user.setmode";
             permissionsLevel = 0;
           }
         };
@@ -332,22 +347,17 @@ public class Config {
 
     @Comment(
         """
-        Server operation mode.
-        • Accepted values: "online", "offline"
-        • Default: online""")
-    public String serverMode = "online";
-
-    @Comment(
-        """
                 Authentication behaviour and security options.
-                • Most options should stay at secure defaults unless you have a specific reason to change them.""")
+                • Most options should stay at secure defaults unless you have a specific reason to change them.
+                • Note: the server's online/offline mode is ALWAYS taken automatically from
+                  server.properties (online-mode) - there is no config override.""" )
     public Authentication authentication = new Authentication();
 
     @Comment(
         """
                 How long an authenticated session remains valid (in milliseconds).
                 • Default: 3600000 ms (60 minutes)
-                • Reasonable range: 1200000–10800000 ms""")
+                • Reasonable range: 1200000-10800000 ms""")
     public int timeoutMs = 60 * 60 * 1000;
 
     @Comment(
@@ -369,15 +379,14 @@ public class Config {
         """
                 Combat detection timeout (milliseconds).
                 • Defines how long a player is considered in combat after damage.
-                • Default: 3000 ms (3 seconds)
-                """)
-    public long combatTimeout = 3 * 1000;
+                • Default: 10000 ms (10 seconds)""")
+    public long combatTimeout = 10 * 1000;
 
     @Comment(
         """
                 Interval between login reminder messages sent to unauthenticated players (ms).
                 • Default: 8000 ms (8 seconds)
-                • Suggested: 10000–30000 ms to avoid being too spammy""")
+                • Suggested: 10000-30000 ms to avoid being too spammy""")
     public int messageReminderIntervalMs = 8 * 1000;
 
     @Comment(
@@ -414,6 +423,13 @@ public class Config {
 
       @Comment(
           """
+                    Require unique display nicknames - no two players can use the same
+                    nickname (case-insensitive).
+                    • Default: true""")
+      public boolean uniqueNicknames = true;
+
+      @Comment(
+          """
                    Enable support for two‑factor authentication (TOTP).
                    • Default: false (recommended for enhanced account security)
                 """)
@@ -446,17 +462,32 @@ public class Config {
 
       @Comment(
           """
-                    Automatically log in players with legitimate premium (Mojang) accounts without requiring a password (Note: premiumAutoRegister needs to be enabled for smooth auth for 'new' premium members!).
+                    Automatically log in players with legitimate premium (Mojang) accounts without requiring a password.
+                    • Works on BOTH online-mode and offline-mode servers:
+                      - On online-mode servers the server's own session verification is used.
+                      - On offline-mode servers AuthCore runs the vanilla encryption handshake during
+                        login and verifies the session with the server's own Mojang session service -
+                        no external API calls, no name lookups; failures fall back to offline
+                        registration/login (players are never blocked or kicked).
+                    • Premium auto-login players are NEVER given an auto-generated password - their
+                      stored password stays null. If they later switch to offline mode they are
+                      asked to register a password.
                     • Recommended for hybrid online/offline servers.
                     • Default: true""")
       public boolean premiumAutoLogin = true;
 
       @Comment(
           """
-                    Generate Random Password for legitimate premium (Mojang) accounts.
-                    • Recommended for hybrid online/offline servers.
+                    Allow offline (cracked) players to join and register/login.
+                    • When false, ONLY players the server verified as genuine premium (Mojang)
+                      accounts may join - offline players are kicked with a clear message on
+                      arrival (and can never register/login/session-resume).
+                    • On online-mode servers vanilla already rejects offline players at login, so
+                      this mainly matters on offline-mode servers, where it effectively makes the
+                      server premium-only (online-mode players still auto-login through the handshake
+                      verification).
                     • Default: true""")
-      public boolean premiumAutoRegister = true;
+      public boolean allowOfflinePlayers = true;
 
       @Comment(
           """
@@ -481,31 +512,24 @@ public class Config {
 
       @Comment(
           """
-                    Allow offline players to load using a premium username.
-                    • Disabling prevents username squatting.
-                    • Default: false""")
-      public boolean allowOnlineNameByOffline = false;
-
-      @Comment(
-          """
                     Prevent the same account name from being registered from multiple locations at once.
                     • Recommended for security.
                     • Default: true""")
       public boolean blockDuplicateRegister = true;
 
-    @Comment(
-        """
+      @Comment(
+          """
                     Prevent the same account name from being authenticated from multiple locations at once.
                     • Recommended for security.
                     • Default: true""")
-    public boolean blockDuplicateSession = true;
+      public boolean blockDuplicateSession = true;
 
-    @Comment(
-        """
+      @Comment(
+          """
                     Automatically assign a LuckPerms group to newly registered accounts.
                     • Empty = disabled.
                     • Example: "member""")
-    public String autoLuckPermsGroup = "";
+      public String autoLuckPermsGroup = "";
 
     @Comment(
         """
@@ -513,17 +537,6 @@ public class Config {
                     • On join, the player's XUID must match the stored one or they are kicked.
                     • Default: false""")
     public boolean bindBedrockXuid = false;
-
-    @Comment(
-        """
-                    Strict premium (online-mode) API handling.
-                    • false = when the Mojang API is unreachable, premium checks degrade gracefully
-                      and NO player is blocked (recommended - avoids locking out legit premium users
-                      during Mojang outages).
-                    • true = legacy behavior; the premium-name restriction is enforced even when the
-                      API cannot be reached.
-                    • Default: false""")
-    public boolean premiumApiStrict = false;
   }
 
   @Comment(
@@ -712,6 +725,16 @@ public class Config {
       • Detects ghost clients, macro abuse, session theft and fake companion clients.
       • Every signal raises the player's risk score; the decision matrix below decides the action.""")
   public ClientGuardConfig clientGuard = new ClientGuardConfig();
+
+  /** Authentication-intelligence detections (login/logout process security). */
+  @Comment(
+      """
+      Authentication-intelligence: detections that harden the LOGIN/LOGOUT process itself -
+      password spraying, per-IP login floods, 2FA brute force, guess-then-success logins,
+      registration farms, session-token replay and post-login account-takeover
+      patterns. Every trigger writes a security log + webhook alert.""")
+
+  public AuthIntelligenceConfig authIntelligence = new AuthIntelligenceConfig();
 
   /** Network-wide single sign-on (Redis). */
   @Comment(
@@ -1006,22 +1029,155 @@ public class Config {
   @ConfigSerializable
   public static class CombatLogConfig {
 
-    @Comment("Enable combat-log punishment. Default: false")
-    public boolean enabled = false;
+    @Comment(
+        """
+                Enable combat-log punishment: players who disconnect while still inside the
+                combat window (combat-timeout) are treated as combat loggers.
+                • Detection runs on the vanilla damage path on every loader/version (mobs
+                  and players by default).
+                • Default: true""")
+    public boolean enabled = true;
 
     @Comment(
         """
                 Kill the player entity when they disconnect while still inside the combat window.
                 • Only the entity is removed; inventory/XP still drop on the ground.
+                • Default: true""")
+    public boolean killOnDisconnect = true;
+
+    @Comment(
+        """
+                Count damage dealt by OTHER PLAYERS as combat.
+                • Default: true""")
+    public boolean detectFromPlayers = true;
+
+    @Comment(
+        """
+                Count damage dealt by MOBS as combat.
+                • Default: true""")
+    public boolean detectFromMobs = true;
+
+    @Comment(
+        """
+                Count environmental damage (fall, lava, fire, suffocation, etc.) as combat.
                 • Default: false""")
-    public boolean killOnDisconnect = false;
+    public boolean detectFromEnvironmental = false;
+  }
+
+  /** Authentication-intelligence detections (see {@code Session}). */
+  @ConfigSerializable
+  public static class AuthIntelligenceConfig {    @Comment("Password-spraying detection (same password tried on many accounts). Default: true")
+    public PasswordSprayConfig passwordSpray = new PasswordSprayConfig();
+
+    @Comment("Per-IP login-flood detection + temporary block. Default: true")
+    public LoginFloodConfig loginFlood = new LoginFloodConfig();
+
+    @Comment("2FA/TOTP brute-force detection (the password is already compromised). Default: true")
+    public TotpBruteforceConfig totpBruteforce = new TotpBruteforceConfig();
+
+    @Comment("Guess-then-success: successful login right after many failures. Default: true")
+    public SuccessAfterFailuresConfig successAfterFailures = new SuccessAfterFailuresConfig();
+
+    @Comment("Mass-registration detection (bot farms) + temporary block. Default: true")
+    public RegistrationFarmConfig registrationFarm = new RegistrationFarmConfig();
+
+    @Comment("Session-token replay detection (token claimed from a different IP). Default: true")
+    public SessionReplayConfig sessionReplay = new SessionReplayConfig();
+
+    @Comment("Post-login account-takeover pattern (new device + password change). Default: true")
+    public AtoPatternConfig atoPattern = new AtoPatternConfig();
+  }
+
+  @ConfigSerializable
+  public static class PasswordSprayConfig {
+
+    @Comment("Enable password-spraying detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("The same password tried against this many DIFFERENT accounts triggers the alert. Default: 10")
+    public int maxAccounts = 10;
+
+    @Comment("Window (minutes) the attempts must fall in. Default: 10")
+    public int windowMin = 10;
+  }
+
+  @ConfigSerializable
+  public static class LoginFloodConfig {
+
+    @Comment("Enable per-IP login-flood detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Failed logins from one IP within the window before the alert. Default: 15")
+    public int maxFailuresPerIp = 15;
+
+    @Comment("Window (minutes). Default: 10")
+    public int windowMin = 10;
+
+    @Comment("Temporarily block the IP from joining after the threshold (minutes; 0 = alert only). Default: 10")
+    public int blockMinutes = 10;
+  }
+
+  @ConfigSerializable
+  public static class TotpBruteforceConfig {
+
+    @Comment("Enable 2FA brute-force detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Failed 2FA codes on one account within the window before the CRITICAL alert. Default: 3")
+    public int maxFailures = 3;
+
+    @Comment("Window (minutes). Default: 5")
+    public int windowMin = 5;
+  }
+
+  @ConfigSerializable
+  public static class SuccessAfterFailuresConfig {
+
+    @Comment("Enable guess-then-success detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Successful login after at least this many consecutive failures triggers the alert. Default: 4")
+    public int minFailures = 4;
+  }
+
+  @ConfigSerializable
+  public static class RegistrationFarmConfig {
+
+    @Comment("Enable mass-registration detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("Accounts registered from one IP within the window before the alert. Default: 3")
+    public int maxAccountsPerIp = 3;
+
+    @Comment("Window (minutes). Default: 30")
+    public int windowMin = 30;
+
+    @Comment("Temporarily block the IP from registering after the threshold (minutes; 0 = alert only). Default: 60")
+    public int blockMinutes = 60;
+  }
+
+  @ConfigSerializable
+  public static class SessionReplayConfig {
+
+    @Comment("Enable session-token replay detection. Default: true")
+    public boolean enabled = true;
+  }
+
+  @ConfigSerializable
+  public static class AtoPatternConfig {
+
+    @Comment("Enable post-login account-takeover pattern detection. Default: true")
+    public boolean enabled = true;
+
+    @Comment("A password change within this many minutes of a login from a new network fingerprint triggers the alert. Default: 30")
+    public int windowMin = 30;
   }
 
   @ConfigSerializable
   public static class ProgressivePunishmentConfig {
 
-    @Comment("Enable exponential kick cooldowns. Default: false")
-    public boolean enabled = false;
+    @Comment("Enable exponential kick cooldowns. Default: true")
+    public boolean enabled = true;
 
     @Comment("Base cooldown in milliseconds for the first offense. Default: 5000 (5 seconds)")
     public long baseCooldownMs = 5_000;
@@ -1233,7 +1389,7 @@ public class Config {
                   - "scrypt"   : Memory-hard alternative
                   - "pbkdf2"   : Standard key-derivation function
                   - "sha-512" / "sha-256" : Fast cryptographic hashes (less ideal for passwords)
-                  - "md5"      : Insecure – do not use""")
+                  - "md5"      : Insecure - do not use""")
     public String passwordHashAlgorithm = "argon2";
 
     @Comment(
@@ -1273,7 +1429,7 @@ public class Config {
     @Comment(
         """
                 SQLite database file name (stored in the plugin config directory).
-                • Simple flat-file database – no external server required.
+                • Simple flat-file database - no external server required.
                 • Default: "authCore-db.sqlite\"""")
     public String sqlite = "authCore-db.sqlite";
 
@@ -1332,7 +1488,7 @@ public class Config {
 
     @Comment(
         """
-                Database password (stored in plain text – protect the config file).""")
+                Database password (stored in plain text - protect the config file).""")
     public String password = "";
 
     @Comment(
@@ -1448,10 +1604,11 @@ public class Config {
 
     @Comment(
         """
-                Captcha protection for bots attempting to register/login.
-                • When enabled, the lobby shows a captcha code and /login & /register require it
-                  as an extra argument.
-                • Default: false""")
+                Single human verification for bot protection.
+                • After login/register the mod observes the player; only bot-like players
+                  (ghost pattern / high risk score) are challenged with a short physical task
+                  (sneak / jump / look at the sky).
+                • Default: true""")
     public CaptchaConfig captcha = new CaptchaConfig();
 
     @Comment(
@@ -1562,8 +1719,56 @@ public class Config {
     @Comment(
         """
                 Allow moving/rearranging items inside the inventory.
+                • When disabled (default), EVERY inventory click is blocked in the lobby -
+                  including shift-clicks and armor equipping, which previously desynced the
+                  client and left ghost items after the restore.
                 • Default: false""")
     public boolean allowItemMoving = false;
+
+    @Comment(
+        """
+                Allow using the 2x2 crafting grid inside the player's inventory.
+                • When disabled (default), every click on the crafting grid and its result
+                  slot is blocked in the lobby - no crafting of any sort in limbo, even when
+                  allowItemMoving is enabled.
+                • Default: false""")
+    public boolean allowCrafting = false;
+
+    @Comment(
+        """
+                Maximum lobby restriction violations (blocked attack, block break, movement,
+                chat, inventory click, etc.) before the player is kicked.
+                • The player is shown how many violations remain before the kick.
+                • 0 disables the kick (violations are still counted silently).
+                • Default: 10""")
+    public int maxViolationsBeforeKick = 10;
+
+    @Comment(
+        """
+                Grace period (ms) after the lobby lock during which movement packets are NOT
+                flagged/cancelled: the client legitimately lags the lobby anchor while its
+                spawn position syncs (join sequence, teleport resync). The server entity is
+                still anchored during this window by the movement-cancel mixin.
+                • Default: 3000 (3 seconds)""")
+    public long movementGracePeriodMs = 3000;
+
+    @Comment(
+        """
+                How far (in blocks) a lobby player may drift from their limbo anchor before the
+                client is snapped back. Higher values mean fewer corrections and more client-side
+                "ghost walking" before the snap - the classic AuthMe behavior (movement packets
+                are always cancelled, this only controls the client-side correction).
+                • Default: 1.5""")
+    public double movementCorrectionRadius = 1.5;
+
+    @Comment(
+        """
+                Minimum time (ms) between client position corrections in the lobby. Prevents
+                rubber-banding / screen vibration: the snap-back fires at most this often, no
+                matter how fast the player spams movement packets (previously every violating
+                packet triggered a snap-back, vibrating the client at up to 20Hz).
+                • Default: 600""")
+    public int movementCorrectionIntervalMs = 600;
 
     @Comment(
         """
@@ -1576,6 +1781,20 @@ public class Config {
                 Allow right-click interaction with other players.
                 • Default: false""")
     public boolean allowPlayerInteractWith = false;
+
+    @Comment(
+        """
+                Allow sleeping in beds while in the lobby.
+                • When disabled, lobby players get a violation title for attempting to sleep.
+                • Default: false""")
+    public boolean allowSleeping = false;
+
+    @Comment(
+        """
+                Allow swapping the main-hand and offhand items (the F key) while in the lobby.
+                • When disabled, the swap is blocked like any other item moving.
+                • Default: false""")
+    public boolean allowItemSwapping = false;
 
     @Comment(
         """
@@ -1623,13 +1842,19 @@ public class Config {
     @Comment(
         """
                 Apply permanent blindness effect to lobby players.
-                • Forces focus on the login/registration prompt.
-                • Default: true""")
-    public boolean applyBlindnessEffect = true;
+                • WARNING: blindness blocks the CHAT window on the client, which makes
+                  /register and /login unusable - only enable this if you provide another
+                  way to authenticate (e.g. the client companion).
+                • Default: false""")
+    public boolean applyBlindnessEffect = false;
 
     @Comment(
         """
                 Completely hide the player's inventory UI while lobby.
+                • When enabled, the player's ENTIRE inventory (including armor and offhand) is
+                  emptied for the duration of the lobby and restored exactly on login/register.
+                • When disabled, items stay in the inventory but cannot be moved/equipped
+                  (see allowItemMoving) - preventing client desync and ghost items.
                 • Default: false""")
     public boolean hideInventory = false;
 
@@ -1668,14 +1893,110 @@ public class Config {
     @ConfigSerializable
     public static class CaptchaConfig {
 
-      @Comment("Enable captcha for registration/login. Default: false")
-      public boolean enabled = false;
+      @Comment("Enable the single human verification (risk-triggered action captcha). Default: true")
+      public boolean enabled = true;
 
-      @Comment("Captcha code length. Default: 5")
-      public int length = 5;
+      @Comment(
+          """
+                    Observation window after login/register (seconds): the mod watches the
+                    player's behavior before deciding whether to challenge. Genuine players
+                    interact and are never bothered.
+                    • Default: 45""")
+      public int observationWindowSec = 45;
 
-      @Comment("Captcha code validity in milliseconds. Default: 60000 (1 minute)")
-      public long ttlMs = 60 * 1000;
+      @Comment(
+          """
+                    Always challenge players who show ZERO behavior after login (ghost/bot
+                    pattern: never rotated the view, never clicked, never chatted, never sent
+                    a settings packet). Real players always do at least one of these.
+                    • Default: true""")
+      public boolean autoChallengeGhosts = true;
+
+      @Comment(
+          """
+                    Challenge when the player's ClientGuard risk score reaches this value during
+                    the observation window. Lower = more challenges (fewer false negatives),
+                    higher = fewer challenges (fewer false positives).
+                    • Default: 60""")
+      public int triggerRiskThreshold = 60;
+
+      @Comment(
+          """
+                    Bot-score threshold. Every login is scored across many signals (ghost
+                    pattern, ClientGuard risk, instant login, failed attempts, missing 2FA,
+                    fresh account, fast rejoin) and the player is challenged when the total
+                    reaches this value. Trust signals (premium, session token, trusted
+                    account, already-verified) subtract from the score.
+                    • Default: 60""")
+      public int botScoreThreshold = 60;
+
+      @Comment(
+          """
+                    Login is "instant" (bot-like) when it happens within this many seconds of
+                    joining - real players need time to read the chat and type.
+                    0 = disabled. Default: 5""")
+      public int instantLoginSec = 5;
+
+      @Comment(
+          """
+                    Score added when the player logged in after 2+ failed attempts in the same
+                    session (guess-then-success pattern). Default: 10""")
+      public int failedAttemptScore = 10;
+
+      @Comment(
+          """
+                    Score added when the account has 2FA (TOTP) configured but the login was
+                    completed WITHOUT the second factor - a bot cannot answer TOTP, so a
+                    password-only login on a TOTP account is suspicious. Default: 20""")
+      public int missingMfaScore = 20;
+
+      @Comment(
+          """
+                    Score added when the account was created within this many hours and the
+                    login looks automated (bot-farm fresh accounts). Default: 24""")
+      public int freshAccountHours = 24;
+
+      @Comment(
+          """
+                    Score added when the player disconnects and rejoins within this many
+                    seconds (reconnect-bot loop). 0 = disabled. Default: 20""")
+      public int fastRejoinSec = 20;
+
+      @Comment(
+          """
+                    Score subtracted for accounts that were "trusted" by a previous successful
+                    login (session.trusted). Default: 20""")
+      public int trustedScore = 20;
+
+      @Comment(
+          """
+                    Score subtracted for premium (Mojang-verified) accounts - the server itself
+                    authenticated them at join. Default: 20""")
+      public int premiumScore = 20;
+
+      @Comment(
+          """
+                    Score subtracted when the session was resumed with a valid companion
+                    session token (not just by IP). Default: 20""")
+      public int sessionTokenScore = 20;
+
+      @Comment(
+          """
+                    Score subtracted when the player already passed the human-verification
+                    challenge earlier in the same session. Default: 50""")
+      public int alreadyVerifiedScore = 50;
+
+      @Comment("Time to solve the action captcha in milliseconds. Default: 60000")
+      public long actionTtlMs = 60 * 1000;
+
+      @Comment("Sneak-hold duration in seconds (sneak challenge). Default: 3")
+      public int actionSneakSeconds = 3;
+
+      @Comment("Jump count (jump challenge). Default: 5")
+      public int actionJumpCount = 5;
+
+      @Comment("Look-up duration in seconds (look-up challenge). Default: 3")
+      public int actionLookUpSeconds = 3;
 
       @Comment(
           """

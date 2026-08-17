@@ -15,10 +15,32 @@ public class Messages {
       """
             Message shown to a player who has not yet registered.
             • Encourages the player to register using /register <password> <confirm-password>.
-            • Default display: Action bar in RED""")
+            • Default display: Title in RED with action bar in RED""")
   public ColTemplate promptUserNotRegistered =
       new ColTemplate() {
         {
+          message =
+              new Message() {
+                {
+                  text = "Click here to register";
+                  color = "RED";
+                  clickCommand = "/register ";
+                }
+              };
+          title =
+              new Title() {
+                {
+                  text = "You are Not Registered!";
+                  color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Use /register <password> <confirm-password>";
+                          color = "RED";
+                        }
+                      };
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
@@ -50,15 +72,22 @@ public class Messages {
   @Comment(
       """
             Success message displayed when a player logs in correctly.
-            • Default display: Action bar in GREEN""")
+            • Default display: Title in GREEN with subtitle and action bar in GREEN""")
   public ColTemplate promptUserLoggedInSuccessfully =
       new ColTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          title =
+              new Title() {
                 {
-                  text = "Welcome to the Server!";
+                  text = "Logged In!";
                   color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Welcome to the Server, %authcore_nickname%!";
+                          color = "GREEN";
+                        }
+                      };
                 }
               };
         }
@@ -67,14 +96,36 @@ public class Messages {
   @Comment(
       """
             Error message shown when a player provides an incorrect password during login.
-            • Default display: Title in RED""")
+            • Default display: Title in RED with action bar in RED""")
   public ColTemplate promptUserWrongPassword =
       new ColTemplate() {
         {
+          message =
+              new Message() {
+                {
+                  text = "Click here to try logging in again";
+                  color = "RED";
+                  clickCommand = "/login ";
+                }
+              };
           title =
               new Title() {
                 {
                   text = "Incorrect Password!";
+                  color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Try again with /login <password>";
+                          color = "RED";
+                        }
+                      };
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Incorrect Password! Try again.";
                   color = "RED";
                 }
               };
@@ -125,10 +176,24 @@ public class Messages {
   @Comment(
       """
             Success message shown after a player successfully registers for the first time.
-            • Default display: Action bar in GREEN""")
+            • Default display: Title in GREEN with subtitle and action bar in GREEN""")
   public ColTemplate promptUserRegisteredSuccessfully =
       new ColTemplate() {
         {
+          title =
+              new Title() {
+                {
+                  text = "Registered!";
+                  color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Your account has been created!";
+                          color = "GREEN";
+                        }
+                      };
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
@@ -198,10 +263,24 @@ public class Messages {
   @Comment(
       """
             Confirmation message shown to a player after successfully changing their password.
-            • Default display: Action bar in GREEN""")
+            • Default display: Title in GREEN with subtitle and action bar in GREEN""")
   public ColTemplate promptUserPasswordChangedSuccessfully =
       new ColTemplate() {
         {
+          title =
+              new Title() {
+                {
+                  text = "Password Changed!";
+                  color = "GREEN";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Your new password is now active!";
+                          color = "GREEN";
+                        }
+                      };
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
@@ -266,14 +345,14 @@ public class Messages {
             • Default display: Action bar in GREEN
             • Placeholders:
               • %1$s - Player username
-              • %2$s - New mode""")
+              • %2$s - New mode (automatic login / password login)""")
   public ColTemplate promptAdminChangeUserMode =
       new ColTemplate() {
         {
           actionBar =
               new ActionBar() {
                 {
-                  text = "User %1$s's mode has been set %2$s successfully!";
+                  text = "User %1$s is now set to %2$s!";
                   color = "GREEN";
                 }
               };
@@ -322,24 +401,30 @@ public class Messages {
 
   @Comment(
       """
-            Prompt shown when a online-mode account is detected and auto-login succeeds.
-            • Default display: Title in GREEN with subtitle
-            """)
+            Prompt shown when a player is signed in automatically (verified account auto-login).
+            • Default display: Title in GREEN with subtitle and action bar""")
   public ColTemplate promptUserPremiumAutoLogin =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Online-Mode Account Detected!";
+                  text = "Welcome to the Server!";
                   color = "GREEN";
                   subtitle =
                       new Template() {
                         {
-                          text = "Enjoy! Your account has been auto-logged in to the Server!";
+                          text = "You have been signed in automatically. Enjoy your stay!";
                           color = "GREEN";
                         }
                       };
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "You have been logged in automatically!";
+                  color = "GREEN";
                 }
               };
         }
@@ -348,8 +433,7 @@ public class Messages {
   @Comment(
       """
             Prompt shown when an active session is resumed successfully.
-            • Default display: Title in GREEN with subtitle
-            """)
+            • Default display: Title in GREEN with subtitle and action bar""")
   public ColTemplate promptUserSessionResumed =
       new ColTemplate() {
         {
@@ -365,6 +449,13 @@ public class Messages {
                           color = "GREEN";
                         }
                       };
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Your session has been resumed!";
+                  color = "GREEN";
                 }
               };
         }
@@ -605,17 +696,30 @@ public class Messages {
 
   @Comment(
       """
-             Captcha challenge shown to lobby players when captcha protection is enabled.
-             • Chat message in YELLOW
-             • Placeholders:
-               • %1$s - The captcha code to type with /login or /register""")
-  public ColTemplate promptUserCaptchaRequired =
+             Shown when the action captcha challenge is issued (risk-triggered after login).
+             No code needs to be typed - the player must finish the physical task
+             (sneak / jump / look at the sky) shown in chat.""")
+  public ColTemplate promptUserCaptchaActionRequired =
       new ColTemplate() {
         {
+          title =
+              new Title() {
+                {
+                  text = "Human Verification Required!";
+                  color = "YELLOW";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "Complete the task shown in chat";
+                          color = "YELLOW";
+                        }
+                      };
+                }
+              };
           message =
               new Message() {
                 {
-                  text = "Captcha: type the code %1$s as the last argument of /login or /register!";
+                  text = "Complete the physical task shown in chat to verify you are human!";
                   color = "YELLOW";
                 }
               };
@@ -624,15 +728,14 @@ public class Messages {
 
   @Comment(
       """
-             Shown when a wrong captcha code is provided.
-             • Default display: Action bar in RED""")
-  public ColTemplate promptUserCaptchaWrong =
-      new ColTemplate() {
+             Kick reason: the player did not complete the action captcha within the time limit.""")
+  public KickTemplate promptUserCaptchaActionExpired =
+      new KickTemplate() {
         {
-          actionBar =
-              new ActionBar() {
+          logout =
+              new LogoutTemplate() {
                 {
-                  text = "Wrong captcha code! Please try again.";
+                  text = "Captcha expired. Rejoin and complete the task to verify you are human.";
                   color = "RED";
                 }
               };
@@ -853,6 +956,41 @@ public class Messages {
 
   @Comment(
       """
+            Error shown when the requested display nickname is invalid (too short/long or
+            contains spaces).
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserNicknameInvalid =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Invalid nickname - use 2-24 characters without spaces!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Error shown when the requested display nickname is already used by another player.
+            • Default display: Action bar in RED""")
+  public ColTemplate promptUserNicknameTaken =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "That nickname is already in use - choose another one!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
              Discord link code shown to the player (Discord account linking).
              • Placeholders:
                • %1$s - The link code to send to the server's Discord bot
@@ -863,8 +1001,10 @@ public class Messages {
           message =
               new Message() {
                 {
-                  text = "Discord link code: %1$s - send it to the server's Discord bot to link your account (valid 10 minutes)!";
+                  text =
+                      "Discord link code: %1$s - send it to the server's Discord bot to link your account (valid 10 minutes)!";
                   color = "GREEN";
+                  clickCommand = "/discord link";
                 }
               };
         }
@@ -877,6 +1017,14 @@ public class Messages {
   public ColTemplate promptUserDiscordAlreadyLinked =
       new ColTemplate() {
         {
+          message =
+              new Message() {
+                {
+                  text = "Your account is already linked to a Discord account! Click here to unlink.";
+                  color = "RED";
+                  clickCommand = "/discord unlink";
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
@@ -977,7 +1125,7 @@ public class Messages {
                   subtitle =
                       new Template() {
                         {
-                          text = "You are not allowed to place blocks in Lobby!";
+                          text = "You are not allowed to place or use blocks in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -1026,6 +1174,30 @@ public class Messages {
                       new Template() {
                         {
                           text = "You are not allowed to move items in Lobby!";
+                          color = "WHITE";
+                        }
+                      };
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Restricted mode violation: Player attempted to sleep while in lobby/limbo.
+            • Default display: Title + subtitle (RED/WHITE)""")
+  public ColTemplate promptUserSleepNotAllowed =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Violation Detected!";
+                  color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "You are not allowed to sleep in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -1228,31 +1400,6 @@ public class Messages {
 
   @Comment(
       """
-            Restricted mode violation: Player attempted to mount or interact with a rideable entity while in lobby/limbo.
-            • Default display: Title + subtitle (WHITE)""")
-  public ColTemplate promptUserInteractMountableEntityNotAllowed =
-      new ColTemplate() {
-        {
-          title =
-              new Title() {
-                {
-                  text = "Violation Detected!";
-                  color = "RED";
-                  subtitle =
-                      new Template() {
-                        {
-                          text =
-                              "You are not allowed to interact with mountable entities in Lobby!";
-                          color = "WHITE";
-                        }
-                      };
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
             Restricted mode violation: Player attempted to interact with any other entity while in lobby/limbo.
             • Default display: Title + subtitle (WHITE)""")
   public ColTemplate promptUserInteractEntityNotAllowed =
@@ -1315,6 +1462,30 @@ public class Messages {
                       new Template() {
                         {
                           text = "You are not allowed to interact with hostile mobs in Lobby!";
+                          color = "WHITE";
+                        }
+                      };
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Restricted mode violation: Player attempted to interact with a mountable entity while in lobby/limbo.
+            • Default display: Title + subtitle (WHITE)""")
+  public ColTemplate promptUserInteractMountableEntityNotAllowed =
+      new ColTemplate() {
+        {
+          title =
+              new Title() {
+                {
+                  text = "Violation Detected!";
+                  color = "RED";
+                  subtitle =
+                      new Template() {
+                        {
+                          text = "You are not allowed to interact with mountable entities in Lobby!";
                           color = "WHITE";
                         }
                       };
@@ -1479,11 +1650,19 @@ public class Messages {
   public ColTemplate promptUserRegisterCommandReminderInterval =
       new ColTemplate() {
         {
+          message =
+              new Message() {
+                {
+                  text = "Click here to register";
+                  color = "YELLOW";
+                  clickCommand = "/register ";
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
                   text =
-                      "Use the '/register' command to register yourself. You are left with %1$s!";
+                      "You are not registered yet. Click the button above or use '/register <password> <confirm>'. Time left: %1$s!";
                   color = "YELLOW";
                 }
               };
@@ -1500,11 +1679,19 @@ public class Messages {
   public ColTemplate promptUserLoginCommandReminderInterval =
       new ColTemplate() {
         {
+          message =
+              new Message() {
+                {
+                  text = "Click here to login";
+                  color = "YELLOW";
+                  clickCommand = "/login ";
+                }
+              };
           actionBar =
               new ActionBar() {
                 {
                   text =
-                      "Use the '/login' command to authenticate yourself. You are left with %1$s!";
+                      "You need to authenticate to play. Click the button above or use '/login <password>'. Time left: %1$s!";
                   color = "YELLOW";
                 }
               };
@@ -1514,23 +1701,30 @@ public class Messages {
   @Comment(
       """
             Welcome message displayed when a player enters the lobby/limbo area.
-            • Default display: Title in GREEN""")
+            • Default display: Title in GREEN with subtitle and action bar""")
   public ColTemplate promptUserWelcomeLobbyUser =
       new ColTemplate() {
         {
           title =
               new Title() {
                 {
-                  text = "Welcome to the Lobby!";
+                  text = "Welcome to the Server!";
                   color = "GREEN";
                   subtitle =
                       new Template() {
                         {
                           text =
-                              "Use the '/login' OR '/register' command to authenticate yourself!";
+                              "Please authenticate to play. Click the chat button above, or type /login or /register.";
                           color = "GREEN";
                         }
                       };
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Authenticate with /login or /register to play!";
+                  color = "YELLOW";
                 }
               };
         }
@@ -1608,23 +1802,6 @@ public class Messages {
               new LogoutTemplate() {
                 {
                   text = "Your Data has been deleted! From the %1$s!";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Kick reason: Player used a online-mode (paid) username that is restricted on this server.
-            • Delay: 0 seconds""")
-  public KickTemplate promptUserPremiumNameNotAllowed =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "You are not allowed to use an online-mode username!";
                   color = "RED";
                 }
               };
@@ -1732,6 +1909,62 @@ public class Messages {
                   text = "Your session has expired. Please re-login to the server!";
                   color = "WHITE";
                   delaySec = 5;
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player logged out via /account logout (or was logged out by an admin).
+            • Rejoin puts the player back into the lobby to re-authenticate.
+            • Delay: 5 seconds""")
+  public KickTemplate promptUserLogoutComplete =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text =
+                      "You have been logged out! Re-join the server and login with your credentials!";
+                  color = "GREEN";
+                  delaySec = 5;
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Warning shown after each lobby restriction violation: how many violations remain
+            before the player is kicked.
+            • Placeholders:
+              • %1$d - Remaining violations before the kick""")
+  public ColTemplate promptUserViolationRemaining =
+      new ColTemplate() {
+        {
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Warning: %1$d more violation(s) until you are kicked!";
+                  color = "GOLD";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason: Player exceeded the configured violation limit in the lobby.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserViolationsExceeded =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "You have been kicked for repeated violations in the lobby!";
+                  color = "RED";
                 }
               };
         }
@@ -1888,9 +2121,8 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason (shown to user as feedback): User's account has been deleted.
-            • Placeholders:
-              • %1$s - Mode Type (online-mode/offline-mode)
+            Kick reason (shown to user as feedback): An admin updated the player's account settings.
+            • Tells the player to rejoin so the change takes effect.
             • Delay: 0 seconds""")
   public KickTemplate promptUserModeUpdated =
       new KickTemplate() {
@@ -1898,7 +2130,63 @@ public class Messages {
           logout =
               new LogoutTemplate() {
                 {
-                  text = "Your mode has been changed to %1$s by an Admin!";
+                  text = "Your account was updated by an admin. Please rejoin to continue.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): User switched their own account to automatic login.
+            • Tells the player they will be signed in automatically on the next join.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserModeSetToOnline =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your account is now set to automatic login! You will be signed in automatically on your next join.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): User switched their own account to password login.
+            • Tells the player they must register a password on the next join (shown when the
+              account has NO stored password yet, e.g. an auto-login online-mode account).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserModeSetToOffline =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your account now uses a password to log in. Please register with /register <password> when you rejoin.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): User switched their own account to password login.
+            • Tells the player to log in with their existing password on the next join (shown
+              when the account already has a stored password).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserModeSetToOfflineLogin =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Your account now uses a password to log in. Use /login <password> when you rejoin.";
                   color = "YELLOW";
                 }
               };
@@ -1917,6 +2205,25 @@ public class Messages {
                 {
                   text =
                       "Your Authentication Token is invalid! Player with the same name is already present in the server!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): offline (cracked) players are not allowed on this server.
+            • Shown when session.authentication.allow-offline-players is false and the server did
+              not verify the player as a genuine premium (Mojang) account.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserOfflinePlayersNotAllowed =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "This server only allows verified online-mode accounts. Please join with a genuine Minecraft account.";
                   color = "RED";
                 }
               };
@@ -1967,6 +2274,17 @@ public class Messages {
                 Delay in seconds before sending the chat message.
                 • Default: 0 (immediate)""")
     public int delay = 0;
+
+    @Comment(
+        """
+                Makes the chat message a clickable "button" that runs a command when clicked.
+                • Commands WITHOUT spaces run directly (RUN_COMMAND): e.g. "/discord link".
+                • Commands WITH arguments fill the chat input instead (SUGGEST_COMMAND):
+                  e.g. "/login " - the player just types the password and presses Enter.
+                • Leave empty (default) for a plain non-clickable message.
+                • Fallback: on versions/loaders without the click API the message still
+                  renders as plain text.""")
+    public String clickCommand = "";
   }
 
   @ConfigSerializable

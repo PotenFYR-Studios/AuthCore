@@ -3,6 +3,7 @@ package net.ded3ec.util;
 import java.lang.reflect.Method;
 import net.ded3ec.command.Account;
 import net.ded3ec.command.Admin;
+import net.ded3ec.command.Discord;
 import net.ded3ec.command.Login;
 import net.ded3ec.command.Register;
 import net.ded3ec.events.BlockEvents;
@@ -67,7 +68,7 @@ public final class FabricHooks {
     }
   }
 
-  /** Loads the four AuthCore command trees into a brigadier dispatcher (loader-neutral). */
+  /** Loads the AuthCore command trees into a brigadier dispatcher (loader-neutral). */
   public static void registerCommands(Object dispatcher) {
     @SuppressWarnings("unchecked")
     com.mojang.brigadier.CommandDispatcher<net.minecraft.commands.CommandSourceStack> d =
@@ -75,6 +76,7 @@ public final class FabricHooks {
     Register.load(d);
     Login.load(d);
     Account.load(d);
+    Discord.load(d);
     Admin.load(d);
   }
 
@@ -144,7 +146,7 @@ public final class FabricHooks {
                 (net.minecraft.world.phys.EntityHitResult) args[4]));
     registerUseCallback(
         "net.fabricmc.fabric.api.event.player.AttackEntityCallback",
-        "attack",
+        "interact",
         args ->
             EntityEvents.onEntityAttack(
                 (net.minecraft.world.entity.player.Player) args[0],
@@ -338,47 +340,54 @@ public final class FabricHooks {
    * fabric-api is missing on a fabric server, a clear warning is logged once instead.
    */
   public static void registerServerEvents() {
-    boolean anyRegistered = false;
-    anyRegistered |=
-        registerReflectEvent(
-            "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
-            "JOIN",
-            "onPlayReady",
-            args -> {
-              net.ded3ec.events.ServerEvents.onPlayerJoin(
-                  (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
-              return null;
-            });
-    anyRegistered |=
-        registerReflectEvent(
-            "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
-            "DISCONNECT",
-            "onPlayDisconnect",
-            args -> {
-              net.ded3ec.events.ServerEvents.onPlayerLeave(
-                  (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
-              return null;
-            });
-    anyRegistered |=
-        registerReflectEvent(
-            "net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents",
-            "END_SERVER_TICK",
-            "onEndTick",
-            args -> {
-              net.ded3ec.events.ServerEvents.onEndServerTick(
-                  (net.minecraft.server.MinecraftServer) args[0]);
-              return null;
-            });
+    // Set each flag at REGISTRATION time (not inside the callback): the parallel loader-native
+    // hooks (Forge/NeoForge event bus) must know BEFORE the first join that the fabric hook
+    // will fire, or both would process the same join (duplicate-register kick).
+    if (registerReflectEvent(
+        "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
+        "JOIN",
+        "onPlayReady",
+        args -> {
+          net.ded3ec.events.ServerEvents.onPlayerJoin(
+              (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
+          return null;
+        }))
+      net.ded3ec.events.ServerEvents.fabricJoinActive = true;
+    if (registerReflectEvent(
+        "net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents",
+        "DISCONNECT",
+        "onPlayDisconnect",
+        args -> {
+          net.ded3ec.events.ServerEvents.onPlayerLeave(
+              (net.minecraft.server.network.ServerGamePacketListenerImpl) args[0]);
+          return null;
+        }))
+      net.ded3ec.events.ServerEvents.fabricLeaveActive = true;
+    if (registerReflectEvent(
+        "net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents",
+        "END_SERVER_TICK",
+        "onEndTick",
+        args -> {
+          net.ded3ec.events.ServerEvents.onEndServerTick(
+              (net.minecraft.server.MinecraftServer) args[0]);
+          return null;
+        }))
+      net.ded3ec.events.ServerEvents.fabricTickActive = true;
+    boolean anyRegistered =
+        net.ded3ec.events.ServerEvents.fabricJoinActive
+            || net.ded3ec.events.ServerEvents.fabricLeaveActive
+            || net.ded3ec.events.ServerEvents.fabricTickActive;
 
-    // Fabric server WITHOUT fabric-api: warn loudly once (Forge/NeoForge register their
-    // own equivalents in the entrypoints, so only warn when the fabric loader is active).
+    // Fabric server WITHOUT fabric-api: the mixin fallbacks (ServerEventsFallbackMixin)
+    // keep the join/leave/tick flow working, so the auth limbo still applies.
     if (!anyRegistered
         && net.ded3ec.compat.Compat.getLoaderVersion() != null
         && !net.ded3ec.compat.Compat.getLoaderVersion().startsWith("FML")) {
       net.ded3ec.AuthCoreServer.LOGGER.warn(
           false,
-          "Fabric API was not found - AuthCore commands and player/tick events are "
-              + "DISABLED. Install Fabric API (Modrinth: fabric-api) next to the jar.");
+          "Fabric API was not found - using mixin fallbacks for join/leave/tick. "
+              + "The auth flow still works, but install Fabric API (Modrinth: fabric-api) "
+              + "for the full feature set.");
     }
   }
 

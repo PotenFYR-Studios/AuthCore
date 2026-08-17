@@ -3,13 +3,12 @@ package net.ded3ec.proxy;
 /**
  * Runtime environment detection.
  *
- * <p>The SAME jar is a Fabric server mod, a Fabric client mod, a BungeeCord plugin and a
- * Velocity plugin - the loader that picks it up is detected at runtime and the matching
- * configuration file is created automatically:
+ * <p>The SAME jar is a Fabric server mod, a BungeeCord plugin and a Velocity plugin -
+ * the loader that picks it up is detected at runtime and the matching configuration
+ * file is created automatically:
  *
  * <ul>
  *   <li>Fabric server -> {@code config/authcore/settings.conf}</li>
- *   <li>Fabric client -> {@code config/authcore-client.json}</li>
  *   <li>BungeeCord / Velocity -> {@code config/authcore-proxy.properties}</li>
  * </ul>
  */

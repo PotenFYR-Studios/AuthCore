@@ -28,7 +28,10 @@ public abstract class CommandManagerMixin {
 
   @Inject(
       /*? if < 26 {*/
-      method = "method_9249(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V",
+      method = {
+        "method_9249(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V", // yarn (1.19.4-1.21)
+        "performCommand(Lcom/mojang/brigadier/ParseResults;Ljava/lang/String;)V" // mojmap (forge/neoforge)
+      },
       remap = false,
       require = 0,
       /*?} else {*/
@@ -48,7 +51,7 @@ public abstract class CommandManagerMixin {
     // ClientGuard: command-rate accounting (lobby command flood detection).
     net.ded3ec.security.ClientGuard.recordChat(player, true);
 
-    User user = User.getUser(player.getName().getString(), player.getUUID());
+    User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
     // Extract root command
@@ -58,8 +61,9 @@ public abstract class CommandManagerMixin {
     if (AuthCoreServer.config.lobby.useWhitelistAsBlacklist
         && AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
 
-      AuthCoreServer.LOGGER.toUser(
+      AuthCoreServer.LOGGER.violation(
           false,
+          user,
           player.connection,
           AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
           root);
@@ -72,8 +76,9 @@ public abstract class CommandManagerMixin {
     if (!AuthCoreServer.config.lobby.allowCommands
         && !AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
 
-      AuthCoreServer.LOGGER.toUser(
+      AuthCoreServer.LOGGER.violation(
           false,
+          user,
           player.connection,
           AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
           root);

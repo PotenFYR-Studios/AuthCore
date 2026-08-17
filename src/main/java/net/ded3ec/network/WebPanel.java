@@ -337,6 +337,8 @@ public final class WebPanel {
   private static void recordFailedAttempt(HttpExchange exchange) {
     String ip = clientIp(exchange);
     long now = System.currentTimeMillis();
+    AuthCoreServer.LOGGER.debug(
+        false, "Web panel | failed token attempt from {} (brute-force lockout tracking)", ip);
 
     // Bounded memory: if an attacker cycles through many IPs, forget stale entries
     // instead of letting the map grow forever.
@@ -352,7 +354,15 @@ public final class WebPanel {
           // Keep counting only within the same lockout window
           if (entry[1] != 0L || now - entry[0] > LOCKOUT_MS) return new long[] {1, 0L};
           long[] next = {entry[0] + 1, 0L};
-          if (next[0] >= MAX_ATTEMPTS) next[1] = now + LOCKOUT_MS;
+          if (next[0] >= MAX_ATTEMPTS) {
+            next[1] = now + LOCKOUT_MS;
+            AuthCoreServer.LOGGER.debug(
+                false,
+                "Web panel | {} locked out for {}ms after {} failed attempts",
+                ip,
+                LOCKOUT_MS,
+                MAX_ATTEMPTS);
+          }
           return next;
         });
   }
@@ -489,7 +499,7 @@ public final class WebPanel {
         return error("User is not online");
       }
       case "logout" -> {
-        user.logout(AuthCoreServer.messages.promptUserSessionExpired);
+        user.logout(AuthCoreServer.messages.promptUserLogoutComplete);
         SecurityLog.log("WEB_LOGOUT", user.username + " logged out from the web panel");
         return ok("Logged out " + user.username);
       }
@@ -510,6 +520,11 @@ public final class WebPanel {
         if (password == null || password.isBlank()) return error("Password cannot be empty");
         user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
         user.password = Encrypter.hash(user.passwordEncryption, password);
+        if (user.password == null) {
+          // Never leave the account unregistered because hashing failed
+          user.passwordEncryption = null;
+          return error("Password hashing failed - password not changed");
+        }
         user.update("Password set from the web panel");
         SecurityLog.log("WEB_PASSWORD", user.username + " password reset from the web panel");
         return ok("Password updated for " + user.username);
@@ -678,7 +693,7 @@ public final class WebPanel {
       function render(players) {
         const q = $('search').value.toLowerCase();
         $('rows').innerHTML = players.filter(x => !q || x.username.toLowerCase().includes(q)).map(p => {
-          const mode = p.premium ? '<span class="badge ok">premium</span>' : '<span class="badge warn">offline</span>';
+          const mode = p.premium ? '<span class="badge ok">online-mode</span>' : '<span class="badge warn">offline-mode</span>';
           const status = p.online ? '<span class="badge ok">online</span>' : (p.inLobby ? '<span class="badge warn">lobby</span>' : '<span class="badge no">offline</span>');
           const locked = p.locked ? ' <span class="badge no">locked</span>' : '';
           const risk = p.risk >= 60 ? '<span class="badge no">' + p.risk + '</span>' : '<span class="badge ok">' + p.risk + '</span>';

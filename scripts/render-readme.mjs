@@ -10,7 +10,7 @@ import { renderMdPage } from "./render-md.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, "scripts", "_site");
-const BASE = `https://potenfyr-studios.github.io/${REPO}/docs/1.0.0/`;
+const BASE = `https://authcore.potenfyr.in/docs/1.0.0/`;
 
 const readme = readFileSync(join(ROOT, "README.md"), "utf8");
 
@@ -53,8 +53,8 @@ body = body.replace(
 
 const html = pageShell({
   title: "AuthCore - The Fortress Framework for Minecraft Servers",
-  description: "Login & security for offline-mode Minecraft servers, one codebase for Minecraft 1.16.0 to 26.1-26.2 on Fabric/Forge/NeoForge, servers AND clients.",
-  canonical: `https://potenfyr-studios.github.io/${REPO}/`,
+  description: "Login & security for offline-mode Minecraft servers, one codebase for Minecraft 1.16.0 to 26.1-26.2 on Fabric/Forge/NeoForge, servers only.",
+  canonical: `https://authcore.potenfyr.in/`,
   body,
   toc: "",
   active: "home",
@@ -73,7 +73,7 @@ writeFileSync(join(OUT, ".nojekyll"), "", "utf8");
 const changelogMd = readFileSync(join(ROOT, "changelogs", "changelog.md"), "utf8");
 const { html: changelogHtml } = await renderMdPage({
   title: "Changelog",
-  description: "Full release history, from the first alpha to 1.0.0.",
+  description: "Full release history, from the first alpha to 1.0.1.",
   canonical: `${BASE}changelog.html`,
   md: changelogMd,
   basePrefix: "../../",

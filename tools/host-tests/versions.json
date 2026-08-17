@@ -6,15 +6,26 @@
       "loaders": ["fabric", "forge"],
       "verify": ["1.16.5", "1.17.1", "1.18.2"],
       "scanPattern": "^1\\.(16|17|18)\\.[0-9]+$",
-      "jbrMajor": 17
+      "jbrMajor": 17,
+      "loaderPins": {
+        "1.16.5": { "forge": "1.16.5-36.2.9" },
+        "1.17.1": { "forge": "1.17.1-37.1.1" },
+        "1.18.2": { "forge": "1.18.2-40.3.12" }
+      }
     },
     {
       "range": "1.19-1.21",
       "build": "1.21.11",
       "loaders": ["fabric", "forge", "neoforge"],
-      "verify": ["1.19.4", "1.20.6", "1.21.11"],
+      "verify": ["1.19.4", "1.20.6", "1.21.1", "1.21.11"],
       "scanPattern": "^1\\.(19|20|21)\\.[0-9]+$",
-      "jbrMajor": 21
+      "jbrMajor": 21,
+      "loaderPins": {
+        "1.19.4": { "forge": "1.19.4-45.4.3" },
+        "1.20.6": { "forge": "1.20.6-50.2.9", "neoforge": "20.6.139" },
+        "1.21.1": { "forge": "1.21.1-52.1.9", "neoforge": "21.1.248" },
+        "1.21.11": { "forge": "1.21.11-61.2.0", "neoforge": "21.11.45" }
+      }
     },
     {
       "range": "26.1-26.2",
@@ -22,14 +33,18 @@
       "loaders": ["fabric", "neoforge"],
       "verify": ["26.1.2", "26.2"],
       "scanPattern": "^26\\.[0-9]+\\.[0-9]+$",
-      "jbrMajor": 25
+      "jbrMajor": 25,
+      "loaderPins": {
+        "26.1.2": { "neoforge": "26.1.2.95" },
+        "26.2": { "neoforge": "26.2.0.57" }
+      }
     }
   ],
   "defaults": {
     "memory": "1536M",
     "containerMemory": "2g",
     "cpus": 2,
-    "timeoutSec": 900,
+    "timeoutSec": 480,
     "xmxPattern": "-Xms256M -Xmx{memory}"
   }
 }

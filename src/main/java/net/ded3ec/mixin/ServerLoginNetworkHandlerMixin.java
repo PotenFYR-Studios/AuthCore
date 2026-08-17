@@ -1,7 +1,6 @@
 package net.ded3ec.mixin;
 
 
-import java.util.Objects;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -40,7 +39,11 @@ abstract class ServerLoginNetworkHandlerMixin {
   @Shadow
   public abstract void disconnect(net.minecraft.network.chat.Component reason);
 
-  @Inject(method = "handleHello", at = @At("HEAD"), cancellable = true, require = 0)
+  @Inject(
+      method = "handleHello(Lnet/minecraft/network/protocol/login/ServerboundHelloPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
   private void authCore$handleHello(ServerboundHelloPacket packet, CallbackInfo ci) {
     String username = readName(packet);
     UUID uuid = readProfileId(packet);
@@ -50,8 +53,39 @@ abstract class ServerLoginNetworkHandlerMixin {
     // Only intercept clients that use the offline-mode UUID convention
     if (!UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes()).equals(uuid)) return;
 
-    // Offline-mode handling disabled in the config -> let vanilla handle it
-    if (!(Objects.equals(AuthCoreServer.config.session.serverMode, "offline"))) return;
+    // Detect the real server.properties mode once (the mod always follows the REAL server
+    // mode - no config override).
+    net.minecraft.server.MinecraftServer loginServer = net.ded3ec.compat.Compat.loginServer(this);
+    if (loginServer != null)
+      AuthCoreServer.detectServerOnlineMode(
+          net.ded3ec.compat.Compat.serverUsesAuthentication(loginServer));
+
+    // Online-mode server: vanilla would reject this offline-UUID client at its own session
+    // check ("Failed to verify username!"). Hybrid mode - when offline-mode players are
+    // allowed (allow-offline-players, default true), accept them through vanilla's offline
+    // accept flow instead (no session check, offline UUID kept); when disallowed, disconnect
+    // with a clear message.
+    if (AuthCoreServer.isServerOnline()) {
+      if (!AuthCoreServer.config.session.authentication.allowOfflinePlayers) {
+        this.disconnect(
+            net.ded3ec.compat.Compat.text(
+                    AuthCoreServer.messages.promptUserOfflinePlayersNotAllowed.logout.text)
+                .withStyle(style -> style.withColor(ChatFormatting.RED)));
+        ci.cancel();
+        return;
+      }
+      if (net.ded3ec.compat.Compat.loginAcceptOffline(this, username)) {
+        AuthCoreServer.LOGGER.debug(
+            true,
+            "Hybrid mode: offline-mode player \"{}\" accepted on an online-mode server "
+                + "(allow-offline-players enabled).",
+            username);
+        ci.cancel();
+      }
+      // Fail-safe: when the offline accept flow is unavailable on this version, vanilla
+      // handles the connection (the cracked client is rejected by the normal session check).
+      return;
+    }
 
     // Bedrock restriction
     if (!AuthCoreServer.config.session.authentication.allowBedrockPlayers
@@ -76,6 +110,45 @@ abstract class ServerLoginNetworkHandlerMixin {
 
     AuthCoreServer.LOGGER.debug(
         "Detected offline-mode player \"{}(uuid: {})\" sending hello packet", username, uuid);
+  }
+
+  /**
+   * Captures the outcome of the server's OWN Mojang session authentication (the profile that
+   * passed {@code hasJoinedServer} carries Mojang {@code textures} properties; unverified
+   * profiles have none). This is the only premium signal AuthCore uses - no Mojang API calls
+   * are made. Only ever fires on online-mode servers (offline servers skip session
+   * verification entirely, so no player can be marked premium there).
+   *
+   * <p>Method names cover 1.16-1.20.1 ({@code verifyLoginAndFinishConnectionSetup}), 1.20.2+
+   * ({@code finishLoginAndWaitForClient}) and 26.x (single-arg variant) - whichever exists on
+   * the running version matches, the others are skipped (require = 0).
+   */
+  @Inject(
+      method = {
+        "verifyLoginAndFinishConnectionSetup(Lcom/mojang/authlib/GameProfile;)V",
+        "finishLoginAndWaitForClient(Lcom/mojang/authlib/GameProfile;Ljava/util/concurrent/CompletableFuture;)V",
+        "finishLoginAndWaitForClient(Lcom/mojang/authlib/GameProfile;)V"
+      },
+      at = @At("HEAD"),
+      require = 0)
+  private void authCore$onMojangVerifiedProfile(com.mojang.authlib.GameProfile profile, CallbackInfo ci) {
+    if (profile == null) return;
+
+    // Version-agnostic accessors: getProperties()/getId() on classic authlib, record
+    // properties()/id() on 26.x.
+    Object props = invoke(profile, "getProperties", "properties");
+    if (!(props instanceof java.util.Map<?, ?> map)) return;
+
+    Object textures = map.get("textures");
+    boolean hasTextures =
+        textures instanceof java.util.Collection<?> collection
+            ? !collection.isEmpty()
+            : textures != null && !String.valueOf(textures).isEmpty();
+    if (!hasTextures) return;
+
+    Object idValue = invoke(profile, "getId", "id");
+    if (idValue instanceof java.util.UUID verifiedId)
+      AuthCoreServer.markPremiumVerified(verifiedId);
   }
 
   /** Reads the profile name from the hello packet (version-agnostic). */
@@ -123,5 +196,14 @@ abstract class ServerLoginNetworkHandlerMixin {
     } catch (ReflectiveOperationException e) {
       return null;
     }
+  }
+
+  /** Invokes the first method name that exists on the target (version-agnostic accessors). */
+  private static Object invoke(Object target, String... methodNames) {
+    for (String name : methodNames) {
+      Object value = invoke(target, name);
+      if (value != null) return value;
+    }
+    return null;
   }
 }

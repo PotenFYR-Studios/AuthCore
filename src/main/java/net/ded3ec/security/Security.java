@@ -68,20 +68,11 @@ public class Security {
     }
 
     /**
-     * Validates a password against the server's configured password complexity rules.
+     * Validates a password against the server's configured complexity rules.
      *
-     * <p>The method checks the following criteria (if enabled in the configuration):
-     *
-     * <ul>
-     *   <li>Minimum and maximum number of uppercase letters
-     *   <li>Minimum and maximum number of lowercase letters
-     *   <li>Minimum and maximum number of digits
-     *   <li>Minimum and maximum total password length
-     * </ul>
-     *
-     * <p>If any enabled rule is violated, an appropriate error message is sent to the player via
-     * {@link Logger#toUser} and {@code false} is returned. If all checks pass, {@code true} is
-     * returned.
+     * <p>Checks (when enabled in the config): minimum and maximum uppercase letters,
+     * lowercase letters, digits, and total length. On a violation, the matching error
+     * message is sent to the player and {@code false} is returned.
      *
      * @param player the player attempting to load or change their password
      * @param password the password string to validate
@@ -200,79 +191,9 @@ public class Security {
     }
   }
 
-  /**
-   * Lightweight text captcha used to protect registration/login from bot attacks. No image
-   * generation (AWT) is required: the code is delivered as plain text and expires automatically.
-   * Pending codes are bounded and expire to prevent memory growth.
+/**
+   * Backup recovery codes: random one-time codes used to regain access to an account.
    */
-  public static class CaptchaManager {
-
-    private static final int MAX_PENDING = 512;
-    private static final String CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final SecureRandom RANDOM = new SecureRandom();
-
-    /** Maps player UUID to captcha code + expiry timestamp. */
-    private static final Map<UUID, CaptchaEntry> pending = new ConcurrentHashMap<>();
-
-    private CaptchaManager() {}
-
-    /** Generates a new captcha code for the player and returns it for delivery. */
-    public static String generate(UUID playerId, int length, long ttlMs) {
-      purgeExpired();
-
-      if (pending.size() >= MAX_PENDING) pending.clear();
-
-      StringBuilder code = new StringBuilder(Math.max(length, 4));
-      for (int i = 0; i < Math.max(length, 4); i++)
-        code.append(CHARSET.charAt(RANDOM.nextInt(CHARSET.length())));
-
-      pending.put(playerId, new CaptchaEntry(code.toString(), ttlMs));
-      return code.toString();
-    }
-
-    /**
-     * Verifies a captcha answer. The code is consumed (removed) only on success so typos can be
-     * retried without re-challenging the player.
-     */
-    public static boolean verify(UUID playerId, String input) {
-      CaptchaEntry entry = pending.get(playerId);
-      if (entry == null || entry.isExpired()) {
-        pending.remove(playerId);
-        return false;
-      }
-
-      if (input != null
-          && java.security.MessageDigest.isEqual(
-              entry.code.toUpperCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8),
-              input.trim().toUpperCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
-        pending.remove(playerId);
-        return true;
-      }
-      return false;
-    }
-
-    /** Removes all expired captcha entries to bound memory usage. */
-    private static void purgeExpired() {
-      long now = System.currentTimeMillis();
-      pending.values().removeIf(entry -> entry.expiresAtMs < now);
-    }
-
-    private static final class CaptchaEntry {
-      final String code;
-      final long expiresAtMs;
-
-      CaptchaEntry(String code, long ttlMs) {
-        this.code = code;
-        this.expiresAtMs = System.currentTimeMillis() + ttlMs;
-      }
-
-      boolean isExpired() {
-        return System.currentTimeMillis() > expiresAtMs;
-      }
-    }
-  }
-
-  /** Backup recovery codes: random one-time codes used to regain access to an account. */
   public static class RecoveryCodes {
 
     private static final String CHARSET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

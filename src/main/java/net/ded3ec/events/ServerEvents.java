@@ -13,7 +13,6 @@ import net.ded3ec.util.Logger;
 import net.ded3ec.util.TaskScheduler;
 import net.ded3ec.util.TpsManager;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import net.ded3ec.AuthCoreServer;
@@ -28,12 +27,65 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 
+/**
+ * The main game hooks: player join, player leave and the per-tick guard.
+ *
+ * <p>onPlayerJoin is the gate every connection passes through. It classifies the player
+ * (premium or standard), applies every security check in order (duplicates, rate limits, IP
+ * rules, locks, proxy detection) and ends with one of three outcomes: session resumed,
+ * premium auto-login, or locked into the lobby. onEndServerTick re-asserts the limbo
+ * (blindness, position anchor) as a fallback for anything the packet-level guards miss.
+ */
 public class ServerEvents {
+
+  /** True when the fabric-api join/leave/tick hooks are registered (set by FabricHooks).
+   *  The mixin fallbacks in ServerEventsFallbackMixin skip when the fabric hook is active,
+   *  so AuthCore keeps working even on servers WITHOUT fabric-api. */
+  public static volatile boolean fabricJoinActive = false;
+  public static volatile boolean fabricLeaveActive = false;
+  public static volatile boolean fabricTickActive = false;
+
+  /** True when a Forge/NeoForge native event-bus hook is registered (set by the loader
+   *  entrypoints). The mixin fallbacks skip when EITHER the fabric hook or the native hook
+   *  is active - otherwise a Forge-like server would fire the same join/leave/tick twice
+   *  (native event + fallback mixin) and the duplicate-register check would kick players. */
+  public static volatile boolean nativeJoinActive = false;
+  public static volatile boolean nativeLeaveActive = false;
+  public static volatile boolean nativeTickActive = false;
+
+  /**
+   * Connections already processed by the join handler. Dedupes loaders where multiple hooks
+   * fire for the SAME join (e.g. NeoForge's PlayerLoggedInEvent + fabric-api's JOIN event via
+   * Sinytra Connector, or a native event + the fallback mixin): without this the second call
+   * sees the user already locked in the lobby and kicks them with "already registering".
+   */
+  private static final java.util.Set<ServerGamePacketListenerImpl> JOINED_CONNECTIONS =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+  /** Connections already processed by the leave handler (same double-fire protection). */
+  private static final java.util.Set<ServerGamePacketListenerImpl> LEFT_CONNECTIONS =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
 
   /** Player join handler (loader-neutral - the fabric PacketSender arg was unused). */
   public static void onPlayerJoin(ServerGamePacketListenerImpl connection) {
+    if (connection == null || !JOINED_CONNECTIONS.add(connection)) return;
 
     ServerPlayer player = connection.player;
+
+    AuthCoreServer.LOGGER.debug(
+        false,
+        "{} | join started (online-mode server: {})",
+        player.getName().getString(),
+        AuthCoreServer.isServerOnline());
+
+    // Detect the real server.properties online-mode once (it is ALWAYS taken from the
+    // Minecraft server - there is no config override, so offline servers are handled
+    // correctly without any setup).
+    net.minecraft.server.MinecraftServer joinServer = net.ded3ec.compat.Compat.getServer(player);
+    if (joinServer != null)
+      AuthCoreServer.detectServerOnlineMode(
+          net.ded3ec.compat.Compat.serverUsesAuthentication(joinServer));
+    boolean onlineServer = AuthCoreServer.isServerOnline();
 
     // ClientGuard: per-player profile + confusable-name impersonation scan.
     net.ded3ec.security.ClientGuard.onJoin(player);
@@ -52,6 +104,7 @@ public class ServerEvents {
     UUID uuid = player.getUUID();
     String username = player.getName().getString();
     User user = User.getUser(username, uuid);
+    boolean brandNew = false;
 
     // Duplicate login handling
     if (user != null && user.isActive) {
@@ -87,14 +140,21 @@ public class ServerEvents {
         user.isActive = false;
       }
 
-    } else if (user == null)
-      user =
-          new User(
-              uuid,
-              username,
-              System.currentTimeMillis(),
-              (Objects.equals(AuthCoreServer.config.session.serverMode, "online"))
-                  || username.equals(McApiManager.getPremiumUsername(uuid)));
+} else if (user == null) {
+      // A brand-new account. On an online-mode server every accepted player with a REAL
+      // (non-offline) UUID is premium (the server itself authenticated them) - offline-UUID
+      // players are accepted by the hybrid login flow and are OFFLINE. On an offline-mode
+      // server the online-mode status is verified ASYNCHRONOUSLY (below) so the join path
+      // never blocks on a Mojang API call - verified players are auto-logged-in as soon as
+      // the lookup returns.
+      boolean premiumNew =
+          onlineServer && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid);
+      user = new User(uuid, username, System.currentTimeMillis(), premiumNew);
+      brandNew = true;
+    }
+
+    // Final snapshot for lambdas (user may be reassigned above).
+    final User joinUser = user;
 
     // Companion session-claim verification (delayed a few seconds so the client's
     // HELLO / SESSION_TOKEN_ECHO payloads have time to arrive).
@@ -174,9 +234,13 @@ public class ServerEvents {
           0xF1C40F);
     }
 
-    // Proxy restriction (GeoIP lookups are cached, so this is one request per unique IP per day)
+    // Proxy restriction. The GeoIP lookup itself runs ASYNCHRONOUSLY in User.connect (off
+    // the server thread - a synchronous HTTP call here stalls the whole server for up to
+    // the HTTP timeout, the "Can't keep up" killer). This path only consumes the CACHE:
+    // if the async lookup has not completed yet, the proxy decision is deferred a few
+    // seconds instead of blocking the server thread.
     if (!AuthCoreServer.config.session.authentication.allowProxyUsers) {
-      com.google.gson.JsonObject geo = McApiManager.geoIp(player.getIpAddress());
+      com.google.gson.JsonObject geo = McApiManager.geoIpCached(player.getIpAddress());
       if (geo != null
           && geo.has("status")
           && "success".equalsIgnoreCase(geo.get("status").getAsString()))
@@ -186,6 +250,26 @@ public class ServerEvents {
         AuthCoreServer.LOGGER.toKick(
             false, connection, AuthCoreServer.messages.promptUserProxyNotAllowed);
         return;
+      }
+
+      // Data not cached yet (async lookup still running): re-check once after it had time
+      // to complete instead of blocking the join on an HTTP call.
+      if (McApiManager.geoIpCached(player.getIpAddress()) == null) {
+        net.ded3ec.util.TaskScheduler.getInstance()
+            .setTimeout(
+                () -> {
+                  if (joinUser == null || !joinUser.isActive || joinUser.connection == null)
+                    return;
+                  com.google.gson.JsonObject geo2 = McApiManager.geoIpCached(player.getIpAddress());
+                  if (geo2 != null
+                      && geo2.has("status")
+                      && "success".equalsIgnoreCase(geo2.get("status").getAsString()))
+                    joinUser.geoIpData = geo2;
+                  if (joinUser.isProxy.get())
+                    AuthCoreServer.LOGGER.toKick(
+                        false, joinUser.connection, AuthCoreServer.messages.promptUserProxyNotAllowed);
+                },
+                7000L);
       }
     }
 
@@ -200,26 +284,39 @@ public class ServerEvents {
       return;
     }
 
-    // Premium-name restriction (username squatting protection).
-    // Only enforced when the Mojang API is confirmed healthy - a transient API failure must
-    // never block legitimate premium players (the reported "blocks me as not online-mode" bug).
-    if (!AuthCoreServer.config.session.authentication.allowOnlineNameByOffline
-        && McApiManager.isPremiumApiHealthy()
-        && McApiManager.getPremiumUuid(user.username) != null
-        && McApiManager.getPremiumUsername(uuid) == null) {
-
-      user.kick(AuthCoreServer.messages.promptUserPremiumNameNotAllowed);
+    // Online-mode-only servers: when offline (cracked) players are disallowed, reject any
+    // join the server did NOT verify as a genuine online-mode session. On an online-mode
+    // server only real-UUID clients were verified by vanilla (offline-UUID clients were
+    // accepted by the hybrid login flow and are offline); on an offline-mode server a real
+    // online-mode player was verified by the handshake mixin, everyone else is offline and
+    // is kicked - before session resume, register or login can happen.
+    if (!AuthCoreServer.config.session.authentication.allowOfflinePlayers
+        && !((onlineServer && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid))
+            || AuthCoreServer.isPremiumVerified(uuid))) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | join - offline-mode players are not allowed on this server, kicking",
+          username);
+      AuthCoreServer.LOGGER.toKick(
+          false, connection, AuthCoreServer.messages.promptUserOfflinePlayersNotAllowed);
       return;
     }
 
-    if (!McApiManager.isPremiumApiHealthy())
-      McApiManager.warnApiUnavailable();
+    // Resume active session. The same-IP requirement is enforced ONLY when
+    // sessionFromSameIPOnly is enabled: on hybrid/proxy networks (hub -> game switches)
+    // the forwarded IP can legitimately differ between servers, so an unconditional IP
+    // check would silently drop the session on every hub transfer.
+    boolean sameIpOk =
+        !AuthCoreServer.config.session.sessionFromSameIPOnly
+            || (org.apache.commons.lang3.StringUtils.isNotBlank(user.ipAddress)
+                && user.ipAddress.equals(player.getIpAddress()));
+    if (user.uuid.equals(uuid) && sameIpOk && user.isActiveSession.get()) {
 
-    // Resume active session
-    if (user.uuid.equals(uuid)
-        && org.apache.commons.lang3.StringUtils.isNotBlank(user.ipAddress)
-        && user.ipAddress.equals(player.getIpAddress())
-        && user.isActiveSession.get()) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | join - active session resumed (same-IP {}), skipping auth",
+          username,
+          sameIpOk);
 
       AuthCoreServer.LOGGER.debug(
           true, "{} skipped authentication and resumed session!", user.username);
@@ -231,28 +328,84 @@ public class ServerEvents {
       return;
     }
 
-    // Premium auto-login
-    if (user.uuid.equals(uuid)
-        && AuthCoreServer.config.session.authentication.premiumAutoLogin
-        && user.isPremium) {
+    // Premium auto-login.
+    //
+    // Online-mode status comes ONLY from the server's own Mojang session authentication
+    // (online-mode servers verify every real-UUID profile via the session service - captured
+    // by the ServerLoginNetworkHandlerMixin premium hook; offline-UUID clients there were
+    // accepted by the hybrid login flow and are OFFLINE) - AuthCore makes NO Mojang API
+    // calls. On offline-mode servers the server never authenticates anyone, so no player can
+    // be online-mode unless the handshake mixin verified them: DB records flagged
+    // "online-mode" by earlier builds are stale and are downgraded instead of trusted
+    // (previously they were auto-registered / auto-logged-in, which silently bypassed
+    // registration for offline players).
+    //
+    // The premium-auto-login CONFIG is always respected, regardless of the server's mode
+    // (it defaults to enabled). With it OFF, verified online-mode players are treated like any
+    // standard account: since auto-login accounts keep a NULL password, they are asked to
+    // /register on their next re-auth (their premium status itself is NOT destroyed, so the
+    // auto-login simply resumes when the admin turns the config back on).
+    //
+    // A player's OWN mode choice is honored: brand-new accounts and accounts whose stored
+    // mode is online auto-login when the session is verified; an account the player (or an
+    // admin) explicitly switched to offline-mode is NEVER auto-logged-in - it is asked to
+    // register/login like any offline account, even on an online-mode server.
+    boolean verifiedPremium =
+        (onlineServer && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid))
+            || AuthCoreServer.isPremiumVerified(uuid);
+    boolean autoLogin =
+        AuthCoreServer.config.session.authentication.premiumAutoLogin
+            && verifiedPremium
+            && (brandNew || user.isPremium);
 
-      AuthCoreServer.LOGGER.debug(true, "{} is premium and skipped authentication!", user.username);
+    if (autoLogin) {
+      // A brand-new account verified as premium on this join - persist the flag so future
+      // joins keep auto-logging-in. An account that explicitly switched to offline-mode is
+      // never upgraded here (isPremium=false and it is not brand-new).
+      if (!user.isPremium) {
+        user.isPremium = true;
+        user.update("Online-mode verified via server authentication");
+      }
 
+      AuthCoreServer.LOGGER.debug(
+          false, "{} | join - online-mode verified, auto-login path", username);
+      AuthCoreServer.LOGGER.debug(
+          true, "{} is an online-mode player and skipped authentication!", user.username);
+
+      // Premium auto-login players are NEVER given an auto-generated password - their stored
+      // password stays null (they are not password-"registered"). They are logged in directly;
+      // if they later switch to offline mode they are asked to register a password.
       AuthCoreServer.LOGGER.toUser(
           true, connection, AuthCoreServer.messages.promptUserPremiumAutoLogin);
 
-      if (AuthCoreServer.config.session.authentication.premiumAutoRegister
-          && !user.isRegistered.get()) user.register(player, Security.Password.generate(20));
-      else if (user.isRegistered.get()) user.login(player);
-      else user.lobby.lock();
-
+      user.login(player);
       return;
     }
 
-    // Premium UUID mismatch
+    // Stale premium flag: the account claims premium but THIS session was not verified as
+    // premium (offline server without session verification, or premium auto-login disabled) -
+    // downgrade to standard so it cannot bypass register/login. When only the auto-login
+    // config is OFF the account stays premium (the flag is preserved) - the player is just
+    // asked to register/login because their stored password is null.
+    if (user.isPremium && !verifiedPremium) {
+      AuthCoreServer.LOGGER.info(
+          true,
+          "{} was registered as an online-mode account but this session was not verified as "
+              + "online-mode - moved to offline-mode authentication (register/login required).",
+          user.username);
+      user.isPremium = false;
+      user.update("Online-mode flag cleared (offline-mode auth server)");
+    }
+
+    // Premium UUID mismatch. Only applies on online-mode servers (where the server itself
+    // verified the connecting profile): a REAL premium UUID that does not match the stored
+    // one means an impostor. Offline-mode servers derive offline UUIDs for everyone, so the
+    // check never applies there.
     if (!user.uuid.equals(uuid)
         && user.isPremium
-        && AuthCoreServer.config.session.authentication.premiumAutoLogin) {
+        && AuthCoreServer.config.session.authentication.premiumAutoLogin
+        && onlineServer
+        && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid)) {
 
       user.kick(AuthCoreServer.messages.promptUserPremiumDifferentUUID);
       return;
@@ -263,10 +416,14 @@ public class ServerEvents {
         && AuthCoreServer.config.session.intelligence.enabled
         && !McApiManager.isPrivateAddress(player.getIpAddress())) {
 
+      // Cache-only GeoIP read: the async lookup in User.connect populates this shortly
+      // after join. A synchronous HTTP call here would stall the server thread (the
+      // "Can't keep up" killer), so the country may be momentarily unavailable on the
+      // very first join - the risk score simply falls back to null country.
       com.google.gson.JsonObject geo = user.geoIpData;
       String country = user.country.get();
       if (geo == null && country == null) {
-        geo = McApiManager.geoIp(player.getIpAddress());
+        geo = McApiManager.geoIpCached(player.getIpAddress());
         if (geo != null
             && geo.has("status")
             && "success".equalsIgnoreCase(geo.get("status").getAsString()))
@@ -378,17 +535,51 @@ public class ServerEvents {
       return;
     }
 
+    // Crash recovery: if a limbo snapshot file still exists for this player, the previous
+    // limbo session ended without a clean unlock (server crash). Restore the saved
+    // pre-limbo state BEFORE the fresh lobby lock captures it - otherwise the lock would
+    // capture the crash-persisted Adventure mode + emptied inventory and the player would
+    // stay stuck after logging in.
+    java.nio.file.Path snapshot = net.ded3ec.models.Lobby.snapshotFile(uuid);
+    if (java.nio.file.Files.exists(snapshot)) {
+      boolean restored = net.ded3ec.models.Lobby.restoreCrashSnapshot(player, snapshot);
+      AuthCoreServer.LOGGER.warn(
+          restored,
+          "Crash recovery: restored pre-limbo state for {} from a leftover limbo snapshot.",
+          username);
+      if (restored)
+        net.ded3ec.security.SecurityLog.log(
+            "LIMBO_CRASH_RECOVERY",
+            username + " pre-limbo state restored after an unclean shutdown");
+      try {
+        java.nio.file.Files.deleteIfExists(snapshot);
+      } catch (java.io.IOException ignored) {
+        // cleanup is best-effort
+      }
+    }
+
     // Default: lock user in lobby
     user.lobby.lock();
   }
 
   /** Player leave handler */
   public static void onPlayerLeave(ServerGamePacketListenerImpl connection) {
+    if (connection == null || !LEFT_CONNECTIONS.add(connection)) return;
 
+    JOINED_CONNECTIONS.remove(connection);
     ServerPlayer player = connection.player;
+
+    // Drop any pending action captcha (the single human verification).
+    net.ded3ec.security.ActionCaptcha.onLeave(player);
 
     // ClientGuard: drop the per-player profile.
     net.ded3ec.security.ClientGuard.onLeave(player.getUUID());
+
+    // Optional integrations: drop per-player caches.
+    net.ded3ec.integration.ModIntegrations.onLeave(player.getUUID());
+
+    // Drop the per-join premium-verification marker (vanilla Mojang session authentication).
+    net.ded3ec.AuthCoreServer.clearPremiumVerified(player.getUUID());
 
     UUID uuid = player.getUUID();
     String username = player.getName().getString();
@@ -439,45 +630,75 @@ public class ServerEvents {
     TpsManager.onTick();
     TaskScheduler.getInstance().onTick();
 
+    // Action captcha progress measurement (per-tick physical task verification).
+    net.ded3ec.security.ActionCaptcha.tickAll();
+
     // ClientGuard: ghost/settings watchdogs, re-challenges and the risk decision matrix.
     net.ded3ec.security.ClientGuard.tick(server);
 
     // Limbo re-assert guards (fallbacks for environments where mixins cannot apply):
     // - re-apply the lobby blindness/invisibility effects if a lobby player lost them
+    // - revoke the flying ability / elytra glide every tick (fly hacks)
+    // - zero upward velocity + re-anchor vertically drifting players (vertical fly hacks)
     // - teleport lobby players back when movement is disabled and they drifted
+    // NOTE: no periodic inventory force-close here - the client treats a container-close
+    // packet as "close the current screen", which would snap the CHAT window shut and make
+    // /register / /login unusable. The inventory is fully protected by the click guards
+    // (every click blocked + close-on-first-click).
     if (AuthCoreServer.config != null && !Lobby.users.isEmpty()) {
       boolean invisible = AuthCoreServer.config.lobby.invisibleUnauthorized;
       boolean blind = AuthCoreServer.config.lobby.applyBlindnessEffect;
       boolean noMove = !AuthCoreServer.config.lobby.allowMovement;
 
-      if (invisible || blind || noMove)
-        for (Lobby lobby : new java.util.ArrayList<>(Lobby.users.values())) {
-          User u = lobby.user;
-          if (u == null || !u.isActive || u.player.get() == null) continue;
-          ServerPlayer p = u.player.get();
+      for (Lobby lobby : new java.util.ArrayList<>(Lobby.users.values())) {
+        User u = lobby.user;
+        if (u == null || !u.isActive || u.player.get() == null) continue;
+        ServerPlayer p = u.player.get();
 
-          if (invisible && !p.isInvisible())
-            net.ded3ec.compat.Compat.addStatusEffect(
-                p,
-                new net.minecraft.world.effect.MobEffectInstance(
-                    net.minecraft.world.effect.MobEffects.INVISIBILITY,
-                    Integer.MAX_VALUE,
-                    1,
-                    false,
-                    false));
-          if (blind && p.getActiveEffects().stream().noneMatch(
-              e -> e.getEffect() == net.minecraft.world.effect.MobEffects.BLINDNESS))
-            net.ded3ec.compat.Compat.addStatusEffect(
-                p,
-                new net.minecraft.world.effect.MobEffectInstance(
-                    net.minecraft.world.effect.MobEffects.BLINDNESS,
-                    Integer.MAX_VALUE,
-                    1,
-                    false,
-                    false));
+        // Fly/elytra bypass guards - apply to EVERY lobby player, even when basic movement
+        // is allowed: flight is never part of the lobby's allowed movement. Hack clients
+        // that set the flying ability or started a glide are snapped back next tick (the
+        // move-cancel mixin keeps the server entity anchored in the meantime).
+        net.minecraft.world.entity.player.Abilities abilities =
+            net.ded3ec.compat.Compat.getAbilities(p);
+        if (abilities != null && abilities.flying) abilities.flying = false;
+        if (p.isFallFlying()) net.ded3ec.compat.Compat.stopFallFlying(p);
 
-          if (noMove && lobby.isOutsideOfLobbyPos(p.getX(), p.getZ())) lobby.handleTeleport();
+        // Vertical fly watchdog: with movement fully disabled the server entity must never
+        // climb. Zero any upward velocity and re-anchor the player the moment the server
+        // position drifts off the lobby anchor on ANY axis (packet-level hacks that slip
+        // past the move-cancel are corrected here, and the client gets snapped back).
+        if (noMove) {
+          if (p.getDeltaMovement().y > 0.2) {
+            p.setDeltaMovement(p.getDeltaMovement().multiply(1.0, 0.0, 1.0));
+            net.ded3ec.security.SecurityLog.log(
+                "LIMBO_VERTICAL_FLIGHT",
+                u.username + " vertical velocity detected in limbo - velocity zeroed");
+            lobby.teleportBack();
+          }
+          if (lobby.isFarFromLobbyPos(p.getX(), p.getY(), p.getZ())) lobby.handleTeleport();
         }
+
+        if (invisible && !p.isInvisible())
+          net.ded3ec.compat.Compat.addStatusEffect(
+              p,
+              new net.minecraft.world.effect.MobEffectInstance(
+                  net.minecraft.world.effect.MobEffects.INVISIBILITY,
+                  Integer.MAX_VALUE,
+                  1,
+                  false,
+                  false));
+        if (blind && p.getActiveEffects().stream().noneMatch(
+            e -> e.getEffect() == net.minecraft.world.effect.MobEffects.BLINDNESS))
+          net.ded3ec.compat.Compat.addStatusEffect(
+              p,
+              new net.minecraft.world.effect.MobEffectInstance(
+                  net.minecraft.world.effect.MobEffects.BLINDNESS,
+                  Integer.MAX_VALUE,
+                  1,
+                  false,
+                  false));
+      }
     }
   }
 }

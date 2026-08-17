@@ -77,6 +77,8 @@ public final class Webhook {
 
     for (String url : urls) {
       if (url == null || url.isBlank()) continue;
+      AuthCoreServer.LOGGER.debug(
+          false, "Webhook | posting alert to {}", url.length() > 40 ? url.substring(0, 40) + "..." : url);
       AuthCoreServer.IO_EXECUTOR.execute(
           () -> {
             try {

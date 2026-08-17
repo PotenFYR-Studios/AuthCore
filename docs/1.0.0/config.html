@@ -8,21 +8,21 @@
 <meta property="og:title" content="Configuration Reference - AuthCore Docs">
 <meta property="og:description" content="Every setting, default and use-case.">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://potenfyr-studios.github.io/PotenFYR-Studios/AuthCore/docs/1.0.0/config.html">
+<link rel="canonical" href="https://authcore.potenfyr.in/docs/1.0.0/config.html">
 <style>
   :root {
-    --bg0: #030508;
-    --bg1: #0a1128;
-    --bg2: #0d2a5e;
-    --panel: rgba(10, 17, 40, 0.72);
-    --panel-2: rgba(13, 42, 94, 0.35);
-    --accent: #3b82f6;
-    --accent-2: #60a5fa;
-    --accent-3: #93c5fd;
+    --bg0: #060607;
+    --bg1: #0c0a0a;
+    --bg2: #1a0c0c;
+    --panel: rgba(14, 8, 8, 0.78);
+    --panel-2: rgba(70, 12, 12, 0.32);
+    --accent: #ef4444;
+    --accent-2: #f87171;
+    --accent-3: #fca5a5;
     --green: #22c55e;
-    --text: #e2e8f0;
-    --muted: #8b95a7;
-    --border: rgba(59, 130, 246, 0.22);
+    --text: #e9e7ea;
+    --muted: #a29aa0;
+    --border: rgba(239, 68, 68, 0.24);
     --radius: 16px;
     --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Liberation Mono", monospace;
@@ -37,7 +37,7 @@
     font-size: 16px;
     line-height: 1.65;
     background:
-      radial-gradient(1200px 420px at 50% -100px, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0) 65%),
+      radial-gradient(1200px 420px at 50% -100px, rgba(239, 68, 68, 0.13) 0%, rgba(239, 68, 68, 0) 65%),
       linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 45%, var(--bg2) 140%);
     background-attachment: fixed;
     overflow-x: hidden;
@@ -47,7 +47,7 @@
   #progress {
     position: fixed; top: 0; left: 0; height: 3px; width: 0;
     background: linear-gradient(90deg, var(--accent), var(--accent-3), #fff);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.8);
     z-index: 1000; border-radius: 0 3px 3px 0;
   }
 
@@ -56,13 +56,13 @@
     position: sticky; top: 0; z-index: 500;
     display: flex; align-items: center; gap: 18px;
     padding: 10px 22px;
-    background: rgba(3, 5, 8, 0.72);
+    background: rgba(6, 6, 7, 0.74);
     backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; font-weight: 700; letter-spacing: 0.2px; white-space: nowrap; }
-  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(59,130,246,.7)); }
+  .brand-mark { font-size: 1.25em; filter: drop-shadow(0 0 8px rgba(239,68,68,.7)); }
   .brand-text { font-size: 1.05em; }
   .brand-dot { color: var(--accent-3); }
   .site-nav { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; justify-content: center; }
@@ -72,8 +72,8 @@
     position: relative;
   }
   .nav-link .nav-icon { margin-right: 4px; font-size: 0.92em; }
-  .nav-link:hover { color: #fff; background: rgba(59, 130, 246, 0.12); }
-  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(59,130,246,.28), rgba(13,42,94,.45)); box-shadow: inset 0 0 0 1px rgba(59,130,246,.35), 0 0 14px rgba(59,130,246,.25); }
+  .nav-link:hover { color: #fff; background: rgba(239, 68, 68, 0.12); }
+  .nav-link.active { color: #fff; background: linear-gradient(135deg, rgba(239,68,68,.28), rgba(70,12,12,.5)); box-shadow: inset 0 0 0 1px rgba(239,68,68,.4), 0 0 14px rgba(239,68,68,.3); }
   .nav-gh { margin-left: 6px; color: var(--accent-3); }
   .nav-toggle { display: none; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; cursor: pointer; margin-left: auto; }
   .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--accent-3); margin: 3px 0; border-radius: 2px; transition: transform .2s; }
@@ -85,40 +85,55 @@
     .site-nav {
       display: none; position: absolute; top: 100%; left: 0; right: 0;
       flex-direction: column; align-items: stretch; gap: 4px;
-      background: rgba(3, 5, 8, 0.96); backdrop-filter: blur(14px);
+      background: rgba(6, 6, 7, 0.97); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border); padding: 10px 14px;
     }
     .site-nav.open { display: flex; }
   }
 
-  /* ---------- layout ---------- */
-  .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; max-width: 1180px; margin: 0 auto; padding: 30px 22px 60px; }
+  /* ---------- layout (wide, content spreads out) ---------- */
+  .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 34px; max-width: 1580px; margin: 0 auto; padding: 34px 28px 70px; align-items: start; }
   /* pages without a sidebar TOC (home, docs hub) span the full width */
   .layout > :only-child { grid-column: 1 / -1; }
-  .layout:has(> :only-child) { max-width: 980px; }
-  @media (max-width: 1020px) { .layout { grid-template-columns: 1fr; } }
+  .layout:has(> :only-child) { max-width: 1500px; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
 
-  /* ---------- sidebar TOC ---------- */
+  /* ---------- sidebar TOC (enhanced navigation) ---------- */
   .toc {
-    position: sticky; top: 78px; align-self: start;
-    max-height: calc(100vh - 100px); overflow-y: auto;
+    position: sticky; top: 82px; align-self: start;
+    max-height: calc(100vh - 104px); overflow-y: auto;
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 14px 16px;
-    backdrop-filter: blur(8px);
-    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    padding: 16px 14px 14px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     animation: fadeUp .5s ease both;
+    scrollbar-width: thin; scrollbar-color: rgba(239,68,68,.45) transparent;
   }
-  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-3); margin: 2px 0 10px; }
+  .toc::-webkit-scrollbar { width: 6px; }
+  .toc::-webkit-scrollbar-thumb { background: rgba(239,68,68,.45); border-radius: 6px; }
+  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 4px 10px; }
+  .toc-title { font-size: 0.72em; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-3); }
+  .toc-count { font-size: 0.68em; color: var(--muted); letter-spacing: 0.04em; background: rgba(239,68,68,.14); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; }
   .toc ul { list-style: none; margin: 0; padding: 0; }
   .toc-item { margin: 1px 0; }
   .toc-item a {
-    display: block; color: var(--muted); text-decoration: none; font-size: 0.84em;
-    padding: 4px 10px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
-    transition: color .15s, border-color .15s, background .15s;
+    display: flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; font-size: 0.84em;
+    padding: 5px 10px 5px 8px; border-left: 2px solid transparent; border-radius: 0 8px 8px 0;
+    transition: color .15s, border-color .15s, background .15s, padding-left .15s;
+    position: relative;
   }
-  .toc-item a:hover { color: #fff; background: rgba(59, 130, 246, 0.1); }
-  .toc-item.toc-3 a { padding-left: 22px; font-size: 0.8em; }
-  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(59,130,246,.18), transparent); }
+  .toc-item a::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; transition: background .15s, box-shadow .15s; }
+  .toc-item a:hover { color: #fff; background: rgba(239, 68, 68, 0.1); padding-left: 12px; }
+  .toc-item a:hover::before { background: var(--accent-3); box-shadow: 0 0 8px rgba(239,68,68,.7); }
+  .toc-item.toc-3 a { padding-left: 24px; font-size: 0.8em; }
+  .toc-item.toc-3 a:hover { padding-left: 28px; }
+  .toc-item a.active { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, rgba(239,68,68,.22), rgba(239,68,68,.02)); font-weight: 600; }
+  .toc-item a.active::before { background: var(--accent); box-shadow: 0 0 8px rgba(239,68,68,.8); }
+  .toc-progress { height: 3px; border-radius: 3px; background: rgba(239,68,68,.15); margin: 10px 4px 4px; overflow: hidden; }
+  .toc-progress > span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-3)); box-shadow: 0 0 10px rgba(239,68,68,.6); transition: width .1s linear; }
+  .toc-top { display: block; margin: 10px 4px 0; text-align: center; font-size: 0.74em; color: var(--accent-2); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; transition: background .15s, color .15s; }
+  .toc-top:hover { background: rgba(239,68,68,.12); color: #fff; }
+  .toc-top::before { content: "↑ "; }
 
   /* ---------- content ---------- */
   article {
@@ -126,7 +141,7 @@
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
     padding: 36px 44px 52px;
-    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: 0 20px 64px rgba(0, 0, 0, 0.5), 0 0 100px rgba(220, 38, 38, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(8px);
     animation: fadeUp .55s ease both;
   }
@@ -143,20 +158,20 @@
     content: ""; display: block; position: absolute; left: 0; right: 0; bottom: -1px;
     height: 2px; border-radius: 2px;
     background: linear-gradient(90deg, var(--accent-3), var(--accent), transparent);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
   }
   article h2 {
     font-size: 1.38em; color: #f8fafc; margin: 1.9em 0 0.6em; padding-bottom: 8px;
-    border-bottom: 1px solid rgba(59, 130, 246, 0.16);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.18);
     animation: fadeUp .5s ease both;
   }
   article h2::before {
     content: ""; display: inline-block; width: 7px; height: 0.95em; margin-right: 11px;
     background: linear-gradient(180deg, var(--accent-3), var(--accent)); border-radius: 4px;
-    box-shadow: 0 0 14px rgba(59, 130, 246, 0.65); vertical-align: -0.08em;
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.7); vertical-align: -0.08em;
   }
   article h3 { font-size: 1.12em; color: var(--accent-3); margin: 1.5em 0 0.5em; }
-  article h4 { font-size: 1em; color: #dbeafe; }
+  article h4 { font-size: 1em; color: #fee2e2; }
   article p { margin: 0.85em 0; }
   article strong { color: #f8fafc; }
   article a {
@@ -173,7 +188,7 @@
   article blockquote {
     margin: 1.1em 0; padding: 0.7em 1.2em;
     border-left: 3px solid var(--accent); border-radius: 0 12px 12px 0;
-    background: linear-gradient(90deg, rgba(59, 130, 246, 0.14), rgba(59, 130, 246, 0.02));
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.13), rgba(239, 68, 68, 0.02));
   }
   article blockquote p { margin: 0.4em 0; }
   article img { max-width: 100%; border-radius: 12px; }
@@ -184,34 +199,34 @@
     animation: fadeUp .5s ease both;
   }
   article th {
-    background: linear-gradient(180deg, rgba(59, 130, 246, 0.26), rgba(59, 130, 246, 0.1));
-    color: #dbeafe; font-weight: 600; text-align: left;
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.28), rgba(239, 68, 68, 0.1));
+    color: #fee2e2; font-weight: 600; text-align: left;
   }
   article th, article td { padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
   article th:last-child, article td:last-child { white-space: normal; }
   article tr:last-child td { border-bottom: 0; }
   article tbody tr { transition: background .15s; }
-  article tbody tr:hover { background: rgba(59, 130, 246, 0.08); }
+  article tbody tr:hover { background: rgba(239, 68, 68, 0.08); }
   article code {
-    background: rgba(59, 130, 246, 0.14); color: var(--accent-3);
-    border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px;
+    background: rgba(239, 68, 68, 0.12); color: var(--accent-3);
+    border: 1px solid rgba(239, 68, 68, 0.22); border-radius: 6px;
     padding: 1px 6px; font-family: var(--mono); font-size: 0.87em;
   }
   article pre {
     position: relative; margin: 1.2em 0; padding: 18px 20px;
-    background: rgba(2, 6, 16, 0.88);
-    border: 1px solid rgba(59, 130, 246, 0.28); border-radius: 12px;
-    box-shadow: inset 0 0 40px rgba(37, 99, 235, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
+    background: rgba(10, 4, 4, 0.9);
+    border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 12px;
+    box-shadow: inset 0 0 40px rgba(220, 38, 38, 0.08), 0 8px 26px rgba(0, 0, 0, 0.4);
     overflow-x: auto;
   }
-  article pre code { background: none; border: 0; padding: 0; color: #dbeafe; font-size: 0.87em; line-height: 1.6; }
+  article pre code { background: none; border: 0; padding: 0; color: #fdecec; font-size: 0.87em; line-height: 1.6; }
   .copy-btn {
     position: absolute; top: 8px; right: 8px; opacity: 0; transition: opacity .2s, transform .15s;
-    background: rgba(13, 42, 94, 0.8); color: var(--accent-3); border: 1px solid var(--border);
+    background: rgba(70, 12, 12, 0.85); color: var(--accent-3); border: 1px solid var(--border);
     border-radius: 8px; padding: 4px 10px; font-size: 0.75em; cursor: pointer; font-family: var(--font);
   }
   article pre:hover .copy-btn { opacity: 1; }
-  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(37, 99, 235, 0.5); }
+  .copy-btn:hover { transform: scale(1.05); color: #fff; background: rgba(220, 38, 38, 0.5); }
   .copy-btn.done { color: #86efac; border-color: rgba(34, 197, 94, 0.5); }
 
   /* ---------- docs hub cards ---------- */
@@ -223,8 +238,8 @@
     transition: transform .2s, box-shadow .2s, border-color .2s;
     animation: fadeUp .5s ease both;
   }
-  .doc-card:hover { transform: translateY(-4px); border-color: rgba(59, 130, 246, 0.55); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(59, 130, 246, 0.25); }
-  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(59,130,246,.6)); }
+  .doc-card:hover { transform: translateY(-4px); border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(239, 68, 68, 0.28); }
+  .doc-card .dc-icon { display: block; font-size: 1.7em; line-height: 1; filter: drop-shadow(0 0 10px rgba(239,68,68,.6)); }
   .doc-card .dc-title { display: block; margin: 10px 0 6px; color: #fff; font-weight: 700; font-size: 1.02em; line-height: 1.35; }
   .doc-card .dc-desc { display: block; color: var(--muted); font-size: 0.86em; line-height: 1.55; }
 
@@ -232,15 +247,15 @@
   #toTop {
     position: fixed; right: 22px; bottom: 22px; z-index: 600;
     width: 46px; height: 46px; border-radius: 50%; cursor: pointer;
-    border: 1px solid rgba(59, 130, 246, 0.5);
-    background: linear-gradient(135deg, var(--bg2), #02060d);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    background: linear-gradient(135deg, var(--bg2), #060607);
     color: var(--accent-3); font-size: 1.2em;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 24px rgba(239, 68, 68, 0.3);
     opacity: 0; transform: translateY(10px); pointer-events: none;
     transition: opacity .25s, transform .25s;
   }
   #toTop.show { opacity: 1; transform: none; pointer-events: auto; }
-  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(59, 130, 246, 0.55); color: #fff; }
+  #toTop:hover { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 34px rgba(239, 68, 68, 0.6); color: #fff; }
 
   footer {
     text-align: center; color: var(--muted); font-size: 0.84em;
@@ -256,6 +271,7 @@
 </head>
 <body>
 <div id="progress"></div>
+<div id="top" aria-hidden="true"></div>
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
@@ -269,6 +285,7 @@
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
       <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
       <a class="nav-link active" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
       <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
       <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
@@ -287,6 +304,7 @@
   </aside>
   <main>
     <article>
+
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
@@ -299,9 +317,9 @@ Defaults are the values shipped with a fresh install.</p>
 </blockquote>
 <blockquote>
 <p>🎁 <strong>Range jars, every loader</strong>, AuthCore ships one jar per supported version range <strong>and
-loader</strong>: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code> (1.16.0 – 1.18.2, built at 1.18.2),
-<code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code> (1.19.0 – 1.21.11, built at 1.21.11) and
-<code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code> (26.1 – 26.2, built at 26.2). Every jar runs standalone <strong>and</strong>
+loader</strong>: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code> (1.16.0 - 1.18.2, built at 1.18.2),
+<code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code> (1.19.0 - 1.21.11, built at 1.21.11) and
+<code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code> (26.1 - 26.2, built at 26.2). Every jar runs standalone <strong>and</strong>
 behind Velocity/BungeeCord. The same <code>settings.conf</code> works in both setups; proxy IP
 forwarding is the only thing you toggle (<code>session.proxy-support</code>). The cross-server security
 event bus and Discord link-code storage need <strong>no new settings</strong>, they activate
@@ -377,12 +395,17 @@ automatically with <code>database.redis.enabled</code>.</p>
 <td><code>show-untested-version-warning</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0–1.18.2, 1.19.0–1.21.11 and 26.1–26.2). AuthCore <strong>never refuses to load</strong>, it warns and keeps working.</td>
+<td>Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0-1.18.2, 1.19.0-1.21.11 and 26.1-26.2). AuthCore <strong>never refuses to load</strong>, it warns and keeps working.</td>
 <td>Keep on when riding a brand-new Minecraft release; set to <code>false</code> once you&#39;ve verified your version in staging.</td>
 </tr>
 </tbody></table>
 <hr>
 <h2 id="session">🕒 <code>session</code></h2>
+<p>There is no <code>server-mode</code> setting: the server&#39;s online/offline mode is <strong>always taken
+automatically from <code>server.properties</code></strong> (<code>online-mode</code>). On online-mode servers keep
+<code>enable-secure-profile=false</code> in <code>server.properties</code> so clients without a secure chat
+profile (cracked/modded players) can still join and chat - AuthCore prints this as a startup
+warning.</p>
 <h3 id="core-session-settings">Core Session Settings</h3>
 <table>
 <thead>
@@ -395,17 +418,10 @@ automatically with <code>database.redis.enabled</code>.</p>
 </tr>
 </thead>
 <tbody><tr>
-<td><code>server-mode</code></td>
-<td>string</td>
-<td><code>&quot;online&quot;</code></td>
-<td>Server operation mode: <code>online</code> or <code>offline</code>.</td>
-<td>Set <code>&quot;offline&quot;</code> on cracked servers; keep <code>&quot;online&quot;</code> on premium ones (hybrid works either way).</td>
-</tr>
-<tr>
 <td><code>timeout-ms</code></td>
 <td>int</td>
 <td><code>3600000</code> (60 min)</td>
-<td>How long an authenticated session remains valid. Reasonable range: <code>1200000</code>–<code>10800000</code>.</td>
+<td>How long an authenticated session remains valid. Reasonable range: <code>1200000</code>-<code>10800000</code>.</td>
 <td>Lower to 20 min on a chaotic server to force re-auth; raise it on a community server with long AFK sessions.</td>
 </tr>
 <tr>
@@ -433,7 +449,7 @@ automatically with <code>database.redis.enabled</code>.</p>
 <td><code>message-reminder-interval-ms</code></td>
 <td>int</td>
 <td><code>8000</code> (8 s)</td>
-<td>Interval between login reminder messages sent to unauthenticated players. Suggested <code>10000</code>–<code>30000</code>.</td>
+<td>Interval between login reminder messages sent to unauthenticated players. Suggested <code>10000</code>-<code>30000</code>.</td>
 <td>Set to 15 s on a busy server to avoid chat spam from the login prompt.</td>
 </tr>
 <tr>
@@ -600,7 +616,7 @@ automatically with <code>database.redis.enabled</code>.</p>
 <td><code>alert-risk-threshold</code></td>
 <td>int</td>
 <td><code>60</code></td>
-<td>Risk score threshold (0–100) above which admins are alerted on login.</td>
+<td>Risk score threshold (0-100) above which admins are alerted on login.</td>
 <td>Lower to 40 for tighter alerting; raise to 80 to reduce noise.</td>
 </tr>
 </tbody></table>
@@ -950,7 +966,7 @@ is no toggle.</p>
 <td><code>enabled</code></td>
 <td>boolean</td>
 <td><code>false</code></td>
-<td>Add successfully registered accounts to the <strong>vanilla server whitelist</strong> automatically (only applies while the whitelist is enabled). Works across 1.16.0 – 26.1-26.2 via the Compat layer.</td>
+<td>Add successfully registered accounts to the <strong>vanilla server whitelist</strong> automatically (only applies while the whitelist is enabled). Works across 1.16.0 - 26.1-26.2 via the Compat layer.</td>
 <td>Enable on a whitelisted server so registered players never get locked out.</td>
 </tr>
 </tbody></table>
@@ -969,8 +985,8 @@ is no toggle.</p>
 <td><code>enabled</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Enable the trusted-player system: after a successful login the account is marked trusted and <strong>skips the captcha</strong> on rejoins.</td>
-<td>Keep on so returning players skip the captcha.</td>
+<td>Enable the trusted-player system: after a successful login the account is marked trusted and <strong>skips the human-verification challenge</strong> on rejoins.</td>
+<td>Keep on so returning players skip the challenge.</td>
 </tr>
 <tr>
 <td><code>bypass-captcha-hours</code></td>
@@ -1102,15 +1118,15 @@ is no toggle.</p>
 <td><code>premium-auto-login</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Auto-login players with legitimate premium (Mojang) accounts without a password. Recommended for hybrid servers.</td>
-<td>Keep on for hybrid servers so real Mojang accounts never type a password.</td>
+<td>Auto-login players with legitimate premium (Mojang) accounts without a password. This config is ALWAYS respected, regardless of the server&#39;s online/offline mode. Works on BOTH modes (on offline servers AuthCore runs the vanilla encryption handshake and verifies the session with the server&#39;s own Mojang session service - no external API calls; failures fall back to offline register/login, players are never blocked). Auto-login players are never given a generated password - their stored password stays null. If you turn this OFF, verified online-mode players are treated like any standard account: because their stored password is null, they are asked to /register on their next re-auth (their premium status is preserved, so auto-login resumes when you re-enable it).</td>
+<td>Keep on for hybrid servers so real Mojang accounts never type a password; online-mode players can switch to password login themselves with <code>/account set-mode offline</code>.</td>
 </tr>
 <tr>
-<td><code>premium-auto-register</code></td>
+<td><code>allow-offline-players</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Generate a random password for legitimate premium accounts (smooth auth for new premium members).</td>
-<td>Keep on so new premium players get an account automatically.</td>
+<td>Allow offline (cracked) players to join and register/login. When <code>false</code>, ONLY players the server verified as genuine online-mode (Mojang) accounts may join - offline-mode players are kicked with a clear message on arrival (they can never register, login or session-resume). On online-mode servers vanilla already rejects offline players at login, so this mainly matters on offline-mode servers, where it effectively makes the server online-mode-only (online-mode players still auto-login through the handshake verification).</td>
+<td>Set <code>false</code> to run an online-mode-only server even with <code>online-mode=false</code> in server.properties.</td>
 </tr>
 <tr>
 <td><code>allow-proxy-users</code></td>
@@ -1132,13 +1148,6 @@ is no toggle.</p>
 <td><code>true</code></td>
 <td>Automatically log the player in immediately after successful registration.</td>
 <td>Keep on so new players get into the world instantly.</td>
-</tr>
-<tr>
-<td><code>allow-online-name-by-offline</code></td>
-<td>boolean</td>
-<td><code>false</code></td>
-<td>Allow offline players to use a premium username. Disabling prevents username squatting.</td>
-<td>Keep off so offline players can&#39;t squat premium names.</td>
 </tr>
 <tr>
 <td><code>block-duplicate-register</code></td>
@@ -1168,13 +1177,6 @@ is no toggle.</p>
 <td>Bind Bedrock (Geyser/Floodgate) accounts to their XUID. On join, the player&#39;s XUID must match the stored one or they are kicked.</td>
 <td>Enable so Bedrock accounts are locked to their XUID, blocking impersonation.</td>
 </tr>
-<tr>
-<td><code>premium-api-strict</code></td>
-<td>boolean</td>
-<td><code>false</code></td>
-<td><code>false</code> = when the Mojang API is unreachable, premium checks degrade gracefully and <strong>no one is blocked</strong> (recommended). <code>true</code> = legacy behavior, the premium-name restriction is enforced even during outages.</td>
-<td>Keep <code>false</code> so a Mojang outage never locks out premium players.</td>
-</tr>
 </tbody></table>
 <blockquote>
 <p>🔑 <strong>2FA reset on recovery</strong>, completing <code>/account recover</code> (email-based password recovery)
@@ -1197,7 +1199,7 @@ player must re-setup 2FA after recovering the account.</p>
 <td><code>upper-case.enabled</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Enforce the uppercase (A–Z) rule.</td>
+<td>Enforce the uppercase (A-Z) rule.</td>
 <td>Disable if you want simpler passwords for younger players.</td>
 </tr>
 <tr>
@@ -1218,7 +1220,7 @@ player must re-setup 2FA after recovering the account.</p>
 <td><code>lower-case.enabled</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Enforce the lowercase (a–z) rule.</td>
+<td>Enforce the lowercase (a-z) rule.</td>
 <td>Keep on, most passwords need lowercase.</td>
 </tr>
 <tr>
@@ -1239,7 +1241,7 @@ player must re-setup 2FA after recovering the account.</p>
 <td><code>digits.enabled</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Enforce the digit (0–9) rule.</td>
+<td>Enforce the digit (0-9) rule.</td>
 <td>Keep on so passwords can&#39;t be all letters.</td>
 </tr>
 <tr>
@@ -1921,30 +1923,135 @@ client, e.g. <code>SET authcore:config:overrides &quot;session { security { webh
 <tbody><tr>
 <td><code>enabled</code></td>
 <td>boolean</td>
-<td><code>false</code></td>
-<td>Enable captcha for registration/login. The lobby shows a code; <code>/login</code> and <code>/register</code> require it as an extra argument.</td>
-<td>Enable during bot waves; disable when it annoys legits.</td>
+<td><code>true</code></td>
+<td>The single human-verification method: after login/register the mod observes the player, and only bot-like players (ghost pattern / high risk score) are challenged with a short physical task (sneak / jump / look at the sky).</td>
+<td>Keep on; genuine players are never bothered.</td>
 </tr>
 <tr>
-<td><code>length</code></td>
+<td><code>observation-window-sec</code></td>
+<td>int</td>
+<td><code>45</code></td>
+<td>Observation window after login/register (seconds) before deciding whether to challenge.</td>
+<td>Lower to 20 on busy servers to decide faster.</td>
+</tr>
+<tr>
+<td><code>auto-challenge-ghosts</code></td>
+<td>boolean</td>
+<td><code>true</code></td>
+<td>Always challenge players who show ZERO behavior after login (never looked, clicked, chatted, moved or sent settings).</td>
+<td>Keep on - this is the strongest bot signal.</td>
+</tr>
+<tr>
+<td><code>trigger-risk-threshold</code></td>
+<td>int</td>
+<td><code>60</code></td>
+<td>Challenge when the player&#39;s ClientGuard risk score reaches this value during the observation window.</td>
+<td>Lower = more challenges, higher = fewer false positives.</td>
+</tr>
+<tr>
+<td><code>bot-score-threshold</code></td>
+<td>int</td>
+<td><code>60</code></td>
+<td>Bot-score threshold. Every login is scored across many signals (ghost pattern, ClientGuard risk, instant login, failed attempts, missing 2FA, fresh account, fast rejoin) and the player is challenged when the total reaches this value. Trust signals (premium, session token, trusted account, already verified) subtract from the score.</td>
+<td>Raise to 80 for very permissive servers; lower to 40 under heavy bot attacks.</td>
+</tr>
+<tr>
+<td><code>instant-login-sec</code></td>
 <td>int</td>
 <td><code>5</code></td>
-<td>Captcha code length.</td>
-<td>Lower to 4 for mobile players; raise to 6 under bot attacks.</td>
+<td>Login is &quot;instant&quot; (bot-like) when it happens within this many seconds of joining - real players need time to read the chat and type. Adds +25 to the bot score.</td>
+<td>Raise to 10 on touchscreen clients (slower typing).</td>
 </tr>
 <tr>
-<td><code>ttl-ms</code></td>
+<td><code>failed-attempt-score</code></td>
+<td>int</td>
+<td><code>10</code></td>
+<td>Score added when the player logged in after 2+ failed attempts in the same session (guess-then-success pattern).</td>
+<td>Raise to 20 on strict servers.</td>
+</tr>
+<tr>
+<td><code>missing-mfa-score</code></td>
+<td>int</td>
+<td><code>20</code></td>
+<td>Score added when the account has 2FA (TOTP) configured but the login was completed WITHOUT the second factor - a bot cannot answer TOTP, so a password-only login on a TOTP account is suspicious.</td>
+<td>Keep at 20 when 2FA is enabled.</td>
+</tr>
+<tr>
+<td><code>fresh-account-hours</code></td>
+<td>int</td>
+<td><code>24</code></td>
+<td>Score added (+15) when the account was created within this many hours and the login looks automated (bot-farm fresh accounts).</td>
+<td>Raise to 48 to protect against freshly-created bot accounts.</td>
+</tr>
+<tr>
+<td><code>fast-rejoin-sec</code></td>
+<td>int</td>
+<td><code>20</code></td>
+<td>Score added (+20) when the player disconnects and rejoins within this many seconds (reconnect-bot loop). <code>0</code> = disabled.</td>
+<td>Keep at 20 to catch reconnect bots.</td>
+</tr>
+<tr>
+<td><code>trusted-score</code></td>
+<td>int</td>
+<td><code>20</code></td>
+<td>Score subtracted for accounts that were &quot;trusted&quot; by a previous successful login (session.trusted). This does NOT bypass verification - it only reduces the score.</td>
+<td>Raise to 30 on community servers with returning players.</td>
+</tr>
+<tr>
+<td><code>premium-score</code></td>
+<td>int</td>
+<td><code>20</code></td>
+<td>Score subtracted for premium (Mojang-verified) accounts - the server itself authenticated them at join.</td>
+<td>Keep at 20 on online-mode servers.</td>
+</tr>
+<tr>
+<td><code>session-token-score</code></td>
+<td>int</td>
+<td><code>20</code></td>
+<td>Score subtracted when the session was resumed with a valid companion session token (not just by IP).</td>
+<td>Keep at 20 with the companion enabled.</td>
+</tr>
+<tr>
+<td><code>already-verified-score</code></td>
+<td>int</td>
+<td><code>50</code></td>
+<td>Score subtracted when the player already passed the human-verification challenge earlier in the same session.</td>
+<td>Keep high so verified players are never re-challenged twice.</td>
+</tr>
+<tr>
+<td><code>action-ttl-ms</code></td>
 <td>long</td>
 <td><code>60000</code> (1 min)</td>
-<td>Captcha code validity.</td>
-<td>Raise to 2 minutes for slow typists.</td>
+<td>Time to solve the physical task before the player is kicked.</td>
+<td>Raise to 2 minutes for slower players.</td>
+</tr>
+<tr>
+<td><code>action-sneak-seconds</code></td>
+<td>int</td>
+<td><code>3</code></td>
+<td>Sneak-hold duration in seconds (sneak challenge).</td>
+<td>Raise to 5 under bot attacks.</td>
+</tr>
+<tr>
+<td><code>action-jump-count</code></td>
+<td>int</td>
+<td><code>5</code></td>
+<td>Jump count (jump challenge).</td>
+<td>Raise to 8 under bot attacks.</td>
+</tr>
+<tr>
+<td><code>action-look-up-seconds</code></td>
+<td>int</td>
+<td><code>3</code></td>
+<td>Look-up duration in seconds (look-up challenge).</td>
+<td>Raise to 5 under bot attacks.</td>
 </tr>
 <tr>
 <td><code>disable-when-tps-below</code></td>
 <td>double</td>
 <td><code>0</code></td>
-<td><strong>TPS-adaptive captcha</strong>, while server TPS is below this value the captcha is skipped entirely (prevents bots exploiting lag-spikes). <code>0</code> = never disable.</td>
-<td>Set to 15 so the captcha vanishes during lag spikes.</td>
+<td><strong>TPS-adaptive verification</strong>, while server TPS is below this value the challenge is skipped entirely (prevents bots exploiting lag-spikes). <code>0</code> = never disable.</td>
+<td>Set to 15 so the challenge vanishes during lag spikes.</td>
 </tr>
 </tbody></table>
 <hr>
@@ -1995,7 +2102,7 @@ LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderato
 <td><code>user.nickname</code></td>
 <td><code>authcore.user.logout</code></td>
 <td><code>0</code></td>
-<td>Permission for <code>/account nickname &lt;name&gt;</code>, set your display nickname (2–24 chars, no spaces; shown in whois and the web panel).</td>
+<td>Permission for <code>/account nickname &lt;name&gt;</code>, set your display nickname (2-24 chars, no spaces; shown in whois and the web panel).</td>
 <td>Keep at 0 so everyone can personalize their display name.</td>
 </tr>
 <tr>
@@ -2004,6 +2111,13 @@ LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderato
 <td><code>0</code></td>
 <td>Permission for <code>/account set-password &lt;new&gt;</code>, change your password.</td>
 <td>Keep at 0, everyone should rotate passwords.</td>
+</tr>
+<tr>
+<td><code>user.set-mode</code></td>
+<td><code>authcore.user.setmode</code></td>
+<td><code>0</code></td>
+<td>Permission for <code>/account set-mode online|offline</code>, switch your own account between automatic login and password login (switching to password login clears the password and asks you to register on the next join).</td>
+<td>Keep at 0 so everyone can pick their own login style.</td>
 </tr>
 </tbody></table>
 <h3 id="admin-commands">Admin Commands</h3>
@@ -2049,7 +2163,7 @@ LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderato
 <td><code>admin.list-online-mode-players</code></td>
 <td><code>authcore.admin.listOnlineModePlayers</code></td>
 <td><code>3</code></td>
-<td><code>/authcore list online-players</code>, list connected premium players.</td>
+<td><code>/authcore list online-players</code>, list connected online-mode players.</td>
 <td>Check who is premium during hybrid-server debugging.</td>
 </tr>
 <tr>
@@ -2091,8 +2205,8 @@ LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderato
 <td><code>admin.set-offline-mode-player</code></td>
 <td><code>authcore.admin.setOfflineModePlayer</code></td>
 <td><code>3</code></td>
-<td><code>/authcore set-mode offline &lt;player&gt; &lt;new-password&gt;</code>, force offline auth mode.</td>
-<td>Convert a stolen premium account back to password auth.</td>
+<td><code>/authcore set-mode offline &lt;player&gt;</code>, force password-login auth mode (a player who already has a stored password keeps it and logs in with it; only auto-login accounts with a null password are asked to register a new one on their next join).</td>
+<td>Convert a stolen online-mode account back to password auth.</td>
 </tr>
 <tr>
 <td><code>admin.set-online-mode-player</code></td>
@@ -2214,7 +2328,7 @@ to the bundled defaults. The completeness warning helps translators deliver 100%
 <h2 id="security-testing">🧪 Security Testing</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required)
 at <strong><code>tools/security-tests/</code></strong>, <strong>57 checks</strong> covering password hashing round-trips for all 6
-algorithms, unique per-hash salts, captcha lifecycle, email recovery codes, the rate limiter,
+algorithms, unique per-hash salts, email recovery codes, the rate limiter,
 proxy IP parsing, device fingerprints and time formatting. Run it after a build:</p>
 <pre><code class="language-powershell">.\gradlew.bat build                          # once: produces the compiled classes + cached jars
 powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
@@ -2223,8 +2337,8 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 <a href="security.html">SECURITY.md</a> for the PBKDF2
 bug it caught and how it guards regressions. CI runs the suite on every push, and the
 host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots every range jar on its
-verify matrix, 1.16.5 / 1.17.1 / 1.18.2 (1.16–1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 /
-1.21.11 (1.19–1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2), with
+ verify matrix, 1.16.5 / 1.17.1 / 1.18.2 (1.16-1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 / 1.21.1 /
+ 1.21.11 (1.19-1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2), with
 live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix passed
 on 2026-08-10.</p>
 <h3 id="proxy-interop--per-role-configs">🧩 Proxy, Interop &amp; per-role configs</h3>
@@ -2236,7 +2350,6 @@ on 2026-08-10.</p>
 <code>enabled</code>, <code>channel</code> (default <code>authcore:auth</code>), <code>bungee-channel</code> (default true).</li>
 <li><strong>Separate config files</strong>:<ul>
 <li>Server: <code>config/authcore/settings.conf</code></li>
-<li>Client companion: <code>config/authcore-client.json</code></li>
 <li>Proxy plugin (when the jar runs on BungeeCord/Velocity): <code>config/authcore-proxy.properties</code></li>
 <li>Database override: <code>config/authcore/database.conf</code> - only the <code>database { }</code> block,
 merged over settings.conf (credentials can live outside the main config)</li>
@@ -2296,6 +2409,8 @@ merged over settings.conf (credentials can live outside the main config)</li>
 
     
     
+    
+    
     </article>
   </main>
 </div>
@@ -2307,20 +2422,62 @@ merged over settings.conf (credentials can live outside the main config)</li>
 </footer>
 <script>
 (function () {
-  // scroll progress
+  const h = () => document.documentElement;
   const bar = document.getElementById("progress");
   const toTop = document.getElementById("toTop");
+
+  // ---- TOC navigation enhancements: head + topic count, progress bar, back-to-top ----
+  const toc = document.querySelector(".toc");
+  let tocBar = null;
+  if (toc) {
+    const items = toc.querySelectorAll(".toc-item a");
+    const title = toc.querySelector(".toc-title");
+    if (title && !toc.querySelector(".toc-head")) {
+      const head = document.createElement("div");
+      head.className = "toc-head";
+      toc.insertBefore(head, title);
+      head.appendChild(title);
+      const badge = document.createElement("span");
+      badge.className = "toc-count";
+      badge.textContent = items.length + (items.length === 1 ? " topic" : " topics");
+      head.appendChild(badge);
+    }
+    if (!toc.querySelector(".toc-progress")) {
+      const p = document.createElement("div");
+      p.className = "toc-progress";
+      p.innerHTML = "<span></span>";
+      toc.appendChild(p);
+      tocBar = p.firstElementChild;
+    } else tocBar = toc.querySelector(".toc-progress span");
+    if (!toc.querySelector(".toc-top")) {
+      const top = document.createElement("a");
+      top.className = "toc-top";
+      top.href = "#top";
+      top.textContent = "Back to top";
+      top.addEventListener("click", (e) => { e.preventDefault(); window.scrollTo({ top: 0, behavior: "smooth" }); });
+      toc.appendChild(top);
+    }
+    // clicking a topic also closes the mobile nav
+    items.forEach((a) => a.addEventListener("click", () => {
+      const nav = document.querySelector(".site-nav");
+      const toggle = document.querySelector(".nav-toggle");
+      if (nav && toggle && nav.classList.contains("open")) { nav.classList.remove("open"); toggle.setAttribute("aria-expanded", "false"); }
+    }));
+  }
+
+  // ---- scroll progress (top bar + in-TOC bar) ----
   const onScroll = () => {
-    const h = document.documentElement;
-    const max = h.scrollHeight - h.clientHeight;
-    bar.style.width = (max > 0 ? (h.scrollTop / max) * 100 : 0) + "%";
-    toTop.classList.toggle("show", h.scrollTop > 400);
+    const max = h().scrollHeight - h().clientHeight;
+    const pct = max > 0 ? (h().scrollTop / max) * 100 : 0;
+    bar.style.width = pct + "%";
+    if (tocBar) tocBar.style.width = pct + "%";
+    toTop.classList.toggle("show", h().scrollTop > 400);
   };
   document.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
   toTop.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
 
-  // mobile nav
+  // ---- mobile nav ----
   const toggle = document.querySelector(".nav-toggle");
   const nav = document.querySelector(".site-nav");
   if (toggle && nav) {
@@ -2330,7 +2487,7 @@ merged over settings.conf (credentials can live outside the main config)</li>
     });
   }
 
-  // copy buttons on code blocks
+  // ---- copy buttons on code blocks ----
   document.querySelectorAll("article pre").forEach((pre) => {
     const btn = document.createElement("button");
     btn.className = "copy-btn";
@@ -2349,7 +2506,7 @@ merged over settings.conf (credentials can live outside the main config)</li>
     pre.appendChild(btn);
   });
 
-  // scrollspy for the sidebar TOC
+  // ---- scrollspy for the sidebar TOC (highlights the nearest heading) ----
   const links = document.querySelectorAll(".toc-item a");
   if (links.length) {
     const map = new Map();

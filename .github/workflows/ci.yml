@@ -67,16 +67,15 @@ jobs:
           rm -f release/*sources*.jar
           ls -la release/
 
-      - name: Verify jar roles (server / client / proxy)
+      - name: Verify jar roles (server / proxy)
         run: |
           for JAR in release/authcore-*.jar; do
             echo "== $JAR =="
             unzip -l "$JAR" | grep -q 'net/ded3ec/AuthCoreServer.class' && echo "  OK server entrypoint"
-            unzip -l "$JAR" | grep -q 'net/ded3ec/client/ClientAuthCore.class' && echo "  OK client companion"
             unzip -l "$JAR" | grep -q 'bungee.yml' && echo "  OK bungee manifest"
             unzip -l "$JAR" | grep -q 'velocity-plugin.json' && echo "  OK velocity manifest"
             if unzip -l "$JAR" | grep -q 'fabric.mod.json'; then
-              unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "\*"' && echo "  OK fabric env *"
+              unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "server"' && echo "  OK fabric env server"
             fi
             if unzip -l "$JAR" | grep -q 'META-INF/neoforge.mods.toml'; then
               unzip -p "$JAR" META-INF/neoforge.mods.toml | grep -q 'modId = "authcore"' && echo "  OK neoforge metadata"

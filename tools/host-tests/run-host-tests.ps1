@@ -8,7 +8,7 @@
 #
 #   group  range     build    verify endpoints         released jar
 #   G1     1.16-1.18 1.18.2   1.16.5, 1.17.1, 1.18.2   authcore-1.16-1.18-fabric-<v>.jar
-#   G2     1.19-1.21 1.21.11  1.19.4, 1.20.6, 1.21.11  authcore-1.19-1.21-fabric-<v>.jar
+#   G2     1.19-1.21 1.21.11  1.19.4, 1.20.6, 1.21.1, 1.21.11  authcore-1.19-1.21-fabric-<v>.jar
 #   G3     26.1-26.2      26.2     26.1.2, 26.2             authcore-26.1-26.2-fabric-<v>.jar
 #
 # Per version it auto-fetches the server files (Fabric loader + installer +
@@ -32,7 +32,8 @@
 #   -ScanStable                    probe the newest stable release of each group's range
 #                                  (forward-compatibility scan; requires network)
 #   -Smoke                         boot ONLY each group's BUILD target (fast
-#                                  sanity loop for development iterations)
+#                                  sanity loop for development iterations; runs
+#                                  the full check suite incl. the player sim)
 #   -Jar <path>                    test ONE specific jar on all verify versions
 #                                  (instead of the per-range jars from dist/)
 #   -Build                         build missing jars with gradle first
@@ -275,6 +276,7 @@ foreach ($pair in ($JbrMajor -split "," | Where-Object { $_ })) {
 }
 
 $descs = New-Object System.Collections.Generic.List[object]
+$skip = @()
 foreach ($g in $groupDefs) {
   # Priority: -Version (only these) > -VerifyOverride > -Smoke (build only) > group verify list.
   $versionList = if ($versionOnlyList.Count -gt 0) {
@@ -293,11 +295,31 @@ foreach ($g in $groupDefs) {
       if ($g.range -in @("1.16-1.18", "1.19-1.21")) { "classic" } else { "modern" }
     } else { "range" }
     foreach ($mc in $versionList) {
+      # Per-version loader pins (versions.json loaderPins): the ONLY correct way to
+      # boot forge/neoforge on a non-build MC version - the build-target pin installs
+      # the build target's loader (wrong MC) and would silently test the wrong server.
+      # A (mc, loader) pair with no pin = the loader does not exist for that MC version
+      # (e.g. neoforge on 1.19.4) -> SKIP. Versions without a loaderPins entry (scan
+      # probes) keep the legacy build-target fallback.
+      $loaderPin = $null
+      $pinSkipNote = $null
+      if ($g.loaderPins -and $g.loaderPins[$mc] -is [hashtable]) {
+        if ($g.loaderPins[$mc].ContainsKey($loader)) {
+          $loaderPin = $g.loaderPins[$mc][$loader]
+        } else {
+          $pinSkipNote = "no $loader pin for Minecraft $mc in versions.json loaderPins (loader does not exist for this MC version)"
+        }
+      }
+      if ($pinSkipNote) {
+        $skip += @{ version = $mc; groupRange = $g.range; loader = $loader; jar = $jarName; status = "SKIP"; note = "build target $($g.build); range jar must boot on every verify version"; failures = $pinSkipNote }
+        continue
+      }
       $descs.Add(@{
         version = $mc
         groupRange = $g.range
         loader = $loader
         build = $g.build
+        loaderPin = $loaderPin
         jarType = $legacyKind
         jarName = $jarName
         authcoreJar = $jarPath
@@ -310,7 +332,6 @@ foreach ($g in $groupDefs) {
 }
 
 # resolve fabric versions, drop unknown versions as SKIP
-$skip = @()
 $resolved = New-Object System.Collections.Generic.List[object]
 foreach ($d in $descs) {
   $meta = Resolve-FabricVersions -McVersion $d.version
@@ -326,15 +347,22 @@ $descs = $resolved
 if ($descs.Count -eq 0) { Write-Error "No versions left to test." -ErrorAction Continue; exit 2 }
 
 # ---------------------------------------------------------------- JBR images
-
+# Image builds are the biggest serial cost (each pulls a JDK base + node + npm
+# install). Build them concurrently - they write distinct tags/markers, so there
+# is no shared-state race. Downloads of large JBR tarballs are throttled to 3.
 $images = @{}
-foreach ($major in ($descs | ForEach-Object { $_.jbrMajor } | Sort-Object -Unique)) {
+$majors = @($descs | ForEach-Object { $_.jbrMajor } | Sort-Object -Unique)
+Write-Host "Preparing $($majors.Count) JVM image(s) (parallel)..."
+foreach ($built in ($majors | ForEach-Object -Parallel {
+  Import-Module $using:modulePath -Force
+  $major = $_
   $tarball = Resolve-JbrTarball -Major $major
-  Write-Host "Preparing JVM image for Java $major..."
-  $tag = Invoke-DockerImageBuild -JbrMajor $major -JbrTarball $tarball -BuildDir $toolDir
+  $tag = Invoke-DockerImageBuild -JbrMajor $major -JbrTarball $tarball -BuildDir $using:toolDir
   $label = if ($tarball) { "jbr-$major" } else { "temurin-$major" }
-  $images["$major"] = @{ tag = $tag; label = $label }
-  Write-Host "  image: $tag (JVM $label)"
+  [pscustomobject]@{ major = $major; tag = $tag; label = $label }
+} -ThrottleLimit [Math]::Min(3, $majors.Count))) {
+  $images["$($built.major)"] = @{ tag = $built.tag; label = $built.label }
+  Write-Host "  image: $($built.tag) (JVM $($built.label))"
 }
 
 # ---------------------------------------------------------------- run
@@ -390,17 +418,18 @@ foreach ($j in $ctxJars) {
 if ($tests.Count -gt 1 -and $Parallel -gt 1) {
   $results = $tests | ForEach-Object -Parallel {
     Import-Module $using:modulePath -Force
+    $d = $_   # capture the pipeline item BEFORE the try - $_ becomes the exception in catch
     try {
-      Invoke-HostTest -Ctx $using:ctx -Desc $_
+      Invoke-HostTest -Ctx $using:ctx -Desc $d
     } catch {
       # A crashing test must never kill the whole matrix - record it as a FAIL.
       $r = @{
-        version = $_.version; groupRange = $_.groupRange; loader = $_.loader
-        jar = $_.jarName; status = "FAIL"; bootSec = ""; authcoreStartedMs = ""
+        version = $d.version; groupRange = $d.groupRange; loader = $d.loader
+        jar = $d.jarName; status = "FAIL"; bootSec = ""; authcoreStartedMs = ""
         mcDetected = ""; javaVersion = ""; checks = @{}; excerpt = ""
-        failures = "harness crash: $((Get-SanitizedText $_.Exception.Message) -replace '[\r\n]+', ' ')"; note = $_.note
+        failures = "harness crash: $((Get-SanitizedText $_.Exception.Message) -replace '[\r\n]+', ' ')"; note = $d.note
       }
-      Write-Host "  [HARNESS ERROR] $($_.groupRange)/$($_.loader) on $($_.version): $(Get-SanitizedText $_.Exception.Message)"
+      Write-Host "  [HARNESS ERROR] $($d.groupRange)/$($d.loader) on $($d.version): $(Get-SanitizedText $_.Exception.Message)"
       $r
     }
   } -ThrottleLimit $Parallel

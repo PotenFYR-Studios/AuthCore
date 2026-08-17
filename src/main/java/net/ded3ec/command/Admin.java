@@ -283,28 +283,24 @@ public class Admin {
                         literal("offline")
                             .then(
                                 argument("player", EntityArgument.player())
-                                    .then(
-                                        argument("new-password", StringArgumentType.string())
-                                            .requires(
-                                                ctx ->
-                                                    McApiManager.PermissionUtil.hasForSource(                                                        ctx,
-                                                        AuthCoreServer.config
-                                                            .commands
-                                                            .admin
-                                                            .setOfflineModePlayer
-                                                            .luckPermsNode,
-                                                        AuthCoreServer.config
-                                                            .commands
-                                                            .admin
-                                                            .setOfflineModePlayer
-                                                            .permissionsLevel))
-                                            .executes(
-                                                ctx ->
-                                                    setOfflineModePlayerCommand(
-                                                        ctx.getSource(),
-                                                        EntityArgument.getPlayer(ctx, "player"),
-                                                        StringArgumentType.getString(
-                                                            ctx, "new-password")))))))
+                                    .requires(
+                                        ctx ->
+                                            McApiManager.PermissionUtil.hasForSource(                                                        ctx,
+                                                AuthCoreServer.config
+                                                    .commands
+                                                    .admin
+                                                    .setOfflineModePlayer
+                                                    .luckPermsNode,
+                                                AuthCoreServer.config
+                                                    .commands
+                                                    .admin
+                                                    .setOfflineModePlayer
+                                                    .permissionsLevel))
+                                    .executes(
+                                        ctx ->
+                                            setOfflineModePlayerCommand(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player"))))))
             .then(
                 literal("set-spawn")
                     .then(
@@ -399,6 +395,15 @@ public class Admin {
                                 AuthCoreServer.config.commands.admin.reload.permissionsLevel))
                     .executes(ctx -> validateConfigCommand(ctx.getSource())))
             .then(
+                literal("compat")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .executes(ctx -> compatReportCommand(ctx.getSource())))
+            .then(
                 literal("history")
                     .then(
                         argument("player", EntityArgument.player())
@@ -412,7 +417,25 @@ public class Admin {
                                  ctx ->
                                      loginHistoryCommand(
                                          ctx.getSource(),
-                                         EntityArgument.getPlayer(ctx, "player"))))));
+                                         EntityArgument.getPlayer(ctx, "player")))))
+            .then(
+                literal("import")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.reload.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+                    .then(
+                        literal("authme")
+                            .then(
+                                argument("database-file", StringArgumentType.string())
+                                    .executes(
+                                        ctx ->
+                                            importAuthMeCommand(
+                                                ctx.getSource(),
+                                                StringArgumentType.getString(
+                                                    ctx, "database-file")))))));
   }
 
   /**
@@ -647,12 +670,12 @@ public class Admin {
           report.append("  [WARN] webhook-url does not look like a URL\n");
       }
 
-      // Server mode
-      String mode = AuthCoreServer.config.session.serverMode;
-      if (!"online".equalsIgnoreCase(mode) && !"offline".equalsIgnoreCase(mode)) {
-        report.append("  [ERROR] session.server-mode must be 'online' or 'offline'\n");
-        issues++;
-      }
+      // Server mode is always taken from server.properties automatically - there is no
+      // config override to validate.
+      if (AuthCoreServer.isServerOnline())
+        report.append("  [INFO] server-mode: online (detected from server.properties)\n");
+      else
+        report.append("  [INFO] server-mode: offline (detected from server.properties)\n");
 
       report.append("Validation finished with " + issues + " issue(s).");
       final String finalReport = report.toString();
@@ -669,6 +692,96 @@ public class Admin {
       return AuthCoreServer.LOGGER.info(1, finalReport);
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore validate' Command: ", err);
+    }
+  }
+
+  /**
+   * Compatibility report: loader, version groups and the state of every optional integration
+   * (DiscordSRV, InteractiveChat) plus the loader-specific hooks in use.
+   */
+  private static int compatReportCommand(CommandSourceStack source) {
+    try {
+      StringBuilder report = new StringBuilder();
+      report.append("AuthCore compatibility report:\n");
+      report.append("  Minecraft     : ").append(net.ded3ec.compat.Compat.getGameVersion()).append('\n');
+      report.append("  Loader        : ").append(net.ded3ec.compat.Compat.getLoaderVersion()).append('\n');
+      report.append("  Config Ver    : ").append(AuthCoreServer.config != null ? AuthCoreServer.config.version : "?").append('\n');
+      report.append("  Server Mode   : ").append(AuthCoreServer.isServerOnline() ? "online" : "offline (detected)").append('\n');
+
+      String integrations = net.ded3ec.integration.ModIntegrations.status();
+      for (String line : integrations.split("\n"))
+        if (!line.isBlank()) report.append("  ").append(line).append('\n');
+
+      report.append("  Hooks         : ").append("commands ").append(net.ded3ec.util.FabricHooks.class.getSimpleName()).append(" / mixins / fabric-api reflectively\n");
+      report.append("  Compat note   : restrictions apply ONLY to lobby players - authenticated players and other mods are unaffected.\n");
+
+      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, new Messages.ColTemplate() {
+              {
+                message.text = report.toString();
+                message.color = "AQUA";
+              }
+            });
+      return AuthCoreServer.LOGGER.info(1, report.toString());
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore compat' Command: ", err);
+    }
+  }
+
+  /**
+   * Imports accounts from an AuthMe-style SQLite database ({@code /authcore import authme <file>}).
+   * Existing accounts are never overwritten; weak legacy hashes are re-hashed to the configured
+   * algorithm automatically on each account's next successful login.
+   *
+   * @param source the command source (player or console)
+   * @param dbFilePath path to the AuthMe SQLite database file
+   * @return 1 on success, 0 on failure
+   */
+  private static int importAuthMeCommand(CommandSourceStack source, String dbFilePath) {
+    try {
+      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
+
+      if (dbFilePath == null || dbFilePath.isBlank()) {
+        String usage = "Usage: /authcore import authme <path-to-authme.db>";
+        return player != null
+            ? AuthCoreServer.LOGGER.toUser(
+                0, player.connection, new Messages.ColTemplate() {
+                  {
+                    message.text = usage;
+                    message.color = "RED";
+                  }
+                })
+            : AuthCoreServer.LOGGER.info(0, usage);
+      }
+
+      java.nio.file.Path path = java.nio.file.Path.of(dbFilePath);
+      if (!path.isAbsolute())
+        path = AuthCoreServer.configPath.getParent().resolve(dbFilePath);
+
+      net.ded3ec.util.AuthMeImporter.ImportResult result =
+          net.ded3ec.util.AuthMeImporter.importSqlite(path);
+
+      String report;
+      if (result.error != null) report = result.error;
+      else
+        report =
+            result
+                + " - weak legacy hashes are upgraded automatically on each account's next login.";
+
+      SecurityLog.log("IMPORT_AUTHME", report);
+      if (player != null)
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, new Messages.ColTemplate() {
+              {
+                message.text = report;
+                message.color = result.error != null ? "RED" : "GREEN";
+              }
+            });
+      return AuthCoreServer.LOGGER.info(result.error != null ? 0 : 1, report);
+    } catch (Exception err) {
+      return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore import' Command: ", err);
     }
   }
 
@@ -809,7 +922,7 @@ public class Admin {
   /**
    * Handles the {@code /authcore list online-players} command.
    *
-   * <p>Lists all players currently registered as premium (online-mode) in the database.
+   * <p>Lists all players currently registered as online-mode in the database.
    *
    * @param source the command source
    * @return 1 on success, 0 on failure
@@ -847,7 +960,7 @@ public class Admin {
   /**
    * Handles the {@code /authcore list offline-players} command.
    *
-   * <p>Lists all players currently registered as cracked (offline-mode) in the database.
+   * <p>Lists all players currently registered as offline-mode in the database.
    *
    * @param source the command source
    * @return 1 on success, 0 on failure
@@ -932,7 +1045,10 @@ public class Admin {
       else if (!user.isActive)
         return AuthCoreServer.LOGGER.info(0, "User '{}' is not Active in the Server!", username);
 
-      user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
+      // logout() destroys the session (lastAuthenticatedMs = 0 + Redis removal) before
+      // kicking - a plain kick would let the player resume the session on rejoin and the
+      // "destroy session" command would be a no-op.
+      user.logout(AuthCoreServer.messages.promptUserKickedByAdmin);
 
       // Tell other mods / the proxy that this player is no longer authenticated
       net.ded3ec.network.AuthInterop.broadcast(player, false);
@@ -1009,6 +1125,15 @@ public class Admin {
       user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
       user.password =
           Encrypter.hash(AuthCoreServer.config.passwordRules.passwordHashAlgorithm, password);
+
+      if (user.password == null) {
+        // Never leave the account unregistered because hashing failed
+        user.passwordEncryption = null;
+        return sourcePlayer != null
+            ? AuthCoreServer.LOGGER.toUser(
+                0, sourcePlayer.connection, AuthCoreServer.messages.promptUserPasswordIsBlank)
+            : AuthCoreServer.LOGGER.info(0, "Failed to hash the new password for '{}'!", username);
+      }
 
       user.update("Password Change");
 
@@ -1120,7 +1245,7 @@ public class Admin {
   /**
    * Handles the {@code /authcore set-mode online <player>} command.
    *
-   * <p>Forces a player into premium (online-mode) authentication.
+   * <p>Forces a player into online-mode authentication.
    *
    * @param source the command source
    * @param player the target player entity
@@ -1164,14 +1289,15 @@ public class Admin {
 
       user.isPremium = true;
       user.update("Player Mode -> Online-mode");
-      user.kick(AuthCoreServer.messages.promptUserModeUpdated, "Online-mode");
+      user.logout(AuthCoreServer.messages.promptUserModeSetToOnline);
 
       if (sourcePlayer != null)
         return AuthCoreServer.LOGGER.toUser(
             1,
             sourcePlayer.connection,
             AuthCoreServer.messages.promptAdminChangeUserMode,
-            player.getName().getString());
+            player.getName().getString(),
+            "automatic login");
       else
         return AuthCoreServer.LOGGER.info(
             1, "User {}'s mode has been set to Online-mode!", player.getName().getString());
@@ -1185,14 +1311,16 @@ public class Admin {
   /**
    * Handles the {@code /authcore set-mode offline <player>} command.
    *
-   * <p>Forces a player into cracked (offline-mode) authentication.
+   * <p>Forces a player into offline-mode (password login) authentication. A player who
+   * already has a stored password keeps it and logs in with it; only auto-login accounts
+   * with a null password are asked to register a new one with {@code /register}.
    *
    * @param source the command source
    * @param player the target player entity
    * @return 1 on success, 0 on failure
    */
   private static int setOfflineModePlayerCommand(
-      CommandSourceStack source, ServerPlayer player, String password) {
+      CommandSourceStack source, ServerPlayer player) {
     try {
       ServerPlayer sourcePlayer = net.ded3ec.compat.Compat.sourcePlayer(source);
 
@@ -1212,16 +1340,6 @@ public class Admin {
         return AuthCoreServer.LOGGER.info(
             0,
             "You are missing 'player' parameter in '/authcore set-mode offline <player>' command!");
-      else if (StringUtils.isBlank(password) && sourcePlayer != null)
-        return AuthCoreServer.LOGGER.toUser(
-            0,
-            sourcePlayer.connection,
-            AuthCoreServer.messages.promptMissingParameter,
-            "new-password");
-      else if (StringUtils.isBlank(password))
-        return AuthCoreServer.LOGGER.info(
-            0,
-            "You are missing 'new-password' parameter in '/authcore set-mode offline <player> <new-password>' command!");
 
       UUID uuid = player.getUUID();
       String username = player.getName().getString();
@@ -1237,19 +1355,25 @@ public class Admin {
         return AuthCoreServer.LOGGER.info(
             0, "User '{}' not Found in the database!", player.getName().getString());
 
+      // Offline-mode accounts authenticate with a password. A player who already registered
+      // one keeps it (they just log in with it); only auto-login accounts with a null
+      // password are asked to register a new one. The session is destroyed either way so the
+      // mode change takes effect on the next join.
+      boolean hadPassword = !StringUtils.isBlank(user.password);
       user.isPremium = false;
-      user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
-      user.password = Encrypter.hash(user.passwordEncryption, password);
-
       user.update("Player Mode -> Offline-mode");
-      user.kick(AuthCoreServer.messages.promptUserModeUpdated, "Offline-mode");
+      user.logout(
+          hadPassword
+              ? AuthCoreServer.messages.promptUserModeSetToOfflineLogin
+              : AuthCoreServer.messages.promptUserModeSetToOffline);
 
       if (sourcePlayer != null)
         return AuthCoreServer.LOGGER.toUser(
             1,
             sourcePlayer.connection,
             AuthCoreServer.messages.promptAdminChangeUserMode,
-            player.getName().getString());
+            player.getName().getString(),
+            "password login");
       else
         return AuthCoreServer.LOGGER.info(
             1, "User {}'s mode has been set to Offline-mode!", player.getName().getString());
@@ -1282,14 +1406,20 @@ public class Admin {
             "{} used '/authcore set-spawn limbo <x-cord> <y-cord> <z-cord>' command in the Server!",
             player.getName().getString());
 
-      if (player != null)
-        AuthCoreServer.config.lobby.limboConfig.location.dimension =
-            /*? if < 1.20.2 {*//*player.getLevel()
-            *//*?} else {*/player.level()/*?}*/
-                .dimension()
-                ./*? if < 1.21.11 {*//*location()
-            *//*?} else {*/identifier()/*?}*/
-                .toString();
+      if (player != null) {
+        Object dimKey =
+            net.ded3ec.compat.Compat.worldRegistryKey(
+                net.ded3ec.compat.Compat.playerLevel(player));
+        if (dimKey != null) {
+          // ResourceKey.toString() = "ResourceKey[minecraft:dimension / minecraft:overworld]"
+          String s = String.valueOf(dimKey);
+          int sep = s.indexOf("/ ");
+          int end = s.lastIndexOf(']');
+          if (sep >= 0 && end > sep)
+            AuthCoreServer.config.lobby.limboConfig.location.dimension =
+                s.substring(sep + 2, end);
+        }
+      }
 
       if (xcord != AuthCoreServer.config.lobby.limboConfig.location.x)
         AuthCoreServer.config.lobby.limboConfig.location.x = xcord;

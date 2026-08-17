@@ -45,7 +45,7 @@ public final class Encrypter {
 
   /**
    * Hashes a plain-text password using the given algorithm. A random per-user salt is generated
-   * automatically by the library and embedded into the returned hash string.
+   * automatically and embedded into the returned hash string.
    *
    * @param algorithm the hashing algorithm name (e.g. "argon2", "bcrypt")
    * @param password the plain-text password to hash
@@ -61,7 +61,10 @@ public final class Encrypter {
 
       String result =
           switch (algo) {
-            case "argon2" -> ARGON2.hash(password).getResult();
+            // Argon2 gets an explicit cryptographically-random 16-byte salt (the library's
+            // default is 64 bytes; 16 is the spec-conformant size and keeps every hash
+            // self-contained and verifiable across restarts).
+            case "argon2" -> ARGON2.hash(password, argon2Salt()).getResult();
             case "bcrypt" -> BCRYPT.hash(password).getResult();
             case "scrypt" -> SCRYPT.hash(password).getResult();
             case "sha-256" -> SHA256.hash(password).getResult();
@@ -76,18 +79,24 @@ public final class Encrypter {
             false,
             "Unknown password-hash-algorithm '{}' - falling back to argon2 for this hash.",
             algorithm);
-        result = ARGON2.hash(password).getResult();
+        result = ARGON2.hash(password, argon2Salt()).getResult();
       }
       return result;
     } catch (Exception err) {
       AuthCoreServer.LOGGER.error(null, "Failed to hash password with '{}':", algorithm, err);
       // Last-resort fallback so registration never fails silently
       try {
-        return ARGON2.hash(password).getResult();
+        return ARGON2.hash(password, argon2Salt()).getResult();
       } catch (Exception fallbackErr) {
         return null;
       }
     }
+  }
+
+  /** Fresh cryptographically-random 16-byte salt for Argon2 (base64 - embedded in the hash). */
+  private static String argon2Salt() {
+    return java.util.Base64.getEncoder().encodeToString(
+        com.password4j.SaltGenerator.generate(16));
   }
 
   /**
@@ -99,11 +108,36 @@ public final class Encrypter {
    * @return {@code true} if the password matches, {@code false} otherwise
    */
   public static boolean verify(String password, String storedHash, String algorithm) {
+    if (storedHash == null || password == null || storedHash.isEmpty()) return false;
+
+    // Try the declared algorithm first (self-contained hashes).
+    if (tryVerify(password, storedHash, algorithm)) return true;
+
+    // Legacy/foreign rows (accounts migrated from older mod versions or AuthMe-style plugins,
+    // or a mis-declared algorithm) trip password4j's parser - e.g. BadParametersException
+    // "Bad salt length" / "Invalid salt version" when a bcrypt check is run against a hash
+    // whose embedded salt does not match the expected size. Falling back through the supported
+    // algorithms lets those accounts still authenticate instead of erroring in the console.
+    for (String alt :
+        new String[] {"argon2", "bcrypt", "scrypt", "pbkdf2", "sha-512", "sha-256", "md5"}) {
+      if (algorithm != null && alt.equalsIgnoreCase(algorithm)) continue;
+      if (tryVerify(password, storedHash, alt)) return true;
+    }
+    return false;
+  }
+
+  /** Single-algorithm verification that never throws (parse/salt errors are logged at debug). */
+  private static boolean tryVerify(String password, String storedHash, String algorithm) {
     if (algorithm == null || storedHash == null || password == null || storedHash.isEmpty())
       return false;
 
     try {
       String algo = algorithm.toLowerCase(Locale.ROOT);
+
+      // AuthMe-style legacy hashes (imported accounts): "$SHA$<salt>$<sha256(sha256(pw)+salt)>"
+      if (algo.startsWith("authme") || storedHash.startsWith("$SHA$"))
+        return authMeShaVerify(password, storedHash);
+
       if ("pbkdf2".equals(algo)) return pbkdf2Verify(password, storedHash);
 
       return switch (algo) {
@@ -116,9 +150,75 @@ public final class Encrypter {
         default -> false;
       };
     } catch (Exception err) {
-      return AuthCoreServer.LOGGER.error(
-          false, "Failed to verify password with '{}':", algorithm, err);
+      return AuthCoreServer.LOGGER.debug(
+          false,
+          "Stored hash '{}' is not valid for algorithm '{}' - trying other algorithms:",
+          summarize(storedHash),
+          algorithm,
+          err);
     }
+  }
+
+  /**
+   * Verifies an AuthMe {@code $SHA$<salt>$<hash>} hash (sha256(sha256(password) + salt),
+   * hex-encoded). Used for accounts imported from AuthMe-style plugins; the hash-upgrade on
+   * the next successful login re-hashes them to the configured algorithm.
+   */
+  private static boolean authMeShaVerify(String password, String storedHash) {
+    if (password == null || storedHash == null) return false;
+    String[] parts = storedHash.split("\\$");
+    if (parts.length != 4 || !"SHA".equals(parts[1])) return false;
+    String salt = parts[2];
+    if (salt == null || salt.isEmpty()) return false;
+
+    try {
+      java.security.MessageDigest digest =
+          java.security.MessageDigest.getInstance("SHA-256");
+      String first = toHex(digest.digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+      byte[] second = digest.digest((first + salt).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      return java.security.MessageDigest.isEqual(parts[3].getBytes(java.nio.charset.StandardCharsets.US_ASCII), toHex(second).getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+    } catch (Exception err) {
+      return false;
+    }
+  }
+
+  private static String toHex(byte[] bytes) {
+    StringBuilder sb = new StringBuilder(bytes.length * 2);
+    for (byte b : bytes)
+      sb.append(Character.forDigit((b >> 4) & 0xF, 16)).append(Character.forDigit(b & 0xF, 16));
+    return sb.toString();
+  }
+
+  /**
+   * Whether a hash algorithm is considered weak (legacy): md5 and the plain SHA digests.
+   * Accounts hashed with these are flagged by whois and transparently re-hashed with the
+   * configured algorithm on their next successful login.
+   */
+  public static boolean isWeakAlgorithm(String algorithm) {
+    if (algorithm == null) return true;
+    String a = algorithm.toLowerCase(Locale.ROOT);
+    return a.equals("md5") || a.equals("sha-256") || a.equals("sha-512");
+  }
+
+  /** Infers the AuthCore algorithm from an imported (AuthMe-style) hash string. */
+  public static String inferImportedAlgorithm(String storedHash) {
+    if (storedHash == null || storedHash.isBlank()) return null;
+    String h = storedHash;
+    if (h.startsWith("$SHA$")) return "authme-sha";
+    if (h.startsWith("$2a$") || h.startsWith("$2b$") || h.startsWith("$2y$")) return "bcrypt";
+    if (h.startsWith("$argon2")) return "argon2";
+    if (h.startsWith("$pbkdf2")) return "pbkdf2";
+    if (h.startsWith("$scrypt")) return "scrypt";
+    if (h.matches("(?i)[0-9a-f]{64}")) return "sha-256";
+    if (h.matches("(?i)[0-9a-f]{128}")) return "sha-512";
+    if (h.matches("(?i)[0-9a-f]{32}")) return "md5";
+    return null;
+  }
+
+  /** Truncated preview of a stored hash for log lines (never log full password hashes). */
+  private static String summarize(String storedHash) {
+    if (storedHash == null) return "null";
+    return storedHash.length() <= 24 ? storedHash : storedHash.substring(0, 24) + "...";
   }
 
   // ------------------------------------------------------------------

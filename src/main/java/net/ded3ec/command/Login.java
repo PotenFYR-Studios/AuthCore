@@ -58,7 +58,7 @@ public class Login {
             .then(
                 // Add the "password" argument to the command.
                 argument("password", string())
-                    .executes(ctx -> execute(ctx.getSource(), getString(ctx, "password"), null, null))
+                    .executes(ctx -> execute(ctx.getSource(), getString(ctx, "password"), null))
                     .then(
                         // Add the "2fa-code" argument to the command.
                         argument("2fa-code", string())
@@ -67,28 +67,7 @@ public class Login {
                                     execute(
                                         ctx.getSource(),
                                         getString(ctx, "password"),
-                                        getString(ctx, "2fa-code"),
-                                        null))
-                            .then(
-                                // Add the "captcha-code" argument to the command.
-                                argument("captcha-code", string())
-                                    .executes(
-                                        ctx ->
-                                            execute(
-                                                ctx.getSource(),
-                                                getString(ctx, "password"),
-                                                getString(ctx, "2fa-code"),
-                                                getString(ctx, "captcha-code")))))
-                    .then(
-                        // Add the "captcha-code" argument to the command.
-                        argument("captcha-code", string())
-                            .executes(
-                                ctx ->
-                                    execute(
-                                        ctx.getSource(),
-                                        getString(ctx, "password"),
-                                        null,
-                                        getString(ctx, "captcha-code"))))));
+                                        getString(ctx, "2fa-code"))))));
   }
 
   /**
@@ -97,11 +76,10 @@ public class Login {
    * @param source The source of the command, typically the player executing it.
    * @param password The password provided by the player.
    * @param authCode The 2fa code provided by the player.
-   * @param captchaCode The captcha code provided by the player.
    * @return An integer result indicating the outcome of the command execution.
    */
   private static int execute(
-      CommandSourceStack source, @NotNull String password, String authCode, String captchaCode) {
+      CommandSourceStack source, @NotNull String password, String authCode) {
     try {
       // Retrieve the player executing the command.
       ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
@@ -140,9 +118,18 @@ public class Login {
 
       ++user.loginAttempts;
 
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | /login attempt #{} from {}",
+          username,
+          user.loginAttempts,
+          player.getIpAddress());
+
       // Account lock check (persistent auto-lock after repeated failures)
       if (AuthCoreServer.config.session.accountLock.enabled && user.isLocked()) {
         long remainingMs = user.lockUntilMs - System.currentTimeMillis();
+        AuthCoreServer.LOGGER.debug(
+            false, "{} | /login blocked - account locked ({} left)", username, TimeManager.toDuration(Math.max(remainingMs, 1000)));
         SecurityLog.log(
             "LOGIN_LOCKED",
             username + " tried to login while locked (" + TimeManager.toDuration(remainingMs) + " left)");
@@ -153,27 +140,28 @@ public class Login {
             TimeManager.toDuration(Math.max(remainingMs, 1000)));
       }
 
-      // Captcha verification (bot protection)
-      if (AuthCoreServer.config.lobby.captcha.enabled) {
-        if (captchaCode == null)
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserCaptchaRequired, "?");
-        if (!Security.CaptchaManager.verify(uuid, captchaCode)) {
-          SecurityLog.log("LOGIN_CAPTCHA_FAIL", username + " failed the captcha");
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserCaptchaWrong);
-        }
-      }
-
       // Check if the user has exceeded the maximum login attempts.
-      if (user.loginAttempts >= AuthCoreServer.config.session.authentication.maxLoginAttempts)
+      if (user.loginAttempts >= AuthCoreServer.config.session.authentication.maxLoginAttempts) {
+        AuthCoreServer.LOGGER.debug(
+            false,
+            "{} | /login brute-force limit reached ({} attempts) - kicking",
+            username,
+            user.loginAttempts);
         return handleBruteForce(user, player);
-      else if (!user.isRegistered.get())
+      } else if (!user.isRegistered.get())
         // Inform the user if they are not registered.
         return AuthCoreServer.LOGGER.toUser(
             0, player.connection, AuthCoreServer.messages.promptUserNotRegistered);
       else if (Encrypter.verify(password, user.password, user.passwordEncryption)) {
+        AuthCoreServer.LOGGER.debug(
+            false, "{} | /login password verified - authenticating", username);
         // Authenticate the user if the password matches.
+
+        // Transparent password-hash upgrade: weak (md5 / sha-256 / sha-512) or outdated
+        // stored hashes - including AuthMe-style imported ones - are re-hashed with the
+        // configured algorithm on the next successful login (best-effort; a failure never
+        // blocks the login).
+        upgradeHashIfNeeded(user, password);
 
         boolean mfaConfigured =
             AuthCoreServer.config.session.authentication.allowTOTPSupport
@@ -204,29 +192,33 @@ public class Login {
               (mfaConfigured && Security.TOTPManager.verify(authCode, user.authSecret))
                   || (mfaConfigured && Security.RecoveryCodes.verifyAndConsume(user, authCode))
                   || (emailMfa && Security.EmailOtp.verify(uuid, authCode));
-          if (!mfaOk)
+          if (!mfaOk) {
+            // 2FA brute force: the password was correct, the code was not - the account is
+            // likely compromised and the attacker is guessing the second factor.
+            net.ded3ec.security.AuthIntelligence.recordFailed2fa(
+                uuid, username, player.getIpAddress());
             return AuthCoreServer.LOGGER.toUser(
                 1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
-          else user.mfaVerified = true;
+          } else user.mfaVerified = true;
         }
 
         AuthCoreServer.LOGGER.debug(
             1, "{} have authenticated in the Server!", player.getName().getString());
-        user.login(player);
+        user.login(player); // broadcasts the auth state to other mods / the proxy
 
-        // Security events (log + webhook + login history)
+        // Security events (log + webhook + login history - the history row is written by
+        // user.login() so every login path is recorded consistently)
         int risk = user.riskScore;
-        User.logLogin(user, player.getIpAddress(), user.country.get(), "success", risk);
         SecurityLog.log("LOGIN_SUCCESS", username + " | IP: " + player.getIpAddress() + " | Risk: " + risk);
-
-        // Tell other mods / the proxy that this player is now authenticated
-        net.ded3ec.network.AuthInterop.broadcast(player, true);
 
         if (risk >= AuthCoreServer.config.session.intelligence.alertRiskThreshold)
           Webhook.sendEmbed(
               "High-Risk Login",
               "**" + username + "** logged in with risk score **" + risk + "/100** from `" + player.getIpAddress() + "`",
               0xE67E22);
+
+        // Auth intelligence: guess-then-success detection.
+        net.ded3ec.security.AuthIntelligence.recordSuccessfulLogin(user, player.getIpAddress());
 
         // Notify the user of successful login.
         return AuthCoreServer.LOGGER.toUser(
@@ -238,12 +230,48 @@ public class Login {
             username + " | IP: " + player.getIpAddress() + " | Attempt: " + user.loginAttempts);
         User.logLogin(user, player.getIpAddress(), user.country.get(), "failed", user.riskScore);
 
+        // Auth intelligence: password spraying + per-IP login floods.
+        net.ded3ec.security.AuthIntelligence.recordFailedPassword(
+            username, player.getIpAddress(), password);
+
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserWrongPassword);
       }
     } catch (Exception err) {
       // Log any errors encountered during command execution.
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/login' Command: ", err);
+    }
+  }
+
+  /**
+   * Transparent password-hash upgrade: when the stored hash uses a weak algorithm (md5,
+   * sha-256, sha-512) or an algorithm different from the configured one (e.g. AuthMe-style
+   * imported hashes), it is re-hashed with the configured algorithm and persisted.
+   * Best-effort: any failure is logged at debug and never blocks the login.
+   */
+  private static void upgradeHashIfNeeded(User user, String password) {
+    try {
+      String configured = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+      if (configured == null || configured.isBlank()) return;
+      if (net.ded3ec.security.Encrypter.isWeakAlgorithm(configured)) return; // never downgrade
+
+      String storedAlgo = user.passwordEncryption;
+      boolean weak = net.ded3ec.security.Encrypter.isWeakAlgorithm(storedAlgo);
+      boolean outdated = storedAlgo == null || !storedAlgo.equalsIgnoreCase(configured);
+      if (!weak && !outdated) return;
+
+      String fresh = net.ded3ec.security.Encrypter.hash(configured, password);
+      if (fresh == null || fresh.equals(user.password)) return;
+
+      user.passwordEncryption = configured;
+      user.password = fresh;
+      user.update("Password hash upgraded on login");
+      SecurityLog.log(
+          "PASSWORD_HASH_UPGRADED",
+          user.username + " hash upgraded from '" + storedAlgo + "' to '" + configured + "'");
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.debug(
+          false, "Password hash upgrade failed for {}:", user != null ? user.username : "?", err);
     }
   }
 

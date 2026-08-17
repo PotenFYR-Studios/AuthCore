@@ -5,7 +5,7 @@ import net.ded3ec.models.User;
 import net.ded3ec.security.IpRules;
 
 /**
- * Utility class for registering hooks, commands, and events in AuthCoreServer.
+ * Boots every AuthCore subsystem: config, database, commands and events.
  *
  * <p>Loader strategy: fabric-api event registration is gated to the fabric variants
  * (Forge/NeoForge register their equivalents in the loader entrypoints). Version-sensitive
