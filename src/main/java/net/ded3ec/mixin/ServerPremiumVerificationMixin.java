@@ -47,13 +47,21 @@ abstract class ServerPremiumVerificationMixin {
   /** Handlers currently waiting for the client's key packet: handler → original hello. */
   private static final Map<Object, Object> PENDING = new ConcurrentHashMap<>();
 
+  /** Handlers whose premium verification already completed (success, failure or fallback).
+   *  The hello replay after a verification must NOT re-arm the encryption handshake -
+   *  otherwise a failed verification loops forever (handshake → key → replay → handshake)
+   *  and the player can never finish logging in. */
+  private static final java.util.Set<Object> HANDLED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
   /** How long to wait for the client's key packet before falling back to offline. */
   private static final long HANDSHAKE_TIMEOUT_MS = 15_000L;
 
   /**
    * When premium verification is wanted (offline server + premium auto-login) and the
    * client sent an offline-UUID hello: start the encryption handshake and hold the vanilla
-   * offline flow until the verification completes (or times out).
+   * offline flow until the verification completes (or times out). Only the FIRST hello of a
+   * connection is intercepted - a replayed hello (after verification succeeded/failed) lets
+   * the vanilla offline accept flow run untouched.
    */
   @Inject(
       method = "handleHello(Lnet/minecraft/network/protocol/login/ServerboundHelloPacket;)V",
@@ -63,6 +71,7 @@ abstract class ServerPremiumVerificationMixin {
   private void authCore$verifyHello(ServerboundHelloPacket packet, CallbackInfo ci) {
     try {
       if (!AuthCoreServer.isPremiumVerificationEnabled()) return;
+      if (HANDLED.contains(this)) return; // already verified (or fell back) - never re-verify
 
       String username = readHelloName(packet);
       UUID uuid = readHelloId(packet);
@@ -111,6 +120,7 @@ abstract class ServerPremiumVerificationMixin {
 
       if (digest == null) {
         // Handshake failed (bad nonce) - continue as offline
+        HANDLED.add(handler);
         net.ded3ec.compat.Compat.loginReplayHello(handler, helloPacket);
         return;
       }
@@ -140,13 +150,16 @@ abstract class ServerPremiumVerificationMixin {
                     username);
               }
             } finally {
-              // Resume the vanilla offline join (same hello packet, state reset to HELLO)
+              // Resume the vanilla offline join (same hello packet, state reset to HELLO).
+              // Mark handled FIRST so the replayed hello never re-arms the handshake.
+              HANDLED.add(handler);
               net.ded3ec.compat.Compat.loginReplayHello(handler, helloPacket);
             }
           });
     } catch (RuntimeException err) {
       AuthCoreServer.LOGGER.debug(
           false, "Online-mode verification failed - continuing as offline:", err);
+      HANDLED.add(this);
       net.ded3ec.compat.Compat.loginReplayHello(this, hello);
     }
   }
@@ -158,6 +171,7 @@ abstract class ServerPremiumVerificationMixin {
       require = 0)
   private void authCore$verifyDisconnect(net.minecraft.network.chat.Component reason, CallbackInfo ci) {
     PENDING.remove(this);
+    HANDLED.remove(this);
   }
 
   /** Watchdog: resume the vanilla offline join when the client never answered the handshake. */
@@ -165,6 +179,7 @@ abstract class ServerPremiumVerificationMixin {
     if (PENDING.remove(handler) == null) return;
     AuthCoreServer.LOGGER.debug(
         true, "Client did not answer the encryption handshake - joining as offline player.");
+    HANDLED.add(handler);
     net.ded3ec.compat.Compat.loginReplayHello(handler, helloPacket);
   }
 

@@ -550,6 +550,16 @@ public final class Compat {
     }
   }
 
+  /** The highest buildable Y coordinate of the world (1.17+ API; 256 on older versions). */
+  public static int getMaxBuildHeight(Level world) {
+    try {
+      Method m = Level.class.getMethod("getMaxBuildHeight");
+      return (Integer) m.invoke(world);
+    } catch (ReflectiveOperationException e) {
+      return 256;
+    }
+  }
+
   /**
    * Creates a text component (direct call - {@code Component.nullToEmpty} exists in every
    * mapping era and returns a MutableComponent for non-null input; reflection with

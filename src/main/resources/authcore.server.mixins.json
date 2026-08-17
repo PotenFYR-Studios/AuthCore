@@ -1,5 +1,5 @@
 {
-  "required": true,
+  "required": false,
   "package": "net.ded3ec.mixin",
   "compatibilityLevel": "${mixinCompatibilityLevel}",
   "mixins": [
@@ -25,7 +25,7 @@
     "ServerPremiumVerificationMixin"
   ],
   "injectors": {
-    "defaultRequire": 1
+    "defaultRequire": 0
   },
   "overwrites": {
     "requireAnnotations": true

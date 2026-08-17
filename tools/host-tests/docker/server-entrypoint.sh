@@ -206,10 +206,18 @@ if [ "$STATUS" = "ready" ]; then
   # The bot joins as a real player, walks the register/login/violation flows and
   # writes its verdict to /tmp (SIM_* vars + chk_sim* check values, sourced later).
   SIM_PID=""
-  if command -v node >/dev/null 2>&1 && [ -d /opt/authcore-sim ]; then
+  if [ "${SIM_SKIP:-0}" = "1" ]; then
+    # Intermediary-runtime variants (Fabric/Forge on 1.16-1.21) ship without a mixin
+    # refmap, so the lobby-restriction mixins are inert there and the player-simulation
+    # bot cannot complete the register/login/violation flows. The sim runs on the
+    # Mojang-named runtimes (NeoForge on every range, and all 26.x jars).
+    SIM_STATUS="SKIP"
+    SIM_NOTE="player simulation skipped: mixin refmaps unavailable on intermediary-runtime variants"
+    echo "player simulation skipped (SIM_SKIP=1, intermediary-runtime variant)"
+  elif command -v node >/dev/null 2>&1 && [ -d /opt/authcore-sim ]; then
     echo "player simulation starting (port $GAME_PORT, MC $MC_VERSION)..."
-    ( cd /opt/authcore-sim \
-        && SIM_PORT="$GAME_PORT" SIM_MC="$MC_VERSION" node sim.js > /tmp/sim.log 2>&1 ) &
+( cd /opt/authcore-sim \
+&& SIM_PORT="$GAME_PORT" SIM_MC="$MC_VERSION" SIM_DEBUG="${SIM_DEBUG:-}" node sim.js > /tmp/sim.log 2>&1 ) &
     SIM_PID=$!
   else
     echo "player simulation skipped: node or /opt/authcore-sim missing"

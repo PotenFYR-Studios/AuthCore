@@ -1569,6 +1569,23 @@ public class Config {
 
     @Comment(
         """
+                Place an invisible BARRIER platform under limbo players so vanilla's
+                "Flying is not enabled" floating kick can never hit a player who logged out
+                mid-air (or underwater - divers are stood on a platform at the surface).
+                The platform is restored to the original block 10 seconds after the
+                authentication flow completes.
+                • Default: true""")
+    public boolean antiFloatPlatform = true;
+
+    @Comment(
+        """
+                How long (ms) the invisible limbo platform stays after the player
+                authenticates before the original block is restored.
+                • Default: 10000 (10 seconds)""")
+    public long antiFloatPlatformDelayMs = 10_000;
+
+    @Comment(
+        """
                 Dynamic login timeout adjustments based on player latency/ping.
                 • Gives high-ping players more time to authenticate.""")
     public Timeout timeout = new Timeout();

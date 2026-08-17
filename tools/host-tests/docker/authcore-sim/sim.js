@@ -114,7 +114,42 @@ function connectOnce() {
       _endRes: null,
     };
     handle.endPromise = new Promise((res) => { handle._endRes = res; });
-    client.on('packet', (data, meta) => { try { scanPacket(meta, data); } catch { /* keep going */ } });
+    client.on('packet', (data, meta) => {
+      if (process.env.SIM_DEBUG) {
+        try {
+          const line = `[${new Date().toISOString()}] ${meta.state}.${meta.name}\n`;
+          fs.appendFileSync('/tmp/sim-debug.log', line);
+        } catch { /* ignore */ }
+      }
+      try { scanPacket(meta, data); } catch { /* keep going */ }
+    });
+    // --- configuration-phase helpers (1.20.5+) -------------------------------
+    // The server pings during configuration and waits for the pong; NeoForge also
+    // sends its modded-network query and expects a response (an empty mod list is
+    // exactly what a vanilla client sends). Without these the config phase hangs and
+    // the join never completes - minecraft-protocol does not answer them itself.
+    const debugLog = (msg) => {
+      if (!process.env.SIM_DEBUG) return;
+      try { fs.appendFileSync('/tmp/sim-debug.log', `[sim] ${msg}\n`); } catch { /* ignore */ }
+    };
+    client.on('ping', (data) => {
+      try {
+        debugLog(`ping received id=${data.id}, writing pong`);
+        client.write('pong', { id: data.id });
+      } catch (e) { debugLog('pong write FAILED: ' + e.message); }
+    });
+    client.on('custom_payload', (data) => {
+      try {
+        debugLog(`custom_payload channel=${data && data.channel}`);
+        if (data && data.channel === 'neoforge:network/query') {
+          client.write('custom_payload', {
+            channel: 'neoforge:network/query/response',
+            data: Buffer.from([0x00]), // empty mod list (VarInt 0)
+          });
+          debugLog('neoforge query answered');
+        }
+      } catch (e) { debugLog('custom_payload handling FAILED: ' + e.message); }
+    });
     client.on('kick_disconnect', (data) => {
       try {
         handle.kickReason = typeof data === 'string' ? data : JSON.stringify(data);
@@ -170,6 +205,26 @@ function waitClosed(handle, timeoutMs) {
   });
 }
 
+// The harness toggles maintenance mode mid-run to verify the join block. A join
+// landing inside that window can be kicked at login OR right after it (AuthCore's
+// onPlayerJoin disconnect), and the kick reason is not reliably parseable on every
+// protocol version. Retry ANY join that did not survive the first moments instead
+// of failing the whole simulation.
+async function connectWithRetry() {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const h = await connectOnce();
+    if (!h.closed) {
+      // Play phase reached - but a post-login kick (maintenance etc.) can arrive
+      // right after. Give it a moment and retry if the connection died.
+      await sleep(1200);
+      if (!h.closed) return h;
+    }
+    try { h.client.end(); } catch { /* ignore */ }
+    await sleep(1500);
+  }
+  return connectOnce(); // last attempt as-is
+}
+
 // ------------------------------------------------------------------- flow
 
 async function run() {
@@ -179,7 +234,7 @@ async function run() {
 
   try {
     // --- 1. fresh player joins: held in limbo with the auth prompt ----------
-    let h = await connectOnce();
+    let h = await connectWithRetry();
     let ok = await waitFor(M_LIMBO, h, 25000);
     checks.simLimbo = ok ? 1 : 0;
     if (!ok) failures.push('sim: no limbo auth prompt on join');
@@ -200,7 +255,7 @@ async function run() {
     // M_LIMBO was matched in step 1 - clear it so the reconnect limbo is actually
     // verified again instead of returning instantly from the stale marker.
     clearMarkers(M_LIMBO);
-    h = await connectOnce();
+    h = await connectWithRetry();
     ok = await waitFor(M_LIMBO, h, 25000); // login prompt for a registered player
     if (ok) {
       await sendChat(h, `/login wrongpass1234`);
@@ -238,7 +293,7 @@ async function run() {
 
     // --- 5. correct /login unlocks the player -------------------------------
     clearMarkers(M_LIMBO);
-    h = await connectOnce();
+    h = await connectWithRetry();
     ok = await waitFor(M_LIMBO, h, 25000);
     if (ok) {
       await sendChat(h, `/login ${PW}`);
@@ -253,7 +308,14 @@ async function run() {
     // --- 6. after login chat is allowed (no violation warning/kick) -----------
     if (ok && !h.closed) {
       // Step 4 already flooded violation warnings - clear them so a NEW post-login
-      // violation is actually detectable (the old "before" snapshot was always true).
+      // violation is actually detectable. The NBT pump decodes buffers ASYNC, so
+      // drain + clear twice: a stale step-4 warning buffer matching after the clear
+      // would otherwise produce a false positive.
+      pendingNbt.length = 0;
+      clearMarkers(M_VIOL_WARN);
+      clearMarkers(M_VIOL_KICK);
+      await sleep(600);
+      pendingNbt.length = 0;
       clearMarkers(M_VIOL_WARN);
       clearMarkers(M_VIOL_KICK);
       await sendChat(h, 'sim-chat-after-login-' + Date.now());
@@ -287,6 +349,13 @@ async function run() {
   if (failures.length > 0) {
     results.status = 'FAIL';
     results.failures = failures.join('; ');
+    // Debug aid: append the received-packet trace so CI failures are diagnosable.
+    if (process.env.SIM_DEBUG) {
+      try {
+        const trace = fs.readFileSync('/tmp/sim-debug.log', 'utf8');
+        results.failures += ' | packets: ' + trace.split('\n').slice(-40).join(' > ').trim();
+      } catch { /* no trace */ }
+    }
   } else {
     results.status = 'PASS';
   }

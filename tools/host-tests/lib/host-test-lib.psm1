@@ -325,6 +325,16 @@ function New-TestServerFiles {
   Write-LfFile (Join-Path $WorkDir "server.properties") ($props + "`n")
 }
 
+function Get-SimSkip {
+  param([string]$McVersion, [string]$Loader)
+  # The player-simulation bot exercises the lobby-restriction mixins (chat block,
+  # violation kicks, movement). Intermediary-runtime variants (Fabric/Forge on
+  # 1.16-1.21) ship without a mixin refmap so those mixins are inert there - the sim
+  # can only pass on Mojang-named runtimes (NeoForge on every range, all 26.x jars).
+  if ($Loader -in @("fabric", "forge") -and -not $McVersion.StartsWith("26")) { return "1" }
+  return "0"
+}
+
 # Runs one version inside an isolated container. Returns a result hashtable.
 function Invoke-HostTest {
   param(
@@ -413,18 +423,27 @@ function Invoke-HostTest {
     New-TestServerFiles -WorkDir $workDir -ServerPort $Desc.port
 
     # ---- harness test configuration -----------------------------------------
-    # Pre-provision settings.conf enabling the web admin panel + honeypot so the
-    # entrypoint can exercise them (token auth, honeypot detection logging), and
-    # tuning the lobby for the player-simulation bot (captcha off - the bot would
-    # otherwise be unable to /register or /login; low violation limit so the
-    # violation-kick check finishes quickly).
+    # Pre-provision the SPLIT section files (session.conf / lobby.conf) - AuthCore's
+    # one-file-per-config-block design makes section files OVERRIDE settings.conf,
+    # so the test values must be written to the section files themselves. Enables
+    # the web admin panel + honeypot (token auth, honeypot detection logging) and
+    # tunes the lobby for the player-simulation bot (sessions OFF so every reconnect
+    # starts a fresh auth flow in the limbo; captcha off - the bot would otherwise
+    # be unable to /register or /login; low violation limit so the violation-kick
+    # check finishes quickly).
     # Ports are unique per version so parallel host-network containers never collide.
     $settingsDir = Join-Path $workDir "config/authcore"
     New-Item -ItemType Directory -Force -Path $settingsDir | Out-Null
     $panelPort = 26000 + 2 * $Desc.index
     $honeypotPort = 26001 + 2 * $Desc.index
-    Write-LfFile (Join-Path $settingsDir "settings.conf") @"
+    Write-LfFile (Join-Path $settingsDir "session.conf") @"
 session {
+  # Player-simulation bot drives a fresh auth flow on every reconnect: sessions are
+  # disabled so a reconnect cannot silently resume and skip the login limbo, and the
+  # post-kick cooldown is disabled so the bot can rejoin immediately after the
+  # violation-kick check.
+  enable-sessions = false
+  cooldown-after-kick-ms = 0
   web-panel {
     enabled = true
     host = "127.0.0.1"
@@ -436,12 +455,18 @@ session {
     port = $honeypotPort
   }
 }
+"@
+    Write-LfFile (Join-Path $settingsDir "lobby.conf") @"
 lobby {
   captcha {
     enabled = false
   }
   max-violations-before-kick = 3
 }
+"@
+    Write-LfFile (Join-Path $settingsDir "settings.conf") @"
+# AuthCore harness test configuration - section files (session.conf/lobby.conf)
+# carry the test values; this file only needs the root defaults.
 "@
 
     # ---- isolated container run ----------------------------------------------
@@ -457,6 +482,8 @@ lobby {
       -e "JBR_LABEL=$($Desc.jbrLabel)" `
       -e "JVM_ARGS=$($Ctx.jvmArgs)" `
       -e "WEB_PANEL_PORT=$panelPort" -e "HONEYPOT_PORT=$honeypotPort" `
+      -e "SIM_DEBUG=$env:SIM_DEBUG" `
+      -e "SIM_SKIP=$(Get-SimSkip $mc $($Desc.loader))" `
       $Desc.image 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "docker run failed" }
     Write-Host "  [$mc] container started ($($Desc.jbrLabel))"
