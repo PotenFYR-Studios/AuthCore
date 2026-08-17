@@ -312,6 +312,28 @@
 </div><hr>
 <h2 id="100---2026-08-15">[1.0.0] - 2026-08-15</h2>
 <h3 id="hybrid-mode-per-account-login-style--release-hardening-latest">Hybrid mode, per-account login style &amp; release hardening (latest)</h3>
+<p><strong>Anti-float platform - mid-air logouts can never kick players in the limbo</strong></p>
+<ul>
+<li>A player who logs out mid-air (or underwater) used to be kicked by vanilla&#39;s
+&quot;Flying is not enabled&quot; floating check while standing in the limbo. AuthCore now
+places an invisible BARRIER platform under the limbo player (<code>lobby.anti-float-platform</code>,
+on by default); diving players are stood on a platform at the water/lava surface instead
+of being left submerged. The original block is restored shortly after the authentication
+flow completes (<code>lobby.anti-float-platform-delay-ms</code>, default 10 seconds) - never
+overwriting a block another player placed in the meantime.</li>
+<li><strong>Crash recovery for the limbo</strong> (already present, verified): the pre-limbo snapshot
+(exact position + dimension, inventory, effects, game mode, health/food/xp) is persisted
+at lock time; if the server (or the player&#39;s session) crashes mid-limbo, the snapshot is
+restored on the next join BEFORE the fresh lock, so after login the player always returns
+to the exact spot they were at their last disconnect - regardless of the admin-configured
+limbo location.</li>
+<li><strong>Movement lock hardened</strong>: with movement disabled, the per-tick limbo re-assert now
+snaps the player back at a 0.25-block drift (was 1.0) - on runtimes without the
+movement-cancel mixin (Fabric/Forge 1.16-1.21 without a mixin refmap) this is the only
+server-side lock, and it now holds the player essentially in place. Known limitation:
+on those runtimes the client can briefly ghost-walk up to the snap interval; the
+restriction is fully packet-level on NeoForge and every 26.x jar.</li>
+</ul>
 <p><strong>Server mode is always taken from <code>server.properties</code> - the config override is gone</strong></p>
 <ul>
 <li>The <code>session.server-mode</code> setting is removed entirely: the mod always reads the real

@@ -28,6 +28,12 @@ All notable changes to AuthCore, from the first alpha to the current release.
   restored on the next join BEFORE the fresh lock, so after login the player always returns
   to the exact spot they were at their last disconnect - regardless of the admin-configured
   limbo location.
+- **Movement lock hardened**: with movement disabled, the per-tick limbo re-assert now
+  snaps the player back at a 0.25-block drift (was 1.0) - on runtimes without the
+  movement-cancel mixin (Fabric/Forge 1.16-1.21 without a mixin refmap) this is the only
+  server-side lock, and it now holds the player essentially in place. Known limitation:
+  on those runtimes the client can briefly ghost-walk up to the snap interval; the
+  restriction is fully packet-level on NeoForge and every 26.x jar.
 
 **Server mode is always taken from `server.properties` - the config override is gone**
 - The `session.server-mode` setting is removed entirely: the mod always reads the real
