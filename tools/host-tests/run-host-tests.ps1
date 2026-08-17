@@ -360,7 +360,7 @@ foreach ($built in ($majors | ForEach-Object -Parallel {
   $tag = Invoke-DockerImageBuild -JbrMajor $major -JbrTarball $tarball -BuildDir $using:toolDir
   $label = if ($tarball) { "jbr-$major" } else { "temurin-$major" }
   [pscustomobject]@{ major = $major; tag = $tag; label = $label }
-} -ThrottleLimit [Math]::Min(3, $majors.Count))) {
+} -ThrottleLimit ([Math]::Min(3, $majors.Count))) {
   $images["$($built.major)"] = @{ tag = $built.tag; label = $built.label }
   Write-Host "  image: $($built.tag) (JVM $($built.label))"
 }
