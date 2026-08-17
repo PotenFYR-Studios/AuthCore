@@ -30,6 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
   /*?}*/
 @Pseudo
 @Mixin(ServerHandshakePacketListenerImpl.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerHandshakeNetworkHandlerMixin {
 
   @Shadow @Final private Connection connection;

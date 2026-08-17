@@ -34,6 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
   /*?}*/
 @Pseudo
 @Mixin(ServerLoginPacketListenerImpl.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerLoginNetworkHandlerMixin {
 
   @Shadow

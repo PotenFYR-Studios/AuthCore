@@ -20,6 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(Mob.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class MobEntityMixin {
 
   @Inject(

@@ -23,6 +23,7 @@ import net.fabricmc.api.Environment;
   @Environment(EnvType.SERVER)
   /*?}*/
 @Mixin(PlayerList.class)
+@SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerEventsFallbackJoinMixin {
 
   @Inject(
