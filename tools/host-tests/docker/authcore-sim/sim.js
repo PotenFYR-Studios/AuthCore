@@ -308,13 +308,15 @@ async function run() {
     // --- 6. after login chat is allowed (no violation warning/kick) -----------
     if (ok && !h.closed) {
       // Step 4 already flooded violation warnings - clear them so a NEW post-login
-      // violation is actually detectable. The NBT pump decodes buffers ASYNC, so
-      // drain + clear twice: a stale step-4 warning buffer matching after the clear
-      // would otherwise produce a false positive.
-      pendingNbt.length = 0;
-      clearMarkers(M_VIOL_WARN);
-      clearMarkers(M_VIOL_KICK);
-      await sleep(600);
+      // violation is actually detectable. The NBT pump decodes buffers ASYNC and a
+      // slow runner can still be draining step-4 buffers long after the kick, so
+      // drain + clear repeatedly until no stale buffer can match anymore.
+      for (let i = 0; i < 6; i++) {
+        pendingNbt.length = 0;
+        clearMarkers(M_VIOL_WARN);
+        clearMarkers(M_VIOL_KICK);
+        await sleep(500);
+      }
       pendingNbt.length = 0;
       clearMarkers(M_VIOL_WARN);
       clearMarkers(M_VIOL_KICK);
