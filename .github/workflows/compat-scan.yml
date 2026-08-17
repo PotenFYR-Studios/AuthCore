@@ -1,6 +1,6 @@
 name: Compat Scan (weekly)
 
-# Weekly forward-compatibility scan:
+# Manual forward-compatibility scan:
 #  1. Queries the Fabric meta + Forge/NeoForge maven for NEW stable releases.
 #  2. Builds all seven variants (3 ranges x fabric/forge/neoforge).
 #  3. Runs the Docker harness with -ScanStable so every group also boots the NEWEST
@@ -12,11 +12,9 @@ name: Compat Scan (weekly)
 #     version tag (v<mod.version>-<mc>), publishes the jars to a GitHub Release and
 #     commits an auto-generated changelog entry for the new version.
 #
-# Triggered weekly (Mon 06:00 UTC) + manually via workflow_dispatch.
+# Manual only (no periodic trigger).
 
 on:
-  schedule:
-    - cron: '0 6 * * 1'
   workflow_dispatch:
 
 permissions:

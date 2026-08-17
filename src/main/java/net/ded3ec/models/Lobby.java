@@ -67,6 +67,15 @@ public class Lobby {
   /** The specific position within the lobby assigned to the player. */
   private BlockPos position;
 
+  /** Position of the temporary anti-float platform (null when not placed). */
+  private transient BlockPos platformPos = null;
+
+  /** The block state that occupied {@link #platformPos} before the platform was placed. */
+  private transient BlockState platformOriginal = null;
+
+  /** The world the platform was placed in (restored there after auth). */
+  private transient ServerLevel platformWorld = null;
+
   /** Timestamp of the lobby lock - opens the join-sync grace window for movement checks. */
   public volatile long lockedAtMs = 0;
 
@@ -333,6 +342,12 @@ public class Lobby {
 
     this.handleTeleport();
 
+    // Anti-float platform: a player who logged out mid-air (or underwater) would
+    // otherwise be kicked by vanilla's "Flying is not enabled" floating check before
+    // they can authenticate. Place an invisible BARRIER under the limbo anchor and
+    // restore the original block shortly after the auth flow completes.
+    if (AuthCoreServer.config.lobby.antiFloatPlatform) placeLimboPlatform();
+
     AuthCoreServer.LOGGER.debug(
         false,
         "Limbo guards armed for {}:\n"
@@ -451,6 +466,76 @@ public class Lobby {
   }
 
   /**
+   * Places the invisible BARRIER anti-float platform under the limbo player so vanilla's
+   * "Flying is not enabled" floating kick can never hit an unauthenticated player who
+   * logged out mid-air. Diving players are stood on a platform at the liquid surface
+   * instead of being left underwater. The original block is saved and restored after the
+   * authentication flow completes (see {@link #unlock()}).
+   */
+  public void placeLimboPlatform() {
+    ServerPlayer player = this.user.player.get();
+    if (player == null) return;
+    ServerLevel world = net.ded3ec.compat.Compat.playerLevel(player);
+    if (world == null) return;
+
+    BlockPos anchor = this.position != null ? this.position : player.blockPosition();
+    BlockPos below = anchor.below();
+
+    // Diving case: when the anchor is inside a liquid, stand the player on a platform at
+    // the surface (scan up to the first non-liquid block) instead of leaving them
+    // underwater in the limbo.
+    if (isLiquidBlock(world, below)) {
+      BlockPos surface = below;
+      while (surface.getY() < net.ded3ec.compat.Compat.getMaxBuildHeight(world)
+          && isLiquidBlock(world, surface)) {
+        surface = surface.above();
+      }
+      if (surface.getY() < net.ded3ec.compat.Compat.getMaxBuildHeight(world)) {
+        below = surface;
+        // Park the player on the platform, just above the surface.
+        net.ded3ec.compat.Compat.teleport(
+            player,
+            world,
+            anchor.getX() + 0.5,
+            below.getY() + 1.0,
+            anchor.getZ() + 0.5,
+            net.ded3ec.compat.Compat.getYaw(player),
+            net.ded3ec.compat.Compat.getPitch(player));
+      }
+    }
+
+    BlockState original = world.getBlockState(below);
+    if (original.is(Blocks.BARRIER)) return; // another platform already occupies the spot
+
+    this.platformPos = below;
+    this.platformOriginal = original;
+    this.platformWorld = world;
+    world.setBlock(below, Blocks.BARRIER.defaultBlockState(), 3);
+    AuthCoreServer.LOGGER.debug(
+        false,
+        "{} | anti-float platform placed at {} (was {})",
+        this.user.username,
+        below,
+        original);
+  }
+
+  /** Whether the block at the position is a liquid (water/lava). */
+  private static boolean isLiquidBlock(ServerLevel world, BlockPos pos) {
+    BlockState state = world.getBlockState(pos);
+    return !state.isAir() && !state.getFluidState().isEmpty();
+  }
+
+  /** Restores the original block at a platform position (only if our barrier is still there). */
+  private static void restorePlatformBlock(ServerLevel world, BlockPos pos, BlockState original) {
+    if (world == null || pos == null) return;
+    BlockState current = world.getBlockState(pos);
+    if (current.is(Blocks.BARRIER)) {
+      world.setBlock(pos, original, 3);
+      AuthCoreServer.LOGGER.debug(false, "Anti-float platform restored at {} (was {})", pos, original);
+    }
+  }
+
+  /**
    * Unlocks the player and restores them to their pre-lobby state. *
    *
    * <p>This removes the user from the active lobby map, cancels all background tasks
@@ -478,6 +563,22 @@ public class Lobby {
           false,
           "{} left the lobby without a state restore (player or snapshot missing).",
           this.user.username);
+
+    // The auth flow is complete - restore the invisible anti-float platform to its
+    // original block shortly afterwards (the player has a moment to land/stabilize).
+    if (this.platformPos != null) {
+      final BlockPos pos = this.platformPos;
+      final BlockState original = this.platformOriginal;
+      final ServerLevel world = this.platformWorld;
+      this.platformPos = null;
+      this.platformOriginal = null;
+      this.platformWorld = null;
+      long delay = Math.max(AuthCoreServer.config.lobby.antiFloatPlatformDelayMs, 1000);
+      TaskScheduler.getInstance()
+          .setTimeout(
+              () -> restorePlatformBlock(world, pos, original),
+              delay);
+    }
 
     // Guaranteed game-mode restore: the lobby forced Adventure and the unlock must ALWAYS
     // give the player back their real mode - even when the snapshot was missing or the

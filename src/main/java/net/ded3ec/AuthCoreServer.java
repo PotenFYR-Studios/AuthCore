@@ -299,8 +299,9 @@ public class AuthCoreServer {
 
       // Online-mode servers must keep the secure chat profile disabled so clients without
       // one (cracked / modded / hybrid offline players) can still join and chat - the secure
-      // profile requirement otherwise kicks them right after login.
-      if (isServerOnline())
+      // profile requirement otherwise kicks them right after login. Only shown once the real
+      // server mode was detected as online (at boot the mode is not known yet).
+      if (serverOnlineMode != null && serverOnlineMode)
         LOGGER.warn(
             false,
             "server.properties online-mode=true - keep enable-secure-profile=false in "

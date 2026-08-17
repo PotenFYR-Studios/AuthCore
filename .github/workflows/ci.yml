@@ -5,7 +5,7 @@ name: CI
 #               Stonecutter, verifies jar roles, runs the security test suite,
 #               uploads the jars as an artifact
 #   host-tests - needs build: downloads the jars (no rebuild) and runs the Docker
-#               harness (smoke on push/PR, full range matrix on schedule)
+#               harness (smoke on push/PR, full range matrix on workflow_dispatch)
 #   release   - needs build: downloads the validated jars, replaces the release for
 #               the same tag (or creates a new one), publishes the changelog.
 #               Only runs on v* tags. Does NOT wait for host-tests so a release
@@ -22,8 +22,6 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * *'   # daily UTC 04:00 (full range-endpoint matrix)
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -127,14 +125,14 @@ jobs:
             hosttests-${{ runner.os }}-
 
       - name: Host-compatibility smoke (push/PR only, build targets)
-        if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+        if: github.event_name != 'workflow_dispatch'
         run: |
           pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Smoke -Parallel 4
         env:
           DOCKER_BUILDKIT: '1'
 
-      - name: Full range-endpoint matrix (scheduled runs only)
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      - name: Full range-endpoint matrix (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
         run: |
           pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Parallel 4
         env:

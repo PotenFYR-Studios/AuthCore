@@ -190,7 +190,13 @@ public class HoconConf {
             .load();
         if (section == null || section.empty()) continue;
         var wrapped = loader("settings.conf").createNode();
-        wrapped.node(entry.getKey()).mergeFrom(section);
+        // Section files are saved WITH their block wrapper (e.g. session { ... }),
+        // so merge the wrapper's CHILDREN into the target block - merging the file
+        // root directly would double-nest (session.session.*) and silently drop
+        // every section-file override.
+        var block = section.node(entry.getKey());
+        if (block != null && !block.empty()) wrapped.node(entry.getKey()).mergeFrom(block);
+        else wrapped.node(entry.getKey()).mergeFrom(section);
         root.mergeFrom(wrapped);
         AuthCoreServer.LOGGER.debug(
             true, "Config override applied from '{}' (block '{}').", entry.getValue(), entry.getKey());

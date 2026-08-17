@@ -14,6 +14,21 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ### Hybrid mode, per-account login style & release hardening (latest)
 
+**Anti-float platform - mid-air logouts can never kick players in the limbo**
+- A player who logs out mid-air (or underwater) used to be kicked by vanilla's
+  "Flying is not enabled" floating check while standing in the limbo. AuthCore now
+  places an invisible BARRIER platform under the limbo player (`lobby.anti-float-platform`,
+  on by default); diving players are stood on a platform at the water/lava surface instead
+  of being left submerged. The original block is restored shortly after the authentication
+  flow completes (`lobby.anti-float-platform-delay-ms`, default 10 seconds) - never
+  overwriting a block another player placed in the meantime.
+- **Crash recovery for the limbo** (already present, verified): the pre-limbo snapshot
+  (exact position + dimension, inventory, effects, game mode, health/food/xp) is persisted
+  at lock time; if the server (or the player's session) crashes mid-limbo, the snapshot is
+  restored on the next join BEFORE the fresh lock, so after login the player always returns
+  to the exact spot they were at their last disconnect - regardless of the admin-configured
+  limbo location.
+
 **Server mode is always taken from `server.properties` - the config override is gone**
 - The `session.server-mode` setting is removed entirely: the mod always reads the real
   `online-mode` from the running Minecraft server (`MinecraftServer#usesAuthentication`).

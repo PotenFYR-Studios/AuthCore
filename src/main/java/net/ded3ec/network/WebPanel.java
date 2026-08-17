@@ -319,6 +319,7 @@ public final class WebPanel {
   private static final int MAX_ATTEMPTS = 5;
   private static final long LOCKOUT_MS = 60_000L;
   private static final int MAX_TRACKED_IPS = 2_048;
+  /** Per-IP brute-force tracking: {firstAttemptMs, failureCount, lockoutUntilMs}. */
   private static final java.util.Map<String, long[]> FAILED_ATTEMPTS = new java.util.concurrent.ConcurrentHashMap<>();
 
   private static boolean isLockedOut(HttpExchange exchange) {
@@ -327,11 +328,11 @@ public final class WebPanel {
     if (entry == null) return false;
     long now = System.currentTimeMillis();
     // Reset the counter once the lockout window has passed
-    if (entry[1] != 0L && now > entry[1]) {
+    if (entry[2] != 0L && now > entry[2]) {
       FAILED_ATTEMPTS.remove(ip);
       return false;
     }
-    return entry[0] >= MAX_ATTEMPTS;
+    return entry[1] >= MAX_ATTEMPTS;
   }
 
   private static void recordFailedAttempt(HttpExchange exchange) {
@@ -350,12 +351,11 @@ public final class WebPanel {
     FAILED_ATTEMPTS.compute(
         ip,
         (k, entry) -> {
-          if (entry == null) return new long[] {1, 0L};
-          // Keep counting only within the same lockout window
-          if (entry[1] != 0L || now - entry[0] > LOCKOUT_MS) return new long[] {1, 0L};
-          long[] next = {entry[0] + 1, 0L};
-          if (next[0] >= MAX_ATTEMPTS) {
-            next[1] = now + LOCKOUT_MS;
+          if (entry == null || entry[2] != 0L || now - entry[0] > LOCKOUT_MS)
+            return new long[] {now, 1, 0L};
+          long[] next = {entry[0], entry[1] + 1, 0L};
+          if (next[1] >= MAX_ATTEMPTS) {
+            next[2] = now + LOCKOUT_MS;
             AuthCoreServer.LOGGER.debug(
                 false,
                 "Web panel | {} locked out for {}ms after {} failed attempts",
