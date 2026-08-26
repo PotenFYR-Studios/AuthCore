@@ -298,3 +298,19 @@ tasks.withType<JavaCompile> {
     options.compilerArgs.add("-Xlint:-deprecation")
 }
 
+// ----------------------------------------------------------------------------
+// Standalone security-test support
+// ----------------------------------------------------------------------------
+// Exports EVERY compile+runtime dependency jar of this variant into
+// tools/security-tests/libs-ci/ so tools/security-tests/run-tests.ps1 can compile and
+// run against the exact classpath the mod was built with - WITHOUT depending on the
+// developer's global Gradle cache (a CI matrix leg only resolves this one variant, so
+// standalone copies of e.g. slf4j-api / commons-lang3 may simply not be cached there).
+val exportSecurityTestLibs = tasks.register<Copy>("exportSecurityTestLibs") {
+    group = "verification"
+    description = "Exports the variant dependency jars consumed by tools/security-tests."
+    into(rootProject.layout.projectDirectory.dir("tools/security-tests/libs-ci"))
+    from(configurations.getByName("compileClasspath"))
+    from(configurations.getByName("runtimeClasspath"))
+}
+

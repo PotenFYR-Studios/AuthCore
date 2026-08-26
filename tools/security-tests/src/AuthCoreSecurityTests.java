@@ -185,7 +185,12 @@ public class AuthCoreSecurityTests {
     check("invalid octet rejected", ProxySupport.parseForwardedIp("256.1.1.1") == null);
     check("port suffix rejected", ProxySupport.parseForwardedIp("10.0.0.5:25565") == null);
     check("null rejected", ProxySupport.parseForwardedIp(null) == null);
-    check("bare private ip accepted", "127.0.0.1".equals(ProxySupport.parseForwardedIp("127.0.0.1")));
+    // SECURITY REGRESSION GUARD: a BARE handshake address is client-controlled - accepting
+    // it let any modified client spoof its IP (rate limits, GeoIP, intelligence, IP rules).
+    // Only the NUL-separated proxy forwarding payload may ever be trusted.
+    check("bare address rejected (spoof guard)",
+        ProxySupport.parseForwardedIp("127.0.0.1") == null
+            && ProxySupport.parseForwardedIp("203.0.113.9") == null);
   }
 
   private static void testVelocityForwarding() {
