@@ -126,9 +126,20 @@ jobs:
 
       # The standalone security suite compiles against the REAL compiled classes, which
       # only exist inside a build leg - run it once on the primary (vcsVersion) variant.
+      # The Gradle export task provides the EXACT variant classpath (a CI leg's global
+      # cache has no standalone copies of transitive libs like slf4j-api/commons-lang3),
+      # and PATH is pinned to JDK 21+ so javac can read Java-21 classfiles regardless of
+      # which setup-java version ended up default.
+      - name: Export security-test classpath
+        run: |
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :${{ matrix.variant }}:exportSecurityTestLibs --no-daemon -q
+
       - name: Run security & business-logic tests
         if: matrix.variant == '1.21.11-fabric'
-        run: pwsh -NoProfile -File tools/security-tests/run-tests.ps1
+        run: |
+          export PATH="${JAVA_HOME_21_X64:-$JAVA_HOME_25_X64}/bin:$PATH"
+          pwsh -NoProfile -File tools/security-tests/run-tests.ps1
 
       - name: Upload variant jars
         uses: actions/upload-artifact@v4
