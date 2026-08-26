@@ -1,5 +1,7 @@
 package net.ded3ec.network;
 
+import net.ded3ec.AuthCoreServer;
+
 /**
  * Parses proxy IP forwarding payloads.
  *
@@ -15,6 +17,12 @@ public final class ProxySupport {
   /**
    * Extracts the forwarded real client IP from a handshake address string.
    *
+   * <p>ONLY the NUL-separated forwarding payload ({@code ip\0uuid\0properties}) is accepted.
+   * The old bare-IP fallback was a spoofing hole: the handshake address is CLIENT-CONTROLLED,
+   * so a direct (unproxied) modified client could claim any IP and defeat rate limits, GeoIP,
+   * login intelligence and IP rules. Real proxies (BungeeCord / Velocity legacy) always send
+   * the NUL payload, so a plain hostname/IP handshake is simply ignored here.
+   *
    * @param handshakeAddress the raw {@code address()} value of the handshake packet
    * @return the real client IP, or {@code null} when no forwarding payload is present
    */
@@ -28,9 +36,8 @@ public final class ProxySupport {
       return isValidIp(ip) ? ip : null;
     }
 
-    // Some setups forward a bare IP without NUL separators
-    String trimmed = handshakeAddress.trim();
-    return isValidIp(trimmed) ? trimmed : null;
+    // No NUL payload -> not proxied forwarding. Never trust a bare client-supplied address.
+    return null;
   }
 
   /** Basic sanity check that a string looks like an IPv4/IPv6 address. */
@@ -86,5 +93,74 @@ public final class ProxySupport {
     } catch (Exception err) {
       return false;
     }
+  }
+
+  /**
+   * Whether forwarded handshake data from this SOCKET source address may be trusted.
+   *
+   * <p>Forwarded payloads are client-controlled strings: without a source check, any
+   * modified client could claim an arbitrary IP and defeat IP rules, rate limits, GeoIP
+   * and login intelligence. A configured {@code trusted-proxies} list makes the rewrite
+   * strict: only listed addresses (exact IP or IPv4 CIDR range) are honored. An EMPTY
+   * list keeps the legacy permissive behavior (documented as not recommended) so existing
+   * proxy setups do not silently break on upgrade.
+   */
+  public static boolean isTrustedProxySource(String socketIp) {
+    if (AuthCoreServer.config == null) return true; // config not loaded yet - legacy path
+    java.util.List<String> trusted = AuthCoreServer.config.session.proxySupport.trustedProxies;
+    if (trusted == null || trusted.isEmpty()) return true; // legacy behavior + boot warning
+    if (socketIp == null || socketIp.isBlank()) return false;
+
+    // Normalize: strip a zone index and brackets ("[::1]:25565" style inputs).
+    String ip = socketIp.trim();
+    if (ip.startsWith("[")) ip = ip.substring(1, ip.indexOf(']') > 0 ? ip.indexOf(']') : ip.length());
+    int zone = ip.indexOf('%');
+    if (zone > 0) ip = ip.substring(0, zone);
+
+    for (String entry : trusted) {
+      if (entry == null || entry.isBlank()) continue;
+      String value = entry.trim();
+      int slash = value.indexOf('/');
+      if (slash > 0 && isValidIp(value.substring(0, slash))) {
+        if (cidrMatches(ip, value)) return true;
+      } else if (ip.equals(value)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** IPv4 CIDR match ({@code a.b.c.d/n}); falls back to exact string compare otherwise. */
+  public static boolean cidrMatches(String ip, String cidr) {
+    try {
+      String[] parts = cidr.split("/");
+      int prefix = Integer.parseInt(parts[1]);
+      long ipBits = ipv4ToLong(ip);
+      if (ipBits < 0) return false; // IPv6 against an IPv4 CIDR -> exact match only
+      long netBits = ipv4ToLong(parts[0]);
+      int shift = 32 - Math.min(prefix, 32);
+      return (ipBits >> shift) == (netBits >> shift);
+    } catch (RuntimeException err) {
+      return false;
+    }
+  }
+
+  /** Packs an IPv4 string into 32 bits; {@code -1} when the input is not IPv4. */
+  private static long ipv4ToLong(String ip) {
+    if (ip == null || ip.contains(":")) return -1;
+    String[] parts = ip.split("\\.");
+    if (parts.length != 4) return -1;
+    long result = 0;
+    for (String part : parts) {
+      int value;
+      try {
+        value = Integer.parseInt(part);
+      } catch (NumberFormatException err) {
+        return -1;
+      }
+      if (value < 0 || value > 255) return -1;
+      result = (result << 8) | value;
+    }
+    return result;
   }
 }

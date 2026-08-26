@@ -900,6 +900,17 @@ public class Config {
                 • Used to verify forwarded payloads when the protocol carries them.
                 • Default: "" (disabled)""")
     public String velocitySecret = "";
+
+    @Comment(
+        """
+                Trusted proxy sources (IPs or IPv4 CIDR ranges) allowed to CLAIM a forwarded
+                client IP in the handshake. Forwarded data from any other source is IGNORED -
+                without this list, ANY client with a modified handshake can spoof its IP and
+                bypass IP rules, rate limits and login intelligence.
+                • Example: ["10.0.0.5", "192.168.1.0/24"]
+                • Default: [] (legacy behavior: every source is trusted - NOT recommended;
+                  configure your real proxy addresses here)""")
+    public java.util.List<String> trustedProxies = new java.util.ArrayList<>();
   }
 
   @ConfigSerializable

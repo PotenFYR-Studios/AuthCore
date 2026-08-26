@@ -43,6 +43,22 @@ abstract class ServerHandshakeNetworkHandlerMixin {
     String realIp = ProxySupport.parseForwardedIp(rawAddress);
     if (realIp == null) return;
 
+    // Source validation: forwarded data is client-controlled. When a trusted-proxies
+    // list is configured, only connections from those addresses may claim a real IP -
+    // everyone else keeps their genuine socket address (spoof attempts are logged).
+    String socketIp = readSocketIp();
+    if (!ProxySupport.isTrustedProxySource(socketIp)) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "Proxy forwarding REJECTED untrusted source {} claiming IP {}",
+          socketIp,
+          realIp);
+      net.ded3ec.security.SecurityLog.log(
+          "PROXY_SPOOF_ATTEMPT",
+          "source " + socketIp + " claimed forwarded IP " + realIp + " - ignored");
+      return;
+    }
+
     try {
       java.net.InetSocketAddress oldAddress = (java.net.InetSocketAddress) connection.getRemoteAddress();
       java.net.InetSocketAddress forwarded =
@@ -55,6 +71,20 @@ abstract class ServerHandshakeNetworkHandlerMixin {
     } catch (Exception err) {
       AuthCoreServer.LOGGER.debug(false, "Failed to rewrite proxied address:", err);
     }
+  }
+
+  /** Extracts the plain socket IP of this connection (null when unavailable). */
+  private String readSocketIp() {
+    try {
+      Object remote = connection.getRemoteAddress();
+      if (remote instanceof java.net.InetSocketAddress address) {
+        java.net.InetAddress addr = address.getAddress();
+        return addr != null ? addr.getHostAddress() : null;
+      }
+    } catch (RuntimeException ignored) {
+      // fall through
+    }
+    return null;
   }
 
   /** Reads the handshake address string (record accessor or private field, by version). */

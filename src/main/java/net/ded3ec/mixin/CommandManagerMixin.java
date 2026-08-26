@@ -54,28 +54,11 @@ public abstract class CommandManagerMixin {
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
-    // Extract root command
-    String root = command.split(" ")[0].toLowerCase();
-
-    // Blacklist mode
-    if (AuthCoreServer.config.lobby.useWhitelistAsBlacklist
-        && AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
-
-      AuthCoreServer.LOGGER.violation(
-          false,
-          user,
-          player.connection,
-          AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
-          root);
-
-      ci.cancel();
-      return;
-    }
-
-    // Whitelist mode
-    if (!AuthCoreServer.config.lobby.allowCommands
-        && !AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
-
+    // Shared decision (also enforced at the PACKET layer - see
+    // ServerPlayNetworkHandlerMixin.authCore$onCommandPacket): two independent layers so
+    // a silent injection miss can never grant unrestricted commands.
+    if (!net.ded3ec.security.Security.isCommandAllowedInLobby(user, command)) {
+      String root = command.split(" ")[0].toLowerCase();
       AuthCoreServer.LOGGER.violation(
           false,
           user,

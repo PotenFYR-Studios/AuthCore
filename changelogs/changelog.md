@@ -1,4 +1,4 @@
-<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
+﻿<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
 # AuthCore Changelog
 
@@ -12,7 +12,106 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ## [1.0.0] - 2026-08-15
 
-### Hybrid mode, per-account login style & release hardening (latest)
+> One merged changelog for the whole 1.0.0 line - every feature, fix and hardening
+> pass that ever shipped under a `1.0.0*` label lives in this single section
+> (the separate `alpha.1`-`alpha.5` entries were folded in; nothing was lost).
+
+### Security-audit & CI pass (2026-08-26)
+
+**Critical fixes**
+
+- **MySQL / PostgreSQL servers no longer brick at boot**: the hard-coded SQLite DDL
+  (`AUTOINCREMENT`, `TEXT` primary key) threw on both dialects, which set
+  `migrationBlocked = true` and suspended login/register for the whole server. Table
+  creation is now dialect-aware (AUTO_INCREMENT / BIGSERIAL / VARCHAR(36) keys).
+- **Session-resume premature kick fixed**: resuming a session re-ran `login()` without
+  stopping the previous session's timeout task - the stale timer fired at the ORIGINAL
+  deadline and kicked freshly-authenticated players. The old timer is now cancelled on
+  every (re)login.
+- **Direct-client IP spoofing closed**: proxy IP forwarding accepted a BARE handshake
+  address as a forwarded IP - but that field is client-controlled, so any modified client
+  could claim an arbitrary IP (defeating rate limits, GeoIP, login intelligence and IP
+  rules). Only the real NUL-separated proxy forwarding payload is trusted now.
+- **Limbo command gate unified + auth commands unblockable**: `/login` and `/register`
+  are now ALWAYS allowed in the limbo (a misconfigured whitelist/blacklist could
+  permanently trap players), blacklist mode behaves identically on every enforcement
+  layer, and all three dispatcher/packet layers share one decision function.
+
+**Security hardening**
+
+- Email password-recovery requests are rate-limited (one per minute per player) -
+  previously an unauthenticated limbo player could spam unlimited SMTP sends.
+- Discord link-code generation is rate-limited (webhook spam vector).
+- Web admin panel: POST bodies are capped (64 KB) against memory-exhaustion, responses
+  carry `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  no-referrer` and a strict CSP on the dashboard; dead authorization path removed.
+- Crash-snapshot restore clamps health to `[finite, max]` - a tampered limbo snapshot
+  file can no longer restore NaN/negative/absurd health.
+- Limbo lock registration is atomic (`putIfAbsent`) - a double-lock race unwinds cleanly
+  instead of corrupting snapshot state.
+- `ip-rules.conf` supports IPv4 CIDR ranges (`deny 203.0.113.0/24`), sharing the same
+  matcher as the proxy allowlist.
+- Redis security-event payloads are built with Gson instead of hand-rolled escaping.
+- SMTP response parser no longer throws on bare 3-char continuation lines.
+- Action-captcha challenge selection uses one shared `SecureRandom`.
+
+**Compatibility & CI**
+
+- **Future-snapshot support**: any modern major line (26.x today, 27.x+ tomorrow) is
+  detected dynamically in the build - future targets get their own open-ended jar label
+  and Minecraft range instead of being mislabeled, and the untested-version boot warning
+  understands numeric majors.
+- **CI builds all seven variants in PARALLEL** (matrix, one runner per variant) with a
+  dedicated merge/count-gate job; least-privilege workflow permissions; robust dev-release
+  jar-name parsing for future label shapes.
+- **Modrinth publishing**: stable `v*` releases now publish to Modrinth alongside GitHub
+  Releases - one listing per Minecraft range with correct loaders + dependencies, and a
+  same-version rebuild REPLACES the existing Modrinth listing (fresh jars + changelog),
+  mirroring the GitHub Release upsert behavior.
+- **VS Code integration**: one-click tasks for build (active/all variants), security
+  tests (+ optional config-migration suite), Docker host tests, site rendering and jar
+  collection; recommended extensions and workspace search/watcher tuning.
+- The config-migration test suite (`AuthCoreMigrationTest`) is now wired into the test
+  script via `-IncludeMigration`.
+
+### CI, security & compatibility pass (2026-08-25)
+
+**GitHub Actions & releases**
+- **Rolling dev builds**: every push to `main` now refreshes a `latest` PRERELEASE on
+  GitHub Releases with all seven jars of that exact commit (marked prerelease + not
+  "Latest", so stable `v*` releases always stay on top). Development builds are finally
+  downloadable without cutting a tag.
+- Stable `v*` tag releases unchanged; the release job additionally enforces
+  `--latest=true` so a re-tagged build always wins the "Latest" badge.
+- Jar-count gate (exactly 7 jars), fail-loud jar-role verification, Gradle wrapper
+  validation, job timeouts, non-cancellable tagged builds, build-report artifacts on
+  failure.
+- Compat scan publishes are rebase-safe (a moved `main` during a scan no longer
+  discards the result).
+
+**Forward-compatibility: future Minecraft versions load instead of being rejected**
+- The 26.1-26.2 jars declare an OPEN-ENDED Minecraft range (`>=26.1`, NeoForge
+  `[26.1,)`) - new 26.x releases and snapshots boot the mod with the standard
+  untested-version warning banner instead of refusing to load. The 1.x-era jars keep
+  their exact verified ranges (intermediary mappings make open ranges unsafe there).
+
+**Security hardening (audit-driven)**
+- Duplicate-login race closed: the leave event of a kicked old connection can no longer
+  unlock the NEW session's limbo (connection-identity check).
+- Limbo unlock no longer resurrects operator status captured at lock time - a deop while
+  sitting in the lobby stays a deop.
+- Open containers are force-closed at lock time (carried stacks can no longer be
+  deposited into world chests while unauthenticated).
+- Creative-mode slot packets are blocked in the lobby regardless of game mode.
+- MySQL nickname SQLi closed (parameterized), TOTP enrollment QR no longer sent to an
+  external service (local rendering), mistyped passwords are redacted in spray alerts,
+  `mfaVerified`/session tokens reset on logout, recovery-code printing requires an
+  authenticated session, rate-limit overflow eviction is per-key (an IPv6 flood can no
+  longer clear other players' lockouts).
+- Forge/NeoForge parity for entity attack/interaction blocking in the limbo (previously
+  fabric-api-only).
+
+### Hybrid mode, per-account login style & release hardening
 
 **Anti-float platform - mid-air logouts can never kick players in the limbo**
 - A player who logs out mid-air (or underwater) used to be kicked by vanilla's
@@ -111,7 +210,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 **Limbo quality pass (no more screen vibration, no bypasses)**
 - **Anti-vibration movement correction**: the client was snapped back on EVERY violating
-  movement packet (up to 40 position packets/s → rubber-banding). Corrections are now
+  movement packet (up to 40 position packets/s â†’ rubber-banding). Corrections are now
   distance- and throttle-based: `lobby.movement-correction-radius` (default 1.5 blocks) and
   `lobby.movement-correction-interval-ms` (default 600ms), the classic AuthMe feel
   (ghost-walk a little, one clean snap). Movement packets are still cancelled on every
@@ -161,7 +260,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 **Hybrid / hub networks**
 - Session resume no longer requires the same IP when `session.session-from-same-ip-only`
-  is disabled: on proxy networks the forwarded IP can legitimately differ hub ↔ game,
+  is disabled: on proxy networks the forwarded IP can legitimately differ hub â†” game,
   which previously silently dropped sessions on every hub transfer.
 
 **Fixed since 1.0.1**
@@ -176,7 +275,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 - **NeoForge 21.1.x boot fixed**: the `1.19-1.21` NeoForge jar crashed at startup on
   NeoForge 21.1.x (e.g. 21.1.248, Minecraft 1.21.1) with a `NoClassDefFoundError` on
-  `net/minecraft/resources/Identifier` - the `ResourceLocation` → `Identifier` rename
+  `net/minecraft/resources/Identifier` - the `ResourceLocation` â†’ `Identifier` rename
   happened at 1.21.11, so the build target's class name could not load on older 1.21.x.
   The font style no longer calls `Identifier.tryParse()` directly (it is a deliberate
   no-op - the font API keeps changing shape every version and the old reflective lookups
@@ -488,7 +587,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 - Removed IDE artifacts (`.settings/`, `bin/`, `.classpath`, `.project`, `.factorypath`),
   stale `dist/` jars and the obsolete `authcore-26.x-*` jars.
 - Fixed mojibake in the ClientGuard config comment, removed duplicated/corrupt changelog
-  sections, corrected stale wording ("26.0+" → 26.1-26.2, Java 17/21/25, multi-loader
+  sections, corrected stale wording ("26.0+" â†’ 26.1-26.2, Java 17/21/25, multi-loader
   tagline).
 
 ### Single human verification (map captcha & GUI removal, intelligence overhaul) (2026-08-16)
@@ -540,10 +639,10 @@ All notable changes to AuthCore, from the first alpha to the current release.
   construction) is fixed.
 - JSON escaping on `fail()` and the result writer (quotes/backslashes can no longer
   corrupt `result.json`); parallel crash-recovery keeps the test identity (the caught
-  exception overwrote `$_` → blank FAIL rows).
-- Speed: JBR image builds run in parallel, shorter fixed sleeps (post-Done 5s→2s, command
-  cadence 3s→2s, sim violation loop 60s→45s, post-login wait 7s→4s), default boot timeout
-  900s→480s, container log poll 2s→4s. Sim SKIPs (no protocol data for brand-new MC
+  exception overwrote `$_` â†’ blank FAIL rows).
+- Speed: JBR image builds run in parallel, shorter fixed sleeps (post-Done 5sâ†’2s, command
+  cadence 3sâ†’2s, sim violation loop 60sâ†’45s, post-login wait 7sâ†’4s), default boot timeout
+  900sâ†’480s, container log poll 2sâ†’4s. Sim SKIPs (no protocol data for brand-new MC
   versions) render as n/a instead of FAIL cells, with the reason in the report.
 - The player simulation keeps using `minecraft-protocol` (the standard packet-event client;
   `protocolob` does not exist on npm). Verified: 1.18.2 / 1.21.11 / 26.1.2 resolve and
@@ -559,32 +658,10 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ---
 
-## [1.0.0-alpha.5] - 2026-08-08
+### Early development history (1.0.0-alpha.1 -> alpha.5)
 
-- Velocity / BungeeCord proxy support (server-side IP forwarding, `session.proxy-support`)
-- Web admin panel (HTTP/HTTPS with auto self-signed cert, token auth)
-- Email recovery & alerts (SMTP login alerts, `/account recover`)
-- Client login-screen companion (login GUI before joining)
-
-## [1.0.0-alpha.4] - 2026-08-08
-
-- Combat-log punishment, Discord webhooks, security log + rotation, login history,
-  intelligence (new IP/country), account locking, risk scores, CAPTCHA, recovery codes,
-  progressive punishment, per-IP rate limits, PostgreSQL, Redis session/ban sync,
-  `AuthCoreApi`, `/authcore backup|history`, 6 new localized messages in 7 languages.
-
-## [1.0.0-alpha.3] - 2026-08-08
-
-- **Fixed premium (online-mode) detection**: Mojang API-outage-safe, no player ever blocked
-  by an API failure; transient failures retry; health-tracked lookups.
-
-## [1.0.0-alpha.2] - 2026-08-08
-
-- Per-hash random salts (bcrypt/scrypt/pbkdf2 no longer broken), case-insensitive user lookup,
-  UUID re-keying, no account enumeration, command `requires` version fix, console `/authcore`,
-  MySQL URL fixes, localhost/LAN support, JDK HttpClient, structured startup banner.
-
-## [1.0.0-alpha.1] - 2026-01-01
-
-- Initial framework: hybrid auth, limbo (lobby), session management, message system,
-  granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages.conf).
+The five pre-release milestones (initial framework with hybrid auth, limbo, sessions and
+2FA; per-hash salts, no enumeration, console commands; outage-safe online-mode detection;
+combat-log punishment, webhooks, intelligence, Redis/PostgreSQL, AuthCoreApi; proxy
+support, web panel, email recovery) are all superseded by - and fully documented inside -
+the merged [1.0.0] section above.

@@ -275,7 +275,14 @@ public final class WebPanel {
         return;
       }
       if ("POST".equals(method) && "/api/action".equals(path)) {
-        String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        // Bounded read: an unbounded readAllBytes() let any authenticated caller (or a
+        // brute-forcing client) stream gigabytes into memory. Action bodies are tiny.
+        byte[] raw = exchange.getRequestBody().readNBytes(65_537);
+        if (raw.length > 65_536) {
+          respond(exchange, 413, error("Request body too large"));
+          return;
+        }
+        String body = new String(raw, StandardCharsets.UTF_8);
         respond(exchange, 200, action(body));
         return;
       }
@@ -291,17 +298,6 @@ public final class WebPanel {
       }
     } finally {
       exchange.close();
-    }
-  }
-
-  private static boolean authorized(HttpExchange exchange, String token) {
-    try {
-      String header = exchange.getRequestHeaders().getFirst("Authorization");
-      if (header == null) return false;
-      String expected = "Bearer " + token;
-      return constantTimeEquals(expected, header.trim()) || constantTimeEquals(token, header.trim());
-    } catch (Exception err) {
-      return false;
     }
   }
 
@@ -592,18 +588,34 @@ public final class WebPanel {
 
   private static void respond(HttpExchange exchange, int code, JsonObject json) throws java.io.IOException {
     byte[] bytes = GSON.toJson(json).getBytes(StandardCharsets.UTF_8);
+    securityHeaders(exchange, false);
     exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-    exchange.getResponseHeaders().set("Cache-Control", "no-store");
     exchange.sendResponseHeaders(code, bytes.length);
     exchange.getResponseBody().write(bytes);
   }
 
   private static void respondHtml(HttpExchange exchange, String html) throws java.io.IOException {
     byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+    securityHeaders(exchange, true);
     exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
-    exchange.getResponseHeaders().set("Cache-Control", "no-store");
     exchange.sendResponseHeaders(200, bytes.length);
     exchange.getResponseBody().write(bytes);
+  }
+
+  /**
+   * Baseline browser hardening on every response: the panel holds a powerful bearer token,
+   * so clickjacking / MIME-sniffing / referrer leakage are all closed by default. The HTML
+   * page additionally gets a strict CSP (inline script/style only, no external origins).
+   */
+  private static void securityHeaders(HttpExchange exchange, boolean html) {
+    var h = exchange.getResponseHeaders();
+    h.set("X-Content-Type-Options", "nosniff");
+    h.set("X-Frame-Options", "DENY");
+    h.set("Referrer-Policy", "no-referrer");
+    if (html)
+      h.set(
+          "Content-Security-Policy",
+          "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:");
   }
 
   /** Single-file dashboard page (dark, no external resources). */
@@ -689,16 +701,20 @@ public final class WebPanel {
         const p = await api('/api/players');
         render(p.players);
       }
-      const stat = (label, value) => '<div class="stat"><b>' + value + '</b><span>' + label + '</span></div>';
+      const stat = (label, value) => '<div class="stat"><b>' + esc(value) + '</b><span>' + label + '</span></div>';
+      // HTML-escape EVERY server-provided string before it enters .innerHTML: player
+      //-controlled values must never be able to inject markup into the admin panel
+      // (stored XSS would run with the panel bearer token in scope).
+      const esc = v => String(v ?? '').replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
       function render(players) {
         const q = $('search').value.toLowerCase();
         $('rows').innerHTML = players.filter(x => !q || x.username.toLowerCase().includes(q)).map(p => {
           const mode = p.premium ? '<span class="badge ok">online-mode</span>' : '<span class="badge warn">offline-mode</span>';
           const status = p.online ? '<span class="badge ok">online</span>' : (p.inLobby ? '<span class="badge warn">lobby</span>' : '<span class="badge no">offline</span>');
           const locked = p.locked ? ' <span class="badge no">locked</span>' : '';
-          const risk = p.risk >= 60 ? '<span class="badge no">' + p.risk + '</span>' : '<span class="badge ok">' + p.risk + '</span>';
-          return '<tr><td><b>' + p.username + '</b>' + locked + '</td><td>' + mode + '</td><td>' + status + '</td>' +
-            '<td>' + risk + '</td><td class="muted">' + (p.ip || '-') + '</td><td class="muted">' + (p.country || '-') + '</td>' +
+          const risk = p.risk >= 60 ? '<span class="badge no">' + esc(p.risk) + '</span>' : '<span class="badge ok">' + esc(p.risk) + '</span>';
+          return '<tr><td><b>' + esc(p.username) + '</b>' + locked + '</td><td>' + mode + '</td><td>' + status + '</td>' +
+            '<td>' + risk + '</td><td class="muted">' + esc(p.ip || '-') + '</td><td class="muted">' + esc(p.country || '-') + '</td>' +
             '<td class="row-actions">' +
             (p.online ? '<button onclick="act(\'' + p.uuid + '\',\'kick\')">Kick</button><button onclick="act(\'' + p.uuid + '\',\'logout\')">Logout</button>' : '') +
             (p.locked ? '<button onclick="act(\'' + p.uuid + '\',\'unlock\')">Unlock</button>' : '') +

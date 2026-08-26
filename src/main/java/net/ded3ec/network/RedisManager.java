@@ -244,13 +244,15 @@ public final class RedisManager {
     ensureConnected();
     if (!isEnabled()) return;
     try (Jedis jedis = pool.getResource()) {
-      String payload =
-          "{\"type\":\"" + jsonEscape(type)
-              + "\",\"username\":\"" + jsonEscape(username)
-              + "\",\"detail\":\"" + jsonEscape(detail)
-              + "\",\"server\":\"" + SERVER_ID
-              + "\",\"ts\":" + System.currentTimeMillis() + "}";
-      jedis.publish(EVENT_CHANNEL, payload);
+      // Gson-built payload (never string-concatenated): usernames/details are escaped
+      // correctly no matter what characters they contain.
+      com.google.gson.JsonObject evt = new com.google.gson.JsonObject();
+      evt.addProperty("type", type);
+      evt.addProperty("username", username == null ? "" : username);
+      evt.addProperty("detail", detail == null ? "" : detail);
+      evt.addProperty("server", SERVER_ID);
+      evt.addProperty("ts", System.currentTimeMillis());
+      jedis.publish(EVENT_CHANNEL, evt.toString());
     } catch (Exception err) {
       AuthCoreServer.LOGGER.debug(null, "Redis publishEvent failed:", err);
     }
@@ -317,11 +319,6 @@ public final class RedisManager {
     } catch (Exception ignored) {
       // malformed event - ignore
     }
-  }
-
-  private static String jsonEscape(String value) {
-    if (value == null) return "";
-    return value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n");
   }
 
   // ------------------------------------------------------------------

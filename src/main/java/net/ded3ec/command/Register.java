@@ -169,11 +169,18 @@ public class Register {
       // Validate the password and load the user if valid.
       if (checkPassword(player, password, confirmPassword)) {
 
-        if (AuthCoreServer.config.session.authentication.allowTOTPSupport && authCode == null)
+        // 2FA at registration applies ONLY to re-registering an account that already has a
+        // TOTP secret (e.g. after admin deletion + same-name rejoin). A FRESH account has no
+        // secret yet (it is generated after registration), so demanding a code there would
+        // make registration impossible. Mirrors the mfaConfigured pattern of /login.
+        boolean mfaConfigured =
+            AuthCoreServer.config.session.authentication.allowTOTPSupport
+                && user.authSecret != null
+                && !user.authSecret.isBlank();
+        if (mfaConfigured && authCode == null)
           return AuthCoreServer.LOGGER.toUser(
               1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
-        else if (AuthCoreServer.config.session.authentication.allowTOTPSupport
-            && Security.TOTPManager.verify(authCode, user.authSecret))
+        else if (mfaConfigured && !Security.TOTPManager.verify(authCode, user.authSecret))
           return AuthCoreServer.LOGGER.toUser(
               1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
 

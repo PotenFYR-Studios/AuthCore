@@ -131,19 +131,40 @@ public final class AuthIntelligence {
     }
 
     // Password spraying: the same password against many different accounts.
+    // Keyed by a SHA-256 DIGEST of the attempt - never the raw password - so plaintext
+    // credentials from mistyped logins are never held in memory or echoed into alerts
+    // (an attacker deliberately "mis-typing" their own password could otherwise make the
+    // server broadcast it to every webhook/console).
     Config.Session.PasswordSprayConfig spray = cfg.passwordSpray;
     if (!spray.enabled || password == null || password.isBlank()) return;
+    String digest = sprayDigest(password);
     SprayEntry entry =
         PASSWORD_SPRAY.computeIfAbsent(
-            password, k -> new SprayEntry(spray.windowMin * 60_000L));
+            digest, k -> new SprayEntry(spray.windowMin * 60_000L));
     if (entry.window.add() <= 1) entry.accounts.clear();
     entry.accounts.add(username);
     if (entry.accounts.size() >= spray.maxAccounts) {
       alert(
           "PASSWORD_SPRAY",
-          "Password tried against **" + entry.accounts.size() + "** different accounts within "
-              + spray.windowMin + " minutes (credential stuffing): `" + password + "`");
-      PASSWORD_SPRAY.remove(password);
+          "The SAME wrong password was tried against **" + entry.accounts.size()
+              + "** different accounts within " + spray.windowMin
+              + " minutes (credential stuffing). The attempted password is NOT included "
+              + "in this alert.");
+      PASSWORD_SPRAY.remove(digest);
+    }
+  }
+
+  /** Hex SHA-256 of a password attempt (spray-correlation without storing plaintext). */
+  private static String sprayDigest(String password) {
+    try {
+      byte[] hash =
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(password.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      StringBuilder hex = new StringBuilder(hash.length * 2);
+      for (byte b : hash) hex.append(String.format("%02x", b));
+      return hex.toString();
+    } catch (java.security.NoSuchAlgorithmException impossible) {
+      return Integer.toHexString(password.hashCode()); // unreachable on any JVM
     }
   }
 

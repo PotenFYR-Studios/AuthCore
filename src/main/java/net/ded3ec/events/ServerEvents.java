@@ -106,6 +106,12 @@ public class ServerEvents {
     User user = User.getUser(username, uuid);
     boolean brandNew = false;
 
+    // Consume THIS connection's server-side verification marker exactly once (see
+    // AuthCoreServer.consumePremiumVerified): the marker is set by the login handshake
+    // mixin for this join alone and must never leak to a second connection with the
+    // same name/uuid.
+    final boolean premiumVerifiedThisJoin = AuthCoreServer.consumePremiumVerified(uuid);
+
     // Duplicate login handling
     if (user != null && user.isActive) {
 
@@ -292,7 +298,7 @@ public class ServerEvents {
     // is kicked - before session resume, register or login can happen.
     if (!AuthCoreServer.config.session.authentication.allowOfflinePlayers
         && !((onlineServer && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid))
-            || AuthCoreServer.isPremiumVerified(uuid))) {
+            || premiumVerifiedThisJoin)) {
       AuthCoreServer.LOGGER.debug(
           false,
           "{} | join - offline-mode players are not allowed on this server, kicking",
@@ -352,7 +358,7 @@ public class ServerEvents {
     // register/login like any offline account, even on an online-mode server.
     boolean verifiedPremium =
         (onlineServer && !net.ded3ec.compat.Compat.isOfflineUuid(username, uuid))
-            || AuthCoreServer.isPremiumVerified(uuid);
+            || premiumVerifiedThisJoin;
     boolean autoLogin =
         AuthCoreServer.config.session.authentication.premiumAutoLogin
             && verifiedPremium
@@ -587,7 +593,25 @@ public class ServerEvents {
 
     if (user != null) {
 
-      if (user.isInLobby.get()) user.lobby.unlock();
+      // Connection-identity guard: only the leave of the connection that OWNS the current
+      // session may tear it down. Under "kick-old" duplicate logins (and any window where
+      // two connections briefly share one User), the kicked OLD connection's disconnect
+      // event can arrive AFTER the new join already locked its fresh limbo - without this
+      // check that late event would unlock the new UNAUTHENTICATED player and restore
+      // pre-limbo state onto them (full bypass). A stale teardown only clears the caches.
+      boolean staleTeardown = user.connection != null && user.connection != connection;
+      if (user.isInLobby.get()) {
+        if (staleTeardown) {
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "{} | stale leave of an old connection ignored for limbo teardown "
+                  + "(new session already owns the user)",
+              username);
+        } else {
+          user.lobby.unlock();
+        }
+      }
+      if (staleTeardown) return;
 
       user.isActive = false;
 

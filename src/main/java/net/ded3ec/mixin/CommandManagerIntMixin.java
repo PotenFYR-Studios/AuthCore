@@ -52,28 +52,10 @@ public abstract class CommandManagerIntMixin {
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
-    // Extract root command
+    // Shared decision (identical to the packet layer and the modern dispatcher mixin) -
+    // one source of truth so no layer can disagree with another.
     String root = command.split(" ")[0].toLowerCase();
-
-    // Blacklist mode
-    if (AuthCoreServer.config.lobby.useWhitelistAsBlacklist
-        && AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
-
-      AuthCoreServer.LOGGER.violation(
-          false,
-          user,
-          player.connection,
-          AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
-          root);
-
-      cir.setReturnValue(0);
-      return;
-    }
-
-    // Whitelist mode
-    if (!AuthCoreServer.config.lobby.allowCommands
-        && !AuthCoreServer.config.lobby.whitelistedCommands.contains(root)) {
-
+    if (!net.ded3ec.security.Security.isCommandAllowedInLobby(user, command)) {
       AuthCoreServer.LOGGER.violation(
           false,
           user,

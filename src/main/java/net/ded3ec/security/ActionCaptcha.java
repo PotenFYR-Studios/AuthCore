@@ -1,7 +1,6 @@
 package net.ded3ec.security;
 
 import java.util.Map;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,6 +58,9 @@ public final class ActionCaptcha {
 
   /** uuid -> last leave timestamp (fast-rejoin detection, bounded + pruned). */
   private static final Map<UUID, Long> LAST_LEAVE = new ConcurrentHashMap<>();
+
+  /** Shared secure RNG for challenge selection (no per-call Random allocation). */
+  private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
 
   private ActionCaptcha() {}
 
@@ -396,7 +398,7 @@ public final class ActionCaptcha {
 
   private static int pickRandomType() {
     int[] types = {CHALLENGE_SNEAK, CHALLENGE_JUMP, CHALLENGE_LOOK_UP};
-    return types[new Random().nextInt(types.length)];
+    return types[RANDOM.nextInt(types.length)];
   }
 
   private static double targetFor(int type, Config.Lobby.CaptchaConfig cfg) {

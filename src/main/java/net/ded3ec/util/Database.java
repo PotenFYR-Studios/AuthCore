@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -247,35 +248,50 @@ public class Database {
     if (!connect()) return;
 
     try (Statement stmt = connection.createStatement()) {
-      stmt.execute(
-          """
-                    CREATE TABLE IF NOT EXISTS USERS (
-                               uuid TEXT NOT NULL PRIMARY KEY,
-                               username TEXT ,
-                               password TEXT,
-                               authSecret TEXT,
-                               mode TEXT,
-                               ipAddress TEXT,
-                               passwordEncryption TEXT,
-                               userCreatedMs BIGINT,
-                               registeredMs BIGINT
-                           );
-                    """);
+      // DIALECT-AWARE DDL: the previous hard-coded SQLite syntax silently BRICKED MySQL and
+      // PostgreSQL servers at boot - "AUTOINCREMENT" does not exist there (MySQL wants
+      // AUTO_INCREMENT, PostgreSQL wants BIGSERIAL) and a TEXT primary key is illegal in
+      // MySQL without a key length. The thrown SQLException set migrationBlocked=true,
+      // which suspends login/register for the WHOLE server. Fresh installs on every
+      // dialect now boot correctly; existing databases are untouched (IF NOT EXISTS).
+      boolean mysql = dialect == Dialect.MYSQL;
+      String uuidColumn = mysql ? "uuid VARCHAR(36) NOT NULL PRIMARY KEY" : "uuid TEXT NOT NULL PRIMARY KEY";
+      String historyId =
+          switch (dialect) {
+            case MYSQL -> "id BIGINT PRIMARY KEY AUTO_INCREMENT";
+            case POSTGRESQL -> "id BIGSERIAL PRIMARY KEY";
+            case SQLITE -> "id INTEGER PRIMARY KEY AUTOINCREMENT";
+          };
 
       stmt.execute(
-          """
-                    CREATE TABLE IF NOT EXISTS LOGIN_HISTORY (
-                               id INTEGER PRIMARY KEY AUTOINCREMENT,
-                               uuid TEXT,
-                               username TEXT,
-                               ip TEXT,
-                               country TEXT,
-                               mode TEXT,
-                               result TEXT,
-                               riskScore INTEGER,
-                               ts BIGINT
-                           );
-                    """);
+          "CREATE TABLE IF NOT EXISTS USERS (\n"
+              + "           "
+              + uuidColumn
+              + ",\n"
+              + "           username TEXT ,\n"
+              + "           password TEXT,\n"
+              + "           authSecret TEXT,\n"
+              + "           mode TEXT,\n"
+              + "           ipAddress TEXT,\n"
+              + "           passwordEncryption TEXT,\n"
+              + "           userCreatedMs BIGINT,\n"
+              + "           registeredMs BIGINT\n"
+              + "       )");
+
+      stmt.execute(
+          "CREATE TABLE IF NOT EXISTS LOGIN_HISTORY (\n"
+              + "           "
+              + historyId
+              + ",\n"
+              + "           uuid TEXT,\n"
+              + "           username TEXT,\n"
+              + "           ip TEXT,\n"
+              + "           country TEXT,\n"
+              + "           mode TEXT,\n"
+              + "           result TEXT,\n"
+              + "           riskScore INTEGER,\n"
+              + "           ts BIGINT\n"
+              + "       )");
 
       AuthCoreServer.LOGGER.info(true, "Created users database if it doesn't exist!");
 
@@ -357,14 +373,25 @@ public class Database {
       }
     } else {
       String schema = dialect == Dialect.POSTGRESQL ? "public" : connection.getCatalog();
-      try (ResultSet rs =
-          stmt.executeQuery(
-              "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'USERS'"
-                  + (schema == null ? "" : " AND TABLE_SCHEMA = '" + schema + "'"))) {
+      // Parameterized (never string-built): the schema/catalog value comes from server
+      // configuration, and a quote inside a database name would otherwise break - or
+      // inject into - the metadata query.
+      try (PreparedStatement ps =
+              connection.prepareStatement(
+                  "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ?"
+                      + " AND TABLE_SCHEMA = ?");
+          ResultSet rs = execColumnQuery(ps, schema)) {
         while (rs.next()) existing.add(rs.getString(1));
       }
     }
     return existing;
+  }
+
+  /** Binds the schema parameter and runs the information_schema column query. */
+  private static ResultSet execColumnQuery(PreparedStatement ps, String schema) throws SQLException {
+    ps.setString(1, "USERS");
+    ps.setString(2, schema == null ? "" : schema);
+    return ps.executeQuery();
   }
 
   // ------------------------------------------------------------------ name index

@@ -68,11 +68,14 @@ abstract class ServerPlayNetworkHandlerMixin {
 
       // Join-sync grace window: for the first moments after the lobby lock the client
       // legitimately lags the anchor while its spawn position syncs (join sequence,
-      // teleport resync). The move-cancel mixin still anchors the SERVER entity, so
-      // deferring the cancel/message here is safe and prevents "movement violations"
-      // being shown to every player the moment they join.
+      // teleport resync). The packet is STILL cancelled - only the violation message and
+      // snap-back are deferred, so a missing move-cancel mixin can never widen this into
+      // a real movement window.
       long graceMs = AuthCoreServer.config.lobby.movementGracePeriodMs;
-      if (graceMs > 0 && now - user.lobby.lockedAtMs < graceMs) return;
+      if (graceMs > 0 && now - user.lobby.lockedAtMs < graceMs) {
+        ci.cancel();
+        return;
+      }
 
       // Vertical-drift detection: Y-only movement packets (vertical fly hacks) previously
       // slipped past the X/Z-only check - the client kept rendering a climb while the
@@ -133,10 +136,85 @@ abstract class ServerPlayNetworkHandlerMixin {
     if (!AuthCoreServer.config.lobby.allowMovement) {
       long graceMs = AuthCoreServer.config.lobby.movementGracePeriodMs;
       if (graceMs > 0
-          && System.currentTimeMillis() - user.lobby.lockedAtMs < graceMs) return;
+          && System.currentTimeMillis() - user.lobby.lockedAtMs < graceMs) {
+        ci.cancel();
+        return;
+      }
       ci.cancel();
       user.lobby.teleportBack();
     }
+  }
+
+  /**
+   * Creative-inventory slot packets are blocked in the lobby REGARDLESS of game mode:
+   * normally {@code force-adventure-mode} makes vanilla reject them itself, but with that
+   * setting disabled an op-in-creative joining the limbo could otherwise spawn arbitrary
+   * items straight into their inventory - bypassing every other restriction.
+   */
+  @Inject(
+      method =
+          "handleSetCreativeModeSlot(Lnet/minecraft/network/protocol/game/ServerboundSetCreativeModeSlotPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onCreativeSlot(
+      net.minecraft.network.protocol.game.ServerboundSetCreativeModeSlotPacket packet,
+      CallbackInfo ci) {
+
+    if (player == null) return;
+    User user = User.getUser(player);
+    if (user != null && user.isInLobby.get()) ci.cancel();
+  }
+
+  /**
+   * PACKET-level command gate (independent second layer behind the Brigadier dispatcher
+   * mixin): cancels the raw {@code ServerboundCommandPacket} before vanilla dispatches it.
+   * If the dispatcher injection ever silently misses on an unmapped future version, this
+   * layer still blocks every non-whitelisted command for lobby players - both layers share
+   * {@code Security.isCommandAllowedInLobby}.
+   */
+  @Inject(
+      method =
+          "handleCommand(Lnet/minecraft/network/protocol/game/ServerboundCommandPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onCommandPacket(
+      Object packet, CallbackInfo ci) {
+
+    // NOTE: the packet parameter is deliberately typed Object - the command packet class
+    // moved between mapping packages across versions (protocol.game vs protocol.common),
+    // and a hard reference breaks compilation on one side of the range. The @Inject
+    // descriptor above is matched at RUNTIME (require = 0), and the command string is
+    // already read reflectively below, so no concrete type is needed here.
+
+    if (player == null) return;
+    User user = User.getUser(player);
+    if (user == null || !user.isInLobby.get()) return;
+
+    String command = readCommandString(packet);
+    if (!net.ded3ec.security.Security.isCommandAllowedInLobby(user, command)) {
+      net.ded3ec.AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          player.connection,
+          AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
+          command == null ? "?" : command.split(" ")[0].toLowerCase());
+      ci.cancel();
+    }
+  }
+
+  /** Reads the command string from the packet (record accessor or getter, by version). */
+  private static String readCommandString(Object packet) {
+    for (String m : new String[] {"command", "getCommand"}) {
+      try {
+        Object value = packet.getClass().getMethod(m).invoke(packet);
+        if (value instanceof String s) return s;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // try the next accessor
+      }
+    }
+    return null;
   }
 
   /**

@@ -174,7 +174,12 @@ public class Account {
                           String username = player.getName().getString();
                           User user = User.getUser(username, uuid);
 
+                          // isAuthenticated is REQUIRED here (unlike the pre-auth
+                          // subcommands): recovery codes double as a login second factor,
+                          // so a lobby player must never be able to print or regenerate
+                          // them before authenticating.
                           return user != null
+                              && user.isAuthenticated.get()
                               && user.isRegistered.get()
                               && McApiManager.PermissionUtil.has(
                                   player,
@@ -290,6 +295,13 @@ public class Account {
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserNicknameInvalid);
       }
+      // No markup/quote characters: nicknames are displayed in chat, exports and the web
+      // panel - a permissive charset would allow stored XSS payloads like <svg/onload=...>
+      if (trimmed.matches(".*[<>&\"'`/\\\\;].*")) {
+        net.ded3ec.security.SecurityLog.log("NICKNAME_INVALID", player.getName().getString() + " tried to set invalid nickname");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserNicknameInvalid);
+      }
 
       UUID uuid = player.getUUID();
       String username = player.getName().getString();
@@ -376,6 +388,13 @@ public class Account {
       if (user == null)
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      // Recovery emails are expensive (SMTP) and attacker-abusable: without a limiter a
+      // lobby player could spam this command and bomb any address. One request per minute
+      // per player (EmailRecovery additionally enforces its own per-email cooldown).
+      if (!net.ded3ec.security.RateLimiter.tryAcquire("recover:" + player.getUUID(), 1, 60_000L))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a minute");
 
       // Never reveal whether an email matches: always respond the same way.
       String normalized = email.trim().toLowerCase(java.util.Locale.ROOT);

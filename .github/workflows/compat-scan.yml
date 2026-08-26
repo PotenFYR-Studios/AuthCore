@@ -24,6 +24,7 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     outputs:
       new_version: ${{ steps.probe.outputs.new_version }}
       new_detected: ${{ steps.probe.outputs.new_detected }}
@@ -149,8 +150,11 @@ jobs:
   # ------------------------------------------------------------------
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: scan
     if: needs.scan.outputs.new_detected == 'true'
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -200,6 +204,9 @@ jobs:
         run: |
           git config user.name "AuthCore Bot"
           git config user.email "actions@github.com"
+          # Rebase in case main moved while the scan was running (prevents a
+          # rejected push from discarding the whole scan result).
+          git pull --rebase origin main || true
           git add changelogs/changelog.md
           git commit -m "chore: add changelog entry for Minecraft ${{ needs.scan.outputs.new_version }} [skip ci]"
           git push

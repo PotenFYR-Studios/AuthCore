@@ -1,0 +1,135 @@
+{
+  // AuthCore - one-click build / test / harness tasks for VS Code.
+  // Requirements: JDK 17+ on PATH (Gradle toolchains fetch the rest), Docker for the
+  // host-test harness, pwsh (PowerShell 7) for the test scripts, Node for the site.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AuthCore: Build active variant",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["build", "--stacktrace"],
+      "windows": { "command": ".\\gradlew.bat" },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Build ALL variants (chiseled)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["chiseledBuild", "--stacktrace"],
+      "windows": { "command": ".\\gradlew.bat" },
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Compile active variant only (fast check)",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["compileJava", "--stacktrace"],
+      "windows": { "command": ".\\gradlew.bat" },
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "AuthCore: Collect jars to dist/",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "New-Item -ItemType Directory -Force dist | Out-Null; Copy-Item versions/*/build/libs/authcore-*.jar dist/ -Force; Remove-Item dist/*sources*.jar -ErrorAction SilentlyContinue; Get-ChildItem dist"
+      ],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Run security tests",
+      "type": "shell",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "tools/security-tests/run-tests.ps1"],
+      "useTerminalShellApi": true,
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Security tests + config migration suite",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "tools/security-tests/run-tests.ps1",
+        "-IncludeMigration"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Host tests (Docker smoke)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "tools/host-tests/run-host-tests.ps1",
+        "-Smoke",
+        "-Parallel",
+        "4"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": "test",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Host tests (full matrix, Docker)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-File",
+        "tools/host-tests/run-host-tests.ps1",
+        "-Parallel",
+        "4"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Open latest host-test report",
+      "type": "shell",
+      "linux": { "command": "xdg-open tools/host-tests/reports/latest.html" },
+      "osx": { "command": "open tools/host-tests/reports/latest.html" },
+      "windows": {
+        "command": "start",
+        "args": ["tools/host-tests/reports/latest.html"]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AuthCore: Render docs site",
+      "type": "shell",
+      "command": "node",
+      "args": ["scripts/render-readme.mjs"],
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "shared" }
+    },
+    {
+      "label": "AuthCore: Clean active variant",
+      "type": "shell",
+      "command": "./gradlew",
+      "args": ["clean"],
+      "windows": { "command": ".\\gradlew.bat" },
+      "problemMatcher": []
+    }
+  ]
+}
