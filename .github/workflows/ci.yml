@@ -317,6 +317,7 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
 
       # ------------------------------------------------------------------
       # Modrinth publishing (idempotent, same-version rebuilds replace cleanly).
@@ -448,6 +449,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # gh resolves the repository through git remotes (newer runner builds fail with
+      # "fatal: not a git repository" otherwise) - check out AND set GH_REPO explicitly.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download built jars
         uses: actions/download-artifact@v4
         with:
@@ -457,6 +463,7 @@ jobs:
       - name: Publish rolling dev build ("latest")
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           TAG="latest"
