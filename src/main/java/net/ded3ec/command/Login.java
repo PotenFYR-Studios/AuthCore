@@ -197,9 +197,31 @@ public class Login {
             // likely compromised and the attacker is guessing the second factor.
             net.ded3ec.security.AuthIntelligence.recordFailed2fa(
                 uuid, username, player.getIpAddress());
+
+            // Hard stop after a small number of wrong codes: the 6-digit space is only
+            // 1M, so an unbounded guess budget (in-memory counters die on restart/cache
+            // eviction) is brute-forceable. Destroying the session forces a FULL re-login
+            // (password + code) and counts as a failed attempt for the account lock.
+            user.failed2faAttempts++;
+            if (user.failed2faAttempts >= 5) {
+              user.failed2faAttempts = 0;
+              SecurityLog.log(
+                  "2FA_LOCKOUT",
+                  username + " | " + user.failed2faAttempts + " wrong 2FA codes this session");
+              Webhook.sendEmbed(
+                  "AuthCore - 2FA Brute Force",
+                  "**" + username + "** had its session destroyed after repeated wrong "
+                      + "2FA codes from `" + player.getIpAddress() + "`.",
+                  0xE74C3C);
+              handleBruteForce(user, player);
+              return 1;
+            }
             return AuthCoreServer.LOGGER.toUser(
                 1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
-          } else user.mfaVerified = true;
+          } else {
+            user.mfaVerified = true;
+            user.failed2faAttempts = 0;
+          }
         }
 
         AuthCoreServer.LOGGER.debug(

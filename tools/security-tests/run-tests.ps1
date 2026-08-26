@@ -1,6 +1,11 @@
 # Runs the standalone security & business-logic tests for AuthCore.
 # Requires: the mod compiled (gradlew build) and the jars listed below in the Gradle cache.
 # Cross-platform: Windows PowerShell 5.1 and pwsh on Linux/macOS.
+# -IncludeMigration additionally compiles + runs AuthCoreMigrationTest (the config
+# message-enrichment migration suite) - it needs the same classpath plus a writable cwd.
+param(
+  [switch]$IncludeMigration = $false
+)
 $ErrorActionPreference = "Stop"
 
 $repo = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -66,3 +71,14 @@ if ($LASTEXITCODE -ne 0) { exit 1 }
 # The stub AuthCoreServer (test dir) must shadow the real one -> put $out first on the classpath
 $runCp = @($out, $cp) -join $sep
 java -cp $runCp AuthCoreSecurityTests
+if ($LASTEXITCODE -ne 0) { exit 1 }
+
+# Optional: config migration suite (previously present but never wired up).
+$migrationSrc = Join-Path $testSrc "AuthCoreMigrationTest.java"
+if ($IncludeMigration -and (Test-Path $migrationSrc)) {
+  Write-Host "== Running AuthCoreMigrationTest =="
+  javac -encoding UTF-8 -cp $runCp -d $out $migrationSrc
+  if ($LASTEXITCODE -ne 0) { exit 1 }
+  java -cp $runCp AuthCoreMigrationTest
+  if ($LASTEXITCODE -ne 0) { exit 1 }
+}

@@ -23,6 +23,49 @@ public class Security {
 
   private Security() {}
 
+  /**
+   * Whether a lobby player may execute this command under the whitelist/blacklist rules.
+   *
+   * <p>Shared by BOTH enforcement layers - the Brigadier dispatcher mixin and the
+   * packet-level {@code ServerboundCommandPacket} guard - so a silent injection miss on
+   * one layer (mapping drift on an unknown future version) can never grant an
+   * unauthenticated player unrestricted command access.
+   *
+   * @param user the lobby user attempting the command
+   * @param command the full command string as typed (leading slash optional)
+   * @return {@code true} when the command may proceed
+   */
+  public static boolean isCommandAllowedInLobby(User user, String command) {
+    if (user == null || command == null) return false;
+
+    // Namespaced forms ("minecraft:give") resolve to their root literal so they can never
+    // dodge the list by adding a namespace prefix.
+    String trimmed = command.trim();
+    String root = trimmed.substring(trimmed.indexOf('/') + 1).split(" ")[0];
+    int colon = root.indexOf(':');
+    if (colon >= 0) root = root.substring(colon + 1);
+    root = root.toLowerCase(Locale.ROOT);
+
+    // The core auth commands are ALWAYS executable in the limbo - a misconfigured
+    // whitelist/blacklist must never lock players out of /login and /register entirely
+    // (that would permanently trap every unauthenticated player in the limbo).
+    if (root.equals("login") || root.equals("register")) return true;
+
+    // The configured collection is a Set - accept any Collection here so the shared
+    // decision never depends on the config field's exact container type.
+    java.util.Collection<String> list = AuthCoreServer.config.lobby.whitelistedCommands;
+    boolean listed = list != null && list.contains(root);
+
+    // Blacklist mode: listed commands are blocked, everything else passes. The old code
+    // also required allowCommands here, which silently turned blacklist mode into
+    // "block everything" on the packet/dispatcher layers while the legacy dispatcher
+    // mixins allowed non-listed commands - the layers disagreed with each other.
+    if (AuthCoreServer.config.lobby.useWhitelistAsBlacklist) return !listed;
+
+    // Whitelist mode: everything not listed is blocked while commands are locked.
+    return AuthCoreServer.config.lobby.allowCommands || listed;
+  }
+
   /** Contains static methods for validating password complexity during registration. */
   public static class Password {
 
@@ -179,10 +222,17 @@ public class Security {
       }
     }
 
-    /** Builds the otpauth:// URL used to display the QR code. */
+    /**
+     * Builds the otpauth:// URI for manual authenticator setup.
+     *
+     * <p>Deliberately NOT wrapped into a QR image URL: routing the secret through an
+     * external image service (api.qrserver.com) would leak every TOTP seed - the very
+     * credential 2FA protects - to a third party (and echo it into chat/console logs).
+     * Players add the account by pasting this URI into any authenticator app, or by
+     * entering the base32 secret manually.
+     */
     public static String getQrUrl(String username, String secret) {
-      return "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data="
-          + TimeBasedOneTimePasswordUtil.generateOtpAuthUrl("AuthCore:" + username, secret);
+      return TimeBasedOneTimePasswordUtil.generateOtpAuthUrl("AuthCore:" + username, secret);
     }
 
     /** Generates a new random base32 TOTP secret. */

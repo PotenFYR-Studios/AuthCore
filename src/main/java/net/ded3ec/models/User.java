@@ -609,6 +609,14 @@ public class User {
       this.remapUuidKey(oldUuid);
     }
 
+    // Refresh the stored IP on EVERY successful login: the same-IP session check compares
+    // against THIS value, so leaving it at the REGISTRATION address would permanently lock
+    // out any player whose ISP rotates their IP after their first day.
+    if (player.getIpAddress() != null && !player.getIpAddress().equals(this.ipAddress)) {
+      this.ipAddress = player.getIpAddress();
+      this.update("Last-login IP refreshed");
+    }
+
     this.isInCombatPenalty = false;
     this.lastCombatDetectMs = 0;
 
@@ -632,7 +640,11 @@ public class User {
         "login", this.username, "logged in (server " + net.ded3ec.network.RedisManager.SERVER_ID + ")");
     net.ded3ec.network.RedisManager.publishSession(this.uuid, this.username);
 
-    if (AuthCoreServer.config.session.enableSessions)
+    if (AuthCoreServer.config.session.enableSessions) {
+      // Stop the PREVIOUS session's timeout first: a session resume calls login() again,
+      // and without this the old timer stayed armed - it fired at the ORIGINAL deadline
+      // and kicked freshly-authenticated players long before their real timeout.
+      TaskScheduler.getInstance().stopTask(this.sessionTimeoutId);
       this.sessionTimeoutId =
           TaskScheduler.getInstance()
               .setTimeout(
@@ -646,6 +658,7 @@ public class User {
                           false, this.connection, AuthCoreServer.messages.promptUserSessionExpired);
                   },
                   AuthCoreServer.config.session.timeoutMs);
+    }
 
     AuthCoreServer.LOGGER.debug(true, "{} have been logged in successfully!", this.username);
 
@@ -679,6 +692,14 @@ public class User {
   public void logout(net.ded3ec.models.Messages.KickTemplate payload) {
     this.lastAuthenticatedMs = 0;
 
+    // Per-session secrets must NOT survive a logout: a satisfied second factor and the
+    // companion session token belong to THIS authenticated session only. Keeping them
+    // would let the next (unauthenticated) session inherit MFA step-up privileges or
+    // token-based resume without any proof of identity.
+    this.mfaVerified = false;
+    this.sessionTokenHash = null;
+    this.loginAttempts = 0;
+
     TaskScheduler.getInstance().stopTask(this.sessionTimeoutId);
     net.ded3ec.network.RedisManager.removeSession(this.uuid);
     net.ded3ec.network.RedisManager.publishEvent("logout", this.username, "logged out");
@@ -704,6 +725,13 @@ public class User {
 
   /** True when the current session satisfied a second factor (MFA step-up). */
   public transient volatile boolean mfaVerified = false;
+
+  /**
+   * Wrong-second-factor attempts since the last success (per session, transient). A small
+   * cap destroys the session - without it the ~1M six-digit code space is brute-forceable
+   * because in-memory intelligence counters do not survive restarts.
+   */
+  public transient volatile int failed2faAttempts = 0;
 
   /**
    * Issues a fresh 256-bit session token, stores its hash and returns the raw token.
@@ -934,6 +962,31 @@ public class User {
         try (Statement statement = Database.connection.createStatement();
             ResultSet rs = statement.executeQuery("SELECT COUNT(*) FROM USERS WHERE " + where)) {
           return rs.next() ? rs.getLong(1) : 0;
+        }
+      } catch (SQLException err) {
+        AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
+        return 0;
+      }
+    }
+
+    /**
+     * Counts users matching a parameterized WHERE clause (database-backed).
+     *
+     * <p>Every {@code ?} placeholder in {@code where} is bound positionally from
+     * {@code params} through {@link java.sql.PreparedStatement}, so user-controlled values
+     * (nicknames, emails...) can never alter the query - quote-doubling alone is NOT safe
+     * on MySQL, where a trailing backslash escapes the closing quote.
+     */
+    public static synchronized long countWhereParams(String where, String... params) {
+      try {
+        if (!Database.connect()) return 0;
+        try (java.sql.PreparedStatement statement =
+            Database.connection.prepareStatement("SELECT COUNT(*) FROM USERS WHERE " + where)) {
+          for (int i = 0; i < params.length; i++)
+            statement.setString(i + 1, params[i]);
+          try (ResultSet rs = statement.executeQuery()) {
+            return rs.next() ? rs.getLong(1) : 0;
+          }
         }
       } catch (SQLException err) {
         AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
@@ -1173,7 +1226,7 @@ public class User {
 
   /** Account count for the given mode (database-backed). */
   public static long countByMode(String mode) {
-    return db.countWhere("mode = '" + mode.replace("'", "''") + "'");
+    return db.countWhereParams("mode = ?", mode);
   }
 
   /**
@@ -1193,10 +1246,13 @@ public class User {
           && !u.uuid.equals(excludeUuid))
         return true;
 
-    String escaped = nickname.replace("'", "''");
-    return db.countWhere(
-            "LOWER(nickname) = LOWER('" + escaped + "') AND uuid <> '"
-                + (excludeUuid != null ? excludeUuid.toString() : "") + "'")
+    // Parameterized (never string-built): nicknames are player-controlled and MySQL
+    // treats a trailing backslash as an escape even inside single quotes, so
+    // quote-doubling alone is exploitable there.
+    return db.countWhereParams(
+            "LOWER(nickname) = LOWER(?) AND uuid <> ?",
+            nickname,
+            excludeUuid != null ? excludeUuid.toString() : "")
         > 0;
   }
 

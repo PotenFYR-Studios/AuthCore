@@ -1,0 +1,39 @@
+{
+  // AuthCore workspace settings: keep the multi-gigabyte Stonecutter build outputs out
+  // of search/watchers so the IDE stays fast, and point Java tooling at the shared
+  // source roots instead of every generated variant copy.
+  "search.exclude": {
+    "**/build": true,
+    "**/.gradle": true,
+    "**/run": true,
+    "tools/host-tests/work": true,
+    "tools/host-tests/.cache": true,
+    "tools/security-tests/out": true,
+    "scripts/_site": true,
+    "dist": true
+  },
+  "files.watcherExclude": {
+    "**/build/**": true,
+    "**/.gradle/**": true,
+    "**/versions/*/build/**": true,
+    "**/tools/host-tests/work/**": true,
+    "**/tools/host-tests/.cache/**": true
+  },
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/archetype-resources/**",
+    "**/META-INF/maven/**",
+    "**/versions/*/build/**",
+    "**/versions/**/src/**"
+  ],
+  "files.associations": {
+    "*.mixins.json": "json",
+    "fabric.mod.json": "json",
+    "velocity-plugin.json": "json",
+    "bungee.yml": "yaml"
+  },
+  "editor.rulers": [120],
+  "powershell.powerShellDefaultVersion": "pwsh"
+}

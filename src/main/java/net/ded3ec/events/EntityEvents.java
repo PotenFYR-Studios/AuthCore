@@ -24,6 +24,171 @@ import org.jetbrains.annotations.Nullable;
 
 public class EntityEvents {
 
+  /**
+   * Loader-neutral limbo guard for ENTITY ATTACKS: applies the configured per-entity-type
+   * restrictions and reports the violation. Returns {@code true} when the attack must be
+   * blocked.
+   *
+   * <p>Shared by the Fabric attack callback AND the packet-level interact mixin, so
+   * Forge/NeoForge builds (which have no fabric-api callbacks) enforce exactly the same
+   * rules - previously attacks were completely unenforced there.
+   */
+  public static boolean guardLobbyAttack(User user, Entity entity) {
+
+    // Prevent attacking players
+    if (entity instanceof ServerPlayer && !AuthCoreServer.config.lobby.allowAttackingPlayer) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserAttackPlayerNotAllowed);
+      return true;
+    }
+    if (entity.getType().getCategory() == MobCategory.MONSTER
+        && !AuthCoreServer.config.lobby.allowAttackingHostileMobs) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserAttackHostileMobsNotAllowed);
+      return true;
+    }
+
+    // Prevent attacking animals
+    if (entity instanceof Animal && !AuthCoreServer.config.lobby.allowAttackingAnimals) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserAttackAnimalNotAllowed);
+      return true;
+    }
+
+    // Prevent attacking friendly mobs
+    if (entity.getType().getCategory() == MobCategory.CREATURE
+        && !AuthCoreServer.config.lobby.allowAttackingFriendlyMobs) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserAttackFriendlyMobsNotAllowed);
+      return true;
+    }
+
+    // Prevent attacking neutral mobs
+    if (entity instanceof Mob
+        && !(entity instanceof Animal)
+        && !AuthCoreServer.config.lobby.allowAttackNeutralMobs) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserAttackNeutralMobsNotAllowed);
+      return true;
+    }
+
+    // Prevent attacking mountable entities
+    if (net.ded3ec.compat.Compat.isMountable(entity)
+        && !AuthCoreServer.config.lobby.allowAttackMountableEntity) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractMountableEntityNotAllowed);
+      return true;
+    }
+
+    // Prevent attacking any entity
+    if (!AuthCoreServer.config.lobby.allowAttackEntity) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractEntityNotAllowed);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Loader-neutral limbo guard for ENTITY INTERACTIONS (right-click): same contract as
+   * {@link #guardLobbyAttack} - shared by the Fabric use-entity callback AND the packet
+   * mixin so every loader enforces identical rules.
+   */
+  public static boolean guardLobbyUse(User user, Entity entity) {
+
+    if (entity instanceof ServerPlayer && !AuthCoreServer.config.lobby.allowPlayerInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractPlayersNotAllowed);
+      return true;
+    }
+
+    if (entity.getType().getCategory() == MobCategory.MONSTER
+        && !AuthCoreServer.config.lobby.allowHostileMobsInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractHostileMobsNotAllowed);
+      return true;
+    }
+
+    if (entity instanceof Animal && !AuthCoreServer.config.lobby.allowAnimalInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractAnimalsNotAllowed);
+      return true;
+    }
+
+    if (entity.getType().getCategory() == MobCategory.CREATURE
+        && !AuthCoreServer.config.lobby.allowFriendlyMobsInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractFriendlyMobsNotAllowed);
+      return true;
+    }
+
+    if (entity instanceof Mob
+        && !(entity instanceof Animal)
+        && !AuthCoreServer.config.lobby.allowNeutralMobsInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractNeutralMobsNotAllowed);
+      return true;
+    }
+
+    if (net.ded3ec.compat.Compat.isMountable(entity)
+        && !AuthCoreServer.config.lobby.allowMountableInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractMountableEntityNotAllowed);
+      return true;
+    }
+
+    if (!AuthCoreServer.config.lobby.allowEntityInteractWith) {
+      AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserInteractEntityNotAllowed);
+      return true;
+    }
+
+    return false;
+  }
+
   /** Handles entity attack events. */
   public static InteractionResult onEntityAttack(
       Player player,
@@ -38,64 +203,8 @@ public class EntityEvents {
 
     if (user != null && user.isInLobby.get()) {
 
-      // Prevent attacking players
-      if (entity instanceof ServerPlayer && !AuthCoreServer.config.lobby.allowAttackingPlayer)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserAttackPlayerNotAllowed);
-      if (entity.getType().getCategory() == MobCategory.MONSTER
-          && !AuthCoreServer.config.lobby.allowAttackingHostileMobs)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserAttackHostileMobsNotAllowed);
-
-      // Prevent attacking animals
-      if (entity instanceof Animal && !AuthCoreServer.config.lobby.allowAttackingAnimals)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserAttackAnimalNotAllowed);
-
-      // Prevent attacking friendly mobs
-      if (entity.getType().getCategory() == MobCategory.CREATURE
-          && !AuthCoreServer.config.lobby.allowAttackingFriendlyMobs)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserAttackFriendlyMobsNotAllowed);
-
-      // Prevent attacking neutral mobs
-      if (entity instanceof Mob
-          && !(entity instanceof Animal)
-          && !AuthCoreServer.config.lobby.allowAttackNeutralMobs)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserAttackNeutralMobsNotAllowed);
-
-      // Prevent attacking mountable entities
-      if (net.ded3ec.compat.Compat.isMountable(entity)
-          && !AuthCoreServer.config.lobby.allowAttackMountableEntity)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractMountableEntityNotAllowed);
-
-      // Prevent attacking any entity
-      if (!AuthCoreServer.config.lobby.allowAttackEntity)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractEntityNotAllowed);
+      if (guardLobbyAttack(user, entity))
+        return net.ded3ec.compat.Compat.actionResultFail();
 
     } else if (user != null) {
       // Combat tag for the ATTACKER (config-aware): leaving mid-fight is combat-logging
@@ -138,60 +247,8 @@ public class EntityEvents {
 
     if (user != null && user.isInLobby.get()) {
 
-      if (entity instanceof ServerPlayer
-          && !AuthCoreServer.config.lobby.allowPlayerInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractPlayersNotAllowed);
-
-      if (entity.getType().getCategory() == MobCategory.MONSTER
-          && !AuthCoreServer.config.lobby.allowHostileMobsInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractHostileMobsNotAllowed);
-
-      if (entity instanceof Animal && !AuthCoreServer.config.lobby.allowAnimalInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractAnimalsNotAllowed);
-
-      if (entity.getType().getCategory() == MobCategory.CREATURE
-          && !AuthCoreServer.config.lobby.allowFriendlyMobsInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractFriendlyMobsNotAllowed);
-
-      if (entity instanceof Mob
-          && !(entity instanceof Animal)
-          && !AuthCoreServer.config.lobby.allowNeutralMobsInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractNeutralMobsNotAllowed);
-
-      if (net.ded3ec.compat.Compat.isMountable(entity)
-          && !AuthCoreServer.config.lobby.allowMountableInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractMountableEntityNotAllowed);
-
-      if (!AuthCoreServer.config.lobby.allowEntityInteractWith)
-        return AuthCoreServer.LOGGER.violation(
-            net.ded3ec.compat.Compat.actionResultFail(),
-            user,
-            user.connection,
-            AuthCoreServer.messages.promptUserInteractEntityNotAllowed);
+      if (guardLobbyUse(user, entity))
+        return net.ded3ec.compat.Compat.actionResultFail();
     }
 
     return net.ded3ec.compat.Compat.actionResultPass();

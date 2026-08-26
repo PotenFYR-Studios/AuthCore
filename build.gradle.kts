@@ -30,11 +30,23 @@ val loader: String = project.name.substringAfterLast("-")
 // Range label of the released jar, e.g. "1.19-1.21" for the 1.21.11 build.
 // A single jar supports the whole range - verified by the host-test harness
 // (tools/host-tests) on every range endpoint.
+//
+// FUTURE-SNAPSHOT SUPPORT: everything from 26.x on is the unobfuscated era with stable
+// Mojang names, so a FUTURE major line (e.g. building against a 27.0 snapshot) is
+// detected dynamically and gets its own open-ended label ("<version>+") instead of
+// being silently mislabeled as 26.1-26.2. The three known groups keep their historical
+// jar names so the host-test harness and release tooling stay stable.
+// NOTE: stonecutter.current.parsed is a ParsedVersion (comparable against strings);
+// it must NOT be annotated as String.
+val parsedVersion = stonecutter.current.parsed
+val modernEra: Boolean = parsedVersion >= "26"
+val knownModernLine: Boolean = parsedVersion < "27"
 val rangeLabel: String =
     when {
-        stonecutter.current.parsed < "1.19" -> "1.16-1.18"
-        stonecutter.current.parsed < "26" -> "1.19-1.21"
-        else -> "26.1-26.2"
+        parsedVersion < "1.19" -> "1.16-1.18"
+        parsedVersion < "26" -> "1.19-1.21"
+        knownModernLine -> "26.1-26.2"
+        else -> "$parsedVersion+"
     }
 
 // Minecraft version range declared in fabric.mod.json / mods.toml, so Modrinth
@@ -47,20 +59,32 @@ val rangeLabel: String =
 //     and the grid shows the full list). ">=1.19 <=1.21.11" is valid for both
 //     npm-semver and the Fabric loader's own VersionPredicateParser.
 //   - Forge/NeoForge (mods.toml versionRange): maven bracket syntax "[min,max]".
+//
+// FORWARD-COMPATIBILITY: the 26.x group is UNBOUNDED on the upper end
+// (">=26.1" / "[26.1,)"). The unobfuscated era ships stable Mojang names, so a
+// newer 26.x release or snapshot boots this jar with the standard untested-version
+// warning banner instead of the loader rejecting it outright. The intermediary-era
+// groups keep exact upper bounds - their remapped call sites can silently break on
+// unmapped versions, so an open range would be unsafe there.
 val minecraftRangeMin: String =
     when {
-        stonecutter.current.parsed < "1.19" -> "1.16"
-        stonecutter.current.parsed < "26" -> "1.19"
-        else -> "26.1"
+        parsedVersion < "1.19" -> "1.16"
+        parsedVersion < "26" -> "1.19"
+        knownModernLine -> "26.1"
+        else -> parsedVersion.toString() // future line: the built version is the minimum
     }
-val minecraftRangeMax: String =
+val minecraftRangeMax: String? =
     when {
-        stonecutter.current.parsed < "1.19" -> "1.18.2"
-        stonecutter.current.parsed < "26" -> "1.21.11"
-        else -> "26.2"
+        parsedVersion < "1.19" -> "1.18.2"
+        parsedVersion < "26" -> "1.21.11"
+        else -> null // unobfuscated era: every future version of the line is allowed
     }
-val minecraftRange: String = ">=$minecraftRangeMin <=$minecraftRangeMax"
-val minecraftRangeForge: String = "[$minecraftRangeMin,$minecraftRangeMax]"
+val minecraftRange: String =
+    if (minecraftRangeMax == null) ">=$minecraftRangeMin"
+    else ">=$minecraftRangeMin <=$minecraftRangeMax"
+val minecraftRangeForge: String =
+    if (minecraftRangeMax == null) "[$minecraftRangeMin,)"
+    else "[$minecraftRangeMin,$minecraftRangeMax]"
 
 // Dependency pins of the current variant (versions/dependencies/<mc>.properties)
 // - used to declare accurate loader/API requirements in fabric.mod.json.
@@ -77,15 +101,18 @@ val variantDependencies = Properties().apply {
 //   G2 (1.19-1.21): forge 41.1.0+ (1.19 line), neoforge 20.2.59-beta+ (1.20.2 line)
 //   G3 (26.1-26.2): neoforge 26.1.0+ (26.1 line)
 val forgeRange: String =
-    if (stonecutter.current.parsed < "1.19") "[36.1.0,)"
+    if (parsedVersion < "1.19") "[36.1.0,)"
     else "[41.1.0,)"
 val neoforgeRange: String =
-    if (stonecutter.current.parsed < "26") "[20.2.59-beta,)"
-    else "[26.1.0,)"
+    when {
+        parsedVersion < "26" -> "[20.2.59-beta,)"
+        knownModernLine -> "[26.1.0,)"
+        else -> "[$parsedVersion,)" // future line: minimum is the built version
+    }
 val fabricLoaderRange: String =
     when {
-        stonecutter.current.parsed < "1.19" -> ">=0.10.8"
-        stonecutter.current.parsed < "26" -> ">=0.14.24"
+        parsedVersion < "1.19" -> ">=0.10.8"
+        parsedVersion < "26" -> ">=0.14.24"
         else -> ">=0.16.0"
     }
 
@@ -96,8 +123,8 @@ val fabricLoaderRange: String =
 //   G3 (26.1-26.2): fabric-api 0.134.x (26.1 line)
 val fabricApiRange: String =
     when {
-        stonecutter.current.parsed < "1.19" -> ">=0.28.0"
-        stonecutter.current.parsed < "26" -> ">=0.59.0"
+        parsedVersion < "1.19" -> ">=0.28.0"
+        parsedVersion < "26" -> ">=0.59.0"
         else -> ">=0.134.0"
     }
 

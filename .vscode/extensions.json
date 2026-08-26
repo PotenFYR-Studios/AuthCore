@@ -1,0 +1,11 @@
+{
+  // Recommended extensions for working on AuthCore in VS Code.
+  "recommendations": [
+    "vscjava.vscode-java-pack", // Java language support + debugger + test runner
+    "vscjava.vscode-gradle", // Gradle tasks/dependency view for the Stonecutter build
+    "ms-vscode.powershell", // PowerShell tooling for tools/*/run-*.ps1 (pwsh 7 recommended)
+    "ms-azuretools.vscode-docker", // Dockerfile/compose support for the host-test harness
+    "redhat.vscode-xml", // workflow/toml adjacent editing comfort
+    "tamasfe.even-better-toml" // mods.toml / gradle version catalog editing
+  ]
+}

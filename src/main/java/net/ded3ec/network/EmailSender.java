@@ -161,7 +161,9 @@ public final class EmailSender {
       if (line.length() >= 3 && line.startsWith(String.valueOf(code))) {
         if (line.length() == 3 || line.charAt(3) == ' ') return;
       }
-      if (line.length() >= 3 && line.charAt(3) == '-') continue;
+      // charAt(3) needs length >= 4 - a bare 3-char line ("250") threw
+      // StringIndexOutOfBoundsException here and aborted the whole send.
+      if (line.length() >= 4 && line.charAt(3) == '-') continue;
     }
     throw new java.io.IOException("SMTP: connection closed before code " + code);
   }

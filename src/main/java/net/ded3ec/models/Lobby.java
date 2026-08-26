@@ -52,6 +52,14 @@ public class Lobby {
    */
   public static Map<String, Lobby> users = new ConcurrentHashMap<>();
 
+  /**
+   * Accounts an admin explicitly deopped WHILE they were locked in the limbo (thread-safe).
+   * The limbo itself removes operator status when {@code lobby.safe-operators} is enabled, so
+   * the unlock restore must skip re-granting op powers for these - otherwise a stale
+   * snapshot would resurrect them over the admin's decision.
+   */
+  public static final Set<UUID> ADMIN_DEOPS_DURING_LIMBO = ConcurrentHashMap.newKeySet();
+
   /** The saved state of the player before they were moved into the lobby. */
   public Snapshot snapshot;
 
@@ -222,7 +230,13 @@ public class Lobby {
           if (fx != null) player.addEffect(fx);
         }
 
-      if (o.has("health")) player.setHealth(o.get("health").getAsFloat());
+      if (o.has("health")) {
+        float hp = o.get("health").getAsFloat();
+        // Clamp: a tampered/corrupt snapshot must not restore NaN, negative or absurd
+        // health (instant-death or god-mode on rejoin).
+        if (!Float.isFinite(hp) || hp <= 0.0f) hp = player.getMaxHealth();
+        player.setHealth(Math.min(hp, player.getMaxHealth()));
+      }
       if (o.has("food")) player.getFoodData().setFoodLevel(o.get("food").getAsInt());
       if (o.has("saturation")) player.getFoodData().setSaturation(o.get("saturation").getAsFloat());
       if (o.has("xpLevel")) player.experienceLevel = o.get("xpLevel").getAsInt();
@@ -384,7 +398,16 @@ public class Lobby {
     }
 
     if (AuthCoreServer.config.lobby.timeout.enabled) this.handleTimeout();
-    Lobby.users.put(this.user.username, this);
+
+    // ATOMIC registration: putIfAbsent closes the theoretical double-lock window where two
+    // threads pass the isInLobby fast-path above simultaneously - the loser unwinds its
+    // armed tasks and leaves without corrupting the winner's snapshot state.
+    if (Lobby.users.putIfAbsent(this.user.username, this) != null) {
+      AuthCoreServer.LOGGER.debug(
+          false, "{} | duplicate limbo lock raced - keeping the first lock", this.user.username);
+      this.cancel();
+      return;
+    }
 
     // Handle 2FA: generate a TOTP secret and send the setup link on first join
     if (!user.isRegistered.get()
@@ -878,6 +901,16 @@ public class Lobby {
       // movement and blocks mounting - restore control of their entity).
       if (player.isPassenger()) player.stopRiding();
 
+      // --- CLOSE OPEN CONTAINERS ---
+      // A chest/hopper/dispenser menu left open across the lock would keep flowing items:
+      // carried stacks could be deposited and shift-clicks could pull from the world
+      // container while unauthenticated. Force-close it before anything else runs.
+      try {
+        net.ded3ec.compat.Compat.forceCloseInventory(player);
+      } catch (RuntimeException ignored) {
+        // best-effort - the click guards remain as the second layer
+      }
+
       // --- APPLY LOBBY EFFECTS ---
       if (AuthCoreServer.config.lobby.invisibleUnauthorized)
         player.addEffect(
@@ -1003,7 +1036,10 @@ public class Lobby {
       net.ded3ec.compat.Compat.setFrozenTicks(player, frozenTicks);
 
       // --- RESTORE OPERATOR STATUS ---
-      if (this.operator)
+      // Re-grant only when no admin explicitly deopped the account WHILE it sat in the
+      // limbo (tracked by PlayerListOpMixin): the snapshot was captured at LOCK time, so
+      // blindly restoring it would resurrect operator powers over a concurrent deop.
+      if (this.operator && !ADMIN_DEOPS_DURING_LIMBO.remove(player.getUUID()))
         net.ded3ec.compat.Compat.addToOperators(server, player, this.opPermissionLevel);
     }
 

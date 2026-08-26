@@ -83,6 +83,12 @@ public class Discord {
             player.connection,
             AuthCoreServer.messages.promptUserDiscordAlreadyLinked);
 
+      // Link codes are broadcast to the role-sync webhook: without a limiter the command
+      // spams the webhook (and burns Redis keys). One code per minute per player.
+      if (!net.ded3ec.security.RateLimiter.tryAcquire("discordlink:" + player.getUUID(), 1, 60_000L))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a minute");
+
       StringBuilder code = new StringBuilder(6);
       for (int i = 0; i < 6; i++)
         code.append(CODE_CHARSET.charAt(RANDOM.nextInt(CODE_CHARSET.length())));

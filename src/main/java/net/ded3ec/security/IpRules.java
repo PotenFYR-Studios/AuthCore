@@ -51,9 +51,11 @@ public final class IpRules {
   /**
    * Checks the rules for the given IP.
    *
-   * <p>The first matching rule wins. When the admin configured at least one {@code allow}
-   * rule, unmatched IPs are denied (whitelist semantics) - otherwise an {@code allow} line
-   * would be a silent no-op and offer no protection.
+   * <p>The first matching rule wins. Rules match an exact IP or an IPv4 CIDR range
+   * ({@code deny 203.0.113.0/24}) - the same matcher the proxy allowlist uses, so honeypot
+   * bans and admin rules behave identically for single IPs and subnets. When the admin
+   * configured at least one {@code allow} rule, unmatched IPs are denied (whitelist
+   * semantics) - otherwise an {@code allow} line would be a silent no-op.
    *
    * @param ip the player IP
    * @return {@code true} if the IP is not allowed to join
@@ -64,8 +66,17 @@ public final class IpRules {
     boolean hasAllowRule = false;
     for (String[] rule : RULES) {
       if (rule[0].equals("allow")) hasAllowRule = true;
-      if (rule[1].equals(ip)) return rule[0].equals("deny");
+      if (ruleMatches(rule[1], ip)) return rule[0].equals("deny");
     }
     return hasAllowRule;
+  }
+
+  /** Exact-IP or IPv4 CIDR match of a rule value against a player IP. */
+  private static boolean ruleMatches(String ruleValue, String ip) {
+    if (ruleValue.equals(ip)) return true;
+    int slash = ruleValue.indexOf('/');
+    if (slash > 1 && ruleValue.indexOf(':') < 0 && ip.indexOf(':') < 0)
+      return net.ded3ec.network.ProxySupport.cidrMatches(ip, ruleValue);
+    return false;
   }
 }

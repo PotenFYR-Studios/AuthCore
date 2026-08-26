@@ -124,6 +124,19 @@ public class AuthCoreServer {
     if (uuid != null) PREMIUM_VERIFIED.add(uuid);
   }
 
+  /**
+   * Atomically CONSUMES the per-boot verification marker for this profile: returns whether
+   * THIS connection's login handshake was verified and removes the marker in one step.
+   *
+   * <p>Consuming (instead of merely reading) is what makes the marker spoof-proof: a
+   * verification belongs to exactly ONE join. A second client joining with the same name
+   * while the verified player is still online can never inherit the flag, so premium
+   * auto-login cannot be triggered by a name collision.
+   */
+  public static boolean consumePremiumVerified(java.util.UUID uuid) {
+    return uuid != null && PREMIUM_VERIFIED.remove(uuid);
+  }
+
   /** Whether the server's own Mojang session authentication verified this profile this boot. */
   public static boolean isPremiumVerified(java.util.UUID uuid) {
     return uuid != null && PREMIUM_VERIFIED.contains(uuid);
@@ -275,14 +288,10 @@ public class AuthCoreServer {
     // Startup validation warnings (visible early so misconfiguration is obvious)
     if (config != null) {
       String gameVersion = net.ded3ec.compat.Compat.getGameVersion();
-      boolean tested =
-          gameVersion.startsWith("1.16.")
-              || gameVersion.startsWith("1.17.")
-              || gameVersion.startsWith("1.18.")
-              || gameVersion.startsWith("1.19.")
-              || gameVersion.startsWith("1.20.")
-              || gameVersion.startsWith("1.21.")
-              || gameVersion.startsWith("26.");
+      // FUTURE-SNAPSHOT AWARE: any 1.x line and any modern (>=26) major is part of the
+      // tested set - a future "27.0" or "26.9" snapshot must not be flagged untested just
+      // because a hardcoded prefix list was never extended.
+      boolean tested = isTestedMinecraftVersion(gameVersion);
       if (!tested && config.logging.showUntestedVersionWarning)
         LOGGER.warn(
             false,
@@ -310,12 +319,37 @@ public class AuthCoreServer {
 
       if (config.debugMode)
         LOGGER.warn(false, "debug-mode is enabled - this increases console log spam!");
+
+      // Proxy forwarding without a trusted-proxy list accepts forwarded data from ANY
+      // source - a modified client can claim arbitrary IPs (spoofed rate-limit identity).
+      if (config.session.proxySupport.enabled
+          && (config.session.proxySupport.trustedProxies == null
+              || config.session.proxySupport.trustedProxies.isEmpty()))
+        LOGGER.warn(
+            false,
+            "proxy-support is enabled but session.proxy-support.trusted-proxies is EMPTY - "
+                + "forwarded IPs are accepted from ANY source. Configure your proxy's "
+                + "address(es) there to prevent IP spoofing.");
+    }
+  }
+
+  /**
+   * Whether a Minecraft version string belongs to the tested set: every {@code 1.x} line
+   * plus every modern major ({@code >= 26}, covering all future 26.x/27.x+ snapshots of the
+   * unobfuscated era).
+   */
+  public static boolean isTestedMinecraftVersion(String gameVersion) {
+    if (gameVersion == null || gameVersion.isBlank()) return false;
+    if (gameVersion.startsWith("1.")) return true;
+    try {
+      return Integer.parseInt(gameVersion.split("[.]")[0]) >= 26;
+    } catch (NumberFormatException ignored) {
+      return false;
     }
   }
 
   /** Graceful shutdown of background I/O workers. */
-  public static void shutdown() {
-    IO_EXECUTOR.shutdownNow();
+  public static void shutdown() {    IO_EXECUTOR.shutdownNow();
     try {
       IO_EXECUTOR.awaitTermination(2, TimeUnit.SECONDS);
     } catch (InterruptedException err) {
