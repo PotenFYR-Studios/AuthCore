@@ -1,3 +1,6 @@
+# Kilo agent workspace
+.kilo/
+
 # gradle
 
 .gradle/
