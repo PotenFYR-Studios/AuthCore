@@ -672,6 +672,15 @@ public class Admin {
 
       // Server mode is always taken from server.properties automatically - there is no
       // config override to validate.
+      net.minecraft.server.MinecraftServer srcServer = net.ded3ec.compat.Compat.getSourceServer(source);
+      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
+      if (srcServer == null && player != null) {
+        srcServer = net.ded3ec.compat.Compat.getServer(player);
+      }
+      if (srcServer != null && !AuthCoreServer.isServerDetected()) {
+        AuthCoreServer.detectServerOnlineMode(net.ded3ec.compat.Compat.serverUsesAuthentication(srcServer));
+      }
+
       if (AuthCoreServer.isServerOnline())
         report.append("  [INFO] server-mode: online (detected from server.properties)\n");
       else
@@ -680,8 +689,6 @@ public class Admin {
       report.append("Validation finished with " + issues + " issue(s).");
       final String finalReport = report.toString();
       final boolean hasIssues = issues > 0;
-
-      ServerPlayer player = net.ded3ec.compat.Compat.sourcePlayer(source);
       if (player != null)
         return AuthCoreServer.LOGGER.toUser(1, player.connection, new Messages.ColTemplate() {
           {

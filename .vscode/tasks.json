@@ -1,7 +1,7 @@
 {
-  // AuthCore - one-click build / test / harness tasks for VS Code.
-  // Requirements: JDK 17+ on PATH (Gradle toolchains fetch the rest), Docker for the
-  // host-test harness, pwsh (PowerShell 7) for the test scripts, Node for the site.
+  // AuthCore - one-click build / test tasks for VS Code.
+  // Requirements: bash 4+ on PATH (Git Bash on Windows) + jq for the Docker
+  // harness; Docker for the host-test harness and the no-local-JDK builder.
   "version": "2.0.0",
   "tasks": [
     {
@@ -25,33 +25,29 @@
       "presentation": { "reveal": "always", "panel": "shared" }
     },
     {
-      "label": "AuthCore: Compile active variant only (fast check)",
+      "label": "AuthCore: Build ALL variants (Docker, no local JDK)",
       "type": "shell",
-      "command": "./gradlew",
-      "args": ["compileJava", "--stacktrace"],
-      "windows": { "command": ".\\gradlew.bat" },
+      "command": "bash",
+      "args": ["test/build.sh"],
+      "options": { "cwd": "${workspaceFolder}" },
       "group": "build",
       "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "dedicated" }
+      "presentation": { "reveal": "always", "panel": "shared" }
     },
     {
       "label": "AuthCore: Collect jars to dist/",
       "type": "shell",
-      "command": "pwsh",
-      "args": [
-        "-NoProfile",
-        "-Command",
-        "New-Item -ItemType Directory -Force dist | Out-Null; Copy-Item versions/*/build/libs/authcore-*.jar dist/ -Force; Remove-Item dist/*sources*.jar -ErrorAction SilentlyContinue; Get-ChildItem dist"
-      ],
+      "command": "./gradlew",
+      "args": ["buildAll"],
+      "windows": { "command": ".\\gradlew.bat" },
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "shared" }
     },
     {
       "label": "AuthCore: Run security tests",
       "type": "shell",
-      "command": "pwsh",
-      "args": ["-NoProfile", "-File", "tools/security-tests/run-tests.ps1"],
-      "useTerminalShellApi": true,
+      "command": "bash",
+      "args": ["test/run-security-tests.sh"],
       "options": { "cwd": "${workspaceFolder}" },
       "group": { "kind": "test", "isDefault": true },
       "problemMatcher": [],
@@ -60,30 +56,18 @@
     {
       "label": "AuthCore: Security tests + config migration suite",
       "type": "shell",
-      "command": "pwsh",
-      "args": [
-        "-NoProfile",
-        "-File",
-        "tools/security-tests/run-tests.ps1",
-        "-IncludeMigration"
-      ],
+      "command": "bash",
+      "args": ["test/run-security-tests.sh", "--migration"],
       "options": { "cwd": "${workspaceFolder}" },
       "group": "test",
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "shared" }
     },
     {
-      "label": "AuthCore: Host tests (Docker smoke)",
+      "label": "AuthCore: Host tests (Docker smoke, parallel)",
       "type": "shell",
-      "command": "pwsh",
-      "args": [
-        "-NoProfile",
-        "-File",
-        "tools/host-tests/run-host-tests.ps1",
-        "-Smoke",
-        "-Parallel",
-        "4"
-      ],
+      "command": "bash",
+      "args": ["test/docker/run-tests.sh", "--smoke", "--parallel", "4"],
       "options": { "cwd": "${workspaceFolder}" },
       "group": "test",
       "problemMatcher": [],
@@ -92,14 +76,8 @@
     {
       "label": "AuthCore: Host tests (full matrix, Docker)",
       "type": "shell",
-      "command": "pwsh",
-      "args": [
-        "-NoProfile",
-        "-File",
-        "tools/host-tests/run-host-tests.ps1",
-        "-Parallel",
-        "4"
-      ],
+      "command": "bash",
+      "args": ["test/docker/run-tests.sh", "--all", "--parallel", "4"],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": [],
       "presentation": { "reveal": "always", "panel": "shared" }
@@ -107,21 +85,21 @@
     {
       "label": "AuthCore: Open latest host-test report",
       "type": "shell",
-      "linux": { "command": "xdg-open tools/host-tests/reports/latest.html" },
-      "osx": { "command": "open tools/host-tests/reports/latest.html" },
+      "linux": { "command": "xdg-open test/docker/report/latest.md" },
+      "osx": { "command": "open test/docker/report/latest.md" },
       "windows": {
         "command": "start",
-        "args": ["tools/host-tests/reports/latest.html"]
+        "args": ["test\\docker\\report\\latest.md"]
       },
       "problemMatcher": []
     },
     {
-      "label": "AuthCore: Render docs site",
+      "label": "AuthCore: Clean test caches/work/reports (Docker)",
       "type": "shell",
-      "command": "node",
-      "args": ["scripts/render-readme.mjs"],
-      "problemMatcher": [],
-      "presentation": { "reveal": "always", "panel": "shared" }
+      "command": "bash",
+      "args": ["test/docker/run-tests.sh", "clean"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
     },
     {
       "label": "AuthCore: Clean active variant",

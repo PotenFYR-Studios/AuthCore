@@ -139,7 +139,7 @@ jobs:
         if: matrix.variant == '1.21.11-fabric'
         run: |
           export PATH="${JAVA_HOME_21_X64:-$JAVA_HOME_25_X64}/bin:$PATH"
-          pwsh -NoProfile -File tools/security-tests/run-tests.ps1
+          bash test/run-security-tests.sh 1.21.11-fabric
 
       - name: Upload variant jars
         uses: actions/upload-artifact@v4
@@ -197,8 +197,9 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------------
-  # Docker compatibility harness: real servers, real boots.
-  # Downloads the jars from `build` (never rebuilds).
+  # Docker compatibility harness: real servers, real boots, booted in
+  # PARALLEL on the official eclipse-temurin JRE images (17/21/25, one per
+  # Minecraft version group). Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
   host-tests:
     runs-on: ubuntu-latest
@@ -214,33 +215,32 @@ jobs:
           name: authcore-jars
           path: dist
 
-      # Speed: persist the harness downloads + installed server state between
-      # runs (JBR tarballs, Fabric server launcher jars, vanilla servers,
-      # Forge/NeoForge installer jars + extracted libraries, Fabric API jars).
-      # The full matrix then skips almost every download and installer run.
-      - name: Restore harness caches (JBR tarballs + server files)
+      # Speed: persist the harness downloads between runs (Fabric server
+      # launchers, Fabric API, Forge/NeoForge installers). Only .cache is
+      # cached - never work/: containers run as root on Linux CI, and
+      # root-owned files cannot be pruned by the runner user.
+      - name: Restore harness caches (server downloads)
         uses: actions/cache@v4
         with:
-          path: |
-            tools/host-tests/.cache
-            tools/host-tests/work
-          key: hosttests-${{ runner.os }}-${{ hashFiles('tools/host-tests/versions.json', 'versions/dependencies/*.properties') }}
+          path: test/docker/.cache
+          key: dockertests-${{ runner.os }}-${{ hashFiles('test/docker/**', 'versions/dependencies/*.properties') }}
           restore-keys: |
-            hosttests-${{ runner.os }}-
+            dockertests-${{ runner.os }}-
 
       - name: Host-compatibility smoke (push/PR only, build targets)
         if: github.event_name != 'workflow_dispatch'
-        run: |
-          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Smoke -Parallel 4
         env:
-          DOCKER_BUILDKIT: '1'
+          # bind-mount the download cache so actions/cache can persist it
+          AUTHCORE_TEST_CACHE_DIR: ${{ github.workspace }}/test/docker/.cache
+        run: |
+          bash test/docker/run-tests.sh --smoke
 
       - name: Full range-endpoint matrix (manual runs only)
         if: github.event_name == 'workflow_dispatch'
-        run: |
-          pwsh -NoProfile -File tools/host-tests/run-host-tests.ps1 -Parallel 4
         env:
-          DOCKER_BUILDKIT: '1'
+          AUTHCORE_TEST_CACHE_DIR: ${{ github.workspace }}/test/docker/.cache
+        run: |
+          bash test/docker/run-tests.sh --all
 
       - name: Upload harness report
         if: always()
@@ -248,21 +248,17 @@ jobs:
         with:
           name: host-test-report
           path: |
-            tools/host-tests/reports/latest.md
-            tools/host-tests/reports/latest.html
-            tools/host-tests/reports/latest.json
+            test/docker/report/
 
   # ------------------------------------------------------------------
-  # Stable release: waits for build (the jars are the artifact), then replaces
-  # the release for the SAME tag (delete old release + assets) or creates
-  # a new one for a different version. Publishes the jars + the changelog
-  # entry. Deliberately does NOT wait for host-tests: releases appear as
-  # soon as the build finishes while the harness validates in parallel.
+  # Stable release: waits for merge + host-tests (verified on real servers),
+  # then publishes/updates the release for the tag (jars + changelog section).
+  # Releases are only created after the full test suite passes.
   # ------------------------------------------------------------------
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: merge
+    needs: [merge, host-tests]
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
@@ -435,16 +431,15 @@ jobs:
 
   # ------------------------------------------------------------------
   # Rolling development build: every push to main refreshes the "latest"
-  # prerelease so current builds are ALWAYS available from GitHub Releases
-  # without cutting a version tag. Assets are replaced with --clobber;
-  # notes carry the exact commit so users can pin/report precisely.
-  # The release stays marked prerelease and NOT "Latest", so it can never
-  # shadow a stable v* release.
+  # prerelease with the newest jars after all host-tests pass.
+  # Assets are replaced with --clobber; notes carry the commit details.
+  # The release stays marked prerelease and NOT "Latest", so it never
+  # shadows a stable v* release.
   # ------------------------------------------------------------------
   dev-release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: merge
+    needs: [merge, host-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: write

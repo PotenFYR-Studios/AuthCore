@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -2327,7 +2328,7 @@ to the bundled defaults. The completeness warning helps translators deliver 100%
 <hr>
 <h2 id="security-testing">🧪 Security Testing</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required)
-at <strong><code>tools/security-tests/</code></strong>, <strong>57 checks</strong> covering password hashing round-trips for all 6
+at <strong><code>test/</code></strong>, <strong>57 checks</strong> covering password hashing round-trips for all 6
 algorithms, unique per-hash salts, email recovery codes, the rate limiter,
 proxy IP parsing, device fingerprints and time formatting. Run it after a build:</p>
 <pre><code class="language-powershell">.\gradlew.bat build                          # once: produces the compiled classes + cached jars
@@ -2336,7 +2337,7 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 <p>The suite is part of the security process, see
 <a href="security.html">SECURITY.md</a> for the PBKDF2
 bug it caught and how it guards regressions. CI runs the suite on every push, and the
-host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots every range jar on its
+host-compatibility harness (<code>test/docker/run-tests.sh</code>) boots every range jar on its
  verify matrix, 1.16.5 / 1.17.1 / 1.18.2 (1.16-1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 / 1.21.1 /
  1.21.11 (1.19-1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2), with
 live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix passed
@@ -2531,5 +2532,6 @@ merged over settings.conf (credentials can live outside the main config)</li>
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

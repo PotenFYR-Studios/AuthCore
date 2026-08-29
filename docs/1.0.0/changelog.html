@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -781,9 +782,9 @@ and execute remote kicks.</li>
 </ul>
 <h3 id="quality">Quality</h3>
 <ul>
-<li><code>tools/security-tests/</code> - standalone test suite (57 checks) covering password hashing
+<li><code>test/</code> - standalone test suite (57 checks) covering password hashing
 round-trips, captcha lifecycle, email recovery, rate limiting, proxy parsing, device
-fingerprints. Run via <code>tools/security-tests/run-tests.ps1</code>.</li>
+fingerprints. Run via <code>test/run-security-tests.sh</code>.</li>
 <li>Access control validation pass: every command re-verified (player vs admin vs console),
 <code>/discord</code> guarded in lobby, read-only web token.</li>
 </ul>
@@ -1033,5 +1034,6 @@ granular lobby restrictions, 2FA (TOTP), config system (settings.conf + messages
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

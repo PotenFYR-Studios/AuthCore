@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -300,7 +301,7 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#1-overview">1. Overview</a></li><li class="toc-item toc-2"><a href="#2-build-system">2. Build system</a></li><li class="toc-item toc-3"><a href="#key-files">Key files</a></li><li class="toc-item toc-3"><a href="#the-variant-model">The variant model</a></li><li class="toc-item toc-3"><a href="#building">Building</a></li><li class="toc-item toc-2"><a href="#3-source-architecture">3. Source architecture</a></li><li class="toc-item toc-2"><a href="#4-managing-multiple-minecraft-versions">4. Managing multiple Minecraft versions</a></li><li class="toc-item toc-3"><a href="#41-version-groups">4.1 Version groups</a></li><li class="toc-item toc-3"><a href="#42-why-the-ranges-are-where-they-are">4.2 Why the ranges are where they are</a></li><li class="toc-item toc-3"><a href="#43-stonecutter-conditionals">4.3 Stonecutter conditionals</a></li><li class="toc-item toc-3"><a href="#44-discipline-what-keeps-the-promise-alive">4.4 Discipline (what keeps the promise alive)</a></li><li class="toc-item toc-2"><a href="#5-managing-multiple-loaders">5. Managing multiple loaders</a></li><li class="toc-item toc-2"><a href="#6-testing">6. Testing</a></li><li class="toc-item toc-3"><a href="#61-unit--security-tests-toolssecurity-tests">6.1 Unit / security tests (tools/security-tests)</a></li><li class="toc-item toc-3"><a href="#62-host-compatibility-harness-toolshost-tests">6.2 Host-compatibility harness (tools/host-tests)</a></li><li class="toc-item toc-3"><a href="#63-mfa--sso-verification">6.3 MFA / SSO verification</a></li><li class="toc-item toc-2"><a href="#7-roadmap">7. Roadmap</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#1-overview">1. Overview</a></li><li class="toc-item toc-2"><a href="#2-build-system">2. Build system</a></li><li class="toc-item toc-3"><a href="#key-files">Key files</a></li><li class="toc-item toc-3"><a href="#the-variant-model">The variant model</a></li><li class="toc-item toc-3"><a href="#building">Building</a></li><li class="toc-item toc-2"><a href="#3-source-architecture">3. Source architecture</a></li><li class="toc-item toc-2"><a href="#4-managing-multiple-minecraft-versions">4. Managing multiple Minecraft versions</a></li><li class="toc-item toc-3"><a href="#41-version-groups">4.1 Version groups</a></li><li class="toc-item toc-3"><a href="#42-why-the-ranges-are-where-they-are">4.2 Why the ranges are where they are</a></li><li class="toc-item toc-3"><a href="#43-stonecutter-conditionals">4.3 Stonecutter conditionals</a></li><li class="toc-item toc-3"><a href="#44-discipline-what-keeps-the-promise-alive">4.4 Discipline (what keeps the promise alive)</a></li><li class="toc-item toc-2"><a href="#5-managing-multiple-loaders">5. Managing multiple loaders</a></li><li class="toc-item toc-2"><a href="#6-testing">6. Testing</a></li><li class="toc-item toc-3"><a href="#61-unit--security-tests-test-security">6.1 Unit / security tests (test/)</a></li><li class="toc-item toc-3"><a href="#62-host-compatibility-harness-testdocker">6.2 Host-compatibility harness (test/docker)</a></li><li class="toc-item toc-3"><a href="#63-mfa--sso-verification">6.3 MFA / SSO verification</a></li><li class="toc-item toc-2"><a href="#7-roadmap">7. Roadmap</a></li></ul>
   </aside>
   <main>
     <article>
@@ -530,34 +531,34 @@ provide <code>versions/dependencies/&lt;mc&gt;.properties</code> pins, add the l
 gate any loader-specific code, then boot-test with the harness.</p>
 <hr>
 <h2 id="6-testing">6. Testing</h2>
-<h3 id="61-unit--security-tests-toolssecurity-tests">6.1 Unit / security tests (<code>tools/security-tests</code>)</h3>
+<h3 id="61-unit--security-tests-test-security">6.1 Unit / security tests (<code>test/</code>)</h3>
 <p>Standalone checks (password hashing, tokens, rate limiting, constant-time comparisons,
-lockouts) run with <code>pwsh tools/security-tests/run-tests.ps1</code>.</p>
-<h3 id="62-host-compatibility-harness-toolshost-tests">6.2 Host-compatibility harness (<code>tools/host-tests</code>)</h3>
-<p>Boots <strong>real servers in Docker</strong> (JetBrains Runtime, Temurin fallback) for every
-group×loader×verify-version combination and asserts real behavior:</p>
+lockouts) run with <code>bash test/run-security-tests.sh</code>.</p>
+<h3 id="62-host-compatibility-harness-testdocker">6.2 Host-compatibility harness (<code>test/docker</code>)</h3>
+<p>Boots <strong>real servers in Docker</strong> (official eclipse-temurin JRE images, parallel - one
+container per group×loader×verify-version) and asserts real behavior:</p>
 <ul>
-<li>mod loads, banner printed, no crash markers, security summary printed</li>
+<li>mod loads with <strong>no errors and no warnings</strong> (curated severity scan)</li>
+<li>banner shows correct information: AuthCore version matches the built jar, detected
+Minecraft matches the tested version, security summary printed</li>
 <li>admin console commands work (<code>/authcore reload</code>, list players, list online/offline,
 validate, backup creates a file, maintenance on/off)</li>
-<li>config files + SQLite database created</li>
-<li>web admin panel: 401 without token, 401 with a bad token, 200 with <code>Bearer</code> token,
-<strong>429 brute-force lockout</strong></li>
-<li>honeypot listener + detection log, game port listening, graceful <code>stop</code> shutdown</li>
+<li>config files + SQLite database created, game port listening</li>
 </ul>
-<p>Matrix in <code>versions.json</code> (range/build/loaders/verify/jbrMajor/scanPattern); runner
-<code>run-host-tests.ps1</code> (pwsh 7) with <code>-Groups</code>/<code>-Range</code>, <code>-Loader</code>, <code>-Version</code>,
-<code>-VerifyOverride</code>, <code>-ScanStable</code>, <code>-Smoke</code>, <code>-Jar</code>, <code>-Parallel</code> (default 6), <code>-NoLiveLogs</code>,
-<code>-KeepReports</code> and friends; live console log streaming, cached Docker images,
-markdown/HTML/JSON reports under <code>reports/</code> (<code>reports/latest.*</code> always points at the
-newest run, with a boot-time chart + check-coverage heatmap in the HTML).</p>
+<p>Matrix in <code>test/docker/versions.json</code> (range/build/loaders/verify/javaMajor/loaderPins);
+runner <code>test/docker/run-tests.sh</code> (bash) with <code>--all</code>/<code>--smoke</code>, <code>--groups</code>,
+<code>--loaders</code>, <code>--versions</code>, <code>--jar</code>, <code>--parallel</code> (default 4), <code>--timeout</code> and
+<code>clean</code>; self-provisioning containers (Fabric meta / Modrinth / Forge + NeoForge maven,
+cached in <code>test/docker/.cache</code>), markdown/JSON reports under
+<code>test/docker/report/</code> (<code>latest.md</code>/<code>latest.json</code> always point at the newest run).</p>
 <p><strong>CI integration:</strong> <code>.github/workflows/ci.yml</code> runs the harness smoke on every push/PR and
-the full range-endpoint matrix on schedule; <code>.github/workflows/compat-scan.yml</code> (weekly)
-probes the Fabric meta + NeoForge/Forge maven for new stables, boots them via <code>-ScanStable</code>,
-and automatically creates a <code>v&lt;mod&gt;-&lt;mc&gt;</code> tag + GitHub Release with a generated changelog
-entry when a new version is detected and validated.</p>
-<p><strong>Current status: 8/8 range endpoints + 7/7 loader build targets PASS</strong> (1.16.5 ... 26.2 ×
-fabric/forge/neoforge), 2026-08-10.</p>
+the full range-endpoint matrix on manual dispatch; the stable release job only publishes after
+all host tests pass.</p>
+<p><strong>Current status:</strong> every loader build target boots clean on its range
+endpoints (fabric 1.18.2 → 26.2, forge 1.21.11, neoforge 1.21.11 + 26.1.2/26.2 - zero
+errors/warnings, 2026-08-29). Forge 1.16-1.18 is a documented harness-environment skip
+(the same jars pass on every other loader); older range endpoints are being brought to
+full green.</p>
 <h3 id="63-mfa--sso-verification">6.3 MFA / SSO verification</h3>
 <ul>
 <li>2FA: TOTP (RFC 6238) + single-use recovery codes + optional email OTP (10-min TTL,
@@ -697,5 +698,6 @@ mapping-stability check (intermediary-id diff between range endpoints) in CI.</l
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

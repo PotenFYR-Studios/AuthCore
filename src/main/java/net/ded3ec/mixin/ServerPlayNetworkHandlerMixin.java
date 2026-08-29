@@ -204,15 +204,34 @@ abstract class ServerPlayNetworkHandlerMixin {
     }
   }
 
-  /** Reads the command string from the packet (record accessor or getter, by version). */
+  /** Reads the command string from the packet across every version. */
   private static String readCommandString(Object packet) {
+    if (packet == null) return null;
     for (String m : new String[] {"command", "getCommand"}) {
       try {
         Object value = packet.getClass().getMethod(m).invoke(packet);
         if (value instanceof String s) return s;
-      } catch (ReflectiveOperationException | RuntimeException ignored) {
+      } catch (Throwable ignored) {
         // try the next accessor
       }
+    }
+    for (java.lang.reflect.Field f : packet.getClass().getDeclaredFields()) {
+      try {
+        if (f.getType() == String.class) {
+          f.setAccessible(true);
+          Object value = f.get(packet);
+          if (value instanceof String s) return s;
+        }
+      } catch (Throwable ignored) {}
+    }
+    for (java.lang.reflect.Method m : packet.getClass().getDeclaredMethods()) {
+      try {
+        if (m.getParameterCount() == 0 && m.getReturnType() == String.class) {
+          m.setAccessible(true);
+          Object value = m.invoke(packet);
+          if (value instanceof String s) return s;
+        }
+      } catch (Throwable ignored) {}
     }
     return null;
   }

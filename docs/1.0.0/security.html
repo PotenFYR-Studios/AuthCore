@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -368,7 +369,7 @@ identically on every supported Minecraft version.</li>
 <strong>Argon2id</strong>, so registration and password resets never fail silently. <code>md5</code> is never stored -
 it hashes through SHA-256 internally (legacy compatibility) and flags the account as weak.</li>
 <li>The same hasher backs <code>register</code>, <code>change-password</code>, admin resets and web-panel resets.</li>
-<li>Every hash path is exercised by the automated test suite (<code>tools/security-tests/</code>, 80 checks)
+<li>Every hash path is exercised by the automated test suite (<code>test/</code>, 80 checks)
 - round-trips for all 6 algorithms plus unique per-hash salts; see
 <a href="#-automated-test-suite">the test suite</a> below.</li>
 </ul>
@@ -542,9 +543,9 @@ the security log (<code>DISCORD_LINK_CODE</code>), the completed link (<code>DIS
 (<code>POST /api/action</code>), never in-game.</li>
 </ul>
 <h2 id="automated-test-suite">🧪 Automated Test Suite</h2>
-<p>Security is enforced by code, and that code is continuously verified: <strong><code>tools/security-tests/</code></strong>
+<p>Security is enforced by code, and that code is continuously verified: <strong><code>test/</code></strong>
 is a standalone suite (no Minecraft required) with <strong>80 checks</strong>, run with
-<code>tools/security-tests/run-tests.ps1</code> after a build. It covers password hashing round-trips for
+<code>test/run-security-tests.sh</code> after a build. It covers password hashing round-trips for
 all 6 algorithms, unique per-hash salts, email recovery codes (validation, case handling,
 single-use), the rate limiter (window behavior, per-key isolation), proxy IP parsing (IPv4/IPv6,
 garbage rejection), device fingerprints and time formatting. It already caught and fixed a real
@@ -663,7 +664,7 @@ at runtime). Java toolchains follow the group: 17 (1.16-1.18), 21 (1.19-1.21), 2
 (built at 1.21.11, covers 1.19.0 - 1.21.11) and <code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code>
 (built at 26.2, covers 26.1 - 26.2).
 The legacy <code>authcore-classic</code>/<code>authcore-modern</code> split is gone.</li>
-<li><strong>Host-compatibility harness</strong>, <code>tools/host-tests/run-host-tests.ps1</code> boots every range jar
+<li><strong>Host-compatibility harness</strong>, <code>test/docker/run-tests.sh</code> boots every range jar
  on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11, 26.1.2 /
 26.2) in Docker containers, driven by the <code>versions.json</code> range-group matrix (options
 <code>-Groups</code>, <code>-Version</code>, <code>-Jar</code>, <code>-Smoke</code>, <code>-Build</code>, <code>-Parallel</code>, <code>-KeepReports</code> and more),
@@ -983,5 +984,6 @@ is never stalled by a hung Redis.</li>
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>
