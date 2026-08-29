@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -609,7 +610,7 @@ proxy network. See <a href="security.html">SECURITY.md</a>.</p>
 <code>:1.18.2-forge</code>, <code>:1.21.11-fabric</code>, <code>:1.21.11-forge</code>, <code>:1.21.11-neoforge</code>,
 <code>:26.2-fabric</code>, <code>:26.2-neoforge</code>; active <code>1.21.11-fabric</code>) into the seven range jars
 (<code>authcore-&lt;range&gt;-&lt;loader&gt;-&lt;v&gt;.jar</code>); Java toolchains are 17 / 21 / 25 per group.</li>
-<li>The host-compatibility harness (<code>tools/host-tests/run-host-tests.ps1</code>) boots each range jar
+<li>The host-compatibility harness (<code>test/docker/run-tests.sh</code>) boots each range jar
  on its verify versions in Docker, 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11,
 26.1.2 / 26.2, with live log streaming and report pruning
 (<code>reports/latest.md|html|json</code>). Full matrix: <strong>8/8 endpoints × 7/7 loader targets PASS</strong>
@@ -760,5 +761,6 @@ runs once per connection. Enable <code>debug-mode</code> for details.</p>
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

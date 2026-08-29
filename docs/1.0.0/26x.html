@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -460,10 +461,11 @@ merged game jar from the Gradle cache:</p>
 </code></pre>
 <hr>
 <h2 id="verified-on-real-servers">🔍 Verified on real servers</h2>
-<p><code>tools/host-tests</code> boots <strong>real Fabric / Forge / NeoForge servers in Docker</strong> on every range
-endpoint and checks that each jar actually works (mod loaded, mixins applied, banner printed,
-config files created, <code>/authcore</code> console commands succeed). The range-group matrix lives in
-<code>tools/host-tests/versions.json</code>:</p>
+<p><code>test/docker</code> boots <strong>real Fabric / Forge / NeoForge servers in Docker</strong> - on the official
+<a href="https://hub.docker.com/_/eclipse-temurin">eclipse-temurin</a> JRE images (17/21/25, one per version group), running the whole matrix in
+parallel on every range endpoint. It checks that each jar actually works (clean mod load with no
+errors/warnings, banner shows the correct version/MC/security summary, config files created,
+<code>/authcore</code> console commands succeed). The range-group matrix:</p>
 <table>
 <thead>
 <tr>
@@ -496,18 +498,21 @@ config files created, <code>/authcore</code> console commands succeed). The rang
 <td align="center">25</td>
 </tr>
 </tbody></table>
-<p>Verified matrix, <strong>all PASS (2026-08-10)</strong>: every loader jar of the 1.16-1.18 group on
- 1.16.5 / 1.17.1 / 1.18.2, the 1.19-1.21 group on 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11, and the
-26.1-26.2 group on 26.1.2 / 26.2 (8/8 endpoints × 7/7 loader build targets).</p>
-<p>Run it yourself (requires Docker + PowerShell 7):</p>
-<pre><code class="language-powershell">.\tools\host-tests\run-host-tests.ps1 -Build -Smoke   # fast loop: boot each build target only
-.\tools\host-tests\run-host-tests.ps1                 # full matrix
+<p>Verified matrix (2026-08-29): every loader build target boots clean on its range
+endpoints - fabric 1.18.2 / 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11 / 26.1.2 / 26.2,
+forge 1.21.11, neoforge 1.21.11 / 26.1.2 / 26.2 - zero errors and zero warnings.
+Older endpoints (fabric 1.16.5/1.17.1 provisioning, forge 1.19.4-1.21.1,
+neoforge 1.20.6/1.21.1) are being brought to full green; future lines (27+) get an
+open-ended <code>&lt;version&gt;+</code> range jar automatically.</p>
+<p>Run it yourself (requires only Docker):</p>
+<pre><code class="language-bash">test/build.sh                           # build all 7 variants in Docker (temurin, no local JDK needed)
+test/docker/run-tests.sh                # smoke: boot each build target (parallel)
+test/docker/run-tests.sh --all          # full range-endpoint matrix
 </code></pre>
-<p>Options: <code>-Groups</code> / <code>-VerifyOverride</code> / <code>-Version</code> / <code>-Jar</code> / <code>-Smoke</code> / <code>-Build</code> /
-<code>-Parallel</code> (default 6) / <code>-NoLiveLogs</code> / <code>-KeepReports</code> / <code>-Memory</code> / <code>-Cpus</code> /
-<code>-TimeoutSec</code> / <code>-JbrMajor</code> / <code>-WorkDir</code> / <code>-ReportDir</code> / <code>-NetworkMode</code> / <code>-JvmArgs</code>.
-The harness streams live container logs, caches server images, prunes old report runs and
-writes <code>tools/host-tests/reports/latest.*</code> (markdown + html + json).</p>
+<p>Options: <code>--all</code> / <code>--smoke</code> / <code>--groups &lt;ranges&gt;</code> / <code>--loaders &lt;names&gt;</code> / <code>--versions &lt;mc&gt;</code> / <code>--jar &lt;path&gt;</code> /
+<code>--parallel &lt;n&gt;</code> / <code>--timeout &lt;sec&gt;</code>.
+The harness caches server downloads between runs and
+writes <code>test/docker/report/</code>.</p>
 
     
     
@@ -633,5 +638,6 @@ writes <code>tools/host-tests/reports/latest.*</code> (markdown + html + json).<
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

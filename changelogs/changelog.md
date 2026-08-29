@@ -16,6 +16,44 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > pass that ever shipped under a `1.0.0*` label lives in this single section
 > (the separate `alpha.1`-`alpha.5` entries were folded in; nothing was lost).
 
+### Test-infra overhaul & harness fixes (2026-08-28)
+
+- **Temurin-based Docker verification**: the host-test harness runs on the official
+  [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (17/21/25,
+  one per Minecraft version group) and boots the whole matrix IN PARALLEL - one
+  container per MC/loader combination. New `test/docker/` (Dockerfile + self-
+  provisioning entrypoint + parallel runner), `test/build.sh` (builds all 7 variants
+  with no local JDK needed) and `test/run-security-tests.sh` (bash port of the
+  standalone security suite). Old `tools/host-tests`, `tools/security-tests`,
+  `scripts/` and their workflows removed.
+  `test/build.sh` (builds all 7 variants inside the official eclipse-temurin JDK image with
+  no local JDK needed) and `test/run-security-tests.sh` (bash port of the
+  standalone security suite). Old `tools/host-tests`, `tools/security-tests`,
+  `scripts/` and their workflows removed.
+- **Minecraft version detection fixed on Forge/NeoForge**: `Compat.getGameVersion()`
+  relied on `SharedConstants.getCurrentVersion().getName()` via reflection - method
+  names are SRG-renamed on Forge runtimes, so the startup banner printed
+  `Minecraft : unknown` (and falsely warned "not in the officially tested set").
+  Now resolves through FML's non-obfuscated `VersionInfo` (Forge static accessor;
+  NeoForge's `FMLLoader.getCurrentOrNull().getVersionInfo()`), with the Mojang
+  reflection kept as last resort.
+- **Versioned documentation site**: a common main page (`index.html`: downloads,
+  quick start, FAQ) plus per-release doc sets under `docs/<version>/`, cross-linked
+  through a shared version bar (`docs/assets/nav.js` + `docs/versions.json`) and
+  deployed by the recreated `.github/workflows/pages.yml` - the existing
+  `authcore.potenfyr.in/docs/<version>/...` URLs are preserved.
+- **Parallel Docker host tests, never stuck**: the whole (version × loader) smoke/
+  verify matrix boots in parallel containers; server state lives in named Docker
+  volumes (Windows 9p bind mounts stalled the Forge/NeoForge installers), the
+  installer runs under a hard timeout and every test has an outer kill deadline.
+- **Premium-detection hardening on 1.18.2**: `Compat.serverUsesAuthentication` could
+  miss the mojmap method name and default to "online", routing cracked players through
+  the wrong auth flow. Now tries `isOnlineMode`/`getOnlineMode`/`usesAuthentication`
+  plus an `onlineMode` field fallback before defaulting.
+- **IDEA**: broken fabric-only run configurations replaced with Gradle-based
+  `Build all variants` configs driving the new `buildAll`/`testAll`/`dockerTest`
+  aggregate tasks (all loaders × all ranges in one pass).
+
 ### Security-audit & CI pass (2026-08-26)
 
 **Critical fixes**

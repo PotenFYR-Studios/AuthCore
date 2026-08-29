@@ -270,6 +270,7 @@
 </style>
 </head>
 <body>
+<div id="authcore-versionbar"></div>
 <div id="progress"></div>
 <div id="top" aria-hidden="true"></div>
 
@@ -599,7 +600,7 @@ Stonecutter conditionals (<code>/*? if &lt; 26 {*/</code> ...), there are <stron
 source sets anymore. Version-fragile mixins are declared <code>required:false</code>, so a changed
 signature on a future Minecraft version degrades gracefully (mixin skipped) instead of
 crashing the server. As long as you only use <code>AuthCoreApi</code>, you never touch any of it.</li>
-<li><strong>Verified on real servers</strong>, the host-test harness (<code>tools/host-tests</code>) boots every range
+<li><strong>Verified on real servers</strong>, the host-test harness (<code>test/docker</code>) boots every range
 endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
  1.19.4/1.20.6/1.21.1/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2, all <strong>PASS</strong> (2026-08-10).</li>
 </ul>
@@ -995,7 +996,7 @@ locally-connected player.</li>
 <hr>
 <h2 id="security-test-suite">🧪 Security Test Suite</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required):
-<code>tools/security-tests/</code>, <strong>80 checks</strong> covering password hashing round-trips for all 6
+<code>test/</code>, <strong>80 checks</strong> covering password hashing round-trips for all 6
 algorithms, unique per-hash salts, email recovery codes, the rate limiter,
 proxy IP parsing, device fingerprints and time formatting:</p>
 <pre><code class="language-powershell">.\gradlew.bat build                          # once: produces the compiled classes + cached jars
@@ -1157,5 +1158,6 @@ exposed for integration code.</p>
   }
 })();
 </script>
+<script src="/docs/assets/nav.js" data-version="1.0.0" defer></script>
 </body>
 </html>

@@ -6,18 +6,22 @@
     "**/build": true,
     "**/.gradle": true,
     "**/run": true,
-    "tools/host-tests/work": true,
-    "tools/host-tests/.cache": true,
-    "tools/security-tests/out": true,
-    "scripts/_site": true,
+    "test/docker/work": true,
+    "test/docker/.cache": true,
+    "test/docker/report": true,
+    "test/security-out": true,
+    "test/security-libs": true,
     "dist": true
   },
   "files.watcherExclude": {
     "**/build/**": true,
     "**/.gradle/**": true,
     "**/versions/*/build/**": true,
-    "**/tools/host-tests/work/**": true,
-    "**/tools/host-tests/.cache/**": true
+    "**/test/docker/work/**": true,
+    "**/test/docker/.cache/**": true,
+    "**/test/docker/report/**": true,
+    "**/test/security-out/**": true,
+    "**/test/security-libs/**": true
   },
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.exclusions": [

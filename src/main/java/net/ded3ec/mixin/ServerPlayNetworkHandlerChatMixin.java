@@ -41,27 +41,37 @@ abstract class ServerPlayNetworkHandlerChatMixin {
 
   @Shadow public ServerPlayer player;
 
-  /** Modern (1.19.3+ / 26.x) chat handlers - commands are separate packets there. */
+  /** Modern (1.19.3+) signed chat messages - commands are never sent via PlayerChatMessage. */
   @Inject(
       method = {
         "onChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;)V",
-        "handleChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;)V",
-        "handleChat(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V" // 26.x
+        "handleChatMessage(Lnet/minecraft/network/chat/PlayerChatMessage;)V"
       },
       at = @At("HEAD"),
       cancellable = true,
       require = 0)
-  private void authCore$onChat(CallbackInfo ci) {
+  private void authCore$onSignedChat(CallbackInfo ci) {
     restrictChat(ci);
   }
 
-  /** Legacy (1.16-1.18.2) chat handler - commands ride chat packets there. */
+  /**
+   * Packet-based chat handler (1.16-1.18.2 legacy + 26.x modern).
+   *
+   * <p>On 1.16-1.18.2 commands are sent as ServerboundChatPacket starting with "/". Those must
+   * NOT be cancelled here: the command dispatcher enforces the lobby whitelist (auth commands
+   * like /login and /register stay allowed).
+   */
   @Inject(
-      method = "onGameMessage(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V",
+      method = {
+        "handleChat(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V",
+        "onGameMessage(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V",
+        "onChatMessage(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V",
+        "handleChatMessage(Lnet/minecraft/network/protocol/game/ServerboundChatPacket;)V"
+      },
       at = @At("HEAD"),
       cancellable = true,
       require = 0)
-  private void authCore$onChatLegacy(
+  private void authCore$onChatPacket(
       net.minecraft.network.protocol.game.ServerboundChatPacket packet, CallbackInfo ci) {
 
     // On 1.16-1.18.2 commands are chat packets starting with "/". Let them through - the
@@ -90,15 +100,40 @@ abstract class ServerPlayNetworkHandlerChatMixin {
     }
   }
 
-  /** Reads the chat text from the packet across every version (message()/getMessage()). */
+  /** Reads the chat text from the packet across every version (message()/getMessage()/field). */
   private static String readChatMessage(Object packet) {
     if (packet == null) return null;
+    // 1. Known method names (Mojang / Forge / NeoForge / Yarn dev)
     for (String m : new String[] {"message", "getMessage", "getStrippedMessage"}) {
       try {
         Object value = packet.getClass().getMethod(m).invoke(packet);
         if (value instanceof String s) return s;
-      } catch (ReflectiveOperationException ignored) {
+      } catch (Throwable ignored) {
         // try the next name
+      }
+    }
+    // 2. Field inspection (works on Fabric Intermediary where method names are obfuscated)
+    for (java.lang.reflect.Field f : packet.getClass().getDeclaredFields()) {
+      try {
+        if (f.getType() == String.class) {
+          f.setAccessible(true);
+          Object value = f.get(packet);
+          if (value instanceof String s) return s;
+        }
+      } catch (Throwable ignored) {
+        // next field
+      }
+    }
+    // 3. Any 0-arg method returning String
+    for (java.lang.reflect.Method m : packet.getClass().getDeclaredMethods()) {
+      try {
+        if (m.getParameterCount() == 0 && m.getReturnType() == String.class) {
+          m.setAccessible(true);
+          Object value = m.invoke(packet);
+          if (value instanceof String s) return s;
+        }
+      } catch (Throwable ignored) {
+        // next method
       }
     }
     return null;

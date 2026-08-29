@@ -651,6 +651,10 @@ public class ServerEvents {
 
   /** Server tick handler */
   public static void onEndServerTick(MinecraftServer server) {
+    if (server != null && !AuthCoreServer.isServerDetected()) {
+      AuthCoreServer.detectServerOnlineMode(net.ded3ec.compat.Compat.serverUsesAuthentication(server));
+    }
+
     TpsManager.onTick();
     TaskScheduler.getInstance().onTick();
 

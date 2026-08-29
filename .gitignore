@@ -45,14 +45,12 @@ replay_*.log
 bin/
 run/.settings/
 
-# security test harness
-tools/security-tests/out/
-tools/security-tests/result.txt
-
-# host-test harness (docker-based compatibility tests)
-tools/host-tests/.cache/
-tools/host-tests/work/
-tools/host-tests/reports/
+# test harness (docker-based compatibility tests + standalone security tests)
+test/docker/.cache/
+test/docker/work/
+test/docker/report/
+test/security-out/
+test/security-libs/
 
 # ---- Stonecutter / Stonecraft multi-version workspace ----
 # Generated variant projects (one per mc-loader pairing) and their caches.
@@ -65,18 +63,8 @@ _migration/
 # build artifacts (release jars are published to GitHub Releases, not the repo)
 dist/
 
-# github pages renderer (marked installed by the pages workflow)
-scripts/node_modules/
-scripts/_site/
-scripts/package-lock.json
-
 # IDE
 .factorypath
 
 # runtime logs
 logs/
-
-# security-tests compiled output
-tools/security-tests/out/
-tools/security-tests/out-mig/
-tools/security-tests/libs-ci/

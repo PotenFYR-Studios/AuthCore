@@ -28,8 +28,8 @@ plugins {
 val loader: String = project.name.substringAfterLast("-")
 
 // Range label of the released jar, e.g. "1.19-1.21" for the 1.21.11 build.
-// A single jar supports the whole range - verified by the host-test harness
-// (tools/host-tests) on every range endpoint.
+// A single jar supports the whole range - verified by the Docker host-test
+// harness (test/docker) on every range endpoint.
 //
 // FUTURE-SNAPSHOT SUPPORT: everything from 26.x on is the unobfuscated era with stable
 // Mojang names, so a FUTURE major line (e.g. building against a 27.0 snapshot) is
@@ -52,7 +52,7 @@ val rangeLabel: String =
 // Minecraft version range declared in fabric.mod.json / mods.toml, so Modrinth
 // resolves the exact supported versions instead of "*" (which Modrinth reads as
 // "all versions"). Mirrors `rangeLabel` above and the ranges verified by
-// tools/host-tests.
+// the test/docker harness.
 //   - Fabric (fabric.mod.json depends.minecraft): Modrinth matches this with
 //     npm-semver `satisfies`; a bare dash like "1.19-1.21.11" parses as a
 //     prerelease tag and matches NOTHING (Modrinth then pre-selects no versions
@@ -302,15 +302,67 @@ tasks.withType<JavaCompile> {
 // Standalone security-test support
 // ----------------------------------------------------------------------------
 // Exports EVERY compile+runtime dependency jar of this variant into
-// tools/security-tests/libs-ci/ so tools/security-tests/run-tests.ps1 can compile and
+// test/security-libs/ so test/run-security-tests.sh can compile and
 // run against the exact classpath the mod was built with - WITHOUT depending on the
 // developer's global Gradle cache (a CI matrix leg only resolves this one variant, so
-// standalone copies of e.g. slf4j-api / commons-lang3 may simply not be cached there).
+// standalone copies of e.g. slf4j-api/commons-lang3 may simply not be cached there).
 val exportSecurityTestLibs = tasks.register<Copy>("exportSecurityTestLibs") {
     group = "verification"
-    description = "Exports the variant dependency jars consumed by tools/security-tests."
-    into(rootProject.layout.projectDirectory.dir("tools/security-tests/libs-ci"))
+    description = "Exports the variant dependency jars consumed by test/run-security-tests.sh."
+    into(rootProject.layout.projectDirectory.dir("test/security-libs"))
     from(configurations.getByName("compileClasspath"))
     from(configurations.getByName("runtimeClasspath"))
+}
+
+// ----------------------------------------------------------------------------
+// Aggregate tasks (run on EVERY variant at once).
+//
+//   buildAll          - compiles all seven variants (3 ranges x fabric/forge/neoforge)
+//                       and stages the release jars into dist/ - the one command IDEs,
+//                       CI and release scripts use. Usable as `gradlew buildAll`.
+//   testAll           - buildAll + the standalone security/migration test suite
+//                       (test/run-security-tests.sh) - full local verification.
+//   dockerTest        - buildAll + the Docker host-test harness (test/docker/run-tests.sh)
+//                       which boots REAL servers in parallel on the official
+//                       eclipse-temurin JRE images and verifies the mod on every
+//                       released range. Requires Docker.
+// ----------------------------------------------------------------------------
+val variantProjects = stonecutter.versions.map { it.project }
+
+tasks.register("buildAll") {
+    group = "build"
+    description = "Builds every Stonecutter variant (all loaders x all ranges) and collects the jars into dist/."
+    dependsOn(variantProjects.map { ":$it:build" })
+    dependsOn("collectJars")
+    dependsOn(":1.21.11-fabric:exportSecurityTestLibs")
+}
+
+tasks.register("testAll") {
+    group = "verification"
+    description = "buildAll + security & migration tests against the built classes."
+    dependsOn("buildAll")
+    finalizedBy("runSecurityTests")
+}
+
+tasks.register("dockerTest") {
+    group = "verification"
+    description = "buildAll + Docker host tests (real servers, parallel, eclipse-temurin images)."
+    dependsOn("buildAll")
+    finalizedBy("runDockerTests")
+}
+
+tasks.register<Exec>("runSecurityTests") {
+    group = "verification"
+    description = "Runs test/run-security-tests.sh (compiled against the built variant classes)."
+    workingDir(rootProject.layout.projectDirectory)
+    val bash = if (org.gradle.internal.os.OperatingSystem.current().isWindows) "bash" else "bash"
+    commandLine(bash, "test/run-security-tests.sh")
+}
+
+tasks.register<Exec>("runDockerTests") {
+    group = "verification"
+    description = "Runs test/docker/run-tests.sh --smoke (boots real servers in parallel in Docker)."
+    workingDir(rootProject.layout.projectDirectory)
+    commandLine("bash", "test/docker/run-tests.sh", "--smoke")
 }
 

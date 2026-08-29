@@ -418,32 +418,11 @@ public class Logger {
   }
 
   /**
-   * Sends a system chat message across every era: {@code sendSystemMessage(Component, boolean)}
-   * (1.19.4+) with a reflective fallback to {@code displayClientMessage(Component, boolean)}
-   * (1.16-1.19.3) - the G2 jar is compiled against 1.21.11 and must run on 1.19.0-1.19.3 too.
+   * Sends a system chat message across every era (delegated to {@link Compat#sendSystemMessage}).
    */
   private static void sendChatMessage(
       net.minecraft.server.level.ServerPlayer player, net.minecraft.network.chat.Component component) {
-    /*? if < 1.19.4 {*/
-    /*try {
-      player.displayClientMessage(component, false);
-    } catch (RuntimeException ignored) {
-      // message send is best-effort
-    }
-    *//*?} else {*/
-    try {
-      player.sendSystemMessage(component, false);
-      return;
-    } catch (Throwable ignored) {
-      // 1.19.0-1.19.3 mid-range: displayClientMessage
-    }
-    try {
-      player.getClass().getMethod("displayClientMessage", net.minecraft.network.chat.Component.class, boolean.class)
-          .invoke(player, component, false);
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // message send is best-effort
-    }
-    /*?}*/
+    net.ded3ec.compat.Compat.sendSystemMessage(player, component, false);
   }
 
   /**
@@ -497,27 +476,17 @@ public class Logger {
           // a chat message so the content is never silently lost.
           if (!sent) {
             try {
-              /*? if < 1.19.4 {*/
-              /*connection.player.displayClientMessage(
+              net.ded3ec.compat.Compat.sendSystemMessage(
+                  connection.player,
                   net.ded3ec.compat.Compat.text(titleMessage)
                       .setStyle(getStyleWithShadow(payload.title)),
                   false);
               if (payload.title.subtitle != null && !payload.title.subtitle.text.isBlank())
-                connection.player.displayClientMessage(
+                net.ded3ec.compat.Compat.sendSystemMessage(
+                    connection.player,
                     net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
                         .setStyle(getStyleWithShadow(payload.title.subtitle)),
                     false);
-              *//*?} else {*/
-              connection.player.sendSystemMessage(
-                  net.ded3ec.compat.Compat.text(titleMessage)
-                      .setStyle(getStyleWithShadow(payload.title)),
-                  false);
-              if (payload.title.subtitle != null && !payload.title.subtitle.text.isBlank())
-                connection.player.sendSystemMessage(
-                    net.ded3ec.compat.Compat.text(format(payload.title.subtitle.text, args))
-                        .setStyle(getStyleWithShadow(payload.title.subtitle)),
-                    false);
-              /*?}*/
             } catch (RuntimeException fallbackErr) {
               this.warn(
                   false,

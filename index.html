@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AuthCore - Universal Authentication Framework for Minecraft Servers</title>
+<meta name="description" content="AuthCore documentation - one jar for Fabric, Forge and NeoForge across Minecraft 1.16-26.x. Version-specific docs, downloads and quick start.">
+<style>
+  :root{--bg:#0b0f17;--card:#121926;--card2:#0e1420;--line:#1f2a3d;--text:#d8e1f0;--muted:#7f8ca6;
+        --ok:#22c55e;--accent:#38bdf8;--chip:#1a2334}
+  *{box-sizing:border-box}
+  body{background:radial-gradient(1200px 500px at 20% -10%,#16233a 0%,var(--bg) 55%);color:var(--text);
+       font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif;margin:0;padding:0 20px 60px;line-height:1.6}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1080px;margin:0 auto}
+  header.hero{text-align:center;padding:70px 0 30px}
+  h1{font-size:42px;margin:0 0 10px;letter-spacing:.3px}
+  h1 .dot{color:var(--accent)}
+  .tagline{color:var(--muted);font-size:17px;max-width:720px;margin:0 auto 26px}
+  .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:34px}
+  .chip{display:inline-block;font-size:12px;padding:5px 14px;border-radius:20px;background:var(--chip);
+        border:1px solid var(--line);color:var(--muted)}
+  h2{font-size:22px;margin:46px 0 14px;color:#eef3fb;border-bottom:1px solid var(--line);padding-bottom:8px}
+  table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);
+        border-radius:12px;overflow:hidden;font-size:14px}
+  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;background:var(--card2)}
+  tr:last-child td{border-bottom:none}
+  code,pre{font-family:ui-monospace,'Cascadia Code',Consolas,monospace}
+  pre{background:#070b12;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;color:#9fb0cc}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:18px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:block;color:var(--text)}
+  .card:hover{border-color:var(--accent);text-decoration:none}
+  .card .v{font-size:20px;font-weight:700;display:block;margin-bottom:4px}
+  .card .d{color:var(--muted);font-size:13px}
+  .badge{display:inline-block;background:#14311f;color:var(--ok);border:1px solid #1c3a2a;border-radius:20px;
+         padding:2px 10px;font-size:11px;font-weight:700;vertical-align:middle;margin-left:8px}
+  .qa{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
+  .qa b{color:#eef3fb}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:50px;border-top:1px solid var(--line);padding-top:16px;text-align:center}
+</style>
+</head>
+<body>
+<script src="/docs/assets/nav.js" defer></script>
+<div class="wrap">
+
+<header class="hero">
+  <h1>🏰🔐 AuthCore<span class="dot">.</span></h1>
+  <p class="tagline">Universal authentication framework for Minecraft servers - one jar for
+  Fabric, Forge and NeoForge, one jar per version range, servers and BungeeCord/Velocity
+  proxies alike. SQLite out of the box, MySQL / PostgreSQL / Redis when you grow.</p>
+  <div class="chips">
+    <span class="chip">MC 1.16 - 26.x</span>
+    <span class="chip">Fabric · Forge · NeoForge</span>
+    <span class="chip">Java 17 / 21 / 25</span>
+    <span class="chip">Server-side only</span>
+    <span class="chip">2FA (TOTP) built in</span>
+  </div>
+</header>
+
+<h2>⬇️ Downloads (latest release)</h2>
+<table>
+  <thead><tr><th>Minecraft range</th><th>Loaders</th><th>Java</th><th>Range file</th></tr></thead>
+  <tbody>
+    <tr><td>1.16 - 1.18</td><td>fabric, forge</td><td>17</td><td><code>authcore-1.16-1.18-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
+    <tr><td>1.19 - 1.21</td><td>fabric, forge, neoforge</td><td>21</td><td><code>authcore-1.19-1.21-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
+    <tr><td>26.1 - 26.2</td><td>fabric, neoforge</td><td>25</td><td><code>authcore-26.1-26.2-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
+  </tbody>
+</table>
+<p style="margin-top:14px">Grab the jar matching your Minecraft range + loader from the
+<a href="https://github.com/DawnOfDedSec/AuthCore/releases">GitHub Releases</a> (a rolling
+<em>latest</em> development build is also published there) or from
+<a href="https://modrinth.com/mod/authcore">Modrinth</a>. Drop <strong>one</strong> jar into
+<code>mods/</code> - everything else is automatic.</p>
+
+<h2>🚀 Quick start</h2>
+<pre>1. Download the jar for your Minecraft range and loader
+2. Drop it into your server's  mods/  folder  (BungeeCord/Velocity:  plugins/)
+3. Start the server - config + SQLite database are created automatically
+4. Players are guided through /register and /login in the auth limbo
+5. (Optional) switch to MySQL/PostgreSQL/Redis in  config/authcore/settings.conf</pre>
+
+<h2>❓ FAQ</h2>
+<div class="qa"><b>Is a database required?</b> No - SQLite works out of the box; MySQL,
+PostgreSQL and Redis are optional upgrades configured in <code>settings.conf</code>.</div>
+<div class="qa"><b>Does it work with Geyser/Floodgate or proxies?</b> Yes - Floodgate support
+and Velocity/BungeeCord forwarding are built in; the same jar doubles as a proxy plugin.</div>
+<div class="qa"><b>One jar for the whole range?</b> Yes - each jar is verified on every
+endpoint of its range by a real-server Docker test matrix before release.</div>
+<div class="qa"><b>Where are the config options?</b> ~180 settings documented per version in
+the configuration reference (see the version docs below).</div>
+
+<h2>📚 Documentation by version</h2>
+<p>Every release ships its own documentation set. Pick your version:</p>
+<div class="cards" id="version-cards">
+  <noscript>Enable JavaScript to list the version docs, or open
+    <a href="/docs/1.0.0/index.html">docs for v1.0.0</a> directly.</noscript>
+</div>
+
+<div class="foot">
+  AuthCore · <a href="https://github.com/DawnOfDedSec/AuthCore">GitHub</a> ·
+  <a href="https://github.com/DawnOfDedSec/AuthCore/releases">Releases</a> ·
+  <a href="https://modrinth.com/mod/authcore">Modrinth</a> ·
+  docs hosted on GitHub Pages
+</div>
+
+</div>
+<script>
+fetch("/docs/versions.json", { cache: "no-cache" })
+  .then(function (r) { return r.json(); })
+  .then(function (versions) {
+    var host = document.getElementById("version-cards");
+    if (!host) return;
+    host.innerHTML = "";
+    versions.forEach(function (v) {
+      var a = document.createElement("a");
+      a.className = "card";
+      a.href = v.docs;
+      var title = document.createElement("span");
+      title.className = "v";
+      title.textContent = "AuthCore v" + v.version;
+      if (v.status === "stable") {
+        var b = document.createElement("span");
+        b.className = "badge";
+        b.textContent = "Latest";
+        title.appendChild(b);
+      }
+      var d = document.createElement("span");
+      d.className = "d";
+      d.textContent = (v.released ? "Released " + v.released + " · " : "") +
+        "guide, flows, configuration, API, web panel, security model, changelog";
+      a.appendChild(title);
+      a.appendChild(d);
+      host.appendChild(a);
+    });
+  });
+</script>
+</body>
+</html>

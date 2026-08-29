@@ -2,6 +2,7 @@ package net.ded3ec.compat;
 
 import java.lang.reflect.Method;
 import java.util.Optional;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
@@ -49,15 +50,7 @@ public final class Compat {
 
   /** Sends a chat message, with or without the action-bar overlay parameter. */
   public static void sendMessage(ServerPlayer player, Component text, boolean overlay) {
-    for (String name : new String[] {"sendSystemMessage", "displayClientMessage"}) {
-      try {
-        Method m = ServerPlayer.class.getMethod(name, Component.class, boolean.class);
-        m.invoke(player, text, overlay);
-        return;
-      } catch (ReflectiveOperationException | RuntimeException ignored) {
-        // try the next name
-      }
-    }
+    sendSystemMessage(player, text, overlay);
   }
 
   /** Adds a status effect (direct call - {@code LivingEntity.addEffect} in every era). */
@@ -500,17 +493,21 @@ public final class Compat {
 
   /**
    * Sends a system chat message across every era: {@code sendSystemMessage(Component, boolean)}
-   * (1.19.4+) with a reflective fallback to {@code displayClientMessage(Component, boolean)}
-   * (1.16-1.19.3). Never throws.
+   * (1.19.4+) with direct {@code sendMessage(Component, UUID)} on (1.16-1.18.2). Never throws.
    */
   public static void sendSystemMessage(
       ServerPlayer player, net.minecraft.network.chat.Component component, boolean actionBar) {
     if (player == null || component == null) return;
     /*? if < 1.19.4 {*/
     /*try {
-      player.displayClientMessage(component, actionBar);
+      if (actionBar) {
+        player.sendMessage(component, net.minecraft.network.chat.ChatType.GAME_INFO, net.minecraft.Util.NIL_UUID);
+      } else {
+        player.sendMessage(component, net.minecraft.Util.NIL_UUID);
+      }
+      return;
     } catch (Throwable ignored) {
-      // message send is best-effort
+      // try fallback
     }
     *//*?} else {*/
     try {
@@ -524,10 +521,38 @@ public final class Compat {
           .getMethod(
               "displayClientMessage", net.minecraft.network.chat.Component.class, boolean.class)
           .invoke(player, component, actionBar);
+      return;
+    } catch (Throwable ignored) {
+      // try reflection fallback
+    }
+    /*?}*/
+    // Universal runtime reflection fallback for 1.16-1.18.2 Fabric/Forge
+    try {
+      for (Method m : player.getClass().getMethods()) {
+        if (m.getName().equals("sendMessage")) {
+          if (m.getParameterCount() == 2
+              && m.getParameterTypes()[0] == net.minecraft.network.chat.Component.class
+              && m.getParameterTypes()[1] == UUID.class) {
+            m.invoke(player, component, new UUID(0L, 0L));
+            return;
+          } else if (m.getParameterCount() == 3
+              && m.getParameterTypes()[0] == net.minecraft.network.chat.Component.class
+              && m.getParameterTypes()[2] == UUID.class) {
+            Object[] types = m.getParameterTypes()[1].getEnumConstants();
+            Object type =
+                actionBar && types != null && types.length > 2
+                    ? types[2]
+                    : (types != null && types.length > 1
+                        ? types[1]
+                        : (types != null && types.length > 0 ? types[0] : null));
+            m.invoke(player, component, type, new UUID(0L, 0L));
+            return;
+          }
+        }
+      }
     } catch (Throwable ignored) {
       // message send is best-effort
     }
-    /*?}*/
   }
 
   /** Resolves a block position from floored doubles (API changed across versions). */
@@ -736,12 +761,28 @@ public final class Compat {
    */
   public static boolean serverUsesAuthentication(MinecraftServer server) {
     if (server == null) return true;
-    for (String name : new String[] {"usesAuthentication", "isOnlineMode"}) {
+    try {
+      return server.usesAuthentication();
+    } catch (Throwable ignored) {
+      // Fall through to reflection for custom/derivative server runtimes
+    }
+    // Mojang names: usesAuthentication / isOnlineMode (1.16-1.21.11), getOnlineMode (26.x); Yarn: usesAuthentication.
+    // Field fallback: onlineMode (private field, mojmap - setAccessible on a JVM where
+    // field access is permitted for same-module classes).
+    for (String name : new String[] {"usesAuthentication", "isOnlineMode", "getOnlineMode"}) {
       try {
         return (Boolean) MinecraftServer.class.getMethod(name).invoke(server);
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next name
       }
+    }
+    try {
+      java.lang.reflect.Field f = MinecraftServer.class.getDeclaredField("onlineMode");
+      f.setAccessible(true);
+      Object value = f.get(server);
+      if (value instanceof Boolean b) return b;
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // fall through to the safe default
     }
     return true;
   }
@@ -873,6 +914,21 @@ public final class Compat {
     } catch (ReflectiveOperationException | RuntimeException ignored) {
       // no server field on this version
     }
+    return null;
+  }
+
+  /** Resolves the MinecraftServer from a command source stack or execution context. */
+  public static MinecraftServer getSourceServer(Object source) {
+    if (source == null) return null;
+    if (source instanceof MinecraftServer ms) return ms;
+    try {
+      Object srv = source.getClass().getMethod("getServer").invoke(source);
+      if (srv instanceof MinecraftServer ms) return ms;
+    } catch (Throwable ignored) {}
+    try {
+      Object srv = source.getClass().getField("server").get(source);
+      if (srv instanceof MinecraftServer ms) return ms;
+    } catch (Throwable ignored) {}
     return null;
   }
 
@@ -1690,9 +1746,18 @@ public final class Compat {
   /** Best-effort loader version from a FMLLoader class (versionInfo API differs per version). */
   private static String loaderVersionVia(Class<?> fmlClass) {
     try {
-      Object versionInfo = fmlClass.getMethod("versionInfo").invoke(null);
+      Object versionInfo = null;
+      for (String accessor : new String[] {"versionInfo", "getVersionInfo"}) {
+        try {
+          versionInfo = fmlClass.getMethod(accessor).invoke(null);
+          if (versionInfo != null) break;
+        } catch (ReflectiveOperationException ignored) {
+          // try the next accessor name
+        }
+      }
       if (versionInfo != null) {
-        for (String m : new String[] {"getForgeVersion", "getLoaderVersion", "getVersion"}) {
+        for (String m : new String[] {"getForgeVersion", "getLoaderVersion", "getVersion",
+                                      "neoForgeVersion", "forgeVersion"}) {
           try {
             Object v = versionInfo.getClass().getMethod(m).invoke(versionInfo);
             if (v != null && !String.valueOf(v).isBlank()) return String.valueOf(v);
@@ -1806,17 +1871,91 @@ public final class Compat {
         return (String) loader.getClass().getMethod("getGameVersion").invoke(loader);
       }
     } catch (Exception e) {
-      // fall through to SharedConstants below
+      // fall through to the FML / SharedConstants below
     }
     /*?}*/
+    // Forge / NeoForge first: FML's VersionInfo carries the exact Minecraft
+    // version and is NOT obfuscated - unlike SharedConstants, whose method names
+    // are SRG-renamed on Forge runtimes, so the mojmap reflection below can
+    // never find them there (banner showed "unknown").
+    String viaFml = gameVersionViaFml("net.neoforged.fml.loading.FMLLoader");
+    if (viaFml != null) return viaFml;
+    viaFml = gameVersionViaFml("net.minecraftforge.fml.loading.FMLLoader");
+    if (viaFml != null) return viaFml;
     try {
       Class<?> shared = Class.forName("net.minecraft.SharedConstants");
       Object version = shared.getMethod("getCurrentVersion").invoke(null);
-      Object name = version.getClass().getMethod("getName").invoke(version);
-      return (String) name;
+      for (String m : new String[] {"getName", "getId", "getReleaseTarget"}) {
+        try {
+          Object v = version.getClass().getMethod(m).invoke(version);
+          if (v != null && !String.valueOf(v).isBlank()) return String.valueOf(v);
+        } catch (ReflectiveOperationException ignored) {
+          // try the next name
+        }
+      }
+      return "unknown";
     } catch (ReflectiveOperationException e) {
       return "unknown";
     }
+  }
+
+  /**
+   * Best-effort Minecraft version from an FML VersionInfo (non-obfuscated classes).
+   * Forge exposes a static {@code getVersionInfo()}; newer NeoForge exposes a static
+   * FMLLoader singleton ({@code getCurrentOrNull()}) whose instance method carries it.
+   */
+  private static String gameVersionViaFml(String fmlClass) {
+    try {
+      Class<?> fmlType = Class.forName(fmlClass);
+      Object info = staticGet(fmlType, new String[] {"versionInfo", "getVersionInfo"});
+      if (info == null) {
+        Object loader = staticGet(fmlType, new String[] {"getCurrent", "getCurrentOrNull", "getInstance", "instance"});
+        if (loader != null) info = invokeAny(loader, new String[] {"getVersionInfo", "versionInfo"});
+      }
+      if (info != null) {
+        for (String m : new String[] {"mcVersion", "getMcVersion", "getMcAndMinecraftVersion",
+                                      "getMcAndForgeVersion", "minecraftVersion"}) {
+          try {
+            Object v = info.getClass().getMethod(m).invoke(info);
+            if (v != null && !String.valueOf(v).isBlank()) return String.valueOf(v);
+          } catch (ReflectiveOperationException ignored) {
+            // try the next name
+          }
+        }
+      }
+    } catch (Throwable ignored) {
+      // not this loader
+    }
+    return null;
+  }
+
+  /** Invokes the first existing no-arg STATIC method and returns its result (null if none). */
+  private static Object staticGet(Class<?> type, String[] names) {
+    for (String name : names) {
+      try {
+        var method = type.getMethod(name);
+        if (java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+          Object v = method.invoke(null);
+          if (v != null) return v;
+        }
+      } catch (Throwable ignored) {
+        // try the next name
+      }
+    }
+    return null;
+  }
+
+  /** Invokes the first existing no-arg INSTANCE method and returns its result (null if none). */
+  private static Object invokeAny(Object target, String[] names) {
+    for (String name : names) {
+      try {
+        Object v = target.getClass().getMethod(name).invoke(target);
+        if (v != null) return v;
+      } catch (Throwable ignored) {
+        // try the next name
+      }
+    }
+    return null;
   }
 
   /** Adds a player to the vanilla whitelist (API changed across versions). */

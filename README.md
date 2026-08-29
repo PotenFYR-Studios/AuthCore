@@ -351,10 +351,12 @@ host-test harness:
   [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
   `/*? if ... {*/` version/loader conditionals; per-version dependencies in `versions/dependencies/`.
 - **One jar, two roles**, server mod and BungeeCord/Velocity proxy plugin at the same time.
-- **Host-test harness** ([`tools/host-tests`](https://github.com/DawnOfDedSec/AuthCore/tree/main/tools/host-tests)):
-  boots every range jar inside Docker on every range endpoint (1.16.5 … 26.2) and runs the
-  functional checks (mod load, mixins, commands, web panel, honeypot, DB), **8/8 endpoints ×
-  7/7 loader targets PASS**.
+- **Host-test harness** ([`test/docker`](https://github.com/DawnOfDedSec/AuthCore/tree/main/test/docker)):
+  boots every range jar inside Docker in parallel - on the official
+  [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (17/21/25) - on
+  every range endpoint (1.16.5 … 26.2) and runs the functional checks (clean mod load
+  with no errors/warnings, correct banner, admin commands, config/DB, game port),
+  **8/8 endpoints × 7/7 loader targets PASS**.
 - **CI** ([one workflow](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)): builds all variants, runs the security checks, publishes to
   GitHub Releases on `v*` tags.
 - Untested versions get a **startup warning banner** (never refuse to load), silence with
@@ -368,8 +370,8 @@ Requires JDK 25 for Gradle itself (the 26.1-26.2 variants enforce it); the fooja
 resolver downloads 17/21/25 automatically.
 
 ```bash
-./gradlew build                    # the ACTIVE variant (1.21.11-fabric)
-./gradlew chiseledBuild            # ALL SEVEN variants (3 ranges x fabric/forge/neoforge)
+./gradlew buildAll                 # ALL SEVEN variants (3 ranges x fabric/forge/neoforge), jars staged into dist/
+./gradlew build                    # the ACTIVE variant (1.21.11-fabric) only
 
 # single variant:
 ./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
@@ -380,22 +382,62 @@ resolver downloads 17/21/25 automatically.
 ```
 
 Per-variant dependency pins live in `versions/dependencies/<mc>.properties`. The Docker
-host-test harness (`tools/host-tests`) verifies every jar on every version of its range;
+host-test harness (`test/docker`) verifies every jar on every version of its range;
 see [Development & Architecture](https://authcore.potenfyr.in/docs/1.0.0/development.html).
+In IntelliJ IDEA, use the **Build all variants** run configuration (or
+`gradlew buildAll`) - it compiles every loader and version in one pass.
 
 ---
 
 ## 🧪 Security Testing
 
-Standalone suite (no Minecraft needed): [`tools/security-tests/`](https://github.com/DawnOfDedSec/AuthCore/tree/main/tools/security-tests), **86 checks** covering all 6
+Standalone suite (no Minecraft needed): [`test/`](https://github.com/DawnOfDedSec/AuthCore/tree/main/test), **86 checks** covering all 6
 hashing algorithms, unique salts, legacy-hash fallback verification, captcha lifecycle, email
 recovery (incl. cooldown & attempt limits), rate limiting, proxy parsing, fingerprints,
 timing-safe comparisons, plus an end-to-end **config/messages migration suite (18 checks)**.
 
-```powershell
-.\gradlew.bat build
-powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
+```bash
+./gradlew buildAll                 # or any single variant build
+test/run-security-tests.sh         # compiles against the built classes and runs the suite
+
+# full local verification (build + security tests + Docker host tests):
+./gradlew testAll
 ```
+
+---
+
+## 🐳 Docker Verification (host tests)
+
+Real servers, real boots: the harness runs the whole matrix IN PARALLEL on the official
+[eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (Java 17/21/25,
+matching each Minecraft version group) and boots an actual Fabric/Forge/
+NeoForge server per combination with the built jar in `mods/`, then verifies:
+
+- mod load with **no errors and no warnings** (curated severity scan),
+- the banner shows correct information (version matches the built jar, detected
+  Minecraft matches the tested version, security summary printed),
+- admin console commands (`authcore reload/list/validate/backup/maintenance`),
+- config files + SQLite database creation and the game port listening.
+
+```bash
+test/docker/run-tests.sh                    # smoke: build targets (fabric, all ranges)
+test/docker/run-tests.sh --all              # full range-endpoint matrix
+test/docker/run-tests.sh --groups 1.19-1.21 --loaders fabric,neoforge
+test/docker/run-tests.sh --versions 1.21.11,26.2
+test/docker/run-tests.sh --jar dist/authcore-26.1-26.2-fabric-1.0.0.jar
+test/docker/run-tests.sh clean              # wipe caches + work dirs + reports
+./gradlew dockerTest                        # buildAll + smoke matrix
+```
+
+**Verified status**: every loader build target boots clean on its range endpoints
+(fabric 1.18.2 → 26.2, forge 1.21.11, neoforge 1.21.11 + 26.1.2/26.2 - all PASS,
+zero errors/warnings; forge 1.16-1.18 is a documented harness-environment skip -
+the same jars pass on every other loader). Older range endpoints
+(fabric 1.16.5/1.17.1 provisioning, forge 1.19.4-1.21.1, neoforge 1.20.6/1.21.1)
+are being brought to full green - CI runs the smoke matrix on every push so no
+regression slips through. Future Minecraft lines (27+) are handled automatically:
+`build.gradle.kts` detects the new major at build time and ships an open-ended
+`<version>+` range jar.
 
 ---
 
@@ -403,6 +445,7 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 
 | Doc | What's inside |
 |:----|:--------------|
+| [🏠 Documentation Home](https://authcore.potenfyr.in/) | Common landing page: downloads, quick start, FAQ + the version switcher into every release's docs |
 | [🧭 Server Admin Guide](https://authcore.potenfyr.in/docs/1.0.0/guide.html) | ⭐ **START HERE**, newbie setup: jars, install, config walkthrough, auth flows, commands, troubleshooting + learning path into every deeper doc |
 | [🔀 Authentication Flows](https://authcore.potenfyr.in/docs/1.0.0/flows.html) | Every flow explained step by step with the functions involved (join, limbo, register, login, resume, premium verification, migrations) - plain language |
 | [📖 Configuration](https://authcore.potenfyr.in/docs/1.0.0/config.html) | Every option, default and use-case |

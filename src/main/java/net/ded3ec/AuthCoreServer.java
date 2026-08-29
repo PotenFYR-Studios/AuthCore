@@ -110,6 +110,10 @@ public class AuthCoreServer {
     return serverOnlineMode == null || serverOnlineMode;
   }
 
+  public static boolean isServerDetected() {
+    return serverOnlineMode != null;
+  }
+
   /**
    * UUIDs whose Minecraft profile was verified by the server's OWN Mojang session
    * authentication during login (captured by the login mixin). AuthCore performs no Mojang

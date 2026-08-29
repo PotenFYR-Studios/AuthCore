@@ -1,9 +1,0 @@
-{
-  "name": "authcore-hosttest-sim",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Offline-mode protocol client that simulates a real player through AuthCore's register/login/limbo flows (used by the host-test harness).",
-  "dependencies": {
-    "minecraft-protocol": "1.67.0"
-  }
-}
