@@ -25,6 +25,24 @@ for arg in "$@"; do
 done
 VARIANT="${VARIANT_ARG:-}"
 
+# Auto-download java-jars / provided libraries if missing
+if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.4.jar" ]; then
+  echo "== java-jars missing or incomplete - downloading automatically =="
+  bash "$REPO/test/install-java-and-provided-jars.sh"
+fi
+
+# If javac is not on PATH, check if portable JDK in java-jars can be used
+if ! command -v javac >/dev/null 2>&1; then
+  for pjdk in "$REPO/java-jars/jdk-25" "$REPO/java-jars/jdk-21" "$REPO/java-jars/jdk-17"; do
+    if [ -x "$pjdk/bin/javac" ] || [ -f "$pjdk/bin/javac.exe" ]; then
+      echo "== using portable JDK: $pjdk =="
+      export PATH="$pjdk/bin:$PATH"
+      export JAVA_HOME="$pjdk"
+      break
+    fi
+  done
+fi
+
 # --- locate the newest loadable compiled variant -------------------------------
 java_major() {
   command -v java >/dev/null 2>&1 \
@@ -33,15 +51,13 @@ java_major() {
 RUNTIME_MAJOR=$(java_major)
 
 command -v javac >/dev/null 2>&1 \
-  || { echo "ERROR: javac not found on PATH - install a JDK (17+) (the standalone";
-       echo "security suite compiles against the built classes; Docker-only users can";
-       echo "skip it: the Docker host-test harness covers the same flows on real servers.)";
+  || { echo "ERROR: javac not found on PATH - install a JDK (17+)";
        exit 1; }
 
 MAIN_CLASSES=""
 NEWEST=0
 for dir in "$REPO"/versions/*/build/classes/java/main; do
-  marker="$dir/net/ded3ec/models/Config.class"
+  marker="$dir/in/potenfyr/authcore/models/Config.class"
   [ -f "$marker" ] || continue
   major=$(( $(od -An -tu1 -j7 -N1 "$marker" | tr -d ' ') ))
   # classfile major -> Java version: major-44
@@ -56,7 +72,7 @@ done
 
 if [ -n "$VARIANT" ]; then
   CAND="$REPO/versions/$VARIANT/build/classes/java/main"
-  [ -f "$CAND/net/ded3ec/models/Config.class" ] && MAIN_CLASSES="$CAND"
+  [ -f "$CAND/in/potenfyr/authcore/models/Config.class" ] && MAIN_CLASSES="$CAND"
 fi
 
 [ -n "$MAIN_CLASSES" ] || { echo "ERROR: compiled mod classes not found - run 'test/build.sh' first."; exit 1; }
@@ -80,22 +96,30 @@ fi
 
 # --- classpath + source paths ---------------------------------------------------
 CP="$MAIN_CLASSES"
-for j in "$LIBS"/*.jar; do CP="$CP:$j"; done
+for j in "$LIBS"/*.jar; do
+  # Git Bash can expand an absolute glob as D:/...; convert it back to a
+  # POSIX path before joining with ':' so cygpath -wp below does not mistake
+  # the drive-letter colon for a classpath separator.
+  if command -v cygpath >/dev/null 2>&1; then
+    j="$(cygpath -u "$j")"
+  fi
+  CP="$CP:$j"
+done
 
 if command -v cygpath >/dev/null 2>&1; then
   OUT_NATIVE="$(cygpath -w "$OUT")"
   CP_NATIVE="$(cygpath -wp "$CP")"
   FULL_CP_NATIVE="$(cygpath -wp "$OUT:$CP")"
-  SRC_SERVER="$(cygpath -w "$SCRIPT_DIR/security-src/net/ded3ec/AuthCoreServer.java")"
-  SRC_LOGGER="$(cygpath -w "$SCRIPT_DIR/security-src/net/ded3ec/util/Logger.java")"
+  SRC_SERVER="$(cygpath -w "$SCRIPT_DIR/security-src/in/potenfyr/authcore/AuthCoreServer.java")"
+  SRC_LOGGER="$(cygpath -w "$SCRIPT_DIR/security-src/in/potenfyr/authcore/util/Logger.java")"
   SRC_TESTS="$(cygpath -w "$SCRIPT_DIR/security-src/AuthCoreSecurityTests.java")"
   SRC_MIGRATION="$(cygpath -w "$SCRIPT_DIR/security-src/AuthCoreMigrationTest.java")"
 else
   OUT_NATIVE="$OUT"
   CP_NATIVE="$CP"
   FULL_CP_NATIVE="$OUT:$CP"
-  SRC_SERVER="$SCRIPT_DIR/security-src/net/ded3ec/AuthCoreServer.java"
-  SRC_LOGGER="$SCRIPT_DIR/security-src/net/ded3ec/util/Logger.java"
+  SRC_SERVER="$SCRIPT_DIR/security-src/in/potenfyr/authcore/AuthCoreServer.java"
+  SRC_LOGGER="$SCRIPT_DIR/security-src/in/potenfyr/authcore/util/Logger.java"
   SRC_TESTS="$SCRIPT_DIR/security-src/AuthCoreSecurityTests.java"
   SRC_MIGRATION="$SCRIPT_DIR/security-src/AuthCoreMigrationTest.java"
 fi
@@ -105,13 +129,22 @@ javac -encoding UTF-8 -cp "$CP_NATIVE" -d "$OUT_NATIVE" \
   "$SRC_SERVER" \
   "$SRC_LOGGER" \
   "$SRC_TESTS"
-# stub AuthCoreServer shadows the real one -> $OUT first on the classpath
-java -cp "$FULL_CP_NATIVE" AuthCoreSecurityTests
+# The stub AuthCoreServer must shadow the real one. On Git Bash, running from OUT
+# avoids a Windows drive-letter classpath entry being rewritten by MSYS at launch.
+if command -v cygpath >/dev/null 2>&1; then
+  (cd "$OUT" && java -cp ".;$CP_NATIVE" AuthCoreSecurityTests)
+else
+  java -cp "$FULL_CP_NATIVE" AuthCoreSecurityTests
+fi
 
 if [ "$RUN_MIGRATION" = "1" ]; then
   echo "== running AuthCoreMigrationTest =="
   javac -encoding UTF-8 -cp "$FULL_CP_NATIVE" -d "$OUT_NATIVE" "$SRC_MIGRATION"
-  java -cp "$FULL_CP_NATIVE" AuthCoreMigrationTest
+  if command -v cygpath >/dev/null 2>&1; then
+    (cd "$OUT" && java -cp ".;$CP_NATIVE" AuthCoreMigrationTest)
+  else
+    java -cp "$FULL_CP_NATIVE" AuthCoreMigrationTest
+  fi
 fi
 
 echo "== security tests PASSED =="

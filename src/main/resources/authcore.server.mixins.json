@@ -1,6 +1,6 @@
 {
   "required": false,
-  "package": "net.ded3ec.mixin",
+  "package": "in.potenfyr.authcore.mixin",
   "compatibilityLevel": "${mixinCompatibilityLevel}",
   "mixins": [
     "ClientConnectionAccessor",

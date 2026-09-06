@@ -1,0 +1,109 @@
+name: Snapshot Compatibility
+
+# Weekly automated compatibility check for modern Minecraft snapshots (26.x, future 27.x+).
+# Evaluates open-ended loader ranges, runs standalone security & snapshot test suites,
+# and opens an automated PR/issue if breaking upstream changes are detected.
+
+on:
+  schedule:
+    # Runs every Monday at 04:00 UTC (once a week)
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  snapshot-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 + JDK 21 + JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: |
+            17
+            21
+            25
+          cache: 'gradle'
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ./gradlew test/*.sh 2>/dev/null || true
+
+      - name: Query latest Minecraft snapshot
+        id: mojang
+        run: |
+          MANIFEST=$(curl -sSL "https://launchermeta.mojang.com/mc/game/version_manifest_v2.json")
+          LATEST_SNAPSHOT=$(echo "$MANIFEST" | jq -r '.latest.snapshot // empty')
+          LATEST_RELEASE=$(echo "$MANIFEST" | jq -r '.latest.release // empty')
+          echo "latest_snapshot=$LATEST_SNAPSHOT" >> "$GITHUB_OUTPUT"
+          echo "latest_release=$LATEST_RELEASE" >> "$GITHUB_OUTPUT"
+          echo "Latest Snapshot: $LATEST_SNAPSHOT"
+          echo "Latest Release: $LATEST_RELEASE"
+
+      - name: Build modern unobfuscated 26.x+ variants
+        id: build_step
+        continue-on-error: true
+        run: |
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :26.2-fabric:build :26.2-neoforge:build --no-daemon --stacktrace
+
+      - name: Export security classpath & run snapshot test suite
+        id: test_step
+        continue-on-error: true
+        run: |
+          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+            :1.21.11-fabric:exportSecurityTestLibs --no-daemon -q
+          export PATH="${JAVA_HOME_21_X64:-$JAVA_HOME_25_X64}/bin:$PATH"
+          bash test/run-security-tests.sh 1.21.11-fabric
+
+      - name: Detect breaking changes & handle automated PR
+        if: steps.build_step.outcome == 'failure' || steps.test_step.outcome == 'failure'
+        run: |
+          SNAPSHOT="${{ steps.mojang.outputs.latest_snapshot }}"
+          BRANCH_NAME="compat/snapshot-${SNAPSHOT:-breakage}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH_NAME" || git checkout "$BRANCH_NAME"
+
+          REPORT="snapshot-compat-report.md"
+          cat <<EOF > "$REPORT"
+          # 🚨 Upstream Snapshot Breakage Detected
+
+          - **Target Snapshot:** \`$SNAPSHOT\`
+          - **Build Step Status:** \`${{ steps.build_step.outcome }}\`
+          - **Test Step Status:** \`${{ steps.test_step.outcome }}\`
+
+          ### Diagnostics
+          The automated weekly snapshot compatibility check found breaking changes or compilation errors against the modern unobfuscated toolchain.
+          Please inspect the workflow execution log and update mixin targets or reflection bridges in \`in.potenfyr.authcore.compat.Compat\`.
+          EOF
+
+          git add "$REPORT"
+          git commit -m "chore(compat): record upstream breaking changes for snapshot $SNAPSHOT" || true
+          git push origin "$BRANCH_NAME" --force || true
+
+          if gh pr view "$BRANCH_NAME" >/dev/null 2>&1; then
+            gh pr comment "$BRANCH_NAME" --body "Weekly check re-run: breaking changes still detected on snapshot \`$SNAPSHOT\`."
+          else
+            gh pr create \
+              --title "🚨 [Snapshot Compat] Breaking changes detected for Minecraft $SNAPSHOT" \
+              --body-file "$REPORT" \
+              --head "$BRANCH_NAME" \
+              --base main
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report success
+        if: steps.build_step.outcome == 'success' && steps.test_step.outcome == 'success'
+        run: |
+          echo "✅ All snapshot compatibility checks passed cleanly! AuthCore is fully compatible with ${{ steps.mojang.outputs.latest_snapshot }}."

@@ -1,10 +1,10 @@
-﻿<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;">
 
 # AuthCore Changelog
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://shieldcn.dev/badge/version-1.0.0-blue.svg)](https://github.com/DawnOfDedSec/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg)](https://github.com/DawnOfDedSec/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md)
+[![Version](https://shieldcn.dev/badge/version-1.0.0-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
 
 </div>
 
@@ -15,6 +15,110 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > One merged changelog for the whole 1.0.0 line - every feature, fix and hardening
 > pass that ever shipped under a `1.0.0*` label lives in this single section
 > (the separate `alpha.1`-`alpha.5` entries were folded in; nothing was lost).
+
+### Build, mixin & proxy-gate hardening (2026-09-06)
+
+**Build-time remap errors fixed (all 4 `Cannot remap` warnings gone)**
+
+- `startSleeping` lobby restriction: the `Either`-returning overload never existed on any
+  supported version; unified to the void overload that exists on every version.
+- Elytra block: `startFallFlying` was removed from the mappings long ago (the injection
+  silently never ran); it now injects `updateFallFlying`, the per-tick glide driver, which
+  also extends the elytra + jump lobby restrictions to the 1.16-1.18 range.
+- Mount block: `startRiding(Entity,Z)` was replaced by a 3-arg overload in 1.21.9; the mixin
+  now injects the 1-arg final entrypoint (present on every version) plus the era-specific
+  force overload, so mount blocking actually runs on 1.19-1.21 instead of silently no-oping.
+- Deop tracking: the `GameProfile` -> `NameAndId` API swap happened in 1.21.9, not 26.x;
+  the stonecutter cut point was corrected and the handler now uses `@Coerce` so the same
+  jar's bytecode never references the 1.21.9-only `NameAndId` type.
+
+**Runtime mixin crashes fixed (host matrix back to green)**
+
+- `ServerPlayNetworkHandlerMixin` legacy handlers and `PlayerListOpMixin` used `Object`
+  handler parameters, which Mixin rejects at runtime (`InvalidInjectionException`) - the
+  1.16-1.18 fabric legs and all 26.x legs failed as a result. Handlers now declare the
+  exact packet types.
+
+**Startup banner fixed on log4j-era loaders**
+
+- On runtimes without slf4j (1.16-1.18 Fabric/Forge) the entire banner printed literal
+  `{}` placeholders instead of values. The fallback console logger now substitutes
+  slf4j-style placeholders, so version, Minecraft version, database type and every
+  security flag display correctly.
+
+**Proxy-gate bypass & spoofing hardening**
+
+- Velocity/BungeeCord proxy gate: a gate error previously failed OPEN (unauthenticated
+  players allowed through even with `block-unauthenticated=true`); it now fails CLOSED
+  by default - deny unless the operator explicitly sets `fail-closed=false`.
+- Interop messages (`AUTH_CHANGED`) are no longer accepted from player connections -
+  only backend-server senders are trusted, and messages are consumed so they can never
+  be forwarded to clients.
+
+**CI: rolling latest-build release**
+
+- Every `main` push that passes build + host tests now republishes the `latest`
+  GitHub release: same-version uploads REPLACE the jars and regenerate the changelog
+  notes; the stable `v*` tag release remains the "Latest" release.
+
+**Test suite grown to 180+ checks**
+
+- New suites: proxy spoof-guard hardening, trusted-proxy source + CIDR validation,
+  proxy-config parsing strictness, interop message parsing, proxy-side session cache.
+- Docker harness now verifies server-mode auto-detection and banner data correctness
+  on every leg.
+
+### Detection hardening & bypass resistance (2026-09-05)
+
+**7-layer defense-in-depth stack**
+
+- **Layer 1 - Session Binding**: per-server random 32-byte companion attestation key,
+  generated on first boot, persisted to `config/authcore/attestation.key`, rotated on
+  `/authcore reload` (invalidates all pending challenges). No hardcoded keys anywhere.
+- **Layer 2 - Packet Sequence Validation**: login packet state machine (HELLO → SETTINGS →
+  READY) tracks every connection; anomalous sequences are logged as `PACKET_SEQUENCE_ANOMALY`.
+  Stale entries are pruned on tick and on player leave.
+- **Layer 3 - Behavioral Profiling**: ClientGuard risk scoring now includes confusable-name
+  detection (O(1) normalized-name index), concurrent-connection fingerprinting
+  (`CONCURRENT_FARM`: ≥3 distinct usernames from same IP within 5s = +25 risk),
+  look-pattern bot detection (camera rotation delta variance = +20), and observation-window
+  entropy analysis (low timing variance = +15).
+- **Layer 4 - Look-Pattern Analysis**: tracks per-player look deltas (pitch/yaw changes
+  between packets); computes coefficient of variation - bots have zero or perfectly regular
+  patterns, humans have natural variation.
+- **Layer 5 - Login Timing Distribution**: IP-level login timestamp analysis (60s window,
+  ≥3 samples); low coefficient of variation (< 0.15) flags bot-farm synchronized timers.
+- **Layer 6 - Concurrent Connection Fingerprinting**: `ClientGuard.checkConcurrentFarm`
+  tracks distinct usernames per IP within a 5-second window and attaches `CONCURRENT_FARM`
+  (+25) to the joining player's profile.
+- **Layer 7 - Login Intelligence**: device fingerprint (SHA-256 of IP + country), new-IP /
+  new-country alerts (+15 risk), 2FA code rate limiting via `RateLimiter.tryMfa` (5
+  attempts/minute per IP + account).
+
+**Fail-closed security defaults**
+
+- Proxy support is **hard-disabled** when `trusted-proxies` is empty (was a warning, now a
+  startup block via `SecurityConfiguration.enforce`).
+- Redis-backed proxy auth gate defaults to **fail-closed** (`fail-closed = true` in
+  `ProxyConfig`) - Redis unreachable blocks proxy-authenticated connections instead of
+  allowing them.
+- Session token TTL enforcement: tokens expire after 24 hours regardless of session timeout,
+  preventing indefinite session fixation.
+
+**Performance & robustness**
+
+- Batch GeoIP lookups: IPs are collected over a 500ms window and resolved in parallel,
+  bounded by a 4-permit semaphore - eliminates thundering herd under join floods.
+- Detection state integrity: `PACKET_SEQUENCES` map is pruned on tick (expired + disconnected
+  connections); all detection maps have cardinality bounds and self-pruning.
+- Web panel CORS support: OPTIONS preflight handler + `Access-Control-Allow-Origin` headers
+  on every response; CORS headers also set on error paths.
+
+**Test coverage**
+
+- Security test suite expanded with 12 new test cases: attestation key generation/rotation,
+  concurrent-farm detection, look-pattern inner classes, login timing null-safety, packet
+  sequence tracking null-safety, and 2FA rate limiter integration.
 
 ### Test-infra overhaul & harness fixes (2026-08-28)
 
@@ -451,7 +555,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
   message template, unused User suppliers and Snapshot fields).
 - Security suite now **86 checks** (legacy-hash fallback, wrong-algorithm verification,
   AuthMe `$SHA$` verification, algorithm inference, weak-algorithm detection).
-- **Third-party mod integrations** (`net.ded3ec.integration`): optional, reflection-based,
+- **Third-party mod integrations** (`in.potenfyr.authcore.integration`): optional, reflection-based,
   best-effort support for **DiscordSRV** (the linked Discord account is auto-imported on
   authentication so webhooks/notifications can use it) and **InteractiveChat** (compatible -
   AuthCore restrictions are lobby-scoped and never touch other mods). New `/authcore compat`
@@ -472,7 +576,7 @@ All notable changes to AuthCore, from the first alpha to the current release.
 ### Universal single-jar architecture (1.16.x - 26.1-26.2) (2026-08-11)
 - **One source, every Minecraft version** - the old per-version source sets are gone; version
   variants live under `src/` (`src/main/java` + `src/client/java` = classic yarn code,
-  `src/modern/java` = Mojang 26.1-26.2 code) behind the `net.ded3ec.compat` reflection layer and
+  `src/modern/java` = Mojang 26.1-26.2 code) behind the `in.potenfyr.authcore.compat` reflection layer and
   version-stable mixin targets. Verified by compiling the identical source against **1.16.5,
   1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.1 and 1.21.11** (all green), with a per-push CI matrix.
 - **Universal mixins**: login hello (reflects over `getProfile()` vs `name()/profileId()`, plus

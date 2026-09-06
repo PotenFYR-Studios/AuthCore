@@ -306,7 +306,7 @@
   <main>
     <article>
 
-<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
 <h1>🔐 AuthCore Security Model</h1>
@@ -853,8 +853,9 @@ proxy session cache) are <strong>bounded and self-pruning</strong> - no unbounde
 <li>With <code>block-unauthenticated=true</code> the proxy plugin validates <code>authcore:session:&lt;uuid&gt;</code> in
 Redis BEFORE a player reaches any backend - unauthenticated players are disconnected at the
 proxy (BungeeCord <code>LoginEvent</code> / Velocity <code>LoginEvent</code>).</li>
-<li>The check is <strong>fail-open</strong>: Redis unreachable -&gt; connections allowed with a warning, so a
-Redis outage can never lock a network.</li>
+<li>The check is <strong>fail-closed</strong> (default): Redis unreachable -&gt; connections are
+BLOCKED with a warning, so a Redis outage can never open the network. Set
+<code>fail-closed=false</code> for the old fail-open behavior.</li>
 <li>Session keys are written by backends with <code>database.redis.enabled</code> and carry the configured
 TTL; the proxy&#39;s zero-dependency RESP client uses short timeouts (1.5s) so the login path
 is never stalled by a hung Redis.</li>
@@ -864,6 +865,59 @@ is never stalled by a hung Redis.</li>
     
     
     
+<h2 id="detection-bypass-resistance">🛡️ Detection Bypass Resistance</h2>
+<p>AuthCore implements a <strong>7-layer defense-in-depth stack</strong> that makes bypassing
+authentication practically infeasible for automated clients. Each layer is independent - bypassing
+one never disables the others.</p>
+<table>
+<thead>
+<tr><th>Layer</th><th>Mechanism</th><th>What It Stops</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1. Session Binding</strong></td>
+<td>Per-server random 32-byte companion attestation key, rotated on <code>/authcore reload</code></td>
+<td>Companion spoofing, replay attacks, session token theft</td>
+</tr>
+<tr>
+<td><strong>2. Packet Sequence Validation</strong></td>
+<td>HELLO → SETTINGS → READY state machine during login; anomalous sequences are logged</td>
+<td>Clients that skip/reorder login packets, custom protocol implementations</td>
+</tr>
+<tr>
+<td><strong>3. Behavioral Profiling</strong></td>
+<td>ClientGuard risk scoring: brand anomaly, ghost detection, flood limits, tab probing, movement patterns</td>
+<td>Ghost clients, macro users, packet flooders, reconnaissance bots</td>
+</tr>
+<tr>
+<td><strong>4. Look-Pattern Analysis</strong></td>
+<td>Camera rotation delta variance (coefficient of variation); bots have zero or perfectly regular movement</td>
+<td>Bots with no look, perfectly regular camera movement patterns</td>
+</tr>
+<tr>
+<td><strong>5. Login Timing Distribution</strong></td>
+<td>IP-level login timestamp CV analysis (60s window, ≥3 samples); low variance = bot-farm</td>
+<td>Bot farms with synchronized timers, credential stuffing bursts</td>
+</tr>
+<tr>
+<td><strong>6. Concurrent Connection Fingerprinting</strong></td>
+<td>≥3 distinct usernames from same IP within 5 seconds flagged as CONCURRENT_FARM (+25 risk)</td>
+<td>Bot farm multi-account coordination</td>
+</tr>
+<tr>
+<td><strong>7. Login Intelligence</strong></td>
+<td>Device fingerprint (IP+country SHA-256), new-IP/country alerts (+15 risk), 2FA rate limiting (5/min/IP)</td>
+<td>Account sharing, credential stuffing, 2FA brute force</td>
+</tr>
+</tbody>
+</table>
+<h3>Key Architectural Guarantees</h3>
+<ul>
+<li><strong>Fail-closed defaults</strong>: Proxy auth requires Redis; empty trusted-proxies disables proxy support automatically</li>
+<li><strong>Per-server secrets</strong>: No hardcoded keys - attestation key generated on first boot, persisted to disk, rotated on reload</li>
+<li><strong>State integrity</strong>: All detection maps bounded (cardinality limits) and pruned on tick</li>
+<li><strong>No single point of failure</strong>: Each layer is independent; bypassing one doesn't disable others</li>
+</ul>
     </article>
   </main>
 </div>

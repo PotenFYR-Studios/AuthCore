@@ -1,6 +1,10 @@
 # Kilo agent workspace
 .kilo/
 
+# Claude Code local files (never commit)
+.rtk/
+CLAUDE.md
+
 # gradle
 
 .gradle/
@@ -71,3 +75,9 @@ dist/
 
 # runtime logs
 logs/
+
+# Spartan AI config (contains API keys)
+.spartan/ai.env
+*.tar.gz
+*.zip
+java-jars/

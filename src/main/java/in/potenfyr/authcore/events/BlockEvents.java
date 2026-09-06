@@ -1,0 +1,69 @@
+package in.potenfyr.authcore.events;
+
+import in.potenfyr.authcore.models.Config;
+import in.potenfyr.authcore.models.Lobby;
+import in.potenfyr.authcore.models.Messages;
+import in.potenfyr.authcore.util.Logger;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.BlockHitResult;
+import java.util.UUID;
+
+import in.potenfyr.authcore.AuthCoreServer;
+import in.potenfyr.authcore.models.User;
+
+public class BlockEvents {
+
+  /** Handles block interaction events. */
+  public static InteractionResult onBlockUsage(
+      Player player, Level world, InteractionHand hand, BlockHitResult hitResult) {
+
+    UUID uuid = player.getUUID();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
+
+    if (user != null
+        && user.isInLobby.get()
+        && !AuthCoreServer.config.lobby.allowBlockInteraction) {
+
+      // Sync inventory
+      player.containerMenu.broadcastChanges();
+
+      return AuthCoreServer.LOGGER.violation(
+          in.potenfyr.authcore.compat.Compat.actionResultFail(),
+          user,
+          user.connection, AuthCoreServer.messages.promptUserUseBlockNotAllowed);
+    }
+
+    return in.potenfyr.authcore.compat.Compat.actionResultPass();
+  }
+
+  /** Handles item usage events. */
+  public static InteractionResult onItemUsage(Player player, Level world, InteractionHand hand) {
+
+    UUID uuid = player.getUUID();
+    String username = player.getName().getString();
+    User user = User.getUser(username, uuid);
+
+    if (user == null) return in.potenfyr.authcore.compat.Compat.actionResultPass();
+
+    // Prevent item usage
+    if (user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemUse)
+      return AuthCoreServer.LOGGER.violation(
+          in.potenfyr.authcore.compat.Compat.actionResultFail(),
+          user,
+          user.connection, AuthCoreServer.messages.promptUserUseItemNotAllowed);
+
+    // Prevent item moving
+    if (user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemMoving)
+      return AuthCoreServer.LOGGER.violation(
+          in.potenfyr.authcore.compat.Compat.actionResultFail(),
+          user,
+          user.connection,
+          AuthCoreServer.messages.promptUserShiftItemNotAllowed);
+
+    return in.potenfyr.authcore.compat.Compat.actionResultPass();
+  }
+}

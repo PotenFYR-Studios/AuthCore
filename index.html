@@ -3,41 +3,148 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AuthCore - Universal Authentication Framework for Minecraft Servers</title>
-<meta name="description" content="AuthCore documentation - one jar for Fabric, Forge and NeoForge across Minecraft 1.16-26.x. Version-specific docs, downloads and quick start.">
+<title>AuthCore · The Fortress Authentication Framework for Minecraft</title>
+<meta name="description" content="Universal authentication and security framework for Minecraft servers. One codebase for Fabric, Forge, and NeoForge across Minecraft 1.16 through 26.x and beyond.">
+<meta property="og:title" content="AuthCore · Universal Minecraft Authentication Framework">
+<meta property="og:description" content="Universal authentication and security framework for Minecraft servers across 1.16 - 26.x+ on Fabric, Forge, and NeoForge.">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://authcore.potenfyr.in/">
 <style>
-  :root{--bg:#0b0f17;--card:#121926;--card2:#0e1420;--line:#1f2a3d;--text:#d8e1f0;--muted:#7f8ca6;
-        --ok:#22c55e;--accent:#38bdf8;--chip:#1a2334}
-  *{box-sizing:border-box}
-  body{background:radial-gradient(1200px 500px at 20% -10%,#16233a 0%,var(--bg) 55%);color:var(--text);
-       font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif;margin:0;padding:0 20px 60px;line-height:1.6}
-  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
-  .wrap{max-width:1080px;margin:0 auto}
-  header.hero{text-align:center;padding:70px 0 30px}
-  h1{font-size:42px;margin:0 0 10px;letter-spacing:.3px}
-  h1 .dot{color:var(--accent)}
-  .tagline{color:var(--muted);font-size:17px;max-width:720px;margin:0 auto 26px}
-  .chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:34px}
-  .chip{display:inline-block;font-size:12px;padding:5px 14px;border-radius:20px;background:var(--chip);
-        border:1px solid var(--line);color:var(--muted)}
-  h2{font-size:22px;margin:46px 0 14px;color:#eef3fb;border-bottom:1px solid var(--line);padding-bottom:8px}
-  table{border-collapse:collapse;width:100%;background:var(--card);border:1px solid var(--line);
-        border-radius:12px;overflow:hidden;font-size:14px}
-  th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;background:var(--card2)}
-  tr:last-child td{border-bottom:none}
-  code,pre{font-family:ui-monospace,'Cascadia Code',Consolas,monospace}
-  pre{background:#070b12;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:13px;color:#9fb0cc}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:18px 0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;display:block;color:var(--text)}
-  .card:hover{border-color:var(--accent);text-decoration:none}
-  .card .v{font-size:20px;font-weight:700;display:block;margin-bottom:4px}
-  .card .d{color:var(--muted);font-size:13px}
-  .badge{display:inline-block;background:#14311f;color:var(--ok);border:1px solid #1c3a2a;border-radius:20px;
-         padding:2px 10px;font-size:11px;font-weight:700;vertical-align:middle;margin-left:8px}
-  .qa{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
-  .qa b{color:#eef3fb}
-  .foot{color:var(--muted);font-size:12.5px;margin-top:50px;border-top:1px solid var(--line);padding-top:16px;text-align:center}
+  :root {
+    --bg: #07090e;
+    --surface: rgba(14, 19, 31, 0.72);
+    --surface-solid: #0e131f;
+    --surface-hover: rgba(22, 30, 49, 0.85);
+    --line: rgba(255, 255, 255, 0.08);
+    --line-glow: rgba(56, 189, 248, 0.3);
+    --text: #f1f5f9;
+    --text-dim: #cbd5e1;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent-indigo: #6366f1;
+    --ok: #10b981;
+    --chip: rgba(26, 35, 52, 0.6);
+    --radius: 14px;
+    --radius-sm: 8px;
+    --transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1000px 500px at 15% -10%, rgba(56, 189, 248, 0.12) 0%, transparent 60%),
+                radial-gradient(900px 450px at 85% 20%, rgba(99, 102, 241, 0.10) 0%, transparent 55%),
+                var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    padding: 0 24px 80px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  a { color: var(--accent); text-decoration: none; transition: var(--transition); }
+  a:hover { color: #7dd3fc; text-decoration: none; }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+
+  /* Hero Section */
+  header.hero { text-align: center; padding: 80px 0 40px; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 16px; border-radius: 999px;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    color: var(--accent); font-size: 13px; font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .pulse-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+  h1 {
+    font-size: 48px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 16px;
+    background: linear-gradient(135deg, #ffffff 30%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  h1 .dot { color: var(--accent); -webkit-text-fill-color: var(--accent); }
+  .tagline {
+    color: var(--text-dim); font-size: 18px; max-width: 740px; margin: 0 auto 32px;
+    line-height: 1.65;
+  }
+  .chips { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 40px; }
+  .chip {
+    font-size: 12.5px; font-weight: 500; padding: 6px 16px; border-radius: 999px;
+    background: var(--chip); border: 1px solid var(--line); color: var(--text-dim);
+    backdrop-filter: blur(10px); transition: var(--transition);
+  }
+  .chip:hover { border-color: var(--line-glow); color: #fff; transform: translateY(-1px); }
+
+  /* Section Styles */
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 52px 0 18px; color: #fff;
+    display: flex; align-items: center; gap: 10px; letter-spacing: -0.01em;
+  }
+
+  /* Tables */
+  .table-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    overflow: hidden; backdrop-filter: blur(16px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    margin-bottom: 16px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; text-align: left; }
+  th, td { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  th {
+    color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.06em; background: rgba(8, 11, 18, 0.7);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255, 255, 255, 0.02); }
+  .badge-tag {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; background: rgba(56, 189, 248, 0.12);
+    color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.25);
+  }
+  .badge-green {
+    background: rgba(16, 185, 129, 0.12); color: var(--ok);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+  }
+
+  /* Code & Cards */
+  code, pre { font-family: ui-monospace, "Cascadia Code", Consolas, Menlo, monospace; }
+  pre {
+    background: rgba(5, 7, 12, 0.85); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px 22px; overflow-x: auto;
+    font-size: 13.5px; color: #a5b4fc; line-height: 1.6;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; display: block; color: var(--text); backdrop-filter: blur(14px);
+    transition: var(--transition); position: relative; overflow: hidden;
+  }
+  .card:hover {
+    border-color: var(--line-glow); transform: translateY(-3px);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  }
+  .card .v { font-size: 20px; font-weight: 700; display: block; margin-bottom: 6px; color: #fff; }
+  .card .d { color: var(--muted); font-size: 13px; line-height: 1.5; }
+  .card .badge {
+    display: inline-block; background: rgba(16, 185, 129, 0.15); color: var(--ok);
+    border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 999px;
+    padding: 2px 10px; font-size: 11px; font-weight: 700; margin-left: 8px; vertical-align: middle;
+  }
+
+  /* Grid Features & Q&A */
+  .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 20px 0; }
+  .feat-card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px; backdrop-filter: blur(14px); transition: var(--transition);
+  }
+  .feat-card:hover { border-color: var(--line-glow); transform: translateY(-2px); }
+  .feat-card b { color: #fff; font-size: 15px; display: block; margin-bottom: 6px; }
+  .feat-card p { color: var(--muted); font-size: 13.5px; line-height: 1.55; }
+
+  /* Footer */
+  .foot {
+    color: var(--muted); font-size: 13px; margin-top: 60px;
+    border-top: 1px solid var(--line); padding-top: 24px; text-align: center;
+  }
 </style>
 </head>
 <body>
@@ -45,63 +152,120 @@
 <div class="wrap">
 
 <header class="hero">
+  <div class="hero-badge"><span class="pulse-dot"></span> Enterprise Minecraft Authentication</div>
   <h1>🏰🔐 AuthCore<span class="dot">.</span></h1>
-  <p class="tagline">Universal authentication framework for Minecraft servers - one jar for
-  Fabric, Forge and NeoForge, one jar per version range, servers and BungeeCord/Velocity
-  proxies alike. SQLite out of the box, MySQL / PostgreSQL / Redis when you grow.</p>
+  <p class="tagline">Universal fortress framework for Minecraft servers. One codebase for
+  Fabric, Forge, and NeoForge across version ranges, backend game servers, and Velocity/BungeeCord
+  proxies. Zero-configuration SQLite out of the box with optional MySQL, PostgreSQL, and Redis clusters.</p>
   <div class="chips">
-    <span class="chip">MC 1.16 - 26.x</span>
+    <span class="chip">MC 1.16 - 26.x+ & Snapshots</span>
     <span class="chip">Fabric · Forge · NeoForge</span>
     <span class="chip">Java 17 / 21 / 25</span>
-    <span class="chip">Server-side only</span>
-    <span class="chip">2FA (TOTP) built in</span>
+    <span class="chip">Server-side Only</span>
+    <span class="chip">7-Layer Defense Stack</span>
+    <span class="chip">Modern Web Admin Panel</span>
   </div>
 </header>
 
-<h2>⬇️ Downloads (latest release)</h2>
-<table>
-  <thead><tr><th>Minecraft range</th><th>Loaders</th><th>Java</th><th>Range file</th></tr></thead>
-  <tbody>
-    <tr><td>1.16 - 1.18</td><td>fabric, forge</td><td>17</td><td><code>authcore-1.16-1.18-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
-    <tr><td>1.19 - 1.21</td><td>fabric, forge, neoforge</td><td>21</td><td><code>authcore-1.19-1.21-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
-    <tr><td>26.1 - 26.2</td><td>fabric, neoforge</td><td>25</td><td><code>authcore-26.1-26.2-&lt;loader&gt;-&lt;version&gt;.jar</code></td></tr>
-  </tbody>
-</table>
-<p style="margin-top:14px">Grab the jar matching your Minecraft range + loader from the
-<a href="https://github.com/DawnOfDedSec/AuthCore/releases">GitHub Releases</a> (a rolling
-<em>latest</em> development build is also published there) or from
-<a href="https://modrinth.com/mod/authcore">Modrinth</a>. Drop <strong>one</strong> jar into
-<code>mods/</code> - everything else is automatic.</p>
+<h2>⬇️ Official Release Matrix (6 Production Jars)</h2>
+<div class="table-card">
+  <table>
+    <thead><tr><th>Target Range</th><th>Supported Loaders</th><th>Required Java</th><th>Release Jar Artifact</th><th>Architecture</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Group G1 (1.16 - 1.18)</strong></td>
+        <td><span class="badge-tag">fabric</span> <span class="badge-tag">forge</span></td>
+        <td>17</td>
+        <td><code>authcore-1.16-1.18-&lt;loader&gt;-1.0.0.jar</code></td>
+        <td>Classic Intermediary mappings</td>
+      </tr>
+      <tr>
+        <td><strong>Group G2 (1.19 - 1.21)</strong></td>
+        <td><span class="badge-tag">fabric</span> <span class="badge-tag">neoforge</span></td>
+        <td>21</td>
+        <td><code>authcore-1.19-1.21-&lt;loader&gt;-1.0.0.jar</code></td>
+        <td>Modern Intermediary + NeoForge</td>
+      </tr>
+      <tr>
+        <td><strong>Group G3 (26.1 - 26.2+)</strong></td>
+        <td><span class="badge-tag">fabric</span> <span class="badge-tag">neoforge</span></td>
+        <td>25</td>
+        <td><code>authcore-26.1-26.2-&lt;loader&gt;-1.0.0.jar</code></td>
+        <td>Unobfuscated Mojang names & future snapshots</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p style="margin-top:14px; font-size:14px; color:var(--text-dim);">
+  Download the validated jar for your server environment from
+  <a href="https://github.com/PotenFYR-Studios/AuthCore/releases">GitHub Releases</a> or
+  <a href="https://modrinth.com/mod/authcore">Modrinth</a>. Drop exactly <strong>one</strong> jar into
+  <code>mods/</code> (or <code>plugins/</code> on Velocity/BungeeCord) - setup is 100% automated.
+</p>
 
-<h2>🚀 Quick start</h2>
-<pre>1. Download the jar for your Minecraft range and loader
-2. Drop it into your server's  mods/  folder  (BungeeCord/Velocity:  plugins/)
-3. Start the server - config + SQLite database are created automatically
-4. Players are guided through /register and /login in the auth limbo
-5. (Optional) switch to MySQL/PostgreSQL/Redis in  config/authcore/settings.conf</pre>
+<h2>🚀 Quick Start (Zero Config)</h2>
+<pre>1. Download the jar matching your Minecraft range and loader
+2. Place it into your server's  mods/  folder  (or proxy's  plugins/  folder)
+3. Start the server - configuration files and SQLite database initialize on first boot
+4. Joining players are placed in the safe authentication limbo for /register and /login
+5. (Optional) Configure MySQL, PostgreSQL, Redis, or Discord webhooks in config/authcore/</pre>
 
-<h2>❓ FAQ</h2>
-<div class="qa"><b>Is a database required?</b> No - SQLite works out of the box; MySQL,
-PostgreSQL and Redis are optional upgrades configured in <code>settings.conf</code>.</div>
-<div class="qa"><b>Does it work with Geyser/Floodgate or proxies?</b> Yes - Floodgate support
-and Velocity/BungeeCord forwarding are built in; the same jar doubles as a proxy plugin.</div>
-<div class="qa"><b>One jar for the whole range?</b> Yes - each jar is verified on every
-endpoint of its range by a real-server Docker test matrix before release.</div>
-<div class="qa"><b>Where are the config options?</b> ~180 settings documented per version in
-the configuration reference (see the version docs below).</div>
+<h2>🛡️ Fortress Architecture Highlights</h2>
+<div class="features-grid">
+  <div class="feat-card">
+    <b>7-Layer Bot & Abuse Defense</b>
+    <p>Session attestation keys, packet sequence state machines, look delta pattern analysis, and concurrent farm fingerprinting stop bot invasions before players spawn.</p>
+  </div>
+  <div class="feat-card">
+    <b>Modern Web Administration</b>
+    <p>Built-in glassmorphic web dashboard with token authentication, live TPS monitor, search filters, and instant player session management.</p>
+  </div>
+  <div class="feat-card">
+    <b>Universal Loader Parity</b>
+    <p>Identical feature set, limbo restrictions, and proxy forwarding across Fabric, Forge, and NeoForge via universal mixin hooks.</p>
+  </div>
+  <div class="feat-card">
+    <b>500k+ Account Scale</b>
+    <p>O(1) memory lookups, bounded LRU caches, zero-allocation hot paths, and non-blocking I/O workers ensure flat resource usage under join floods.</p>
+  </div>
+</div>
 
-<h2>📚 Documentation by version</h2>
-<p>Every release ships its own documentation set. Pick your version:</p>
+<h2>❓ Frequently Asked Questions</h2>
+<div class="features-grid">
+  <div class="feat-card">
+    <b>Is an external database required?</b>
+    <p>No. SQLite runs out of the box with zero external dependencies. MySQL, PostgreSQL, and Redis are optional upgrades for distributed multi-server networks.</p>
+  </div>
+  <div class="feat-card">
+    <b>Does it support Bedrock / Geyser / Floodgate?</b>
+    <p>Yes. Floodgate player detection and Velocity/BungeeCord modern identity forwarding (HMAC) are built directly into every release jar.</p>
+  </div>
+  <div class="feat-card">
+    <b>Are future snapshots supported?</b>
+    <p>Yes. The modern unobfuscated 26.x+ jar features open-ended range matching and version validation for weekly snapshots and future releases.</p>
+  </div>
+  <div class="feat-card">
+    <b>How does testing work?</b>
+    <p>Every commit is validated via an automated Docker matrix on official Eclipse Temurin JDKs (17, 21, and 25) across all supported loaders.</p>
+  </div>
+</div>
+
+<h2>📚 Documentation Hub</h2>
+<p style="color:var(--muted); font-size:14px; margin-bottom:14px;">Select the documentation edition for your release:</p>
 <div class="cards" id="version-cards">
-  <noscript>Enable JavaScript to list the version docs, or open
-    <a href="/docs/1.0.0/index.html">docs for v1.0.0</a> directly.</noscript>
+  <noscript>
+    <a class="card" href="/docs/1.0.0/index.html">
+      <span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span>
+      <span class="d">Complete admin guide, auth flows, configuration reference, proxy guide, and security model.</span>
+    </a>
+  </noscript>
 </div>
 
 <div class="foot">
-  AuthCore · <a href="https://github.com/DawnOfDedSec/AuthCore">GitHub</a> ·
-  <a href="https://github.com/DawnOfDedSec/AuthCore/releases">Releases</a> ·
+  AuthCore · <a href="https://github.com/PotenFYR-Studios/AuthCore">GitHub Repository</a> ·
+  <a href="https://github.com/PotenFYR-Studios/AuthCore/releases">Releases</a> ·
   <a href="https://modrinth.com/mod/authcore">Modrinth</a> ·
-  docs hosted on GitHub Pages
+  Licensed under CC0 1.0 Universal
 </div>
 
 </div>
@@ -128,11 +292,17 @@ fetch("/docs/versions.json", { cache: "no-cache" })
       var d = document.createElement("span");
       d.className = "d";
       d.textContent = (v.released ? "Released " + v.released + " · " : "") +
-        "guide, flows, configuration, API, web panel, security model, changelog";
+        "Admin guide, auth flows, configuration reference, API, web panel, security model, and changelog.";
       a.appendChild(title);
       a.appendChild(d);
       host.appendChild(a);
     });
+  })
+  .catch(function () {
+    var host = document.getElementById("version-cards");
+    if (host && !host.children.length) {
+      host.innerHTML = '<a class="card" href="/docs/1.0.0/index.html"><span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span><span class="d">Admin guide, configuration, and security documentation.</span></a>';
+    }
   });
 </script>
 </body>

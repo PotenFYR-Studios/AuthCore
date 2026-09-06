@@ -306,7 +306,7 @@
   <main>
     <article>
 
-<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
 <h1>🌐 AuthCore Proxy Support (BungeeCord / Velocity)</h1>
@@ -315,7 +315,7 @@ session IP binding, rate limiting and login intelligence. This document explains
 format, the configuration, how it works server-side, and how to set up BungeeCord and Velocity.</p>
 <blockquote>
 <p>🎁 <strong>One jar, both worlds.</strong> Every <strong>range jar</strong>, for any loader (<code>authcore-&lt;range&gt;-fabric</code>,
-<code>-forge</code> or <code>-neoforge</code>, see the jar table in the <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md">README</a>)
+<code>-forge</code> or <code>-neoforge</code>, see the jar table in the <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md">README</a>)
 - runs <strong>standalone and behind a proxy</strong>: the
 BungeeCord/Velocity proxy plugin ships inside the same jar, so there is no separate proxy
 build. Proxy behavior is entirely configuration-driven via <code>session.proxy-support</code>; with it
@@ -385,12 +385,12 @@ forwarding payload and leaves the connection address untouched.</p>
 <ol>
 <li><p>Every client connection starts with a handshake packet (<code>HandshakeC2SPacket</code>).</p>
 </li>
-<li><p>AuthCore&#39;s mixin <code>ServerHandshakeNetworkHandlerMixin</code> (in <code>net.ded3ec.mixin</code>) injects at the
+<li><p>AuthCore&#39;s mixin <code>ServerHandshakeNetworkHandlerMixin</code> (in <code>in.potenfyr.authcore.mixin</code>) injects at the
 very beginning of <code>onHandshake</code>. The mixin is <strong>universal</strong> (1.16.0 - 26.1-26.2): it reads the
 handshake address via reflection, the record accessor (<code>address()</code>) on newer versions, the
 private <code>address</code> field on 1.16-1.20.4.</p>
 </li>
-<li><p>If <code>proxy-support.enabled</code> is true, <code>net.ded3ec.network.ProxySupport.parseForwardedIp(...)</code>
+<li><p>If <code>proxy-support.enabled</code> is true, <code>in.potenfyr.authcore.network.ProxySupport.parseForwardedIp(...)</code>
 extracts the real client IP from the handshake address (<code>ip\0uuid\0properties</code>).</p>
 </li>
 <li><p>The mixin rewrites the <code>ClientConnection</code> address to the real IP

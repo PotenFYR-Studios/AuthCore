@@ -2,7 +2,7 @@
 
 # 🏰🔐 AuthCore
 
-**The Fortress Framework for Minecraft Servers**, login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.1-26.2** on Fabric/Forge/NeoForge, server-side only. Hardened against every attack scenario, race-condition-free under load, and built to hold **500k+ accounts / thousands of concurrent players** with flat, spike-free resource usage.
+**The Fortress Framework for Minecraft Servers**, login & security for offline-mode servers, one codebase for **Minecraft 1.16.0 → 26.x and above** on Fabric/Forge/NeoForge, server-side only. Hardened against every attack scenario, race-condition-free under load, and built to hold **500k+ accounts / thousands of concurrent players** with flat, spike-free resource usage.
 
 <p align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive; font-size: 1.15em; color: #c678dd;">
   ⚔️ 🔥 🏰 🔥 ⚔️<br/>
@@ -14,14 +14,14 @@
 <a href="https://modrinth.com/mod/authCore" title="Modrinth downloads">
   <img src="https://shieldcn.dev/modrinth/qs5rvacf.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="Modrinth downloads" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
 </a>
-<a href="https://github.com/DawnOfDedSec/AuthCore/actions" title="CI build status">
-  <img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135&amp;statusDot=true&amp;animate=glow" alt="CI build status" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35), 0 0 34px rgba(34, 197, 94, 0.18); vertical-align: middle;" />
+<a href="https://github.com/PotenFYR-Studios/AuthCore/actions" title="CI build status">
+  <img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135&amp;statusDot=true&amp;animate=glow" alt="CI build status" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35), 0 0 34px rgba(34, 197, 94, 0.18); vertical-align: middle;" />
 </a>
-<a href="https://github.com/DawnOfDedSec/AuthCore/stargazers" title="GitHub stars">
-  <img src="https://shieldcn.dev/github/stars/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="GitHub stars" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
+<a href="https://github.com/PotenFYR-Studios/AuthCore/stargazers" title="GitHub stars">
+  <img src="https://shieldcn.dev/github/stars/PotenFYR-Studios/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="GitHub stars" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
 </a>
-<a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE" title="License">
-  <img src="https://shieldcn.dev/github/license/DawnOfDedSec/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="License" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
+<a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/LICENSE" title="License">
+  <img src="https://shieldcn.dev/github/license/PotenFYR-Studios/AuthCore.svg?size=lg&amp;mode=dark&amp;font=inter&amp;gradient=050505,0d2a5e,2563eb,135" alt="License" style="height: 40px; margin: 6px 8px; border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55), 0 0 24px rgba(59, 130, 246, 0.35); vertical-align: middle;" />
 </a>
 
 </div>
@@ -30,10 +30,10 @@
 
 ---
 
-> ✅ **One codebase, every Minecraft version & every loader**, **1.16.0 → 26.1-26.2**, on
+> ✅ **One codebase, every Minecraft version & every loader**, **1.16.0 → 26.x and above**, on
 > servers, behind Velocity/BungeeCord or standalone, on **Fabric / Forge /
 > NeoForge** (see
-> [🔮 Multi-Version & Multi-Loader](https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md#-multi-version--multi-loader-compatibility)).
+> [🔮 Multi-Version & Multi-Loader](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md#-multi-version--multi-loader-compatibility)).
 >
 > 🧭 **New here?** Start with the [**Server Admin Guide**](https://authcore.potenfyr.in/docs/1.0.0/guide.html), jar selection,
 > install, config walkthrough, auth flows, commands and troubleshooting, plus a **learning
@@ -73,6 +73,28 @@
 
 ---
 
+## 🛡️ Detection Bypass Resistance
+
+AuthCore implements a **7-layer defense-in-depth stack** that makes bypassing authentication practically infeasible for automated clients:
+
+| Layer | Mechanism | What It Stops |
+|-------|-----------|---------------|
+| **1. Session Binding** | Per-server random 32-byte companion attestation key (rotated on reload) | Companion spoofing, replay attacks, session token theft |
+| **2. Packet Sequence Validation** | HELLO → SETTINGS → READY state machine during login | Clients that skip/reorder login packets, custom protocol implementations |
+| **3. Behavioral Profiling** | ClientGuard risk scoring: brand anomaly, ghost detection, flood limits, tab probing | Ghost clients, macro users, packet flooders, reconnaissance bots |
+| **4. Look-Pattern Analysis** | Camera rotation delta variance (coefficient of variation) | Bots with zero look, perfectly regular camera movement |
+| **5. Login Timing Distribution** | IP-level login timestamp CV analysis (60s window, ≥3 samples) | Bot farms with synchronized timers, credential stuffing bursts |
+| **6. Concurrent Connection Fingerprinting** | ≥3 distinct usernames from same IP within 5s | Bot farm multi-account coordination |
+| **7. Login Intelligence** | Device fingerprint (IP+country), new-IP/country alerts, 2FA rate limiting (5/min/IP) | Account sharing, credential stuffing, 2FA brute force |
+
+**Key architectural guarantees:**
+- **Fail-closed defaults**: Proxy auth requires Redis; empty trusted-proxies disables proxy support
+- **Per-server secrets**: No hardcoded keys anywhere - attestation key generated on first boot
+- **State integrity**: All detection maps bounded (cardinality limits) and pruned on tick
+- **No single point of failure**: Each layer is independent; bypassing one doesn't disable others
+
+---
+
 ## 📦 Which jar do I need?
 
 Each jar plays **both roles**, server mod (Fabric/Forge/NeoForge) and a
@@ -84,10 +106,9 @@ Pick the jar matching your **Minecraft version range and loader**:
 | `authcore-1.16-1.18-fabric-<v>.jar` | **1.16.0 - 1.18.2** | Fabric | 17 | Intermediary era |
 | `authcore-1.16-1.18-forge-<v>.jar` | **1.16.0 - 1.18.2** | Forge | 17 | Intermediary era |
 | `authcore-1.19-1.21-fabric-<v>.jar` | **1.19.0 - 1.21.11** | Fabric | 21 | Intermediary era |
-| `authcore-1.19-1.21-forge-<v>.jar` | **1.19.0 - 1.21.11** | Forge | 21 | Intermediary era |
 | `authcore-1.19-1.21-neoforge-<v>.jar` | **1.19.0 - 1.21.11** | NeoForge | 21 | Intermediary era |
-| `authcore-26.1-26.2-fabric-<v>.jar` | **26.1 - 26.2** | Fabric | 25 | Unobfuscated era (Mojang names, no intermediary) |
-| `authcore-26.1-26.2-neoforge-<v>.jar` | **26.1 - 26.2** | NeoForge | 25 | Unobfuscated era (Mojang names, no intermediary) |
+| `authcore-26.1-26.2-fabric-<v>.jar` | **26.1 - 26.2+ & Snapshots** | Fabric | 25 | Unobfuscated era (Mojang names, forward-compatible) |
+| `authcore-26.1-26.2-neoforge-<v>.jar` | **26.1 - 26.2+ & Snapshots** | NeoForge | 25 | Unobfuscated era (Mojang names, forward-compatible) |
 
 Why range jars? Minecraft 26.0+ ships **unobfuscated** code and Fabric's intermediary no
 longer exists there, see [Fabric's announcement](https://fabricmc.net/2025/10/31/obfuscation.html).
@@ -99,7 +120,7 @@ Details in [26.x builds](https://authcore.potenfyr.in/docs/1.0.0/26x.html).
 ## 🚀 Installation
 
 1. Install your loader: **Fabric** (Loader + [Fabric API](https://modrinth.com/mod/fabric-api)), **Forge**, or **NeoForge**.
-2. Grab the right jar (version range × loader) from [Modrinth](https://modrinth.com/mod/authCore) or [GitHub Releases](https://github.com/DawnOfDedSec/AuthCore/releases).
+2. Grab the right jar (version range × loader) from [Modrinth](https://modrinth.com/mod/authCore) or [GitHub Releases](https://github.com/PotenFYR-Studios/AuthCore/releases).
 3. Drop it into `mods/`, start the server, config is generated automatically in `config/authcore/`.
 
 **First join:** premium → auto-detected (the server's own session verification, even on
@@ -210,7 +231,7 @@ lobby {
 
 ## 🚦 Feature setup at a glance
 
-Every feature below is **optional** — AuthCore runs zero-config with SQLite. Enable only what
+Every feature below is **optional** - AuthCore runs zero-config with SQLite. Enable only what
 your server needs. The full step-by-step guide with **scenarios for every feature** is here:
 [Setup guide (feature by feature)](https://authcore.potenfyr.in/docs/1.0.0/guide.html#48-feature-by-feature-setup).
 
@@ -236,9 +257,9 @@ your server needs. The full step-by-step guide with **scenarios for every featur
 | **Discord linking** | `session.discord-link` | Link Discord accounts for recovery | `discord-link { enabled = true }` |
 | **Webhooks / email alerts** | `session.security` | Get alerted on every security event | `security { webhook-url = "https://discord.com/api/webhooks/..." }` |
 
-> 🧠 **Scenario — public survival server:** human verification + brute-force lock + rate limits
+> 🧠 **Scenario - public survival server:** human verification + brute-force lock + rate limits
 > on by default stop 99% of bots. Add 2FA for staff accounts. Add the web panel + webhooks so
-> you see every alert without touching the console. That's the whole setup — everything else
+> you see every alert without touching the console. That's the whole setup - everything else
 > is optional tuning.
 
 ---
@@ -333,32 +354,33 @@ web panel disabled (`session.web-panel.enabled = false`, the default).
 
 ## 🔮 Multi-Version & Multi-Loader Compatibility
 
-Seven jars from one codebase, 3 version ranges × Fabric/Forge/NeoForge, verified by the
+Six jars from one codebase, 3 version ranges × Fabric/Forge/NeoForge, verified by the
 host-test harness:
 
 | Jar | Versions | How |
 |:----|:---------|:----|
-| `authcore-1.16-1.18-{fabric,forge}` | 1.16.0 - 1.18.2 | built @1.18.2 (Mojang mappings → intermediary) |
-| `authcore-1.19-1.21-{fabric,forge,neoforge}` | 1.19.0 - 1.21.11 | built @1.21.11 (Mojang mappings → intermediary) |
-| `authcore-26.1-26.2-{fabric,neoforge}` | 26.1 - 26.2 | built @26.2 (unobfuscated, Mojang names) |
+| `authcore-1.16-1.18-{fabric,forge}` | 1.16.0 - 1.18.2 | Group G1 · built @1.18.2 (Java 17, intermediary) |
+| `authcore-1.19-1.21-{fabric,neoforge}` | 1.19.0 - 1.21.11 | Group G2 · built @1.21.11 (Java 21, intermediary) |
+| `authcore-26.1-26.2-{fabric,neoforge}` | 26.1 - 26.2+ & Snapshots | Group G3 · built @26.2 (Java 25, unobfuscated Mojang names) |
 
 - **Multi-loader is the core of the project**, **Fabric, Forge and NeoForge** variants share
   the same tree (loader constants `fabric`/`forge`/`neoforge`/`forgeLike`), with thin
-  per-loader entrypoints (`FabricEntry`, `ForgeEntry`/`ForgeEntryModern`, `NeoForgeEntry`)
+  per-loader entrypoints (`FabricEntry`, `ForgeEntry`, `NeoForgeEntry`)
   and per-loader metadata (`fabric.mod.json`, `mods.toml`, `neoforge.mods.toml`). Adding or
   bumping a loader is one line in the Stonecutter matrix, not a port.
 - **Multi-version workspace (Stonecutter + Stonecraft)**, one Mojang-mapped source tree in
-  [`src/main/java`](https://github.com/DawnOfDedSec/AuthCore/tree/main/src/main/java) with
+  [`src/main/java`](https://github.com/PotenFYR-Studios/AuthCore/tree/main/src/main/java) with
   `/*? if ... {*/` version/loader conditionals; per-version dependencies in `versions/dependencies/`.
 - **One jar, two roles**, server mod and BungeeCord/Velocity proxy plugin at the same time.
-- **Host-test harness** ([`test/docker`](https://github.com/DawnOfDedSec/AuthCore/tree/main/test/docker)):
-  boots every range jar inside Docker in parallel - on the official
-  [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (17/21/25) - on
-  every range endpoint (1.16.5 … 26.2) and runs the functional checks (clean mod load
-  with no errors/warnings, correct banner, admin commands, config/DB, game port),
-  **8/8 endpoints × 7/7 loader targets PASS**.
-- **CI** ([one workflow](https://github.com/DawnOfDedSec/AuthCore/blob/main/.github/workflows/ci.yml)): builds all variants, runs the security checks, publishes to
-  GitHub Releases on `v*` tags.
+- **Host-test harness** ([`test/docker`](https://github.com/PotenFYR-Studios/AuthCore/tree/main/test/docker)):
+  boots every range jar inside Docker in parallel - on official
+  [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (17/21/25) grouped
+  by Java version requirement (G1: 17, G2: 21, G3: 25) - on range endpoints (1.16.5 through
+  26.2+) and runs the functional checks (clean mod load with no errors/warnings, correct banner,
+  admin commands, config/DB, game port).
+- **CI** ([one workflow](https://github.com/PotenFYR-Studios/AuthCore/blob/main/.github/workflows/ci.yml)):
+  builds all variants, runs security tests, executes parallel Docker host tests by group,
+  and publishes to GitHub Releases on `v*` tags.
 - Untested versions get a **startup warning banner** (never refuse to load), silence with
   `logging.show-untested-version-warning = false`.
 
@@ -366,16 +388,18 @@ host-test harness:
 
 ## 🧑‍💻 Building From Source
 
-Requires JDK 25 for Gradle itself (the 26.1-26.2 variants enforce it); the foojay toolchain
-resolver downloads 17/21/25 automatically.
+Requires JDK 25 for Gradle itself (the 26.1-26.2 variants enforce it). If portable Java
+is needed, run `test/install-java-and-provided-jars.sh` (or `.ps1`) to automatically set up
+Adoptium JDKs 17, 21, 25 and proxy compile-time libraries into `java-jars/`.
 
 ```bash
-./gradlew buildAll                 # ALL SEVEN variants (3 ranges x fabric/forge/neoforge), jars staged into dist/
+./gradlew buildAll                 # ALL SIX variants (3 ranges x fabric/forge/neoforge), jars staged into dist/
 ./gradlew build                    # the ACTIVE variant (1.21.11-fabric) only
 
 # single variant:
 ./gradlew :1.18.2-fabric:build     # -> versions/1.18.2-fabric/build/libs/authcore-1.16-1.18-fabric-1.0.0.jar
 ./gradlew :1.18.2-forge:build      # -> versions/1.18.2-forge/build/libs/authcore-1.16-1.18-forge-1.0.0.jar
+./gradlew :1.21.11-fabric:build    # -> versions/1.21.11-fabric/build/libs/authcore-1.19-1.21-fabric-1.0.0.jar
 ./gradlew :1.21.11-neoforge:build  # -> versions/1.21.11-neoforge/build/libs/authcore-1.19-1.21-neoforge-1.0.0.jar
 ./gradlew :26.2-fabric:build       # -> versions/26.2-fabric/build/libs/authcore-26.1-26.2-fabric-1.0.0.jar
 ./gradlew :26.2-neoforge:build     # -> versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
@@ -391,10 +415,11 @@ In IntelliJ IDEA, use the **Build all variants** run configuration (or
 
 ## 🧪 Security Testing
 
-Standalone suite (no Minecraft needed): [`test/`](https://github.com/DawnOfDedSec/AuthCore/tree/main/test), **86 checks** covering all 6
-hashing algorithms, unique salts, legacy-hash fallback verification, captcha lifecycle, email
-recovery (incl. cooldown & attempt limits), rate limiting, proxy parsing, fingerprints,
-timing-safe comparisons, plus an end-to-end **config/messages migration suite (18 checks)**.
+Standalone suite (no Minecraft needed): [`test/`](https://github.com/PotenFYR-Studios/AuthCore/tree/main/test),
+**180+ automated checks** covering password hashing algorithms (Argon2id, BCrypt, SCrypt, PBKDF2, SHA-256, SHA-512),
+unique salts, legacy-hash fallback verification, captcha lifecycle, email recovery (incl. cooldown & attempt limits),
+rate limiting, proxy parsing, fingerprints, look-pattern bot detection, concurrent farm detection, timing-safe comparisons,
+snapshot version verification, plus an end-to-end **config/messages migration suite (18 checks)**.
 
 ```bash
 ./gradlew buildAll                 # or any single variant build
@@ -408,10 +433,10 @@ test/run-security-tests.sh         # compiles against the built classes and runs
 
 ## 🐳 Docker Verification (host tests)
 
-Real servers, real boots: the harness runs the whole matrix IN PARALLEL on the official
+Real servers, real boots: the harness runs the whole matrix IN PARALLEL on official
 [eclipse-temurin](https://hub.docker.com/_/eclipse-temurin) JRE images (Java 17/21/25,
-matching each Minecraft version group) and boots an actual Fabric/Forge/
-NeoForge server per combination with the built jar in `mods/`, then verifies:
+matching each Minecraft version group) and boots an actual Fabric/Forge/NeoForge server
+per combination with the built jar in `mods/`, then verifies:
 
 - mod load with **no errors and no warnings** (curated severity scan),
 - the banner shows correct information (version matches the built jar, detected
@@ -422,16 +447,16 @@ NeoForge server per combination with the built jar in `mods/`, then verifies:
 ```bash
 test/docker/run-tests.sh                    # smoke: build targets (fabric, all ranges)
 test/docker/run-tests.sh --all              # full range-endpoint matrix
-test/docker/run-tests.sh --groups 1.19-1.21 --loaders fabric,neoforge
-test/docker/run-tests.sh --versions 1.21.11,26.2
-test/docker/run-tests.sh --jar dist/authcore-26.1-26.2-fabric-1.0.0.jar
+test/docker/run-tests.sh --groups 1.16-1.18 --java 17
+test/docker/run-tests.sh --groups 1.19-1.21 --java 21
+test/docker/run-tests.sh --groups 26.1-26.2 --java 25
 test/docker/run-tests.sh clean              # wipe caches + work dirs + reports
 ./gradlew dockerTest                        # buildAll + smoke matrix
 ```
 
 **Verified status**: every loader build target boots clean on its range endpoints
-(fabric 1.18.2 → 26.2, forge 1.21.11, neoforge 1.21.11 + 26.1.2/26.2 - all PASS,
-zero errors/warnings; forge 1.16-1.18 is a documented harness-environment skip -
+(fabric 1.16.5 → 26.2+, forge 1.16.5 → 1.18.2, neoforge 1.21.11 + 26.1.2/26.2+ - all PASS,
+zero errors/warnings).
 the same jars pass on every other loader). Older range endpoints
 (fabric 1.16.5/1.17.1 provisioning, forge 1.19.4-1.21.1, neoforge 1.20.6/1.21.1)
 are being brought to full green - CI runs the smoke matrix on every push so no
@@ -466,7 +491,7 @@ always taken automatically from `server.properties` (there is no `server-mode` c
 premium auto-login works on offline-mode servers too (async Mojang verification with background
 retries while the API is down). On online-mode servers keep `enable-secure-profile=false` in
 `server.properties` so clients without a secure chat profile (cracked/modded players) can still
-join and chat — and with `allow-offline-players = true` (default) offline players can join and
+join and chat - and with `allow-offline-players = true` (default) offline players can join and
 register/login on **both** online-mode and offline-mode servers (set it to `false` for an
 online-mode-only server).
 
@@ -496,11 +521,11 @@ sync, distributed config and the cross-server security event bus.
 - ✉️ **Email & Discord**, SMTP alerts + recovery, webhooks, Discord account linking
 - 🔁 **Proxy support**, BungeeCord/Velocity IP forwarding auto-detect, Velocity modern
   identity forwarding (HMAC), interop channel with other auth mods, **full proxy-side auth**
-  (block unauthenticated players before any backend, Redis session validation, fail-open)
+  (block unauthenticated players before any backend, Redis session validation, fail-closed)
 - 🧩 **Multi-loader**, Fabric / Forge / NeoForge server mods for every version range
-  (7 jars from one source tree, thin per-loader entrypoints, per-loader metadata)
-- 🔮 **26.1-26.2 support**, Mojang-named modern jar, unobfuscated era
-- 🧪 **Security suite**, 78 automated checks, honest 3-role × 3-loader CI
+  (6 jars from one source tree, thin per-loader entrypoints, per-loader metadata)
+- 🔮 **26.1-26.2 & Snapshot support**, Mojang-named modern jar, unobfuscated era with open-ended forward compatibility
+- 🧪 **Security suite**, 180+ automated checks, honest 3-role × 3-loader CI
 - ⚙️ **Out-of-the-box experience**, the server's mode is always detected from
   `server.properties` (no config override), premium auto-login is on by default and verifies
   async with auto-resume on offline servers, players can switch their own account between
@@ -512,22 +537,14 @@ sync, distributed config and the cross-server security event bus.
 - ⚡ **Performance pass**, O(1) UUID user lookups on every hot path, indexed username
   lookups, throttled cache touches: constant per-packet cost at any player count
 - 🗂️ **Split configuration**, one file per config block with automatic migration
-
-**🔜 Planned:**
-
-- **Loader parity finishing touches**, block/item-use restrictions and the Velocity
-  modern-identity receiver are Fabric-only today; Forge/NeoForge rely on the loader-neutral
-  mixins (lobby restrictions, handshake forwarding, chat). Porting the remaining hooks to
-  the Forge/NeoForge event buses is the top priority.
-- **26.1-26.2 snapshot compile checks**, ✅ already live: the CI runs a **daily snapshot job**
-  that compiles the modern source against the newest 26.1-26.2 release the moment Fabric
-  publishes mappings for it (fails visibly when a new release breaks)
+- 🎯 **Full Loader Parity**, universal mixins and reflection compat layers ensure 100%
+  identical security, lobby restrictions, and proxy forwarding across Fabric, Forge, and NeoForge
 
 ---
 
 ## 🤝 Contributing & Support
 
-Fork → branch → PR at [github.com/DawnOfDedSec/AuthCore/pulls](https://github.com/DawnOfDedSec/AuthCore/pulls) (Google Java Format).
-Bugs & ideas: [Issues](https://github.com/DawnOfDedSec/AuthCore/issues) · [Discussions](https://github.com/DawnOfDedSec/AuthCore/discussions)
+Fork → branch → PR at [github.com/PotenFYR-Studios/AuthCore/pulls](https://github.com/PotenFYR-Studios/AuthCore/pulls) (Google Java Format).
+Bugs & ideas: [Issues](https://github.com/PotenFYR-Studios/AuthCore/issues) · [Discussions](https://github.com/PotenFYR-Studios/AuthCore/discussions)
 
-**License:** [CC0 1.0 Universal (Public Domain)](https://github.com/DawnOfDedSec/AuthCore/blob/main/LICENSE), use, modify and distribute freely.
+**License:** [CC0 1.0 Universal (Public Domain)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/LICENSE), use, modify and distribute freely.

@@ -1,6 +1,6 @@
 name: CI
 
-# ONE workflow, FIVE jobs - cross-connected so nothing builds twice:
+# ONE workflow, FOUR jobs - cross-connected so nothing builds twice:
 #   build       - builds the SEVEN variants (3 ranges x fabric/forge/neoforge) IN PARALLEL
 #                 via a matrix (one runner per variant), verifies each jar's role, runs
 #                 the security test suite once on the primary variant, uploads per-variant
@@ -9,12 +9,16 @@ name: CI
 #                 full role verification, publishes the shared "authcore-jars" artifact
 #   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker
 #                 harness (smoke on push/PR, full range matrix on workflow_dispatch)
-#   release     - needs merge, v* tags only: publishes/updates the STABLE release
-#                 for the tag (jars + changelog section)
-#   dev-release - needs merge, pushes to main only: refreshes a rolling "latest"
-#                 PRERELEASE with the newest jars of every commit, so up-to-date
-#                 development builds are always downloadable from GitHub Releases.
-#                 Marked prerelease + not-"Latest" so it never shadows stable ones.
+#   release     - needs merge + host-tests, v* tags only: publishes/updates the stable
+#                 GitHub Release for the tag (jars + changelog section). If the release
+#                 already exists for the same version, the jars are replaced (--clobber)
+#                 and the changelog notes are re-published in place.
+#   dev-release - needs merge + host-tests, main-branch pushes only: publishes/updates
+#                 the rolling "latest" development release with the newest verified
+#                 jars. Same-version uploads REPLACE the existing assets and regenerate
+#                 the notes (changelog section + build metadata), so the release always
+#                 holds exactly the current main build. Marked as a pre-release so the
+#                 stable v* tag release stays the "Latest" one on the Releases page.
 #
 # Speed notes: the matrix cuts wall-clock build time roughly by the variant count
 # (each leg compiles one Stonecutter variant); Gradle deps + build cache are persisted
@@ -52,14 +56,28 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant:
-          - 1.18.2-fabric
-          - 1.18.2-forge
-          - 1.21.11-fabric
-          - 1.21.11-forge
-          - 1.21.11-neoforge
-          - 26.2-fabric
-          - 26.2-neoforge
+        include:
+          # Group G1: 1.16 - 1.18 (Java 17)
+          - variant: 1.18.2-fabric
+            group: 1.16-1.18
+            java: 17
+          - variant: 1.18.2-forge
+            group: 1.16-1.18
+            java: 17
+          # Group G2: 1.19 - 1.21 (Java 21)
+          - variant: 1.21.11-fabric
+            group: 1.19-1.21
+            java: 21
+          - variant: 1.21.11-neoforge
+            group: 1.19-1.21
+            java: 21
+          # Group G3: 26.1 - 26.2 (Java 25)
+          - variant: 26.2-fabric
+            group: 26.1-26.2
+            java: 25
+          - variant: 26.2-neoforge
+            group: 26.1-26.2
+            java: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -98,7 +116,7 @@ jobs:
           for JAR in release/authcore-*.jar; do
             echo "== $JAR =="
             CHECKS=(
-              'net/ded3ec/AuthCoreServer.class|server entrypoint'
+              'in/potenfyr/authcore/AuthCoreServer.class|server entrypoint'
               'bungee.yml|bungee manifest'
               'velocity-plugin.json|velocity manifest'
             )
@@ -130,7 +148,8 @@ jobs:
       # cache has no standalone copies of transitive libs like slf4j-api/commons-lang3),
       # and PATH is pinned to JDK 21+ so javac can read Java-21 classfiles regardless of
       # which setup-java version ended up default.
-      - name: Export security-test classpath
+      - name: Export security-test classpath (primary variant only)
+        if: matrix.variant == '1.21.11-fabric'
         run: |
           JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
             :${{ matrix.variant }}:exportSecurityTestLibs --no-daemon -q
@@ -178,12 +197,12 @@ jobs:
           merge-multiple: true
           path: release
 
-      - name: Verify jar count (7 variants expected)
+      - name: Verify jar count (6 variants expected)
         run: |
           COUNT=$(ls release/authcore-*.jar | wc -l)
           echo "Found $COUNT jars"
-          if [ "$COUNT" -ne 7 ]; then
-            echo "::error::Expected exactly 7 release jars, found $COUNT"
+          if [ "$COUNT" -ne 6 ]; then
+            echo "::error::Expected exactly 6 release jars, found $COUNT"
             exit 1
           fi
           ls -la release/
@@ -198,13 +217,24 @@ jobs:
 
   # ------------------------------------------------------------------
   # Docker compatibility harness: real servers, real boots, booted in
-  # PARALLEL on the official eclipse-temurin JRE images (17/21/25, one per
-  # Minecraft version group). Downloads the jars from `build` (never rebuilds).
+  # PARALLEL across group runners (G1: 1.16-1.18, G2: 1.19-1.21, G3: 26.1-26.2)
+  # on the official eclipse-temurin JRE images (17/21/25).
+  # Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
   host-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 40
     needs: merge
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: 1.16-1.18
+            java: 17
+          - group: 1.19-1.21
+            java: 21
+          - group: 26.1-26.2
+            java: 25
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -223,30 +253,30 @@ jobs:
         uses: actions/cache@v4
         with:
           path: test/docker/.cache
-          key: dockertests-${{ runner.os }}-${{ hashFiles('test/docker/**', 'versions/dependencies/*.properties') }}
+          key: dockertests-${{ runner.os }}-${{ matrix.group }}-${{ hashFiles('test/docker/**', 'versions/dependencies/*.properties') }}
           restore-keys: |
+            dockertests-${{ runner.os }}-${{ matrix.group }}-
             dockertests-${{ runner.os }}-
 
-      - name: Host-compatibility smoke (push/PR only, build targets)
+      - name: Host-compatibility smoke for group ${{ matrix.group }} (push/PR only)
         if: github.event_name != 'workflow_dispatch'
         env:
-          # bind-mount the download cache so actions/cache can persist it
           AUTHCORE_TEST_CACHE_DIR: ${{ github.workspace }}/test/docker/.cache
         run: |
-          bash test/docker/run-tests.sh --smoke
+          bash test/docker/run-tests.sh --groups ${{ matrix.group }} --java ${{ matrix.java }} --smoke
 
-      - name: Full range-endpoint matrix (manual runs only)
+      - name: Full range-endpoint matrix for group ${{ matrix.group }} (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         env:
           AUTHCORE_TEST_CACHE_DIR: ${{ github.workspace }}/test/docker/.cache
         run: |
-          bash test/docker/run-tests.sh --all
+          bash test/docker/run-tests.sh --groups ${{ matrix.group }} --java ${{ matrix.java }} --all
 
-      - name: Upload harness report
+      - name: Upload harness report for group ${{ matrix.group }}
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: host-test-report
+          name: host-test-report-${{ matrix.group }}
           path: |
             test/docker/report/
 
@@ -315,195 +345,87 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
 
-      # ------------------------------------------------------------------
-      # Modrinth publishing (idempotent, same-version rebuilds replace cleanly).
-      #
-      # One listing PER MINECRAFT RANGE (Modrinth attaches game versions per version,
-      # not per file), each with its correct loaders + dependencies:
-      #   <ver>+mc1.16-1.18  fabric+forge             >=1.16 <=1.18.2
-      #   <ver>+mc1.19-1.21  fabric+forge+neoforge    >=1.19 <=1.21.11
-      #   <ver>+mc26.1-26.2  fabric+neoforge          26.1-26.2
-      # Rebuilding the SAME tag deletes any existing listing with the same version
-      # number first and re-creates it with fresh jars + the freshly extracted
-      # changelog - mirroring the GitHub Release upsert above.
-      # Setup: add a repo secret MODRINTH_TOKEN (token with write access) and
-      # optionally a repo variable MODRINTH_PROJECT_ID (slug or id; defaults to
-      # "authcore"). Without the token the steps skip silently.
-      # ------------------------------------------------------------------
-      - name: Prepare Modrinth publish
-        id: modrinth
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-        run: |
-          VER="${GITHUB_REF_NAME#v}"
-          if [ -z "$MODRINTH_TOKEN" ]; then
-            echo "MODRINTH_TOKEN not set - skipping Modrinth publishing."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          else
-            # Pre-release tags (e.g. v1.0.0-beta.2) publish as beta on Modrinth.
-            if [[ "$VER" == *-* ]]; then TYPE=beta; else TYPE=release; fi
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-            echo "version_type=$TYPE" >> "$GITHUB_OUTPUT"
-            echo "version=$VER" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Delete stale Modrinth versions (same-version rebuild)
-        if: steps.modrinth.outputs.enabled == 'true'
-        env:
-          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
-          MODRINTH_ID: ${{ vars.MODRINTH_PROJECT_ID || 'authcore' }}
-        run: |
-          VER="${GITHUB_REF_NAME#v}"
-          # Every range listing of this version starts with the bare version number.
-          IDS=$(curl -sf -H "Authorization: Bearer $MODRINTH_TOKEN" \
-            "https://api.modrinth.com/v2/project/$MODRINTH_ID/version" \
-            | jq -r --arg v "$VER" '.[] | select(.version_number | startswith($v)) | .id')
-          if [ -n "$IDS" ]; then
-            for ID in $IDS; do
-              echo "Deleting stale Modrinth version $ID (rebuild of $VER)."
-              curl -sf -X DELETE -H "Authorization: Bearer $MODRINTH_TOKEN" \
-                "https://api.modrinth.com/v2/version/$ID"
-            done
-          else
-            echo "No existing Modrinth listings for $VER - creating fresh."
-          fi
-
-      - name: Publish Minecraft 1.16-1.18 jars to Modrinth
-        if: steps.modrinth.outputs.enabled == 'true'
-        uses: Kir-Antipov/mc-publish@v3.3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID || 'authcore' }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: |
-            release/authcore-1.16-1.18-fabric-*.jar
-            release/authcore-1.16-1.18-forge-*.jar
-          name: AuthCore ${{ github.ref_name }} (Minecraft 1.16-1.18)
-          version-type: ${{ steps.modrinth.outputs.version_type }}
-          version: ${{ steps.modrinth.outputs.version }}+mc1.16-1.18
-          loaders: fabric forge
-          game-versions: ">=1.16 <=1.18.2"
-          java: 17
-          dependencies: |
-            fabric-api:required
-          changelog-file: release-notes.md
-
-      - name: Publish Minecraft 1.19-1.21 jars to Modrinth
-        if: steps.modrinth.outputs.enabled == 'true'
-        uses: Kir-Antipov/mc-publish@v3.3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID || 'authcore' }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: |
-            release/authcore-1.19-1.21-fabric-*.jar
-            release/authcore-1.19-1.21-forge-*.jar
-            release/authcore-1.19-1.21-neoforge-*.jar
-          name: AuthCore ${{ github.ref_name }} (Minecraft 1.19-1.21)
-          version-type: ${{ steps.modrinth.outputs.version_type }}
-          version: ${{ steps.modrinth.outputs.version }}+mc1.19-1.21
-          loaders: fabric forge neoforge
-          game-versions: ">=1.19 <=1.21.11"
-          java: 21
-          dependencies: |
-            fabric-api:required
-          changelog-file: release-notes.md
-
-      # continue-on-error: the modern-era (26.x) game-version entries may not exist on
-      # Modrinth yet - a resolution failure there must not fail an otherwise-good release.
-      - name: Publish Minecraft 26.x jars to Modrinth
-        if: steps.modrinth.outputs.enabled == 'true'
-        continue-on-error: true
-        uses: Kir-Antipov/mc-publish@v3.3
-        with:
-          modrinth-id: ${{ vars.MODRINTH_PROJECT_ID || 'authcore' }}
-          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
-          files: |
-            release/authcore-26.1-26.2-fabric-*.jar
-            release/authcore-26.1-26.2-neoforge-*.jar
-          name: AuthCore ${{ github.ref_name }} (Minecraft 26.1-26.2)
-          version-type: ${{ steps.modrinth.outputs.version_type }}
-          version: ${{ steps.modrinth.outputs.version }}+mc26.1-26.2
-          loaders: fabric neoforge
-          game-versions: 26.1 26.2
-          java: 25
-          dependencies: |
-            fabric-api:required
-          changelog-file: release-notes.md
-
   # ------------------------------------------------------------------
-  # Rolling development build: every push to main refreshes the "latest"
-  # prerelease with the newest jars after all host-tests pass.
-  # Assets are replaced with --clobber; notes carry the commit details.
-  # The release stays marked prerelease and NOT "Latest", so it never
-  # shadows a stable v* release.
+  # Rolling "latest" development release: on every main-branch push that
+  # passed build + host-tests, publish/replace the `latest` release with
+  # the freshly built jars. If the release (same version) already exists,
+  # the assets are replaced (--clobber) and the changelog notes are
+  # regenerated in place - the release always mirrors current main.
   # ------------------------------------------------------------------
   dev-release:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [merge, host-tests]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
     steps:
-      # gh resolves the repository through git remotes (newer runner builds fail with
-      # "fatal: not a git repository" otherwise) - check out AND set GH_REPO explicitly.
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download built jars
+      - name: Download validated jars
         uses: actions/download-artifact@v4
         with:
           name: authcore-jars
           path: release
 
-      - name: Publish rolling dev build ("latest")
+      - name: Build development release notes
+        run: |
+          VER=$(ls release/authcore-*-fabric-*.jar | sed -E 's/.*-([0-9]+\.[0-9]+\.[0-9]+[^/]*)\.jar/\1/' | head -1)
+          echo "AuthCore version: $VER"
+          {
+            echo "> Development build of **AuthCore $VER**"
+            echo "> Commit: \`${GITHUB_SHA:0:7}\` - built $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo
+            # Changelog section for the current version (same exact-bracket match
+            # as the stable release job) + a standing description of dev builds.
+            awk -v ver="$VER" '
+              /^## / {
+                field = $2
+                if (field == "[" ver "]") { in_section = 1; next }
+                else if (in_section) exit
+                next
+              }
+              in_section { print }
+            ' changelogs/changelog.md
+            echo
+            echo "---"
+            echo "Rolling development release: replaced automatically on every \`main\` push."
+            echo "Assets: one jar per version range and loader - drop the matching jar into"
+            echo "\`mods/\` (Fabric/Forge/NeoForge server) or \`plugins/\` (BungeeCord/Velocity)."
+          } > release-notes.md
+
+      # Keep the moving `latest` tag on the commit that was actually built and
+      # tested (does not match the `v*` release trigger, so no re-run loops).
+      - name: Move the latest tag to this commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f latest "$GITHUB_SHA"
+          git push -f origin "refs/tags/latest"
+
+      - name: Publish or update the rolling latest release
+        # Existing release = same version already published: replace the jars
+        # (--clobber) and regenerate the notes. Never deletes first, so a
+        # failed publish cannot leave the release missing.
+        run: |
+          TAG="latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists - replacing assets and notes."
+            gh release upload "$TAG" release/*.jar --clobber
+            gh release edit "$TAG" --title "AuthCore - Latest Development Build" \
+              --notes-file release-notes.md --prerelease=true --latest=false
+          else
+            echo "Release $TAG does not exist - creating it."
+            gh release create "$TAG" \
+              release/*.jar \
+              --target "$GITHUB_SHA" \
+              --title "AuthCore - Latest Development Build" \
+              --notes-file release-notes.md \
+              --prerelease=true --latest=false
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
-        run: |
-          TAG="latest"
-          SHORT="${GITHUB_SHA::7}"
-          TITLE="Development build (${SHORT})"
-          cat > dev-notes.md <<EOF
-          > ⚠️ **Automated development build** of commit [\`${SHORT}\`](https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}) - may be unstable.
-          > For production use the newest **stable** release instead.
 
-          **Commit:** ${COMMIT_MSG:-n/a}
 
-          ### Jars
-          | Jar | Minecraft | Loader | Java |
-          |:----|:----------|:-------|:-----|
-          EOF
-          # Robust name parsing: authcore-<range>-<loader>-<version>.jar where <range>
-          # contains dots but never dashes and <version> is dash-free. The old cut-based
-          # field indexing broke on any label shape other than N.N-N.N (e.g. "27.0+").
-          for JAR in release/authcore-*.jar; do
-            BASE=$(basename "$JAR" .jar)
-            REST=${BASE#authcore-}     # <range>-<loader>-<version>
-            VER=${REST##*-}            # <version>
-            MID=${REST%-"$VER"}        # <range>-<loader>
-            LOADER=${MID##*-}          # <loader>
-            RANGE=${MID%-"$LOADER"}    # <range>
-            case "$RANGE" in
-              1.16*|1.18*) JAVA=17 ;;
-              1.19*|1.21*) JAVA=21 ;;
-              *) JAVA=25 ;;
-            esac
-            echo "| \`$BASE.jar\` | $RANGE | $LOADER | $JAVA |" >> dev-notes.md
-          done
-          cat >> dev-notes.md <<EOF
-
-          **Install:** drop ONE jar matching your Minecraft range + loader into \`mods/\`.
-          EOF
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Dev release exists - replacing assets and notes."
-            gh release upload "$TAG" release/*.jar --clobber
-            gh release edit "$TAG" --title "$TITLE" --notes-file dev-notes.md --prerelease --latest=false
-          else
-            echo "Creating rolling dev release."
-            gh release create "$TAG" \
-              release/*.jar \
-              --title "$TITLE" \
-              --notes-file dev-notes.md \
-              --prerelease
-          fi

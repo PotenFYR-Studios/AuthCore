@@ -1,7 +1,7 @@
 import java.nio.file.Files;
 import java.nio.file.Path;
-import net.ded3ec.AuthCoreServer;
-import net.ded3ec.util.HoconConf;
+import in.potenfyr.authcore.AuthCoreServer;
+import in.potenfyr.authcore.util.HoconConf;
 
 /**
  * Verifies the message-enrichment migration end-to-end: an OLD-style messages.conf (blank
@@ -83,8 +83,8 @@ public class AuthCoreMigrationTest {
         "blindness normalized off (chat must stay usable)",
         !AuthCoreServer.config.lobby.applyBlindnessEffect);
     check(
-        "debug mode enabled by default",
-        AuthCoreServer.config.debugMode);
+        "debug mode disabled by default",
+        !AuthCoreServer.config.debugMode);
 
     // The refreshed values must have been persisted to disk
     String persisted = Files.readString(dir.resolve("messages.conf"));

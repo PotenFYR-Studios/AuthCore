@@ -22,9 +22,9 @@ IMAGE="${AUTHCORE_BUILD_IMAGE:-eclipse-temurin:25-jdk-noble}"
 
 # Docker on Windows needs a native-style path for bind mounts
 if command -v cygpath >/dev/null 2>&1; then
-  REPO_DOCKER="$(cygpath -w "$REPO")"
+  REPO_DOCKER="$(cygpath -m "$REPO")"
 elif (cd "$REPO" 2>/dev/null && pwd -W >/dev/null 2>&1); then
-  REPO_DOCKER="$(cd "$REPO" && pwd -W)"
+  REPO_DOCKER="$(cd "$REPO" && pwd -W | sed 's|\\|/|g')"
 else
   case "$REPO" in
     /[a-z]/*) DRIVE="${REPO:1:1}"; REPO_DOCKER="${DRIVE^^}:${REPO:2}" ;;
@@ -34,6 +34,12 @@ fi
 
 echo "== repo: $REPO_DOCKER"
 echo "== image: $IMAGE"
+
+# Auto-download java-jars / provided libraries if missing
+if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.4.jar" ]; then
+  echo "== java-jars missing or incomplete - downloading automatically =="
+  bash "$REPO/test/install-java-and-provided-jars.sh"
+fi
 
 run() {
   # --parallel: every Stonecutter variant project builds concurrently; the

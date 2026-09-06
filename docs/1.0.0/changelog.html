@@ -309,10 +309,63 @@
     <article>
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><h1>AuthCore Changelog</h1>
 <p>All notable changes to AuthCore, from the first alpha to the current release.</p>
-<p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+<p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <h2 id="100---2026-08-15">[1.0.0] - 2026-08-15</h2>
-<h3 id="hybrid-mode-per-account-login-style--release-hardening-latest">Hybrid mode, per-account login style &amp; release hardening (latest)</h3>
+<h3 id="build-mixin-proxy-gate-hardening-latest">Build, mixin &amp; proxy-gate hardening (2026-09-06, latest)</h3>
+<p><strong>Build-time remap errors fixed - all 4 <code>Cannot remap</code> warnings gone</strong></p>
+<ul>
+<li><code>startSleeping</code> lobby restriction: the <code>Either</code>-returning overload never
+existed on any supported version; unified to the void overload that exists everywhere.</li>
+<li>Elytra block: <code>startFallFlying</code> was removed from the mappings long ago (the
+injection silently never ran); it now injects <code>updateFallFlying</code>, the per-tick glide
+driver, which also extends the elytra + jump lobby restrictions to the 1.16-1.18 range.</li>
+<li>Mount block: <code>startRiding(Entity,Z)</code> was replaced by a 3-arg overload in 1.21.9;
+the mixin now injects the 1-arg final entrypoint plus the era-specific force overload,
+so mount blocking actually runs on 1.19-1.21 instead of silently no-oping.</li>
+<li>Deop tracking: the <code>GameProfile</code> -&gt; <code>NameAndId</code> API swap happened in 1.21.9,
+not 26.x; the stonecutter cut point was corrected and the handler uses <code>@Coerce</code> so
+the same jar never references the 1.21.9-only <code>NameAndId</code> type.</li>
+</ul>
+<p><strong>Runtime mixin crashes fixed (host matrix back to green)</strong></p>
+<ul>
+<li><code>ServerPlayNetworkHandlerMixin</code> legacy handlers and <code>PlayerListOpMixin</code> used
+<code>Object</code> handler parameters, which Mixin rejects at runtime
+(<code>InvalidInjectionException</code>) - the 1.16-1.18 fabric legs and all 26.x legs failed as
+a result. Handlers now declare the exact packet types.</li>
+</ul>
+<p><strong>Startup banner fixed on log4j-era loaders</strong></p>
+<ul>
+<li>On runtimes without slf4j (1.16-1.18 Fabric/Forge) the entire banner printed literal
+<code>{}</code> placeholders instead of values. The fallback console logger now substitutes
+slf4j-style placeholders, so version, Minecraft version, database type and every security
+flag display correctly.</li>
+</ul>
+<p><strong>Proxy-gate bypass &amp; spoofing hardening</strong></p>
+<ul>
+<li>Velocity/BungeeCord proxy gate: a gate error previously failed OPEN (unauthenticated
+players allowed through even with <code>block-unauthenticated=true</code>); it now fails CLOSED
+by default - deny unless the operator explicitly sets <code>fail-closed=false</code>.</li>
+<li>Interop messages (<code>AUTH_CHANGED</code>) are no longer accepted from player connections -
+only backend-server senders are trusted, and messages are consumed so they can never be
+forwarded to clients.</li>
+</ul>
+<p><strong>CI: rolling latest-build release &amp; test suite growth</strong></p>
+<ul>
+<li>Every <code>main</code> push that passes build + host tests republishes the <code>latest</code>
+GitHub release: same-version uploads REPLACE the jars and regenerate the changelog notes;
+the stable <code>v*</code> tag release remains the &quot;Latest&quot; release.</li>
+<li>Test suite grown to 180+ checks (spoof guard, trusted proxies + CIDR, proxy config
+strictness, interop parsing, session cache); the Docker harness now verifies server-mode
+auto-detection and banner data correctness on every leg.</li>
+</ul>
+<h3 id="detection-hardening-bypass-resistance-2026-09-05">Detection hardening &amp; bypass resistance (2026-09-05)</h3>
+<p>Full details in <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/changelogs/changelog.md"><code>changelogs/changelog.md</code></a>:
+7-layer defense-in-depth stack (companion attestation, packet-sequence validation,
+behavioral profiling, look-pattern analysis, login-timing distribution, concurrent-farm
+fingerprinting), plus the strict trusted-proxies forwarding model and fail-closed proxy
+auth defaults.</p>
+<h3 id="hybrid-mode-per-account-login-style--release-hardening">Hybrid mode, per-account login style &amp; release hardening</h3>
 <p><strong>Anti-float platform - mid-air logouts can never kick players in the limbo</strong></p>
 <ul>
 <li>A player who logs out mid-air (or underwater) used to be kicked by vanilla&#39;s
@@ -628,7 +681,7 @@ dead code (unused config keys <code>allowOnlineNameByOffline</code> / <code>prem
 message template, unused User suppliers and Snapshot fields).</li>
 <li>Security suite now <strong>86 checks</strong> (legacy-hash fallback, wrong-algorithm verification,
 AuthMe <code>$SHA$</code> verification, algorithm inference, weak-algorithm detection).</li>
-<li><strong>Third-party mod integrations</strong> (<code>net.ded3ec.integration</code>): optional, reflection-based,
+<li><strong>Third-party mod integrations</strong> (<code>in.potenfyr.authcore.integration</code>): optional, reflection-based,
 best-effort support for <strong>DiscordSRV</strong> (the linked Discord account is auto-imported on
 authentication so webhooks/notifications can use it) and <strong>InteractiveChat</strong> (compatible -
 AuthCore restrictions are lobby-scoped and never touch other mods). New <code>/authcore compat</code>
@@ -650,7 +703,7 @@ AuthMe <code>$SHA$</code> verification, algorithm inference, weak-algorithm dete
 <ul>
 <li><strong>One source, every Minecraft version</strong> - the old per-version source sets are gone; version
 variants live under <code>src/</code> (<code>src/main/java</code> + <code>src/client/java</code> = classic yarn code,
-<code>src/modern/java</code> = Mojang 26.1-26.2 code) behind the <code>net.ded3ec.compat</code> reflection layer and
+<code>src/modern/java</code> = Mojang 26.1-26.2 code) behind the <code>in.potenfyr.authcore.compat</code> reflection layer and
 version-stable mixin targets. Verified by compiling the identical source against <strong>1.16.5,
 1.17.1, 1.18.2, 1.19.4, 1.20.6, 1.21.1 and 1.21.11</strong> (all green), with a per-push CI matrix.</li>
 <li><strong>Universal mixins</strong>: login hello (reflects over <code>getProfile()</code> vs <code>name()/profileId()</code>, plus

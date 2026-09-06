@@ -53,7 +53,7 @@ stonecutter {
         }
 
         mc("1.18.2", "fabric", "forge")          // G1: authcore-1.16-1.18-{fabric,forge}
-        mc("1.21.11", "fabric", "forge", "neoforge") // G2: authcore-1.19-1.21-{fabric,forge,neoforge}
+        mc("1.21.11", "fabric", "neoforge")      // G2: authcore-1.19-1.21-{fabric,neoforge}
         mc("26.2", "fabric", "neoforge")         // G3: authcore-26.1-26.2-{fabric,neoforge}
 
         // The default version used by IDEs and bare `gradlew` invocations.

@@ -14,6 +14,14 @@ test/build.sh                          # build all variants (docker, temurin)
 test/run-security-tests.sh --migration # compile + run against newest built classes
 ```
 
+Coverage (180+ checks): password hashing (all algorithms plus legacy/AuthMe import
+fallbacks), password generation, email recovery anti-abuse, rate limiter, proxy
+IP-forwarding spoof guard, trusted-proxy source + CIDR validation, Velocity modern
+forwarding (HMAC), proxy auth gate (fail-closed), proxy config parsing strictness,
+interop message parsing (proxy <-> backend), proxy-side session cache, device
+fingerprints, attestation keys, concurrent-farm / look-pattern / login-timing bot
+detection, packet-sequence validation, and Minecraft version detection.
+
 ## 2. Docker host-compatibility harness - `test/docker/run-tests.sh`
 
 Boots REAL Minecraft servers (Fabric / Forge / NeoForge) with the AuthCore jar
@@ -29,7 +37,10 @@ intended:
 - mod loads with **no errors and no warnings** (curated severity scan)
 - the **banner shows correct information**: AuthCore version matches the
   built jar, detected Minecraft matches the tested version, security summary
-  printed
+  printed, and the banner carries REAL loaded data (Minecraft version, database
+  type - no unfilled `{}` placeholders)
+- **server-type auto-detection works**: the mod reports the real offline/online
+  mode from `server.properties`
 - **admin commands execute**: `reload`, `list players`, `list online-players`,
   `list offline-players`, `validate`, `backup`, `maintenance on/off`
 - startup artifacts exist: `settings.conf`, `messages.conf`, SQLite database

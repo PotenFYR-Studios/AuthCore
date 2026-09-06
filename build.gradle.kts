@@ -103,6 +103,9 @@ val variantDependencies = Properties().apply {
 val forgeRange: String =
     if (parsedVersion < "1.19") "[36.1.0,)"
     else "[41.1.0,)"
+val forgeLoaderRange: String =
+    if (parsedVersion < "1.19") "[36,)"
+    else "[40,)"
 val neoforgeRange: String =
     when {
         parsedVersion < "26" -> "[20.2.59-beta,)"
@@ -156,6 +159,7 @@ modSettings {
             "fabricLoaderVersion" to fabricLoaderRange,
             "fabricApiVersion" to fabricApiRange,
             "forgeRange" to forgeRange,
+            "forgeLoaderRange" to forgeLoaderRange,
             "neoforgeRange" to neoforgeRange,
             "javaVersion" to
                 when {
@@ -212,6 +216,8 @@ repositories {
     // Velocity / BungeeCord proxy APIs (Paper / md-5)
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://repo.md-5.net/content/repositories/public/")
+    // Vendored proxy/API jars that are no longer available from upstream Maven repos.
+    flatDir { dirs("$rootDir/java-jars/provided") }
 }
 
 val shaded: Configuration = configurations.include.get()
@@ -254,11 +260,11 @@ dependencies {
     implementation(include("com.j256.two-factor-auth:two-factor-auth:${property("two_factor_auth_version")}")!!)
 
     // --- compile-only APIs (provided by the server, never bundled) ------------
-    compileOnly("org.geysermc.floodgate:api:${property("floodgate_version")}")
-    compileOnly("net.luckperms:api:${property("luckperms_version")}")
+    compileOnly("org.geysermc.floodgate:api:2.2.7")
+    compileOnly("net.luckperms:api:5.4")
     // Proxy plugin APIs - the same jar doubles as a BungeeCord / Velocity plugin.
-    compileOnly("net.md-5:bungeecord-api:${property("bungeecord_api_version")}")
-    compileOnly("com.velocitypowered:velocity-api:${property("velocity_api_version")}")
+    compileOnly("net.md-5:bungeecord-api:1.21-R0.3")
+    compileOnly("com.velocitypowered:velocity-api:3.1.1")
 }
 
 // ----------------------------------------------------------------------------
@@ -266,9 +272,9 @@ dependencies {
 // ----------------------------------------------------------------------------
 // Thin entrypoints live in per-loader source roots so they only ever compile for
 // their own loader (no Stonecutter comment gymnastics needed):
-//   src/fabric/java     net.ded3ec.entrypoint.FabricEntry
-//   src/forge/java      net.ded3ec.entrypoint.ForgeEntry
-//   src/neoforge/java   net.ded3ec.entrypoint.NeoForgeEntry
+//   src/fabric/java     in.potenfyr.authcore.entrypoint.FabricEntry
+//   src/forge/java      in.potenfyr.authcore.entrypoint.ForgeEntry
+//   src/neoforge/java   in.potenfyr.authcore.entrypoint.NeoForgeEntry
 sourceSets.main.get().java.srcDir(
     when {
         mod.isForge -> rootProject.file("src/forge/java")
@@ -280,12 +286,13 @@ sourceSets.main.get().java.srcDir(
 // Build + collect
 // ----------------------------------------------------------------------------
 
-// Copies the built jar of every variant into the top-level dist/ folder so a single
-// `gradlew build` over all versions collects every released artifact in one
-// place (used by the release pipeline, the host-test harness and manual deploys).
+// Copies the built jar of THIS variant into the top-level dist/ folder.
+// The root-level "collectJars" aggregation task (registered once during the
+// active-variant evaluation) depends on every variant's "collectJar" task,
+// so a single `gradlew buildAll` collects ALL seven jars into dist/.
 // The remapped jar is the deployable artifact on intermediary-mapped variants
 // (G1/G2 fabric+forge), while the unobfuscated G3 variants only produce a plain jar.
-val collectJars = tasks.register<Copy>("collectJars") {
+val collectJar = tasks.register<Copy>("collectJar") {
     group = "build"
     val archiveTask = provider<org.gradle.api.tasks.bundling.AbstractArchiveTask> {
         (tasks.findByName("remapJar") ?: tasks.findByName("jar")) as org.gradle.api.tasks.bundling.AbstractArchiveTask
@@ -333,8 +340,22 @@ tasks.register("buildAll") {
     group = "build"
     description = "Builds every Stonecutter variant (all loaders x all ranges) and collects the jars into dist/."
     dependsOn(variantProjects.map { ":$it:build" })
-    dependsOn("collectJars")
+    dependsOn(variantProjects.map { ":$it:collectJar" })
     dependsOn(":1.21.11-fabric:exportSecurityTestLibs")
+}
+
+// ------------------------------------------------------------------
+// Root-level aggregation: collects the jar from EVERY variant into
+// dist/ so `gradlew collectJars` (or any task that depends on it)
+// produces all 7 release artifacts regardless of which variant is
+// currently active. Each variant registers its own "collectJar" task
+// above; this task simply depends on all of them.
+// ------------------------------------------------------------------
+tasks.register<Copy>("collectJars") {
+    group = "build"
+    description = "Collects ALL variant jars into dist/ (depends on every variant's collectJar)."
+    into(rootProject.layout.projectDirectory.dir("dist"))
+    dependsOn(variantProjects.map { ":$it:collectJar" })
 }
 
 tasks.register("testAll") {

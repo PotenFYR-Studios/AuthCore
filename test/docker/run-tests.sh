@@ -68,13 +68,13 @@ export MSYS2_ARG_CONV_EXCL="*"
 die() { echo "ERROR: $*" >&2; exit "${2:-1}"; }
 log() { echo "[$(date +%H:%M:%S)] $*"; }
 
-# Docker on Windows needs a native-style path for bind mounts.
+# Docker on Windows needs a native-style path (forward slashes) for bind mounts.
 dockerpath() {
   local p="$1"
   if command -v cygpath >/dev/null 2>&1; then
-    cygpath -w "$p"
+    cygpath -m "$p"
   elif (cd "$p" 2>/dev/null && pwd -W >/dev/null 2>&1); then
-    (cd "$p" && pwd -W)
+    (cd "$p" && pwd -W | sed 's|\\|/|g')
   else
     case "$p" in
       /[a-zA-Z]/*) local d="${p:1:1}"; echo "${d^^}:${p:2}" ;;
@@ -86,6 +86,30 @@ dockerpath() {
 file_hash() { # sha256 (first 16 hex chars) of a combo of files
   ( cat "$@" 2>/dev/null | sha256sum || cat "$@" 2>/dev/null | shasum -a 256 ) | cut -c1-16
 }
+
+# Auto-detect or download portable jq if missing on PATH
+if ! command -v jq >/dev/null 2>&1; then
+  BIN_DIR="$REPO/java-jars/bin"
+  if command -v cygpath >/dev/null 2>&1; then
+    BIN_DIR_POSIX="$(cygpath -u "$BIN_DIR")"
+  else
+    BIN_DIR_POSIX="$BIN_DIR"
+  fi
+  if [ -x "$BIN_DIR/jq.exe" ] || [ -f "$BIN_DIR/jq.exe" ] || [ -x "$BIN_DIR/jq" ] || [ -f "$BIN_DIR/jq" ]; then
+    export PATH="$BIN_DIR_POSIX:$PATH"
+  else
+    mkdir -p "$BIN_DIR"
+    echo "== downloading portable jq into java-jars/bin =="
+    if [[ "$(uname -s 2>/dev/null || echo Windows)" =~ (MINGW|MSYS|CYGWIN|Windows) ]]; then
+      curl -fSL --retry 3 "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-windows-amd64.exe" -o "$BIN_DIR/jq.exe"
+      chmod +x "$BIN_DIR/jq.exe" 2>/dev/null || true
+    else
+      curl -fSL --retry 3 "https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64" -o "$BIN_DIR/jq"
+      chmod +x "$BIN_DIR/jq" 2>/dev/null || true
+    fi
+    export PATH="$BIN_DIR_POSIX:$PATH"
+  fi
+fi
 
 # jq on Windows writes CRLF - strip it wherever output feeds shell variables.
 jqw() { jq "$@" | tr -d '\r'; }
@@ -99,7 +123,7 @@ usage() { grep '^#   ' "$0" | sed 's/^#   //'; exit 0; }
 command -v jq >/dev/null 2>&1 || die "jq is required on the host (https://jqlang.io)"
 command -v docker >/dev/null 2>&1 || die "docker is required"
 
-MODE="smoke"; REQ_GROUPS=""; REQ_LOADERS=""; VERSIONS=""; JAR=""
+MODE="smoke"; REQ_GROUPS=""; REQ_LOADERS=""; REQ_JAVA=""; VERSIONS=""; JAR=""
 PARALLEL=4; TIMEOUT=""; MEMORY=""; CPUS=""; NETWORK="bridge"
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -107,6 +131,7 @@ while [ $# -gt 0 ]; do
     --all) MODE="all" ;;
     --groups|--range) REQ_GROUPS="$2"; shift ;;
     --loaders) REQ_LOADERS="$2"; shift ;;
+    --java) REQ_JAVA="$2"; shift ;;
     --versions) VERSIONS="$2"; shift ;;
     --jar) JAR="$2"; shift ;;
     --parallel) PARALLEL="$2"; shift ;;
@@ -193,6 +218,12 @@ VERSION_FILTER_OK() {
   return 1
 }
 
+JAVA_FILTER_OK() {
+  [ -z "$REQ_JAVA" ] && return 0
+  local j; for j in ${REQ_JAVA//,/ }; do [ "$j" = "$1" ] && return 0; done
+  return 1
+}
+
 NGROUPS=$(jqw '.groups | length' "$CONFIG")
 for ((gi=0; gi<NGROUPS; gi++)); do
   GROUP=$(jqw -c ".groups[$gi]" "$CONFIG")
@@ -200,6 +231,7 @@ for ((gi=0; gi<NGROUPS; gi++)); do
   BUILD=$(jqw -r '.build' <<<"$GROUP")
   JMAJOR=$(jqw -r '.javaMajor' <<<"$GROUP")
   GROUP_FILTER_OK "$RANGE" || continue
+  JAVA_FILTER_OK "$JMAJOR" || continue
 
   NLOADERS=$(jqw '.loaders | length' <<<"$GROUP")
   for ((li=0; li<NLOADERS; li++)); do
@@ -215,9 +247,15 @@ for ((gi=0; gi<NGROUPS; gi++)); do
     fi
     [ -n "$JARPATH" ] || die "no jar for $RANGE/$LOADER - build first: test/build.sh (looked in dist/ and versions/$BUILD-$LOADER/build/libs)" 4
 
+    SCAN=$(jqw -r '.scanPattern // empty' <<<"$GROUP")
     # version list priority: --versions > --smoke (build target) > verify list
     if [ -n "$VERSIONS" ]; then
-      VLIST="${VERSIONS//,/ }"
+      VLIST=""
+      for cand in ${VERSIONS//,/ }; do
+        if [ "$cand" = "$BUILD" ] || ([ -n "$SCAN" ] && [[ "$cand" =~ $SCAN ]]); then
+          VLIST="$VLIST $cand"
+        fi
+      done
     elif [ "$MODE" = "smoke" ]; then
       VLIST="$BUILD"
     else
@@ -406,14 +444,41 @@ run_one() { # <mc>|<range>|<loader>|<javaMajor>|<pin>|<jarPath>  <index>
   echo "[$mc/$loader] $st (boot=${boot}s authcore=${auth}ms)"
 }
 
-log "running ${#DESCS[@]} isolated host tests (parallel=$PARALLEL, mode=$MODE)..."
-IDX=0
-for desc in "${DESCS[@]}"; do
-  run_one "$desc" "$IDX" &
-  IDX=$((IDX + 1))
-  while [ "$(jobs -rp | wc -l)" -ge "$PARALLEL" ]; do wait -n; done
+# Extract unique groups in order from DESCS
+ORDERED_GROUPS=()
+for d in "${DESCS[@]}"; do
+  rg=$(cut -d'|' -f2 <<<"$d")
+  found=0
+  for og in "${ORDERED_GROUPS[@]:-}"; do
+    if [ "$og" = "$rg" ]; then found=1; break; fi
+  done
+  if [ "$found" -eq 0 ]; then ORDERED_GROUPS+=("$rg"); fi
 done
-wait
+
+log "running ${#DESCS[@]} isolated host tests across ${#ORDERED_GROUPS[@]} groups (group-by-group, parallel=$PARALLEL, mode=$MODE)..."
+IDX=0
+for rg in "${ORDERED_GROUPS[@]}"; do
+  GROUP_DESCS=()
+  for d in "${DESCS[@]}"; do
+    if [ "$(cut -d'|' -f2 <<<"$d")" = "$rg" ]; then
+      GROUP_DESCS+=("$d")
+    fi
+  done
+  [ "${#GROUP_DESCS[@]}" -eq 0 ] && continue
+
+  echo ""
+  echo "===================================================================="
+  log "== GROUP [$rg]: running ${#GROUP_DESCS[@]} tests in parallel =="
+  echo "===================================================================="
+
+  for desc in "${GROUP_DESCS[@]}"; do
+    run_one "$desc" "$IDX" &
+    IDX=$((IDX + 1))
+    while [ "$(jobs -rp | wc -l)" -ge "$PARALLEL" ]; do wait -n; done
+  done
+  wait
+  log "== GROUP [$rg] finished =="
+done
 
 # ---------------------------------------------------------------------------
 # report

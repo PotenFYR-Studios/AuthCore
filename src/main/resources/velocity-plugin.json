@@ -6,5 +6,5 @@
   "authors": [
     "Ded3ec"
   ],
-  "main": "net.ded3ec.proxy.VelocityEntry"
+  "main": "in.potenfyr.authcore.proxy.VelocityEntry"
 }

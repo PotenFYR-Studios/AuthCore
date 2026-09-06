@@ -391,7 +391,7 @@ Loom&#39;s <code>include</code>; Floodgate, LuckPerms, Bungee/ Velocity APIs are
 <pre><code>src/
 ├── fabric/                  # fabric entrypoint only: FabricEntry.java
 ├── neoforge/                # neoforge entrypoint only: NeoForgeEntry.java
-└── main/java/net/ded3ec/
+└── main/java/in/potenfyr/authcore/
     ├── AuthCoreServer.java  # main entrypoint (loader-neutral start()) + startup banner
     ├── api/                 # AuthCoreApi - public API for other mods
     ├── command/             # /authcore command trees (Admin, Account, Login, Register, Discord)
@@ -504,13 +504,13 @@ inside JSON metadata</strong>, Loom parses <code>fabric.mod.json</code> at confi
 <li>Loader constants are registered automatically by Stonecraft, usable as
 <code>/*? if fabric {*/</code> in code and as <code>mod.isFabric</code> etc. in the build script.</li>
 <li>Each loader has its own thin entrypoint (delegating to the loader-neutral
-<code>net.ded3ec.AuthCoreServer.start()</code>):<ul>
-<li>Fabric: <code>src/fabric/java/net/ded3ec/entrypoint/FabricEntry.java</code>
+<code>in.potenfyr.authcore.AuthCoreServer.start()</code>):<ul>
+<li>Fabric: <code>src/fabric/java/in/potenfyr/authcore/entrypoint/FabricEntry.java</code>
 (<code>DedicatedServerModInitializer</code>), listed in <code>fabric.mod.json</code>.</li>
-<li>Forge: <code>src/main/java/net/ded3ec/entrypoint/ForgeEntry.java</code> (1.16 - 1.20, classic
+<li>Forge: <code>src/main/java/in/potenfyr/authcore/entrypoint/ForgeEntry.java</code> (1.16 - 1.20, classic
 <code>EVENT_BUS.register</code> event bus) + <code>ForgeEntryModern.java</code> (1.21+, record-based event bus),
 <code>@Mod</code> classes listed in <code>META-INF/mods.toml</code>.</li>
-<li>NeoForge: <code>src/neoforge/java/net/ded3ec/entrypoint/NeoForgeEntry.java</code> (1.20.1 - 26.x),
+<li>NeoForge: <code>src/neoforge/java/in/potenfyr/authcore/entrypoint/NeoForgeEntry.java</code> (1.20.1 - 26.x),
 <code>@Mod</code> class listed in <code>META-INF/neoforge.mods.toml</code>.</li>
 </ul>
 </li>

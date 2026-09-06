@@ -306,7 +306,7 @@
   <main>
     <article>
 
-<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/DawnOfDedSec/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/DawnOfDedSec/AuthCore.svg" alt="Build"></a> <a href="https://github.com/DawnOfDedSec/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
+<div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <h1>🧭 AuthCore Server Admin Guide</h1>
 <p>A step-by-step guide for server owners, from first install to a fully secured server.
@@ -415,7 +415,7 @@ supported loaders. Fabric needs <strong>Fabric API</strong> installed alongside 
 NeoForge need nothing extra. All three drop the jar into <code>mods/</code>.</p>
 </blockquote>
 <p><strong>Download from:</strong> <a href="https://modrinth.com/mod/authCore">Modrinth</a> or
-<a href="https://github.com/DawnOfDedSec/AuthCore/releases">GitHub Releases</a>.</p>
+<a href="https://github.com/PotenFYR-Studios/AuthCore/releases">GitHub Releases</a>.</p>
 <blockquote>
 <p>🧠 <em>Newbie question: &quot;why are there so many jars?&quot;</em>, Because Minecraft changed its code
 format at 26.1, one jar cannot work on every version. Each range jar is tested on every
@@ -1030,6 +1030,26 @@ failure without exposing internals.</li>
 <td align="left">Players on proxies/VPNs are blocked</td>
 <td align="left">That&#39;s <code>allow-proxy-users = false</code> (section 4.1), disable it to allow them</td>
 </tr>
+<tr>
+<td align="left">&quot;PACKET_SEQUENCE_ANOMALY in security.log&quot;</td>
+<td align="left">A client sent packets in an unexpected order during login (e.g. SETTINGS before HELLO). This is a bot signal - vanilla clients always follow the HELLO → SETTINGS → READY sequence. If false positives occur, check for modded clients that send extra packets early.</td>
+</tr>
+<tr>
+<td align="left">&quot;CONCURRENT_FARM in security.log&quot;</td>
+<td align="left">Three or more distinct usernames connected from the same IP within 5 seconds. This flags bot-farm login bursts. Whitelist the IP in <code>ip-rules.conf</code> if it&#39;s a shared network (e.g. school, LAN event).</td>
+</tr>
+<tr>
+<td align="left">&quot;LOOK_PATTERN_BOT in security.log&quot;</td>
+<td align="left">A player&#39;s camera movement has near-zero variance (perfectly still or perfectly regular). Bots often don&#39;t look around naturally. Human players have natural-looking variation in their look deltas.</td>
+</tr>
+<tr>
+<td align="left">&quot;LOGIN_TIMING_BOT in security.log&quot;</td>
+<td align="left">Multiple accounts from the same IP logged in with near-identical timestamps (low variance). This indicates synchronized bot-farm timers. The detection uses a 60-second window and requires at least 3 login events.</td>
+</tr>
+<tr>
+<td align="left">&quot;Web panel returns CORS errors&quot;</td>
+<td align="left">The panel now sends <code>Access-Control-Allow-Origin: *</code> headers and handles OPTIONS preflight. If your browser still blocks requests, ensure the panel URL matches the <code>host</code> config and the <code>token</code> header is set correctly.</td>
+</tr>
 </tbody></table>
 <h2 id="8-learning-path--go-deeper">8. Learning path, go deeper</h2>
 <p>This guide intentionally keeps things simple. When you&#39;re ready, each topic links to its
@@ -1091,8 +1111,8 @@ premium verification → skim <a href="config.html">CONFIG.md</a> once → then 
 </blockquote>
 <h2 id="9-getting-help">9. Getting help</h2>
 <ul>
-<li><strong>Bugs &amp; ideas:</strong> open an issue on <a href="https://github.com/DawnOfDedSec/AuthCore/issues">GitHub</a></li>
-<li><strong>Questions:</strong> <a href="https://github.com/DawnOfDedSec/AuthCore/discussions">Discussions</a></li>
+<li><strong>Bugs &amp; ideas:</strong> open an issue on <a href="https://github.com/PotenFYR-Studios/AuthCore/issues">GitHub</a></li>
+<li><strong>Questions:</strong> <a href="https://github.com/PotenFYR-Studios/AuthCore/discussions">Discussions</a></li>
 <li><strong>Discord / webhook alerts:</strong> see section 4.6 and <a href="webpanel.html">WEBPANEL.md</a></li>
 <li><strong>When reporting a bug:</strong> include the console <strong>error code</strong> (<code>AC-...</code>) and the version
 from the startup banner, it pinpoints the failure without exposing internals.</li>

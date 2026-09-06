@@ -1,7 +1,7 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
 license = "CC0-1.0"
-issueTrackerURL = "https://github.com/DawnOfDedSec/AuthCore/issues"
+issueTrackerURL = "https://github.com/PotenFYR-Studios/AuthCore/issues"
 
 [[mods]]
 modId = "authcore"

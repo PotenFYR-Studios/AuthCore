@@ -9,8 +9,8 @@
     "Ded3ec"
   ],
   "contact": {
-    "homepage": "https://github.com/DawnOfDedSec/AuthCore",
-    "sources": "https://github.com/DawnOfDedSec/AuthCore"
+    "homepage": "https://github.com/PotenFYR-Studios/AuthCore",
+    "sources": "https://github.com/PotenFYR-Studios/AuthCore"
   },
   "license": "CC0-1.0",
   "icon": "assets/authcore/icon.png",
@@ -26,9 +26,11 @@
   ],
   "depends": {
     "fabricloader": "${fabricLoaderVersion}",
-    "fabric-api": "${fabricApiVersion}",
     "minecraft": "${minecraftRange}",
     "java": "${javaVersion}"
+  },
+  "recommends": {
+    "fabric-api": "${fabricApiVersion}"
   },
   "suggests": {
     "luckperms": "*"

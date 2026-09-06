@@ -74,7 +74,7 @@
     }
     bar.appendChild(el("span", "ac-sep", "|"));
     var gh = el("a", null, "GitHub \u2197");
-    gh.href = "https://github.com/DawnOfDedSec/AuthCore";
+    gh.href = "https://github.com/PotenFYR-Studios/AuthCore";
     gh.target = "_blank";
     gh.rel = "noopener";
     bar.appendChild(gh);

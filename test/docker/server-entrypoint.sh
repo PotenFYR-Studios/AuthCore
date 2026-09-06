@@ -286,6 +286,7 @@ chk_modLoaded=0; chk_banner=0; chk_versionMatch=0; chk_started=0; chk_ready=0
 chk_securitySummary=0; chk_noCrash=0; chk_noWarnings=0; chk_portListen=0
 chk_reload=0; chk_listPlayers=0; chk_listOnline=0; chk_listOffline=0
 chk_validate=0; chk_backup=0; chk_maintenance=0; chk_config=0; chk_db=0
+chk_serverMode=0; chk_bannerMc=0; chk_bannerDb=0; chk_bannerData=0
 BOOT_SEC=""; AUTH_START_MS=""; MC_DETECTED=""; DB_TYPE=""; HASH_ALGO=""; TWOFA=""
 AUTHCORE_DETECTED=""
 
@@ -312,7 +313,9 @@ SEVERE_RE="Uncaught exception in thread|MixinInitialisationError|ModLoadingExcep
 #     level-type=flat with empty generator-settings, present on pristine servers
 #   - "Couldn't load mod:authcore pack": vanilla probes a built-in resource pack
 #     the mod intentionally does not ship on Forge
-WARN_ALLOWLIST_RE="SERVER IS RUNNING IN OFFLINE|no attempt to authenticate usernames|ability for hackers|set .online-mode. to .true.|Can't keep up|Advanced terminal features|Reference map .* could not be read|Ambiguity between arguments|is not correct|Incorrect key .* was corrected|Fabric API was not found|LanServerPinger"
+#   - "Assets URL ... unexpected schema": vanilla resource-pack scanner noise on
+#     SRG-mapped Forge/NeoForge server libraries - unrelated to the mod
+WARN_ALLOWLIST_RE="SERVER IS RUNNING IN OFFLINE|no attempt to authenticate usernames|ability for hackers|set .online-mode. to .true.|Can't keep up|Advanced terminal features|Reference map .* could not be read|Ambiguity between arguments|is not correct|Incorrect key .* was corrected|Fabric API was not found|LanServerPinger|Warnings were found|fabric-lifecycle-events-v1|Unable to register Log4j shutdown hook|Assets URL"
 ERR_ALLOWLIST_RE="No key layers in MapLike|Couldn't load mod:authcore pack"
 
 if [ "$STATUS" = "ready" ]; then
@@ -370,6 +373,18 @@ if [ "$STATUS" = "ready" ]; then
   log_has "AuthCore started in" && chk_started=1
   log_has 'Done (' && chk_ready=1
 
+  # --- 2b) server-type auto-detection + banner DATA correctness ----------------
+  # The harness boots online-mode=false: the mod must detect and report the real
+  # server mode (its premium/session behavior depends entirely on this).
+  log_has "Server session-authentication detected: offline-mode" && chk_serverMode=1
+  # The banner must carry REAL loaded data, not the slf4j-style placeholder {}
+  # (a literal {} means the value was never substituted - broken logging).
+  log_has "  Minecraft        : $MC_VERSION" && chk_bannerMc=1
+  log_has "  Database         : SQLite" && chk_bannerDb=1
+  if ! grep -q -- ": {}" "$LOG" 2>/dev/null && ! grep -q -- ": {}" "$CONSOLE" 2>/dev/null; then
+    chk_bannerData=1
+  fi
+
   # --- 3) admin command markers + startup artifacts ----------------------------
   log_has "AuthCoreServer configuration files has been reloaded successfully!" && chk_reload=1
   log_has "List of Players in Authcore:" && chk_listPlayers=1
@@ -425,6 +440,10 @@ if [ "$STATUS" = "ready" ]; then
   [ "$chk_versionMatch" -eq 0 ] && FAILURES="$FAILURES banner-version-mismatch(detected=${AUTHCORE_DETECTED:-none} expected=${EXPECTED_VERSION:-?})"
   [ "$chk_noCrash" -eq 0 ] && FAILURES="$FAILURES severe-errors-in-log"
   [ "$chk_noWarnings" -eq 0 ] && FAILURES="$FAILURES warnings-or-errors-in-log"
+  [ "$chk_serverMode" -eq 0 ] && FAILURES="$FAILURES server-mode-detection-missing"
+  [ "$chk_bannerMc" -eq 0 ] && FAILURES="$FAILURES banner-minecraft-mismatch"
+  [ "$chk_bannerDb" -eq 0 ] && FAILURES="$FAILURES banner-db-type-missing"
+  [ "$chk_bannerData" -eq 0 ] && FAILURES="$FAILURES banner-placeholder-broken"
   [ "$chk_reload" -eq 0 ] && FAILURES="$FAILURES command-reload-failed"
   [ "$chk_listPlayers" -eq 0 ] && FAILURES="$FAILURES command-list-players-failed"
   [ "$chk_listOnline" -eq 0 ] && FAILURES="$FAILURES command-list-online-failed"
@@ -460,12 +479,13 @@ HASH_J=$(json_escape "$HASH_ALGO"); TWO_J=$(json_escape "$TWOFA")
 AUTH_J=$(json_escape "$AUTHCORE_DETECTED")
 FAIL_J=$(json_escape "$FAILURES"); EXC_J=$(json_escape "$EXCERPT")
 
-printf '{"mc":"%s","jar":"%s","jdk":"%s","javaVersion":"%s","status":"%s","bootSec":"%s","authcoreStartedMs":"%s","mcDetected":"%s","dbType":"%s","hashAlgo":"%s","twoFA":"%s","authcoreVersion":"%s","checks":{"modLoaded":%s,"banner":%s,"versionMatch":%s,"mcVersionMatch":%s,"securitySummary":%s,"started":%s,"ready":%s,"noErrors":%s,"noWarnings":%s,"reload":%s,"listPlayers":%s,"listOnline":%s,"listOffline":%s,"validate":%s,"backup":%s,"maintenance":%s,"config":%s,"db":%s,"portListen":%s},"failures":"%s","excerpt":"%s"}\n' \
+printf '{"mc":"%s","jar":"%s","jdk":"%s","javaVersion":"%s","status":"%s","bootSec":"%s","authcoreStartedMs":"%s","mcDetected":"%s","dbType":"%s","hashAlgo":"%s","twoFA":"%s","authcoreVersion":"%s","checks":{"modLoaded":%s,"banner":%s,"versionMatch":%s,"mcVersionMatch":%s,"securitySummary":%s,"started":%s,"ready":%s,"noErrors":%s,"noWarnings":%s,"serverMode":%s,"bannerMc":%s,"bannerDb":%s,"bannerData":%s,"reload":%s,"listPlayers":%s,"listOnline":%s,"listOffline":%s,"validate":%s,"backup":%s,"maintenance":%s,"config":%s,"db":%s,"portListen":%s},"failures":"%s","excerpt":"%s"}\n' \
   "$MC_J" "$LOADER_J" "$LABEL_J" "$JAVA_J" "$STATUS_OUT" \
   "$BOOT_SEC" "$AUTH_START_MS" "$MCD_J" "$DBT_J" "$HASH_J" "$TWO_J" "$AUTH_J" \
   "$chk_modLoaded" "$chk_banner" "$chk_versionMatch" "$chk_mcVersionMatch" \
   "$chk_securitySummary" "$chk_started" "$chk_ready" \
   "$chk_noCrash" "$chk_noWarnings" \
+  "$chk_serverMode" "$chk_bannerMc" "$chk_bannerDb" "$chk_bannerData" \
   "$chk_reload" "$chk_listPlayers" "$chk_listOnline" "$chk_listOffline" \
   "$chk_validate" "$chk_backup" "$chk_maintenance" "$chk_config" "$chk_db" "$chk_portListen" \
   "$FAIL_J" "$EXC_J" > "$RESULT_FILE"
