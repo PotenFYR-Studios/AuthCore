@@ -106,11 +106,14 @@ FLOODGATE_JAR="$JARS_DIR/provided/floodgate-api-2.2.7.jar"
 if [ ! -s "$FLOODGATE_JAR" ]; then
   if [ -s "$JARS_DIR/provided/org.geysermc.floodgate-api-2.2.7.jar" ]; then
     cp "$JARS_DIR/provided/org.geysermc.floodgate-api-2.2.7.jar" "$FLOODGATE_JAR"
-  elif [ -s "$JARS_DIR/provided/api-2.2.7.jar" ]; then
-    cp "$JARS_DIR/provided/api-2.2.7.jar" "$FLOODGATE_JAR"
   else
-    echo "== floodgate api not downloadable - creating stub marker"
-    touch "$FLOODGATE_JAR"
+    # NOTE: org.geysermc.floodgate:api has no stable release on any Maven repo
+    # (snapshots only), so it cannot be downloaded here. AuthCore integrates
+    # Floodgate fully reflectively - the jar is NOT needed to build or run.
+    echo "== floodgate api unavailable upstream - skipped (reflective integration, not required)"
+  fi
+fi
+
 # Portable jq helper for Docker host tests
 mkdir -p "$JARS_DIR/bin"
 if [ ! -s "$JARS_DIR/bin/jq.exe" ] && [ ! -s "$JARS_DIR/bin/jq" ]; then

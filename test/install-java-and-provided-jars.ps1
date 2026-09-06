@@ -106,8 +106,7 @@ if (-not (Test-Path $FloodgateJar) -or ((Get-Item $FloodgateJar).Length -eq 0)) 
     $AltFg1 = Join-Path $ProvidedDir "org.geysermc.floodgate-api-2.2.7.jar"
     $AltFg2 = Join-Path $ProvidedDir "api-2.2.7.jar"
     if (Test-Path $AltFg1) { Copy-Item $AltFg1 $FloodgateJar -Force }
-    elseif (Test-Path $AltFg2) { Copy-Item $AltFg2 $FloodgateJar -Force }
-    else { New-Item -ItemType File -Path $FloodgateJar -Force | Out-Null }
+    else { Write-Host "== floodgate api unavailable upstream - skipped (reflective integration, not required)" }
 }
 
 $BinDir = Join-Path $JarsDir "bin"

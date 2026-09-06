@@ -260,7 +260,10 @@ dependencies {
     implementation(include("com.j256.two-factor-auth:two-factor-auth:${property("two_factor_auth_version")}")!!)
 
     // --- compile-only APIs (provided by the server, never bundled) ------------
-    compileOnly("org.geysermc.floodgate:api:2.2.7")
+    // Floodgate (Geyser) integration is fully reflective (Class.forName in
+    // McApiManager) - no compile-time dependency needed. A compileOnly entry is
+    // pointless here anyway: org.geysermc.floodgate:api has no stable release on
+    // any Maven repo (snapshots only), which broke dependency resolution on CI.
     compileOnly("net.luckperms:api:5.4")
     // Proxy plugin APIs - the same jar doubles as a BungeeCord / Velocity plugin.
     compileOnly("net.md-5:bungeecord-api:1.21-R0.3")
