@@ -611,6 +611,10 @@ We warmly welcome community contributions, bug reports, and feature proposals!
 
 This project is licensed under the **Apache License 2.0 with the Commons Clause** - see the [LICENSE](LICENSE) file for details. You may freely use, modify, and distribute AuthCore (including in modpacks), and build products or services around it, but the software itself may not be sold as a paid product.
 
+---
+
+Built by **[PotenFYR Studios](https://github.com/PotenFYR-Studios)** · [potenfyr.in](https://potenfyr.in) · Part of the **PotenFYR Studios** open-source ecosystem.
+
 <div align="center">
 
 <p><b>Crafted with passion by <a href="https://github.com/PotenFYR-Studios">PotenFYR Studios</a></b><br>

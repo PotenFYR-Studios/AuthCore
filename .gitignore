@@ -81,3 +81,9 @@ logs/
 *.tar.gz
 *.zip
 java-jars/
+
+# --- PotenFYR Studios: baseline hygiene ---
+.env.*
+!.env.example
+coverage/
+Thumbs.db

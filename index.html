@@ -9,6 +9,50 @@
 <meta property="og:description" content="Universal authentication and security framework for Minecraft servers across 1.16 - 26.x+ on Fabric, Forge, and NeoForge.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://authcore.potenfyr.in/">
+<meta property="og:url" content="https://authcore.potenfyr.in/">
+<meta property="og:site_name" content="AuthCore by PotenFYR Studios">
+<meta property="og:image" content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore">
+<meta property="og:image:alt" content="AuthCore - The Fortress Authentication Framework for Minecraft by PotenFYR Studios">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AuthCore - Fortress Authentication for Minecraft | PotenFYR Studios">
+<meta name="twitter:description" content="Universal server-side authentication for Minecraft 1.16-26.x+ on Fabric, Forge and NeoForge. Web panel, REST API, proxy support, OWASP-informed security model.">
+<meta name="twitter:image" content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore">
+<meta name="author" content="PotenFYR Studios">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://authcore.potenfyr.in/#organization",
+      "name": "PotenFYR Studios",
+      "alternateName": "PotenFYR",
+      "url": "https://potenfyr.in/",
+      "sameAs": ["https://github.com/PotenFYR-Studios", "https://modrinth.com/organization/potenfyr"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "name": "AuthCore",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Minecraft 1.16-26.x+, Fabric, Forge, NeoForge",
+      "description": "Universal server-side authentication and security framework for Minecraft servers.",
+      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
+      "author": {"@id": "https://authcore.potenfyr.in/#organization"},
+      "codeRepository": "https://github.com/PotenFYR-Studios/AuthCore",
+      "downloadUrl": "https://modrinth.com/mod/authcore"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {"@type": "Question", "name": "What is AuthCore?", "acceptedAnswer": {"@type": "Answer", "text": "AuthCore is a universal server-side authentication and security framework for Minecraft servers by PotenFYR Studios. One codebase covers Minecraft 1.16 through 26.x+ on Fabric, Forge and NeoForge."}},
+        {"@type": "Question", "name": "Does AuthCore work with proxies like Velocity?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. AuthCore supports Velocity and BungeeCord forwarding with modern HMAC identity verification and proxy-side authentication."}},
+        {"@type": "Question", "name": "Is AuthCore free?", "acceptedAnswer": {"@type": "Answer", "text": "AuthCore is free to use, fork and modify under the Apache-2.0 license with the Commons Clause; the software itself may not be sold as a product."}}
+      ]
+    }
+  ]
+}
+</script>
 <style>
   :root {
     --bg: #07090e;
@@ -269,6 +313,15 @@
 </div>
 
 </div>
+<section class="faq" aria-labelledby="faq-title">
+  <h2 id="faq-title">Frequently asked questions</h2>
+  <h3>What is AuthCore?</h3>
+  <p>AuthCore is a universal server-side authentication and security framework for Minecraft servers by PotenFYR Studios. One codebase covers Minecraft 1.16 through 26.x+ on Fabric, Forge and NeoForge.</p>
+  <h3>Does AuthCore work with proxies like Velocity?</h3>
+  <p>Yes. AuthCore supports Velocity and BungeeCord forwarding with modern HMAC identity verification and proxy-side authentication.</p>
+  <h3>Is AuthCore free?</h3>
+  <p>AuthCore is free to use, fork and modify under the Apache-2.0 license with the Commons Clause; the software itself may not be sold as a product.</p>
+</section>
 <script>
 fetch("/docs/versions.json", { cache: "no-cache" })
   .then(function (r) { return r.json(); })
