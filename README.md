@@ -20,7 +20,7 @@
 [![Loaders](https://img.shields.io/badge/Loaders-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity-orange?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-multi-version--multi-loader-compatibility)
 [![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-b07219?style=flat-square&logo=openjdk&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-building-from-source)
 [![Security Tests](https://img.shields.io/badge/Security%20Suite-180%2B%20Checks%20Passed-2ea043?style=flat-square&logo=shield&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-security-testing)
-[![License: CC0 1.0](https://img.shields.io/badge/License-CC0%201.0-yellow.svg?style=flat-square&labelColor=1c1e26)](LICENSE)
+[![License: Apache-2.0 + Commons Clause](https://img.shields.io/badge/License-Apache--2.0%20%2B%20Commons%20Clause-blue.svg?style=flat-square&labelColor=1c1e26)](LICENSE)
 
 <p align="center">
   <b>The Fortress Framework for Minecraft Servers. One unified codebase for 1.16.0 → 26.x+ on Fabric, Forge, and NeoForge.</b><br>
@@ -609,7 +609,7 @@ We warmly welcome community contributions, bug reports, and feature proposals!
 
 ## 📜 License
 
-This project is licensed under the [CC0 1.0 Universal (Public Domain)](LICENSE) license. You may freely use, modify, distribute, and integrate AuthCore into personal, commercial, or modpack distributions without restriction.
+This project is licensed under the **Apache License 2.0 with the Commons Clause** - see the [LICENSE](LICENSE) file for details. You may freely use, modify, and distribute AuthCore (including in modpacks), and build products or services around it, but the software itself may not be sold as a paid product.
 
 <div align="center">
 
