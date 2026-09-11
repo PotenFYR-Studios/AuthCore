@@ -98,7 +98,7 @@ jobs:
               --title "🚨 [Snapshot Compat] Breaking changes detected for Minecraft $SNAPSHOT" \
               --body-file "$REPORT" \
               --head "$BRANCH_NAME" \
-              --base main
+              --base master
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

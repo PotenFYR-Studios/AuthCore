@@ -10,7 +10,7 @@ name: Deploy docs to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     paths:
       - index.html
       - favicon.png
