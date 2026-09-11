@@ -390,7 +390,7 @@ jobs:
             ' changelogs/changelog.md
             echo
             echo "---"
-            echo "Rolling development release: replaced automatically on every \`main\` push."
+            echo "Rolling development release: replaced automatically on every \`master\` push."
             echo "Assets: one jar per version range and loader - drop the matching jar into"
             echo "\`mods/\` (Fabric/Forge/NeoForge server) or \`plugins/\` (BungeeCord/Velocity)."
           } > release-notes.md
