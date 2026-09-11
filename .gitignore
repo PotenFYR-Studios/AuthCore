@@ -87,3 +87,8 @@ java-jars/
 !.env.example
 coverage/
 Thumbs.db
+
+# Local agent/assistant artifacts (do not commit)
+CLAUDE.md
+.rtk
+.plan
