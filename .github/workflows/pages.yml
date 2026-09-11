@@ -14,6 +14,8 @@ on:
     paths:
       - index.html
       - favicon.png
+      - robots.txt
+      - sitemap.xml
       - docs/**
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -42,6 +44,8 @@ jobs:
           mkdir -p site/docs
           cp index.html site/index.html
           cp favicon.png site/favicon.png
+          cp robots.txt site/robots.txt
+          cp sitemap.xml site/sitemap.xml
           cp -r docs/. site/docs/
           ls -R site | head -40
 
