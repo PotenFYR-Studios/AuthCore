@@ -228,7 +228,7 @@ function Toc({ headings }: { headings: Heading[] }) {
   if (!headings.length) return null;
   return (
     <nav
-      className="hidden xl:block sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto w-56 shrink-0 border-l border-line-light/60 px-4 py-6"
+      className="hidden xl:block sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto w-64 xl:w-72 shrink-0 border-l border-line-light/60 px-4 py-6"
       aria-label="On this page"
     >
       <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089]">
@@ -239,7 +239,7 @@ function Toc({ headings }: { headings: Heading[] }) {
           <li key={h.id}>
             <a
               href={`#${h.id}`}
-              className={`block border-l-2 py-1 text-[12px] leading-snug transition-colors ${
+              className={`block border-l-2 py-1 text-[12px] leading-snug line-clamp-2 transition-colors ${
                 h.level === 3
                   ? "pl-6 text-[10.5px] text-[#6a7089]"
                   : "pl-3 text-[#9aa0b4]"
