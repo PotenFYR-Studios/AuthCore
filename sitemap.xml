@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://authcore.docs.potenfyr.in/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/index.html</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/config.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/security.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/api.html</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/proxy.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/webpanel.html</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/development.html</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
-  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/changelog.html</loc><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/index.html</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/index.html</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/flows.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/config.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/security.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/api.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/proxy.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/webpanel.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/26x.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/development.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/changelog.html</loc><lastmod>2026-09-12</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://authcore.docs.potenfyr.in/docs/1.0.0/license.html</loc><lastmod>2026-09-12</lastmod><changefreq>monthly</changefreq><priority>0.5</priority></url>
 </urlset>

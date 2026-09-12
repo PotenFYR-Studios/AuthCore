@@ -38,10 +38,29 @@ body {
 }
 .doc-content h2 {
   margin: 2.2em 0 0.7em; font-size: 1.3em; font-weight: 700; color: #fff;
-  padding-bottom: 0.35em; border-bottom: 1px solid var(--color-line);
   scroll-margin-top: 90px;
 }
 .doc-content h3 { margin: 1.8em 0 0.5em; font-size: 1.08em; font-weight: 640; color: var(--color-text, #e8eaf2); scroll-margin-top: 90px; }
+
+/* collapse the h2 underline when a table/pre/hr immediately follows (avoids double lines) */
+.doc-content h2:has(+ table),
+.doc-content h2:has(+ pre),
+.doc-content h2:has(+ hr),
+.doc-content h2:has(+ .table-card),
+.doc-content h2:has(+ div) {
+  border-bottom: none;
+}
+
+/* slim, unobtrusive scrollbars for wide content ("slider" fix) */
+.doc-content table::-webkit-scrollbar,
+.doc-content pre::-webkit-scrollbar,
+.doc-content div::-webkit-scrollbar { height: 6px; }
+.doc-content table::-webkit-scrollbar-thumb,
+.doc-content pre::-webkit-scrollbar-thumb,
+.doc-content div::-webkit-scrollbar-thumb { background: #2c3150; border-radius: 6px; }
+.doc-content table::-webkit-scrollbar-track,
+.doc-content pre::-webkit-scrollbar-track,
+.doc-content div::-webkit-scrollbar-track { background: transparent; }
 .doc-content h4 { margin: 1.4em 0 0.4em; font-size: 0.96em; font-weight: 620; color: #b9bfd4; }
 .doc-content p { margin: 0.75em 0; }
 .doc-content a { color: #c4b5fd; text-decoration: none; }
@@ -96,3 +115,15 @@ body {
 
 /* toc active state */
 .toc-item.active { color: #d8ccfe !important; border-left-color: var(--color-brand-violet) !important; background: linear-gradient(90deg, rgba(139,92,246,.12), transparent); }
+
+/* horizontal sliders: invisible until hovering the block */
+.doc-content pre,
+.doc-content table {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.doc-content pre:hover,
+.doc-content table:hover {
+  scrollbar-width: thin;
+  scrollbar-color: #2c3150 transparent;
+}

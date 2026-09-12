@@ -1,6 +1,6 @@
 modLoader = "javafml"
 loaderVersion = "[1,)"
-license = "CC0-1.0"
+license = "Apache-2.0 WITH Commons-Clause-1.0"
 issueTrackerURL = "https://github.com/PotenFYR-Studios/AuthCore/issues"
 
 [[mods]]

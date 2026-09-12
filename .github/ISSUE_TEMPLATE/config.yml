@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or community help
+    url: https://discord.com/invite/zUaN2FPBec
+    about: Ask the AuthCore community on the PotenFYR Studios Discord.
+  - name: Documentation
+    url: https://authcore.docs.potenfyr.in
+    about: Setup guides, configuration reference, security model, and developer API.
+  - name: Security vulnerability (private disclosure)
+    url: https://github.com/PotenFYR-Studios/AuthCore/security
+    about: Report vulnerabilities privately via GitHub Security Advisory - see SECURITY.md. Never open a public issue.

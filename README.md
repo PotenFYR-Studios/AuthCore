@@ -3,39 +3,40 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=0:8b5cf6,50:ec4899,100:f97316&height=220&section=header&text=AuthCore&fontSize=52&fontColor=ffffff&fontAlignY=34&desc=The%20Fortress%20Framework%20for%20Minecraft%20Servers%20%C2%B7%20Fabric%20%C2%B7%20Forge%20%C2%B7%20NeoForge&descSize=18&descAlignY=55&animation=twinkling" width="100%" alt="AuthCore Banner"/>
 
-[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code:wght@600&size=19&pause=1200&color=8B5CF6&center=true&vCenter=true&width=850&lines=The+Fortress+Framework+for+Minecraft+Servers+%F0%9F%8F%B0%F0%9F%94%90;One+Codebase+for+Minecraft+1.16.0+%E2%86%92+26.x%2B+and+Beyond;Fabric+%C2%B7+Forge+%C2%B7+NeoForge+%C2%B7+BungeeCord+%C2%B7+Velocity;7-Layer+Detection+Bypass+Defense+%C2%B7+2FA%2FMFA+%C2%B7+Web+Panel;Built+for+500k%2B+Accounts+with+Spike-Free+Concurrency;By+PotenFYR+Studios+%E2%80%94+support%40potenfyr.in)](https://github.com/PotenFYR-Studios/AuthCore)
+[![Typing SVG](https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=20&pause=1200&color=8B5CF6&center=true&vCenter=true&width=800&lines=The+Fortress+Framework+for+Minecraft+Servers+%F0%9F%8F%B0;One+Codebase+for+Minecraft+1.16+%E2%86%92+26.x%2B+and+Snapshots;Fabric+%C2%B7+Forge+%C2%B7+NeoForge+%C2%B7+BungeeCord+%C2%B7+Velocity;By+PotenFYR+Studios)](https://github.com/PotenFYR-Studios/AuthCore)
 
 <p align="center">
   <a href="https://potenfyr.in"><img src="https://img.shields.io/badge/Website-potenfyr.in-8b5cf6?style=for-the-badge&logo=googlechrome&logoColor=white&labelColor=1c1e26" alt="Website" /></a>
-  <a href="https://authcore.docs.potenfyr.in"><img src="https://img.shields.io/badge/Docs-authcore.potenfyr.in-ec4899?style=for-the-badge&logo=gitbook&logoColor=white&labelColor=1c1e26" alt="Documentation" /></a>
+  <a href="https://authcore.docs.potenfyr.in"><img src="https://img.shields.io/badge/Docs-authcore.docs.potenfyr.in-ec4899?style=for-the-badge&logo=gitbook&logoColor=white&labelColor=1c1e26" alt="Documentation" /></a>
   <a href="https://discord.com/invite/zUaN2FPBec"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?style=for-the-badge&logo=discord&logoColor=white&labelColor=1c1e26" alt="Discord" /></a>
   <a href="https://modrinth.com/mod/authCore"><img src="https://img.shields.io/badge/Modrinth-authCore-1bd96a?style=for-the-badge&logo=modrinth&logoColor=white&labelColor=1c1e26" alt="Modrinth" /></a>
   <a href="mailto:support@potenfyr.in"><img src="https://img.shields.io/badge/Email-support%40potenfyr.in-f97316?style=for-the-badge&logo=gmail&logoColor=white&labelColor=1c1e26" alt="Email" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore"><img src="https://komarev.com/ghpvc/?username=PotenFYR-Studios-AuthCore&color=ec4899&style=for-the-badge&label=VIEWS&labelColor=1c1e26" alt="Views" /></a>
+  <a href="https://github.com/PotenFYR-Studios/AuthCore"><img src="https://komarev.com/ghpvc/?username=PotenFYR-Studios-AuthCore&color=ec4899&style=for-the-badge&label=PROFILE+VIEWS&labelColor=1c1e26" alt="Profile views" /></a>
 </p>
 
-[![CI Build](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/ci.yml/badge.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/ci.yml)
-[![Snapshot Compat](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/snapshot-compat.yml/badge.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/snapshot-compat.yml)
+[![Release](https://img.shields.io/github/v/release/PotenFYR-Studios/AuthCore?style=flat-square&display_name=release&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/releases/latest)
+[![Development Build](https://img.shields.io/badge/Dev%20Build-latest-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore/releases/tag/latest)
+[![CI Build](https://img.shields.io/github/actions/workflow/status/PotenFYR-Studios/AuthCore/ci.yml?style=flat-square&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/ci.yml)
+[![Snapshot Compat](https://img.shields.io/github/actions/workflow/status/PotenFYR-Studios/AuthCore/snapshot-compat.yml?style=flat-square&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/snapshot-compat.yml)
 [![Minecraft Versions](https://img.shields.io/badge/Minecraft-1.16.0%20%E2%86%92%2026.x%2B-5865F2?style=flat-square&logo=minecraft&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-which-jar-do-i-need)
-[![Loaders](https://img.shields.io/badge/Loaders-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity-orange?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-multi-version--multi-loader-compatibility)
+[![Loaders](https://img.shields.io/badge/Loaders-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-multi-version--multi-loader-compatibility)
 [![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-b07219?style=flat-square&logo=openjdk&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-building-from-source)
 [![Security Tests](https://img.shields.io/badge/Security%20Suite-180%2B%20Checks%20Passed-2ea043?style=flat-square&logo=shield&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-security-testing)
-[![License: Apache-2.0 + Commons Clause](https://img.shields.io/badge/License-Apache--2.0%20%2B%20Commons%20Clause-blue.svg?style=flat-square&labelColor=1c1e26)](LICENSE)
+[![License: Apache-2.0 + Commons Clause](https://img.shields.io/badge/License-Apache--2.0%20%2B%20Commons%20Clause-8b5cf6?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore/blob/master/LICENSE)
 
 <p align="center">
   <b>The Fortress Framework for Minecraft Servers. One unified codebase for 1.16.0 → 26.x+ on Fabric, Forge, and NeoForge.</b><br>
-  Hardened against every attack scenario, race-condition-free under burst load, and engineered to hold <b>500k+ registered accounts</b> and thousands of concurrent players with flat, spike-free resource usage.
+  Server-side Minecraft authentication that works in both online-mode and offline-mode (cracked) environments, hardened against bypasses, race-condition-free under burst load, and engineered to hold <b>500k+ registered accounts</b> and thousands of concurrent players with flat, spike-free resource usage.
 </p>
 
 <p align="center">
   <a href="#-quick-start-in-5-minutes">Quick Start</a> •
-  <a href="#-highlights--core-philosophy">Highlights</a> •
+  <a href="#-what-is-authcore">What Is AuthCore?</a> •
   <a href="#-which-jar-do-i-need">Jar Matrix</a> •
-  <a href="#-architecture--authentication-lifecycle">Architecture</a> •
   <a href="#%EF%B8%8F-commands">Commands</a> •
   <a href="#%EF%B8%8F-configuration">Configuration</a> •
   <a href="#%EF%B8%8F-detection-bypass-resistance">Security Model</a> •
-  <a href="#-activity-star-history--metrics">Live Metrics</a> •
+  <a href="#-documentation">Docs</a> •
   <a href="#-community--contributing">Community</a>
 </p>
 
@@ -48,20 +49,17 @@
 <details open>
 <summary><b>Click to expand / collapse contents</b></summary>
 
-- [✨ Highlights & Core Philosophy](#-highlights--core-philosophy)
+- [What Is AuthCore?](#-what-is-authcore)
 - [🚀 Quick Start in 5 Minutes](#-quick-start-in-5-minutes)
 - [📦 Which Jar Do I Need?](#-which-jar-do-i-need)
 - [🧩 Architecture & Authentication Lifecycle](#-architecture--authentication-lifecycle)
 - [🛡️ 7-Layer Detection Bypass Resistance](#%EF%B8%8F-detection-bypass-resistance)
 - [🛠️ Commands Reference](#%EF%B8%8F-commands)
-  - [Player Commands](#player-commands)
-  - [Admin Commands](#admin-commands)
 - [⚙️ Split Configuration Architecture](#%EF%B8%8F-configuration)
 - [🚦 Complete Feature Setup Matrix](#-feature-setup-at-a-glance)
 - [🌍 Multi-Language Localization](#-languages)
 - [🔁 Proxy & Network Integration (Velocity / BungeeCord)](#-proxy--network-velocity--bungeecord)
 - [⚡ Performance & Resource Tuning](#-performance)
-  - [Low-Resource Hardware Guidelines (≤ 250 MB RAM / 1 Core)](#-low-resource-servers--250-mb-ram--1-core)
 - [🔮 Multi-Version & Multi-Loader Compatibility](#-multi-version--multi-loader-compatibility)
 - [🧑‍💻 Building From Source](#-building-from-source)
 - [🧪 Security Testing](#-security-testing)
@@ -69,7 +67,6 @@
 - [📚 Comprehensive Documentation Portal](#-documentation)
 - [❓ Frequently Asked Questions (FAQ)](#-faq)
 - [🗺️ Roadmap & Shipped Milestones](#%EF%B8%8F-roadmap)
-- [📈 Activity, Star History & Metrics](#-activity-star-history--metrics)
 - [🤝 Community & Contributing](#-community--contributing)
 - [📜 License](#-license)
 
@@ -77,30 +74,18 @@
 
 ---
 
-## ✨ Highlights & Core Philosophy
+## 🔎 What Is AuthCore?
 
-<table>
-  <tr>
-    <td width="50%">
-      <h3>🏰 Single Universal Codebase</h3>
-      <p>One unified codebase spanning <b>Minecraft 1.16.0 → 26.x+ and snapshots</b> across <b>Fabric, Forge, NeoForge</b>, and <b>Velocity/BungeeCord</b>. Each range jar serves dual roles: server mod and proxy plugin with zero porting overhead.</p>
-    </td>
-    <td width="50%">
-      <h3>🔒 Defense-in-Depth & Zero-Leak</h3>
-      <p>7-layer detection bypass defense, Argon2id/BCrypt/SCRAM password hashing, risk-based physical action captcha, brute-force lockouts, honeypots, and token-authenticated HTTPS REST web admin panel.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <h3>⚡ 500k+ Scale & Zero Resource Spikes</h3>
-      <p>O(1) UUID-keyed lockless lookups, bounded LRU caches, lazy database fetching, atomic sequence gates, and throttled anchor teleports guarantee flat, spike-free memory and CPU curves under burst join storms.</p>
-    </td>
-    <td width="50%">
-      <h3>🛡️ Outage-Proof Hybrid Auth</h3>
-      <p>Automatic server mode detection from <code>server.properties</code>. Background-retrying Mojang verification allows verified premium players to bypass passwords while offline/cracked players join and authenticate seamlessly.</p>
-    </td>
-  </tr>
-</table>
+**AuthCore is a universal, server-side authentication and security framework for Minecraft servers.** It solves the problem every server operator eventually faces: Minecraft's account system alone cannot protect your server. Offline-mode servers have no password protection at all, mixed communities of premium and cracked players are hard to serve safely, and bot farms, credential stuffing, and session hijacking are constant threats on both modes.
+
+AuthCore answers with one framework that:
+
+- **Authenticates players** with `/register` and `/login`, per-account passwords, TOTP 2FA, and email recovery, or automatically verifies premium accounts against Mojang session servers so legitimate players never type a password.
+- **Runs in both online-mode and offline-mode** (`allow-offline-players`): on an online-mode server, verified premium players auto-login while offline/cracked players authenticate with passwords; on offline-mode servers everyone gets full password protection.
+- **Defends the join path** with a 7-layer detection stack, risk-score captchas, brute-force lockouts, rate limits, honeypots, and CIDR IP rules.
+- **Scales**: O(1) UUID-keyed lookups, bounded caches, zero per-tick work, and no database queries on hot paths keep memory and CPU flat during join storms.
+
+Each released jar is dual-role: a native **Fabric / Forge / NeoForge** server mod *and* a **BungeeCord / Velocity** proxy plugin, with network-wide SSO over Redis. Players never install anything: AuthCore is 100% server-side.
 
 ---
 
@@ -116,26 +101,11 @@ graph LR
 
 1. **Pick the Right Jar**: Select the jar matching your server loader and Minecraft version from the [Jar Matrix](#-which-jar-do-i-need) via [Modrinth](https://modrinth.com/mod/authCore) or [GitHub Releases](https://github.com/PotenFYR-Studios/AuthCore/releases).
 2. **Install**: Drop the jar file directly into your server's `mods/` directory (or your proxy's `plugins/` directory).
-3. **Start the Server**: AuthCore boots out of the box with zero required configuration. An embedded SQLite database (`authcore.db`) is automatically provisioned in `config/authcore/`.
+3. **Start the Server**: AuthCore boots out of the box with zero required configuration. An embedded SQLite database (`authCore-db.sqlite`) is automatically provisioned under `config/authcore/database/`.
 4. **First Join Experience**:
    - **Premium Players**: Verified asynchronously against Mojang session servers with background retry resilience. Auto-logged in without requiring passwords.
    - **Cracked / Offline Players**: Anchored inside the secure limbo lobby, prompted with interactive chat buttons or commands: `/register <password> <confirm>` or `/login <password>`.
-5. **Administer**: Run `/authcore validate` to dry-run configuration integrity or check the interactive web panel at `https://127.0.0.1:25570`.
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  ✓  AUTHCORE v1.0.0 — FORTRESS FRAMEWORK INITIALIZED       │
-├─────────────────────────────────────────────────────────────┤
-│  Platform         : Fabric / Forge / NeoForge / Velocity   │
-│  Minecraft        : 1.16.0 → 26.x+ (Universal Range Engine) │
-│  Database         : SQLite (WAL) / MySQL / PostgreSQL       │
-│  Security Stack   : 7-Layer Detection Bypass Resistance     │
-│  Crypto           : Argon2id (M:64MB, T:3, P:1) + SCRAM     │
-│  Proxy Forwarding : Auto-Detected (Velocity HMAC / Bungee)  │
-│  Web Panel        : https://127.0.0.1:25570 (Token Guarded) │
-│  Status           : 0 Warnings · 180+ Security Audits PASS  │
-└─────────────────────────────────────────────────────────────┘
-```
+5. **Administer**: Run `/authcore validate` to dry-run configuration integrity. For remote administration, enable the optional web panel (disabled by default) and reach it at `http://127.0.0.1:25570` with your access token.
 
 > [!NOTE]
 > New to AuthCore? Check out the full [Server Admin Guide](https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html) for visual step-by-step walkthroughs, permission setups, and proxy topologies.
@@ -232,7 +202,7 @@ AuthCore deploys a **7-layer defense-in-depth security stack** designed to make 
 
 ### Admin Commands
 
-> Access requires Minecraft OP level 3+, LuckPerms permission node, or server console execution.
+> Access requires Minecraft OP level 3+, LuckPerms permission node, or server console execution. Every command's permission node and OP level is configurable in `commands.conf`.
 
 | Command | Syntax & Usage | Purpose |
 |:---|:---|:---|
@@ -259,13 +229,14 @@ AuthCore generates all configuration files inside `config/authcore/`. The archit
 
 | Configuration File | Domain Scope | Primary Settings |
 |:---|:---|:---|
-| `settings.conf` | Root Settings | `language`, `debugMode`, `logging`, `cache-max-users`, schema `version` |
+| `settings.conf` | Root Settings | `language`, `debug-mode`, `logging`, `cache-max-users`, schema `version` |
 | `session.conf` | Session & Security | Session TTLs, account locking, SSO, web panel, SMTP email, ClientGuard |
 | `lobby.conf` | Limbo Lobby & Captcha | Limbo restrictions, timeouts, action captcha tuning, anti-vibration intervals |
 | `password-rules.conf` | Password Rules | Minimum length, required character classes, hashing algorithm (Argon2id/BCrypt) |
 | `commands.conf` | Command Permissions | Command LuckPerms permission nodes, aliases, and OP level overrides |
 | `database.conf` | Database Storage | SQLite, MySQL, PostgreSQL, and Redis connection strings & pool sizing |
-| `messages-<lang>.conf` | Localization | UI messages, titles, action bars, chat text (e.g. `messages-en.conf`) |
+| `ip-rules.conf` | CIDR IP Rules | Explicit allow/deny lists for addresses, VPN ranges, and ASN networks |
+| `messages-<lang>.conf` | Localization | UI messages, titles, action bars, chat text (English is built in) |
 
 ### Example Configuration Snippet
 
@@ -295,9 +266,9 @@ session {
     }
 
     web-panel {
-        enabled = false       # REST administration dashboard
+        enabled = false       # REST administration dashboard (token mandatory)
         host = "127.0.0.1"
-        port = 25570
+        port = 25570          # HTTPS (optional, self-signed) on 25571
         token = "CHANGE_ME"   # Generate via: openssl rand -hex 16
     }
 
@@ -318,6 +289,8 @@ lobby {
 }
 ```
 
+Explore all ~180 parameters with defaults and use-cases in the [Configuration Reference](https://authcore.docs.potenfyr.in/docs/1.0.0/config.html).
+
 ---
 
 ## 🚦 Feature Setup at a Glance
@@ -336,7 +309,7 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 | **CIDR IP Rules** | `ip-rules.conf` | Explicitly whitelist or blacklist IP addresses, VPN ranges, or ASN networks | `deny = ["45.155.0.0/16"]` |
 | **Network-Wide SSO** | `session.sso` + Redis | Single sign-on across multi-server proxy networks; authenticate once, play anywhere | `database { redis { enabled = true } }` + `sso { enabled = true }` |
 | **Web Administration Panel** | `session.web-panel` | Secure token-authenticated browser interface and REST API for remote management | `session { web-panel { enabled = true; token = "..." } }` |
-| **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25571 } }` |
+| **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25599 } }` |
 | **Hybrid Auto-Login** | `session.authentication` | Automatically logs in verified Mojang accounts while seamlessly allowing cracked clients | `session { authentication { premium-auto-login = true } }` |
 | **Proxy Forwarding** | `session.proxy-support` | Unpacks real client IPs and UUIDs from BungeeCord or modern Velocity HMAC handshakes | `session { proxy-support { enabled = true; protocol = "auto" } }` |
 | **Maintenance Mode** | `session.maintenance` | Restricts player access to administrators during database upgrades or server updates | `/authcore maintenance on` |
@@ -350,11 +323,11 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 
 ## 🌍 Languages
 
-AuthCore natively includes 7 community-translated languages out of the box. The active language is controlled via `language = "en"` in `settings.conf`:
+AuthCore ships with **7 languages**: English is built in, plus 6 bundled community translations. The active language is controlled via `language = "en"` in `settings.conf`:
 
 | Code | Language | Code | Language |
 |:---:|:---|:---:|:---|
-| `en` | English | `de` | Deutsch (German) |
+| `en` | English *(built in)* | `de` | Deutsch (German) |
 | `zh` | 简体中文 (Simplified Chinese) | `fr` | Français (French) |
 | `es` | Español (Spanish) | `pt` | Português (Portuguese) |
 | `ru` | Русский (Russian) | | |
@@ -404,31 +377,34 @@ java -Xmx192M -Xms64M -XX:+UseSerialGC -XX:TieredStopAtLevel=1 \
 AuthCore maintains a single unified codebase utilizing **Stonecutter** and **Stonecraft** conditional compilation:
 
 ```text
-src/main/java/          --> Shared canonical Java source tree
-├── in/potenfyr/authcore/
-│   ├── api/            --> AuthCore public developer API
-│   ├── auth/           --> Authentication controllers & 2FA
-│   ├── cache/          --> High-throughput lockless caches
-│   ├── command/        --> Cross-platform command handlers
-│   ├── config/         --> Split HOCON configuration manager
-│   ├── database/       --> SQLite, MySQL, PostgreSQL, Redis drivers
-│   ├── listener/       --> Cross-loader event listeners
-│   ├── mixin/          --> Universal platform mixins
-│   ├── model/          --> User and session data models
-│   ├── proxy/          --> Velocity & BungeeCord IP forwarding
-│   ├── security/       --> 7-layer detection bypass & ClientGuard
-│   └── web/            --> HTTPS token-authenticated REST web panel
+src/
+├── main/java/in/potenfyr/authcore/  --> Shared canonical source tree (Mojang mappings)
+│   ├── AuthCoreServer.java          --> Universal engine: core bootstrap & lifecycle
+│   ├── api/                         --> AuthCoreApi public developer API
+│   ├── command/                     --> Cross-platform command handlers (/register, /login, /account, ...)
+│   ├── compat/                      --> Loader & version compatibility shims
+│   ├── entrypoint/                  --> Shared loader entrypoint base
+│   ├── events/                      --> Block, entity & server event listeners
+│   ├── integration/                 --> Third-party mod integrations (LuckPerms, DiscordSRV, ...)
+│   ├── mixin/                       --> Universal platform mixins (login/auth network stages only)
+│   ├── models/                      --> User & session data models, Config/Lobby/Messages
+│   ├── network/                     --> Web panel, webhooks, SMTP, GeoIP, Redis, proxy support
+│   ├── proxy/                       --> BungeeCord & Velocity plugin entrypoints, SSO session cache
+│   ├── security/                    --> Hashing & 2FA, rate limits, ClientGuard, captcha, honeypot, IP rules
+│   └── util/                        --> HOCON config engine, database drivers, AuthMe importer, scheduler
+├── fabric/java/.../entrypoint/      --> FabricEntry (per-loader thin entrypoints)
+└── neoforge/java/.../entrypoint/    --> NeoForgeEntry
 ```
 
 - **Loader Independence**: Thin entrypoints (`FabricEntry`, `ForgeEntry`, `NeoForgeEntry`) bridge native loader hooks into AuthCore's universal engine.
-- **Unobfuscated 26.x Compatibility**: Forward-compatible Mojang mappings allow instant builds against modern and future Minecraft versions.
+- **Unobfuscated 26.x Compatibility**: Forward-compatible Mojang mappings allow instant builds against modern and future Minecraft versions; future snapshot lines are detected automatically at build time.
 - **Non-Invasive Mixins**: Mixins touch only login and authentication network stages, ensuring zero incompatibilities with performance optimization mods including **Lithium, C2ME, Krypton, ModernFix, FerriteCore**, and **Spark**.
 
 ---
 
 ## 🧑‍💻 Building From Source
 
-AuthCore requires **JDK 25** to compile all project targets (enforced by the modern 26.1–26.2 build pipeline). If portable JDKs are needed, execute `test/install-java-and-provided-jars.sh` to automatically install Adoptium JDKs 17, 21, and 25.
+Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group), so any installed JDK 17+ can launch the build. If portable JDKs are preferred, run `test/install-java-and-provided-jars.sh` to install Adoptium JDKs and the vendored proxy/API jars automatically. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full developer guide.
 
 ```bash
 # Build ALL 6 range variants (jars staged automatically into dist/)
@@ -462,10 +438,11 @@ test/run-security-tests.sh
 ```
 
 Audited components include:
-- **Hashing Algorithms**: Argon2id, BCrypt, SCrypt, PBKDF2, SHA-256, and legacy hash transparent auto-upgrading.
+- **Hashing Algorithms**: Argon2id, BCrypt, SCrypt, PBKDF2, SHA-256, SHA-512, and legacy hash transparent auto-upgrading.
 - **Cryptographic Security**: CSPRNG salt uniqueness, constant-time comparisons, and timing leak prevention.
 - **Exploit & Abuse Defenses**: Captcha state machine lifecycle, SMTP token expiry, camera look-pattern variance, and bot farm concurrency detection.
-- **Migration Engine**: 18 automated checks validating legacy single-file to split-configuration migrations.
+- **Proxy Security**: Trusted-proxy source validation, spoofed-forwarding rejection, and Velocity HMAC verification.
+- **Migration Engine**: Automated checks validating legacy single-file to split-configuration migrations.
 
 ---
 
@@ -475,7 +452,7 @@ To guarantee flawless runtime stability, our test harness boots every range jar 
 
 ```bash
 # Execute smoke matrix across all loader targets
-test/docker/run-tests.sh
+test/docker/run-tests.sh --smoke
 
 # Execute full matrix across all range endpoints
 test/docker/run-tests.sh --all
@@ -496,7 +473,7 @@ Each automated test validates:
 
 ## 📚 Documentation
 
-Detailed documentation guides are hosted at [authcore.potenfyr.in](https://authcore.docs.potenfyr.in):
+Detailed documentation guides are hosted at [authcore.docs.potenfyr.in](https://authcore.docs.potenfyr.in):
 
 | Guide | Description |
 |:---|:---|
@@ -562,40 +539,15 @@ No. AuthCore operates 100% server-side. Players connect using vanilla Minecraft 
 
 ---
 
-## 📈 Activity, Star History & Metrics
-
-<div align="center">
-
-<p align="center">
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/stargazers"><img src="https://img.shields.io/github/stars/PotenFYR-Studios/AuthCore?style=flat-square&logo=github&labelColor=1c1e26&color=eac54f" alt="GitHub Stars" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/network/members"><img src="https://img.shields.io/github/forks/PotenFYR-Studios/AuthCore?style=flat-square&logo=github&labelColor=1c1e26&color=0078d7" alt="GitHub Forks" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/issues"><img src="https://img.shields.io/github/issues/PotenFYR-Studios/AuthCore?style=flat-square&logo=github&labelColor=1c1e26&color=db61a2" alt="GitHub Issues" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/pulls"><img src="https://img.shields.io/github/issues-pr/PotenFYR-Studios/AuthCore?style=flat-square&logo=github&labelColor=1c1e26&color=2ea043" alt="GitHub Pull Requests" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/graphs/contributors"><img src="https://img.shields.io/github/contributors/PotenFYR-Studios/AuthCore?style=flat-square&labelColor=1c1e26&color=8957e5" alt="Contributors" /></a>
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/commits/main"><img src="https://img.shields.io/github/last-commit/PotenFYR-Studios/AuthCore?style=flat-square&logo=git&labelColor=1c1e26&color=2ea043" alt="Last Commit" /></a>
-</p>
-
-### 🌟 Real-time Star History
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=potenfyr-studios/authcore&type=Date&theme=dark">
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=potenfyr-studios/authcore&type=Date&theme=light">
-  <img src="https://api.star-history.com/svg?repos=potenfyr-studios/authcore&type=Date&theme=dark" alt="AuthCore Star History Graph" width="100%">
-</picture>
-
-<sub>📈 Live star graph rendered via <a href="https://star-history.com">star-history.com</a>. Updates in real-time as users star the repository.</sub>
-
-</div>
-
----
-
 ## 🤝 Community & Contributing
 
 We warmly welcome community contributions, bug reports, and feature proposals!
 
-- **Found a bug or have an idea?** Submit an issue on the [Issue Tracker](https://github.com/PotenFYR-Studios/AuthCore/issues) or start a thread in [Discussions](https://github.com/PotenFYR-Studios/AuthCore/discussions).
-- **Submitting code?** Fork the repository, create a descriptive branch, and submit a [Pull Request](https://github.com/PotenFYR-Studios/AuthCore/pulls) conforming to Google Java Format standards.
-- **Need community support or direct assistance?** Join us on Discord!
+- **Found a bug?** Please [open a GitHub Issue](https://github.com/PotenFYR-Studios/AuthCore/issues/new/choose) using the bug report form; include your AuthCore version, loader, and Minecraft/Java versions.
+- **Have an idea?** Open a feature request issue or start a thread in [Discussions](https://github.com/PotenFYR-Studios/AuthCore/discussions).
+- **Want to submit code?** Read [CONTRIBUTING.md](CONTRIBUTING.md) first; it covers the Stonecutter workspace, real build/test commands, branch guidance, and PR expectations, then fork and open a Pull Request.
+- **Found a security vulnerability?** Do **not** open a public issue; follow [SECURITY.md](SECURITY.md) and report it privately.
+- **Need community support?** Join us on Discord!
 
 <div align="center">
 
@@ -609,7 +561,11 @@ We warmly welcome community contributions, bug reports, and feature proposals!
 
 ## 📜 License
 
-This project is licensed under the **Apache License 2.0 with the Commons Clause** - see the [LICENSE](LICENSE) file for details. You may freely use, modify, and distribute AuthCore (including in modpacks), and build products or services around it, but the software itself may not be sold as a paid product.
+AuthCore is licensed under the **Apache License 2.0 with the Commons Clause**. The authoritative text is the repo's [LICENSE file](https://github.com/PotenFYR-Studios/AuthCore/blob/master/LICENSE). In short:
+
+- ✅ **You are free** to use, fork, modify, and distribute AuthCore for any purpose, including commercial use, modpacks, and building products or services *around* it.
+- ❌ **You may not sell** the software itself: AuthCore (or a product/service whose value derives entirely or substantially from it) may not be offered for sale as a paid product.
+- 📄 **The [LICENSE](https://github.com/PotenFYR-Studios/AuthCore/blob/master/LICENSE) file is authoritative**; this section is only a friendly summary, not legal advice or the binding terms.
 
 ---
 
@@ -617,9 +573,7 @@ Built by **[PotenFYR Studios](https://github.com/PotenFYR-Studios)** · [potenfy
 
 <div align="center">
 
-<p><b>Crafted with passion by <a href="https://github.com/PotenFYR-Studios">PotenFYR Studios</a></b><br>
-<i>Support & Inquiries: <a href="mailto:support@potenfyr.in">support@potenfyr.in</a></i></p>
-
-<img src="https://capsule-render.vercel.app/api?type=waving&color=0:f97316,50:ec4899,100:8b5cf6&height=120&section=footer&text=Made%20with%20%E2%9D%A4%EF%B8%8F%20by%20PotenFYR%20Studios&fontSize=22&fontColor=ffffff&animation=twinkling" width="100%" alt="PotenFYR footer banner"/>
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:f97316,50:ec4899,100:8b5cf6&height=120&section=footer&text=Made%20with%20%E2%9D%A4%EF%B8%8F%20by%20PotenFYR%20Studios&fontSize=22&fontColor=ffffff&animation=twinkling" width="100%" alt="footer"/>
 
 </div>
+<!-- markdownlint-enable -->

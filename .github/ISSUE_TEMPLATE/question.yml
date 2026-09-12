@@ -1,0 +1,47 @@
+name: ❓ Question
+description: Ask how AuthCore works or how to set something up.
+title: "[Question]: "
+labels: ["question", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking: the [documentation](https://authcore.docs.potenfyr.in) covers setup
+        ([guide](https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html)),
+        [configuration](https://authcore.docs.potenfyr.in/docs/1.0.0/config.html), and the
+        [security model](https://authcore.docs.potenfyr.in/docs/1.0.0/security.html) in depth.
+        Community help is also fast on [Discord](https://discord.com/invite/zUaN2FPBec).
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+      description: One clear question per issue. What are you trying to do?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AuthCore version / loader / Minecraft version
+      placeholder: "e.g. 1.0.0, NeoForge 1.21.1, Java 21"
+    validations:
+      required: false
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried / which docs did you check?
+      description: Link the guide section or config keys you already looked at, and what you attempted.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Final checks
+      options:
+        - label: I checked the documentation and searched existing issues first.
+          required: true
+        - label: My message contains no secrets from config/authcore/ and no exploit details.
+          required: true

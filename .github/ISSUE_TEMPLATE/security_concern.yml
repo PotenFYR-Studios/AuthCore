@@ -1,0 +1,65 @@
+name: 🛡️ Security Concern (non-critical)
+description: Ask a hardening question or report a NON-sensitive security observation. Vulnerabilities must go through SECURITY.md, never this form.
+title: "[Security]: "
+labels: ["security", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **STOP - READ THIS FIRST**
+
+        This form is **only** for non-sensitive security topics: hardening questions,
+        configuration advice, or observations that do **not** expose a way to attack a server.
+
+        **Do NOT use this form (and never a public issue) if you can reproduce an exploitable
+        vulnerability** - authentication bypass, session theft, limbo escape, proxy spoofing,
+        panel flaws, or anything with working exploit steps or proof-of-concept code.
+
+        → For anything exploitable, follow **[SECURITY.md](../blob/master/SECURITY.md)**:
+        open a private **GitHub Security Advisory** (Security → Report a vulnerability) or
+        email **support@potenfyr.in** with `[AuthCore Security]` in the subject.
+
+        **Never post in any public issue:** secrets from `config/authcore/` (panel tokens,
+        webhook URLs, SMTP credentials, `velocity-secret`, database passwords), exploit code,
+        or proof-of-concept payloads. Scrub all logs before pasting.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of security topic is this?
+      options:
+        - Hardening / configuration advice question
+        - Suspicious log behavior I want explained
+        - Documentation unclear about a security feature
+        - Best-practice question (proxy, SSO, web panel, backups)
+        - Other non-sensitive topic
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: not-exploitable
+    attributes:
+      label: Sensitive information confirmation
+      options:
+        - label: This report does NOT contain working exploit steps, proof-of-concept code, or attack payloads.
+          required: true
+        - label: This report does NOT contain secrets (tokens, webhook URLs, credentials, velocity-secret).
+          required: true
+        - label: I understand that exploitable vulnerabilities must go through SECURITY.md private channels instead.
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the question or non-sensitive observation. Include AuthCore version, loader, and relevant (scrubbed) config context.
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AuthCore version / loader
+      placeholder: "e.g. 1.0.0 on Fabric 1.21.1"
+    validations:
+      required: false

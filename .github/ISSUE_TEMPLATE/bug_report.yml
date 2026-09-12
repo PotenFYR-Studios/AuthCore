@@ -1,0 +1,138 @@
+name: 🐛 Bug Report
+description: Report a problem with AuthCore (crash, wrong behavior, authentication failure).
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill out the form completely -
+        the version/loader details below are the fastest path to a fix.
+
+        **Before you start:** never paste secrets from `config/authcore/` (web panel token,
+        webhook URLs, SMTP credentials, `velocity-secret`, database passwords). Scrub logs
+        before attaching. If this is an exploitable **security vulnerability**, stop here and
+        follow [SECURITY.md](../blob/master/SECURITY.md) for private reporting instead.
+
+        **Before submitting:** search [existing issues](https://github.com/PotenFYR-Studios/AuthCore/issues?q=is%3Aissue) for duplicates and test against the latest release or `latest` development build.
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: AuthCore version
+      options:
+        - "1.0.0 (stable)"
+        - "latest (development build)"
+        - "older (unsupported - please update first)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Loader / platform
+      options:
+        - Fabric (server)
+        - Forge (server)
+        - NeoForge (server)
+        - Velocity (proxy)
+        - BungeeCord (proxy)
+        - Other / unsure
+    validations:
+      required: true
+
+  - type: input
+    id: mc-version
+    attributes:
+      label: Minecraft version
+      description: "e.g. 1.21.1, 1.16.5, 26.1 - must be inside the range of the jar you installed."
+    validations:
+      required: true
+
+  - type: input
+    id: java-version
+    attributes:
+      label: Java version
+      description: "e.g. OpenJDK 21.0.4 - output of `java -version`."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install AuthCore?
+      options:
+        - Modrinth download
+        - GitHub Release asset
+        - Built from source (./gradlew)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: databases
+    attributes:
+      label: Database / storage in use
+      options:
+        - SQLite (default)
+        - MySQL
+        - PostgreSQL
+        - Redis SSO also enabled
+        - Other / unsure
+    validations:
+      required: false
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly and what you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start server with ...
+        2. Join with ...
+        3. Run `/authcore ...`
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / console output
+      description: |
+        Paste the relevant log section in a code block. **Scrub anything sensitive** - tokens,
+        webhook URLs, e-mail addresses, database passwords. Stack traces from `logs/latest.log`
+        are ideal.
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: "Only the changed blocks of your config/authcore/*.conf files, with ALL secrets removed."
+      render: hocon
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Final checks
+      options:
+        - label: I searched existing issues and found no duplicate.
+          required: true
+        - label: I reproduced this on AuthCore 1.0.0 or the latest development build.
+          required: true
+        - label: I removed all secrets (tokens, webhook URLs, credentials) from logs and config.
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true

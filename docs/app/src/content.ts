@@ -25,12 +25,13 @@ export const PAGES: DocPage[] = [
   { id: "api", title: "Developer API" },
   { id: "development", title: "Development & Architecture" },
   { id: "changelog", title: "Changelog" },
+  { id: "license", title: "License" },
 ].map((p) => {
   const html = raw[`../content/${p.id}.html`] ?? "";
   const d = html.match(/<meta name="description" content="([^"]*)"/);
   return {
     ...p,
-    description: d ? d[1] : `AuthCore documentation — ${p.title}.`,
+    description: d ? d[1] : `AuthCore documentation: ${p.title}.`,
     html,
   };
 });
@@ -49,7 +50,7 @@ const mainCache = new Map<string, string>();
 
 /**
  * Extract only the article content from a legacy page: the <main> inside the
- * old .layout wrapper — dropping the legacy site header, TOC, progress bar,
+ * old .layout wrapper, dropping the legacy site header, TOC, progress bar,
  * back-to-top button and scripts, all replaced by the React layout.
  */
 export function extractMain(id: string): string {
@@ -58,7 +59,7 @@ export function extractMain(id: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc
     .querySelectorAll(
-      "script, .site-header, .toc, #progress, #authcore-versionbar, .page-nav, #back-to-top, .back-to-top, .foot",
+      "script, .site-header, .toc, #progress, #authcore-versionbar, .page-nav, #back-to-top, .back-to-top, .foot, hr",
     )
     .forEach((n) => n.remove());
   const main =
@@ -66,7 +67,8 @@ export function extractMain(id: string): string {
     doc.querySelector("main") ??
     doc.body;
   // strip decorative emojis from headings
-  const emoji = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]+\s*/gu;
+  const emoji =
+    /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]+\s*/gu;
   doc.querySelectorAll("h1, h2, h3, h4").forEach((h) => {
     const first = h.firstChild;
     if (first && first.nodeType === 3) {

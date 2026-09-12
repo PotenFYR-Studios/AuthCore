@@ -1,0 +1,71 @@
+name: 📚 Documentation
+description: Report an issue with the docs at authcore.docs.potenfyr.in or in the README.
+title: "[Docs]: "
+labels: ["documentation", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Found a typo, an outdated step, or a missing topic? Tell us where and what to change.
+        Docs live in `docs/app/content/*.html` - PRs are very welcome (see CONTRIBUTING.md).
+
+  - type: dropdown
+    id: page
+    attributes:
+      label: Where is the problem?
+      options:
+        - Documentation hub (https://authcore.docs.potenfyr.in/docs/1.0.0/index.html)
+        - Admin guide (guide.html)
+        - Authentication flows (flows.html)
+        - Configuration reference (config.html)
+        - Proxy support (proxy.html)
+        - Web admin panel (webpanel.html)
+        - Security model (security.html)
+        - 26.x builds & migration (26x.html)
+        - Developer API (api.html)
+        - Development & architecture (development.html)
+        - Changelog (changelog.html)
+        - License (license.html)
+        - README.md
+        - Other / not listed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of issue
+      options:
+        - Typo / formatting
+        - Unclear or confusing explanation
+        - Missing information
+        - Outdated / wrong information
+        - Broken link
+    validations:
+      required: true
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text or section
+      description: Quote the text or describe the section (or paste the URL anchor).
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested improvement
+      description: What should it say instead? If you know the correct behavior from your own setup, include it.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Final checks
+      options:
+        - label: I checked the latest version of the docs (hard refresh / current release).
+          required: true
+        - label: This is not a security vulnerability (those go through SECURITY.md).
+          required: true

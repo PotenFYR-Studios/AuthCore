@@ -1,5 +1,5 @@
 /* ==========================================================================
- * AuthCore Docs — navigation toolkit (shared, org standard)
+ * AuthCore Docs: navigation toolkit (shared, org standard)
  *   • copy buttons on code blocks
  *   • scrollspy: highlights the active TOC entry while scrolling
  *   • Ctrl/⌘+K command palette: jump to any section or doc page

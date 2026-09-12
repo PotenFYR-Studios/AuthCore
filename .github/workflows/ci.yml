@@ -80,13 +80,13 @@ jobs:
             java: 25
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Validate Gradle wrapper
-        uses: gradle/actions/wrapper-validation@v4
+        uses: gradle/actions/wrapper-validation@v6
 
       - name: Set up JDK 17 + JDK 21 + JDK 25
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: |
@@ -161,7 +161,7 @@ jobs:
           bash test/run-security-tests.sh 1.21.11-fabric
 
       - name: Upload variant jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jars-${{ matrix.variant }}
           path: release/*.jar
@@ -170,7 +170,7 @@ jobs:
 
       - name: Upload test reports on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-reports-${{ matrix.variant }}
           path: |
@@ -191,7 +191,7 @@ jobs:
       contents: read
     steps:
       - name: Collect variant jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: jars-*
           merge-multiple: true
@@ -208,7 +208,7 @@ jobs:
           ls -la release/
 
       - name: Upload merged jars (shared with host-tests, release and dev-release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: authcore-jars
           path: release/*.jar
@@ -237,10 +237,10 @@ jobs:
             java: 25
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: authcore-jars
           path: dist
@@ -250,7 +250,7 @@ jobs:
       # cached - never work/: containers run as root on Linux CI, and
       # root-owned files cannot be pruned by the runner user.
       - name: Restore harness caches (server downloads)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: test/docker/.cache
           key: dockertests-${{ runner.os }}-${{ matrix.group }}-${{ hashFiles('test/docker/**', 'versions/dependencies/*.properties') }}
@@ -274,7 +274,7 @@ jobs:
 
       - name: Upload harness report for group ${{ matrix.group }}
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: host-test-report-${{ matrix.group }}
           path: |
@@ -294,10 +294,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download validated jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: authcore-jars
           path: release
@@ -328,7 +328,7 @@ jobs:
         # lingers). A different tag creates a brand new release. Never deletes
         # first, so a failed publish cannot leave the release missing.
         run: |
-          TAG="${{ github.ref_name }}"
+          : "${TAG:?TAG is required}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists - updating notes and replacing assets."
             gh release upload "$TAG" release/*.jar --clobber
@@ -342,6 +342,7 @@ jobs:
               --latest=true
           fi
         env:
+          TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
 
@@ -361,10 +362,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download validated jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: authcore-jars
           path: release

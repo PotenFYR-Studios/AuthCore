@@ -16,6 +16,8 @@ on:
       - favicon.png
       - robots.txt
       - sitemap.xml
+      - llms.txt
+      - og.png
       - docs/**
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -37,7 +39,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -55,6 +57,8 @@ jobs:
           cp favicon.png site/favicon.png
           cp robots.txt site/robots.txt
           cp sitemap.xml site/sitemap.xml
+          cp llms.txt site/llms.txt
+          cp og.png site/og.png
           cp CNAME site/CNAME
           cp LICENSE site/LICENSE
           cp docs/versions.json site/docs/versions.json
@@ -62,13 +66,13 @@ jobs:
           ls -R site | head -40
 
       - name: Setup Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

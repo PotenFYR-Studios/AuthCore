@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, Menu, X } from "lucide-react";
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  Menu,
+  X,
+} from "lucide-react";
 import {
   PAGES,
   pageById,
@@ -145,40 +152,65 @@ function Sidebar({
       >
         <X size={16} />
       </button>
-      <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089]">
-        Get started
-      </p>
-      {PAGES.slice(0, 2).map((p) => (
-        <SideLink
-          key={p.id}
-          p={p}
-          active={p.id === current}
-          onClick={onClose}
-        />
-      ))}
-      <p className="px-3 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089]">
-        Core topics
-      </p>
-      {PAGES.slice(2, 8).map((p) => (
-        <SideLink
-          key={p.id}
-          p={p}
-          active={p.id === current}
-          onClick={onClose}
-        />
-      ))}
-      <p className="px-3 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089]">
-        Developers
-      </p>
-      {PAGES.slice(8).map((p) => (
-        <SideLink
-          key={p.id}
-          p={p}
-          active={p.id === current}
-          onClick={onClose}
-        />
-      ))}
+      <NavGroup
+        label="Get started"
+        pages={PAGES.slice(0, 2)}
+        current={current}
+        onNavigate={onClose}
+      />
+      <NavGroup
+        label="Core topics"
+        pages={PAGES.slice(2, 8)}
+        current={current}
+        onNavigate={onClose}
+      />
+      <NavGroup
+        label="Developers"
+        pages={PAGES.slice(8)}
+        current={current}
+        onNavigate={onClose}
+      />
     </aside>
+  );
+}
+
+/* --------------------------------------------------- collapsible nav group */
+function NavGroup({
+  label,
+  pages,
+  current,
+  onNavigate,
+}: {
+  label: string;
+  pages: { id: string; title: string }[];
+  current: string;
+  onNavigate: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between px-3 pb-2 pt-4 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089] transition-colors hover:text-[#e8eaf2]"
+      >
+        {label}
+        <ChevronDown
+          size={12}
+          className={`transition-transform ${open ? "" : "-rotate-90"}`}
+        />
+      </button>
+      {open &&
+        pages.map((p) => (
+          <SideLink
+            key={p.id}
+            p={p}
+            active={p.id === current}
+            onClick={onNavigate}
+          />
+        ))}
+    </div>
   );
 }
 
@@ -225,7 +257,7 @@ function Toc({ headings }: { headings: Heading[] }) {
     });
     return () => obs.disconnect();
   }, [headings]);
-  if (!headings.length) return null;
+  if (headings.length < 3) return null;
   return (
     <nav
       className="hidden xl:block sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto w-64 xl:w-72 shrink-0 border-l border-line-light/60 px-4 py-6"
@@ -485,11 +517,22 @@ export default function App() {
             onClose={() => setMenuOpen(false)}
           />
           <div className="flex min-w-0 flex-1 justify-center">
-            <main className="min-w-0 max-w-[820px] flex-1 px-8 py-10">
+            <main className="min-w-0 max-w-6xl flex-1 px-8 py-10">
               <header className="mb-8 border-b border-line-light pb-6">
-                <p className="mb-2 font-mono text-xs uppercase tracking-[0.15em] text-[#6a7089]">
-                  AuthCore Docs · v1.0.0
-                </p>
+                <nav
+                  aria-label="Breadcrumb"
+                  className="mb-2 flex flex-wrap items-center gap-1.5 font-mono text-xs text-[#6a7089]"
+                >
+                  <a href={CANON_HUB} className="hover:text-[#c4b5fd]">
+                    Docs
+                  </a>
+                  <span>/</span>
+                  <a href={CANON_HUB} className="hover:text-[#c4b5fd]">
+                    1.0.0
+                  </a>
+                  <span>/</span>
+                  <span className="text-[#9aa0b4]">{page.title}</span>
+                </nav>
                 <h1 className="bg-gradient-to-br from-[#c4b5fd] via-[#f9a8d4] to-[#fdba74] bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
                   {page.title}
                 </h1>
@@ -505,22 +548,31 @@ export default function App() {
         </div>
       )}
 
-      <footer className="relative z-10 border-t border-line-light px-6 py-8 text-center text-xs text-[#6a7089]">
-        AuthCore ·{" "}
-        <a
-          className="hover:text-[#c4b5fd]"
-          href="https://github.com/PotenFYR-Studios/AuthCore"
-        >
-          GitHub
-        </a>{" "}
-        ·{" "}
-        <a
-          className="hover:text-[#c4b5fd]"
-          href="https://modrinth.com/mod/authcore"
-        >
-          Modrinth
-        </a>{" "}
-        · Apache-2.0 + Commons Clause
+      <footer className="relative z-10 border-t border-line-light bg-[#0e111d]/60">
+        <div className="mx-auto max-w-7xl px-6 py-10">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-5 text-center md:text-left">
+            <div>
+              <div className="font-mono text-sm font-bold text-white">
+                AuthCore<span className="text-brand-pink">.</span>docs
+              </div>
+              <p className="mt-1 text-xs text-[#9aa0b4]">
+                The fortress authentication framework for Minecraft servers.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-5 font-mono text-xs text-[#9aa0b4]">
+              <a href="https://github.com/PotenFYR-Studios" target="_blank" rel="noopener" className="hover:text-white transition-colors">GitHub Org</a>
+              <a href="https://potenfyr.in" target="_blank" rel="noopener" className="hover:text-white transition-colors">potenfyr.in</a>
+              <a href="https://discord.com/invite/zUaN2FPBec" target="_blank" rel="noopener" className="hover:text-white transition-colors">Support Discord</a>
+              <a href="https://modrinth.com/mod/authcore" target="_blank" rel="noopener" className="hover:text-white transition-colors">Modrinth</a>
+              <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/LICENSE" target="_blank" rel="noopener" className="hover:text-white transition-colors">License</a>
+              <a href="/docs/1.0.0/index.html" className="text-[#a78bfa] hover:underline">Docs</a>
+            </div>
+          </div>
+          <div className="mt-6 border-t border-line-light pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-[#6a7089]">
+            <span>&copy; 2026 PotenFYR Studios. Released under Apache-2.0 + Commons Clause.</span>
+            <span>Crafted with &hearts; for Minecraft server communities</span>
+          </div>
+        </div>
       </footer>
     </div>
   );

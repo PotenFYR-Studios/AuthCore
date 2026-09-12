@@ -1,5 +1,5 @@
 /* ==========================================================================
-   AuthCore Docs — shared theme
+   AuthCore Docs: shared theme
    Matches the PotenFYR Studios main website (nest.potenfyr.in):
    deep navy surfaces, violet→pink→cyan brand gradients, dot patterns,
    glass cards, glow effects. Data/content stays per-repo.
@@ -371,41 +371,43 @@ main blockquote p { margin: 0.35em 0; }
 }
 .doc-card:hover::after { opacity: 1; transform: translateX(0); color: #f9a8d4; }
 
-/* ---------- footer (nest-style) ---------- */
+/* ---------- footer (identical to docs pages) ---------- */
 .site-footer {
   border-top: 1px solid var(--line-light);
-  background: rgba(16, 19, 32, 0.5);
-  padding: 44px 0 0;
+  background: rgba(14, 17, 29, 0.6);
   position: relative; z-index: 1;
 }
-.sf-grid {
-  max-width: 1080px; margin: 0 auto; padding: 0 22px 36px;
-  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px;
+.sf-inner { max-width: 1280px; margin: 0 auto; padding: 40px 24px; }
+.sf-top {
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  gap: 20px; text-align: center;
 }
-@media (max-width: 800px) { .sf-grid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 520px) { .sf-grid { grid-template-columns: 1fr; } }
-.sf-logo { font-size: 1.2em; font-weight: 750; color: #fff; margin-bottom: 10px; }
+@media (min-width: 768px) {
+  .sf-top { flex-direction: row; text-align: left; }
+}
+.sf-logo { font-family: var(--mono); font-size: 0.95em; font-weight: 700; color: #fff; }
 .sf-logo .dot {
   background: var(--grad-text);
   -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
 }
-.sf-brand p { color: var(--muted); font-size: 0.84em; line-height: 1.7; margin: 0; max-width: 300px; }
-.sf-col { display: flex; flex-direction: column; gap: 8px; }
-.sf-col h4 {
-  margin: 0 0 4px;
-  font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em;
-  text-transform: uppercase; color: var(--faint);
+.sf-tag { margin: 4px 0 0; color: var(--muted); font-size: 0.8em; max-width: 420px; line-height: 1.7; }
+.sf-links {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 20px; font-family: var(--mono); font-size: 0.78em; color: var(--muted);
 }
-.sf-col a {
-  color: var(--muted); text-decoration: none; font-size: 0.85em;
-  transition: color 0.14s;
-}
-.sf-col a:hover { color: #c4b5fd; }
+.sf-links a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
+.sf-links a:hover { color: #fff; }
+.sf-links a.sf-accent { color: #a78bfa; }
+.sf-links a.sf-accent:hover { text-decoration: underline; }
 .sf-bottom {
+  margin-top: 24px; padding-top: 16px;
+  max-width: 1280px;
   border-top: 1px solid var(--line-light);
-  max-width: 1080px; margin: 0 auto; padding: 18px 22px;
-  text-align: center; color: var(--faint); font-size: 0.78em;
+  display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  gap: 8px; text-align: center;
+  color: var(--faint); font-size: 0.75em;
 }
+@media (min-width: 640px) { .sf-bottom { flex-direction: row; } }
 .sf-bottom a { color: var(--muted); }
 .sf-bottom a:hover { color: #c4b5fd; }
 
