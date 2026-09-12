@@ -46,6 +46,7 @@ jobs:
           cp favicon.png site/favicon.png
           cp robots.txt site/robots.txt
           cp sitemap.xml site/sitemap.xml
+          cp CNAME site/CNAME
           cp -r docs/. site/docs/
           ls -R site | head -40
 

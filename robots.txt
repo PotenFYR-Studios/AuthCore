@@ -26,4 +26,4 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://authcore.potenfyr.in/sitemap.xml
+Sitemap: https://authcore.docs.potenfyr.in/sitemap.xml

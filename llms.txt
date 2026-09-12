@@ -12,12 +12,12 @@
 
 ## Pages
 
-- Overview: https://authcore.potenfyr.in/
-- Documentation hub: https://authcore.potenfyr.in/docs/1.0.0/index.html
-- Admin guide: https://authcore.potenfyr.in/docs/1.0.0/guide.html
-- Configuration reference: https://authcore.potenfyr.in/docs/1.0.0/config.html
-- Security model: https://authcore.potenfyr.in/docs/1.0.0/security.html
-- Developer API: https://authcore.potenfyr.in/docs/1.0.0/api.html
+- Overview: https://authcore.docs.potenfyr.in/
+- Documentation hub: https://authcore.docs.potenfyr.in/docs/1.0.0/index.html
+- Admin guide: https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html
+- Configuration reference: https://authcore.docs.potenfyr.in/docs/1.0.0/config.html
+- Security model: https://authcore.docs.potenfyr.in/docs/1.0.0/security.html
+- Developer API: https://authcore.docs.potenfyr.in/docs/1.0.0/api.html
 - Source: https://github.com/PotenFYR-Studios/AuthCore
 - Modrinth: https://modrinth.com/mod/authcore
 
