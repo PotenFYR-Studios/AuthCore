@@ -32,7 +32,7 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 24px); color-scheme: dark; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-h) + 24px); color-scheme: dark; overflow-x: clip; }
 
 body {
   margin: 0;
@@ -370,6 +370,51 @@ main blockquote p { margin: 0.35em 0; }
   transition: opacity 0.16s, transform 0.16s;
 }
 .doc-card:hover::after { opacity: 1; transform: translateX(0); color: #f9a8d4; }
+
+/* ---------- footer (nest-style) ---------- */
+.site-footer {
+  border-top: 1px solid var(--line-light);
+  background: rgba(16, 19, 32, 0.5);
+  padding: 44px 0 0;
+  position: relative; z-index: 1;
+}
+.sf-grid {
+  max-width: 1080px; margin: 0 auto; padding: 0 22px 36px;
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px;
+}
+@media (max-width: 800px) { .sf-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .sf-grid { grid-template-columns: 1fr; } }
+.sf-logo { font-size: 1.2em; font-weight: 750; color: #fff; margin-bottom: 10px; }
+.sf-logo .dot {
+  background: var(--grad-text);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sf-brand p { color: var(--muted); font-size: 0.84em; line-height: 1.7; margin: 0; max-width: 300px; }
+.sf-col { display: flex; flex-direction: column; gap: 8px; }
+.sf-col h4 {
+  margin: 0 0 4px;
+  font-size: 0.7em; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--faint);
+}
+.sf-col a {
+  color: var(--muted); text-decoration: none; font-size: 0.85em;
+  transition: color 0.14s;
+}
+.sf-col a:hover { color: #c4b5fd; }
+.sf-bottom {
+  border-top: 1px solid var(--line-light);
+  max-width: 1080px; margin: 0 auto; padding: 18px 22px;
+  text-align: center; color: var(--faint); font-size: 0.78em;
+}
+.sf-bottom a { color: var(--muted); }
+.sf-bottom a:hover { color: #c4b5fd; }
+
+/* shields / badge images in content */
+.doc-content img[src*="shields"], .doc-content img[src*="shieldcn"], .doc-content img[src*="badge"] {
+  display: inline-block; vertical-align: middle; margin: 2px 4px 2px 0;
+  border: none; border-radius: 3px;
+}
+.badge-tag { vertical-align: middle; }
 
 /* ---------- misc ---------- */
 #top[aria-hidden="true"] { position: absolute; }

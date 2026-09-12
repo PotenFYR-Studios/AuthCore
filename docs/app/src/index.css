@@ -16,7 +16,7 @@
   --font-mono: "Fira Code", ui-monospace, monospace;
 }
 
-html { scroll-behavior: smooth; color-scheme: dark; }
+html { scroll-behavior: smooth; color-scheme: dark; overflow-x: clip; }
 
 body {
   background: var(--color-bg);
@@ -65,6 +65,8 @@ body {
 }
 .doc-content pre code { background: none; border: none; padding: 0; color: #dfe2ef; font-size: 0.84em; line-height: 1.65; display: block; white-space: pre; }
 .doc-content table {
+  display: block;
+  overflow-x: auto;
   width: 100%; margin: 1.1em 0; border-collapse: separate; border-spacing: 0;
   font-size: 0.9em; background: var(--color-panel);
   border: 1px solid var(--color-line); border-radius: 10px; overflow: hidden;

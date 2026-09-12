@@ -33,7 +33,7 @@
     "padding:4px 10px;font-size:13px;cursor:pointer}",
     "#ac-vbar .ac-badge{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);border-radius:20px;",
     "padding:2px 10px;font-size:11px;font-weight:700}",
-    "#ac-vbar .ac-gh{margin-left:auto;color:#9aa0b4;font-weight:500}#ac-vbar .ac-x{color:#9aa0b4;font-weight:500;margin-left:8px}"
+    "#ac-vbar .ac-gh{margin-left:auto;color:#9aa0b4;font-weight:500}#ac-vbar .ac-x{color:#9aa0b4;font-weight:500;margin-left:8px}" + "@media (max-width:700px){#ac-vbar{gap:8px;padding:0 12px}#ac-vbar .ac-x{display:none}#ac-vbar select{max-width:90px}}"
   ].join("");
 
   function el(tag, cls, text) {

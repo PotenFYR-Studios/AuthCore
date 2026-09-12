@@ -134,9 +134,9 @@ function Sidebar({
 }) {
   return (
     <aside
-      className={`${open ? "flex" : "hidden"} md:flex flex-col gap-1 sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto
-        w-60 shrink-0 py-8 pr-2 border-r border-line-light/50 max-md:fixed max-md:inset-y-14 max-md:left-0 max-md:z-30
-        max-md:bg-[#0b0d14]/98 max-md:px-4 scrollbar-thin`}
+      className={`${open ? "flex" : "hidden"} md:flex flex-col gap-1 sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto
+        w-60 shrink-0 py-6 px-3 border-r border-line-light/60 max-md:fixed max-md:inset-y-14 max-md:left-0 max-md:z-30
+        max-md:bg-[#0b0d14]/98 scrollbar-thin`}
     >
       <button
         onClick={onClose}
@@ -228,7 +228,7 @@ function Toc({ headings }: { headings: Heading[] }) {
   if (!headings.length) return null;
   return (
     <nav
-      className="hidden xl:block sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto w-52 shrink-0 py-8 pl-4"
+      className="hidden xl:block sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto w-56 shrink-0 border-l border-line-light/60 px-4 py-6"
       aria-label="On this page"
     >
       <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.15em] text-[#6a7089]">
@@ -477,29 +477,31 @@ export default function App() {
           </div>
         </main>
       ) : (
-        /* -------- doc page: sidebar / content / toc -------- */
-        <div className="relative z-10 mx-auto flex max-w-[1400px] gap-8 px-6">
+        /* -------- doc page: full-height side rails (fumadocs layout) -------- */
+        <div className="relative z-10 mx-auto flex max-w-full items-start">
           <Sidebar
             current={current}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
           />
-          <main className="min-w-0 flex-1 py-10">
-            <header className="mb-8">
-              <p className="mb-2 font-mono text-xs uppercase tracking-[0.15em] text-[#6a7089]">
-                AuthCore Docs · v1.0.0
-              </p>
-              <h1 className="bg-gradient-to-br from-[#c4b5fd] via-[#f9a8d4] to-[#fdba74] bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
-                {page.title}
-              </h1>
-            </header>
-            <article
-              className="doc-content"
-              dangerouslySetInnerHTML={{ __html: contentHtml }}
-            />
-            <Pagination current={current} />
-          </main>
-          <Toc headings={headings} />
+          <div className="flex min-w-0 flex-1 justify-center">
+            <main className="min-w-0 max-w-[820px] flex-1 px-8 py-10">
+              <header className="mb-8 border-b border-line-light pb-6">
+                <p className="mb-2 font-mono text-xs uppercase tracking-[0.15em] text-[#6a7089]">
+                  AuthCore Docs · v1.0.0
+                </p>
+                <h1 className="bg-gradient-to-br from-[#c4b5fd] via-[#f9a8d4] to-[#fdba74] bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">
+                  {page.title}
+                </h1>
+              </header>
+              <article
+                className="doc-content"
+                dangerouslySetInnerHTML={{ __html: contentHtml }}
+              />
+              <Pagination current={current} />
+            </main>
+            <Toc headings={headings} />
+          </div>
         </div>
       )}
 

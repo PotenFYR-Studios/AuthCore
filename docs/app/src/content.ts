@@ -65,6 +65,14 @@ export function extractMain(id: string): string {
     doc.querySelector(".layout > main") ??
     doc.querySelector("main") ??
     doc.body;
+  // strip decorative emojis from headings
+  const emoji = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\uFE0F\u200D]+\s*/gu;
+  doc.querySelectorAll("h1, h2, h3, h4").forEach((h) => {
+    const first = h.firstChild;
+    if (first && first.nodeType === 3) {
+      first.textContent = (first.textContent ?? "").replace(emoji, "");
+    }
+  });
   const inner = main.innerHTML;
   mainCache.set(id, inner);
   return inner;
