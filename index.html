@@ -1,227 +1,363 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AuthCore · The Fortress Authentication Framework for Minecraft</title>
-<link rel="icon" type="image/png" href="/favicon.png">
-<meta name="description" content="Universal authentication and security framework for Minecraft servers. One codebase for Fabric, Forge, and NeoForge across Minecraft 1.16 through 26.x and beyond.">
-<meta property="og:title" content="AuthCore · Universal Minecraft Authentication Framework">
-<meta property="og:description" content="Universal authentication and security framework for Minecraft servers across 1.16 - 26.x+ on Fabric, Forge, and NeoForge.">
-<meta property="og:type" content="website">
-<link rel="canonical" href="https://authcore.docs.potenfyr.in/">
-<meta property="og:url" content="https://authcore.docs.potenfyr.in/">
-<meta property="og:site_name" content="AuthCore by PotenFYR Studios">
-<meta property="og:image" content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore">
-<meta property="og:image:alt" content="AuthCore - The Fortress Authentication Framework for Minecraft by PotenFYR Studios">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="AuthCore - Fortress Authentication for Minecraft | PotenFYR Studios">
-<meta name="twitter:description" content="Universal server-side authentication for Minecraft 1.16-26.x+ on Fabric, Forge and NeoForge. Web panel, REST API, proxy support, OWASP-informed security model.">
-<meta name="twitter:image" content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore">
-<meta name="author" content="PotenFYR Studios">
-<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "Organization",
-      "@id": "https://authcore.docs.potenfyr.in/#organization",
-      "name": "PotenFYR Studios",
-      "alternateName": "PotenFYR",
-      "url": "https://potenfyr.in/",
-      "sameAs": ["https://github.com/PotenFYR-Studios", "https://modrinth.com/organization/potenfyr"]
-    },
-    {
-      "@type": "SoftwareApplication",
-      "name": "AuthCore",
-      "applicationCategory": "GameApplication",
-      "operatingSystem": "Minecraft 1.16-26.x+, Fabric, Forge, NeoForge",
-      "description": "Universal server-side authentication and security framework for Minecraft servers.",
-      "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-      "author": {"@id": "https://authcore.docs.potenfyr.in/#organization"},
-      "codeRepository": "https://github.com/PotenFYR-Studios/AuthCore",
-      "downloadUrl": "https://modrinth.com/mod/authcore"
-    },
-    {
-      "@type": "FAQPage",
-      "mainEntity": [
-        {"@type": "Question", "name": "What is AuthCore?", "acceptedAnswer": {"@type": "Answer", "text": "AuthCore is a universal server-side authentication and security framework for Minecraft servers by PotenFYR Studios. One codebase covers Minecraft 1.16 through 26.x+ on Fabric, Forge and NeoForge."}},
-        {"@type": "Question", "name": "Does AuthCore work with proxies like Velocity?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. AuthCore supports Velocity and BungeeCord forwarding with modern HMAC identity verification and proxy-side authentication."}},
-        {"@type": "Question", "name": "Is AuthCore free?", "acceptedAnswer": {"@type": "Answer", "text": "AuthCore is free to use, fork and modify under the Apache-2.0 license with the Commons Clause; the software itself may not be sold as a product."}}
-      ]
-    }
-  ]
-}
-</script>
-<link rel="stylesheet" href="/docs/assets/site.css">
-</head>
-<body>
-<script src="/docs/assets/nav.js" defer></script>
-<div class="wrap">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>
+      AuthCore · The Fortress Authentication Framework for Minecraft
+    </title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta
+      name="description"
+      content="Universal authentication and security framework for Minecraft servers. One codebase for Fabric, Forge, and NeoForge across Minecraft 1.16 through 26.x and beyond."
+    />
+    <meta
+      property="og:title"
+      content="AuthCore · Universal Minecraft Authentication Framework"
+    />
+    <meta
+      property="og:description"
+      content="Universal authentication and security framework for Minecraft servers across 1.16 - 26.x+ on Fabric, Forge, and NeoForge."
+    />
+    <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://authcore.docs.potenfyr.in/" />
+    <meta property="og:url" content="https://authcore.docs.potenfyr.in/" />
+    <meta property="og:site_name" content="AuthCore by PotenFYR Studios" />
+    <meta
+      property="og:image"
+      content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore"
+    />
+    <meta
+      property="og:image:alt"
+      content="AuthCore - The Fortress Authentication Framework for Minecraft by PotenFYR Studios"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="AuthCore - Fortress Authentication for Minecraft | PotenFYR Studios"
+    />
+    <meta
+      name="twitter:description"
+      content="Universal server-side authentication for Minecraft 1.16-26.x+ on Fabric, Forge and NeoForge. Web panel, REST API, proxy support, OWASP-informed security model."
+    />
+    <meta
+      name="twitter:image"
+      content="https://opengraph.githubassets.com/1/PotenFYR-Studios/AuthCore"
+    />
+    <meta name="author" content="PotenFYR Studios" />
+    <meta
+      name="robots"
+      content="index, follow, max-image-preview:large, max-snippet:-1"
+    />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://authcore.docs.potenfyr.in/#organization",
+            "name": "PotenFYR Studios",
+            "alternateName": "PotenFYR",
+            "url": "https://potenfyr.in/",
+            "sameAs": [
+              "https://github.com/PotenFYR-Studios",
+              "https://modrinth.com/organization/potenfyr"
+            ]
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "AuthCore",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Minecraft 1.16-26.x+, Fabric, Forge, NeoForge",
+            "description": "Universal server-side authentication and security framework for Minecraft servers.",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "author": {
+              "@id": "https://authcore.docs.potenfyr.in/#organization"
+            },
+            "codeRepository": "https://github.com/PotenFYR-Studios/AuthCore",
+            "downloadUrl": "https://modrinth.com/mod/authcore"
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is AuthCore?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "AuthCore is a universal server-side authentication and security framework for Minecraft servers by PotenFYR Studios. One codebase covers Minecraft 1.16 through 26.x+ on Fabric, Forge and NeoForge."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does AuthCore work with proxies like Velocity?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. AuthCore supports Velocity and BungeeCord forwarding with modern HMAC identity verification and proxy-side authentication."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is AuthCore free?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "AuthCore is free to use, fork and modify under the Apache-2.0 license with the Commons Clause; the software itself may not be sold as a product."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
+    <link rel="stylesheet" href="/docs/assets/site.css" />
+  </head>
+  <body>
+    <script src="/docs/assets/nav.js" defer></script>
+    <div class="wrap">
+      <header class="hero">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span> Enterprise Minecraft Authentication
+        </div>
+        <h1>AuthCore<span class="dot">.</span></h1>
+        <p class="tagline">
+          Universal fortress framework for Minecraft servers. One codebase for
+          Fabric, Forge, and NeoForge across version ranges, backend game
+          servers, and Velocity/BungeeCord proxies. Zero-configuration SQLite
+          out of the box with optional MySQL, PostgreSQL, and Redis clusters.
+        </p>
+        <div class="chips">
+          <span class="chip">MC 1.16 - 26.x+ & Snapshots</span>
+          <span class="chip">Fabric · Forge · NeoForge</span>
+          <span class="chip">Java 17 / 21 / 25</span>
+          <span class="chip">Server-side Only</span>
+          <span class="chip">7-Layer Defense Stack</span>
+          <span class="chip">Modern Web Admin Panel</span>
+        </div>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="/docs/1.0.0/index.html"
+            >Read the Docs</a
+          >
+          <a
+            class="btn btn-ghost"
+            href="https://github.com/PotenFYR-Studios/AuthCore/releases"
+            >Download Jar</a
+          >
+          <a
+            class="btn btn-ghost"
+            href="https://github.com/PotenFYR-Studios/AuthCore"
+            >GitHub</a
+          >
+        </div>
+      </header>
 
-<header class="hero">
-  <div class="hero-badge"><span class="pulse-dot"></span> Enterprise Minecraft Authentication</div>
-  <h1>AuthCore<span class="dot">.</span></h1>
-  <p class="tagline">Universal fortress framework for Minecraft servers. One codebase for
-  Fabric, Forge, and NeoForge across version ranges, backend game servers, and Velocity/BungeeCord
-  proxies. Zero-configuration SQLite out of the box with optional MySQL, PostgreSQL, and Redis clusters.</p>
-  <div class="chips">
-    <span class="chip">MC 1.16 - 26.x+ & Snapshots</span>
-    <span class="chip">Fabric · Forge · NeoForge</span>
-    <span class="chip">Java 17 / 21 / 25</span>
-    <span class="chip">Server-side Only</span>
-    <span class="chip">7-Layer Defense Stack</span>
-    <span class="chip">Modern Web Admin Panel</span>
-  </div>
-</header>
+      <h2>Official Release Matrix (6 Production Jars)</h2>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>Target Range</th>
+              <th>Supported Loaders</th>
+              <th>Required Java</th>
+              <th>Release Jar Artifact</th>
+              <th>Architecture</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Group G1 (1.16 - 1.18)</strong></td>
+              <td>
+                <span class="badge-tag">fabric</span>
+                <span class="badge-tag">forge</span>
+              </td>
+              <td>17</td>
+              <td><code>authcore-1.16-1.18-&lt;loader&gt;-1.0.0.jar</code></td>
+              <td>Classic Intermediary mappings</td>
+            </tr>
+            <tr>
+              <td><strong>Group G2 (1.19 - 1.21)</strong></td>
+              <td>
+                <span class="badge-tag">fabric</span>
+                <span class="badge-tag">neoforge</span>
+              </td>
+              <td>21</td>
+              <td><code>authcore-1.19-1.21-&lt;loader&gt;-1.0.0.jar</code></td>
+              <td>Modern Intermediary + NeoForge</td>
+            </tr>
+            <tr>
+              <td><strong>Group G3 (26.1 - 26.2+)</strong></td>
+              <td>
+                <span class="badge-tag">fabric</span>
+                <span class="badge-tag">neoforge</span>
+              </td>
+              <td>25</td>
+              <td><code>authcore-26.1-26.2-&lt;loader&gt;-1.0.0.jar</code></td>
+              <td>Unobfuscated Mojang names & future snapshots</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top: 14px; font-size: 14px; color: var(--text-dim)">
+        Download the validated jar for your server environment from
+        <a href="https://github.com/PotenFYR-Studios/AuthCore/releases"
+          >GitHub Releases</a
+        >
+        or <a href="https://modrinth.com/mod/authcore">Modrinth</a>. Drop
+        exactly <strong>one</strong> jar into <code>mods/</code> (or
+        <code>plugins/</code> on Velocity/BungeeCord) - setup is 100% automated.
+      </p>
 
-<h2>Official Release Matrix (6 Production Jars)</h2>
-<div class="table-card">
-  <table>
-    <thead><tr><th>Target Range</th><th>Supported Loaders</th><th>Required Java</th><th>Release Jar Artifact</th><th>Architecture</th></tr></thead>
-    <tbody>
-      <tr>
-        <td><strong>Group G1 (1.16 - 1.18)</strong></td>
-        <td><span class="badge-tag">fabric</span> <span class="badge-tag">forge</span></td>
-        <td>17</td>
-        <td><code>authcore-1.16-1.18-&lt;loader&gt;-1.0.0.jar</code></td>
-        <td>Classic Intermediary mappings</td>
-      </tr>
-      <tr>
-        <td><strong>Group G2 (1.19 - 1.21)</strong></td>
-        <td><span class="badge-tag">fabric</span> <span class="badge-tag">neoforge</span></td>
-        <td>21</td>
-        <td><code>authcore-1.19-1.21-&lt;loader&gt;-1.0.0.jar</code></td>
-        <td>Modern Intermediary + NeoForge</td>
-      </tr>
-      <tr>
-        <td><strong>Group G3 (26.1 - 26.2+)</strong></td>
-        <td><span class="badge-tag">fabric</span> <span class="badge-tag">neoforge</span></td>
-        <td>25</td>
-        <td><code>authcore-26.1-26.2-&lt;loader&gt;-1.0.0.jar</code></td>
-        <td>Unobfuscated Mojang names & future snapshots</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-<p style="margin-top:14px; font-size:14px; color:var(--text-dim);">
-  Download the validated jar for your server environment from
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/releases">GitHub Releases</a> or
-  <a href="https://modrinth.com/mod/authcore">Modrinth</a>. Drop exactly <strong>one</strong> jar into
-  <code>mods/</code> (or <code>plugins/</code> on Velocity/BungeeCord) - setup is 100% automated.
-</p>
-
-<h2>Quick Start (Zero Config)</h2>
-<pre>1. Download the jar matching your Minecraft range and loader
+      <h2>Quick Start (Zero Config)</h2>
+      <pre>
+1. Download the jar matching your Minecraft range and loader
 2. Place it into your server's  mods/  folder  (or proxy's  plugins/  folder)
 3. Start the server - configuration files and SQLite database initialize on first boot
 4. Joining players are placed in the safe authentication limbo for /register and /login
-5. (Optional) Configure MySQL, PostgreSQL, Redis, or Discord webhooks in config/authcore/</pre>
+5. (Optional) Configure MySQL, PostgreSQL, Redis, or Discord webhooks in config/authcore/</pre
+      >
 
-<h2>Fortress Architecture Highlights</h2>
-<div class="features-grid">
-  <div class="feat-card">
-    <b>7-Layer Bot & Abuse Defense</b>
-    <p>Session attestation keys, packet sequence state machines, look delta pattern analysis, and concurrent farm fingerprinting stop bot invasions before players spawn.</p>
-  </div>
-  <div class="feat-card">
-    <b>Modern Web Administration</b>
-    <p>Built-in glassmorphic web dashboard with token authentication, live TPS monitor, search filters, and instant player session management.</p>
-  </div>
-  <div class="feat-card">
-    <b>Universal Loader Parity</b>
-    <p>Identical feature set, limbo restrictions, and proxy forwarding across Fabric, Forge, and NeoForge via universal mixin hooks.</p>
-  </div>
-  <div class="feat-card">
-    <b>500k+ Account Scale</b>
-    <p>O(1) memory lookups, bounded LRU caches, zero-allocation hot paths, and non-blocking I/O workers ensure flat resource usage under join floods.</p>
-  </div>
-</div>
+      <h2>Fortress Architecture Highlights</h2>
+      <div class="features-grid">
+        <div class="feat-card">
+          <b>7-Layer Bot & Abuse Defense</b>
+          <p>
+            Session attestation keys, packet sequence state machines, look delta
+            pattern analysis, and concurrent farm fingerprinting stop bot
+            invasions before players spawn.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>Modern Web Administration</b>
+          <p>
+            Built-in glassmorphic web dashboard with token authentication, live
+            TPS monitor, search filters, and instant player session management.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>Universal Loader Parity</b>
+          <p>
+            Identical feature set, limbo restrictions, and proxy forwarding
+            across Fabric, Forge, and NeoForge via universal mixin hooks.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>500k+ Account Scale</b>
+          <p>
+            O(1) memory lookups, bounded LRU caches, zero-allocation hot paths,
+            and non-blocking I/O workers ensure flat resource usage under join
+            floods.
+          </p>
+        </div>
+      </div>
 
-<h2>Frequently Asked Questions</h2>
-<div class="features-grid">
-  <div class="feat-card">
-    <b>Is an external database required?</b>
-    <p>No. SQLite runs out of the box with zero external dependencies. MySQL, PostgreSQL, and Redis are optional upgrades for distributed multi-server networks.</p>
-  </div>
-  <div class="feat-card">
-    <b>Does it support Bedrock / Geyser / Floodgate?</b>
-    <p>Yes. Floodgate player detection and Velocity/BungeeCord modern identity forwarding (HMAC) are built directly into every release jar.</p>
-  </div>
-  <div class="feat-card">
-    <b>Are future snapshots supported?</b>
-    <p>Yes. The modern unobfuscated 26.x+ jar features open-ended range matching and version validation for weekly snapshots and future releases.</p>
-  </div>
-  <div class="feat-card">
-    <b>How does testing work?</b>
-    <p>Every commit is validated via an automated Docker matrix on official Eclipse Temurin JDKs (17, 21, and 25) across all supported loaders.</p>
-  </div>
-</div>
+      <h2>Frequently Asked Questions</h2>
+      <div class="features-grid">
+        <div class="feat-card">
+          <b>Is an external database required?</b>
+          <p>
+            No. SQLite runs out of the box with zero external dependencies.
+            MySQL, PostgreSQL, and Redis are optional upgrades for distributed
+            multi-server networks.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>Does it support Bedrock / Geyser / Floodgate?</b>
+          <p>
+            Yes. Floodgate player detection and Velocity/BungeeCord modern
+            identity forwarding (HMAC) are built directly into every release
+            jar.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>Are future snapshots supported?</b>
+          <p>
+            Yes. The modern unobfuscated 26.x+ jar features open-ended range
+            matching and version validation for weekly snapshots and future
+            releases.
+          </p>
+        </div>
+        <div class="feat-card">
+          <b>How does testing work?</b>
+          <p>
+            Every commit is validated via an automated Docker matrix on official
+            Eclipse Temurin JDKs (17, 21, and 25) across all supported loaders.
+          </p>
+        </div>
+      </div>
 
-<h2>Documentation Hub</h2>
-<p style="color:var(--muted); font-size:14px; margin-bottom:14px;">Select the documentation edition for your release:</p>
-<div class="cards" id="version-cards">
-  <noscript>
-    <a class="card" href="/docs/1.0.0/index.html">
-      <span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span>
-      <span class="d">Complete admin guide, auth flows, configuration reference, proxy guide, and security model.</span>
-    </a>
-  </noscript>
-</div>
+      <h2>Documentation Hub</h2>
+      <p style="color: var(--muted); font-size: 14px; margin-bottom: 14px">
+        Select the documentation edition for your release:
+      </p>
+      <div class="cards" id="version-cards">
+        <noscript>
+          <a class="card" href="/docs/1.0.0/index.html">
+            <span class="v"
+              >AuthCore v1.0.0 <span class="badge">Latest</span></span
+            >
+            <span class="d"
+              >Complete admin guide, auth flows, configuration reference, proxy
+              guide, and security model.</span
+            >
+          </a>
+        </noscript>
+      </div>
 
-<div class="foot">
-  AuthCore · <a href="https://github.com/PotenFYR-Studios/AuthCore">GitHub Repository</a> ·
-  <a href="https://github.com/PotenFYR-Studios/AuthCore/releases">Releases</a> ·
-  <a href="https://modrinth.com/mod/authcore">Modrinth</a> ·
-  Licensed under CC0 1.0 Universal
-</div>
-
-</div>
-<section class="faq" aria-labelledby="faq-title">
-  <h2 id="faq-title">Frequently asked questions</h2>
-  <h3>What is AuthCore?</h3>
-  <p>AuthCore is a universal server-side authentication and security framework for Minecraft servers by PotenFYR Studios. One codebase covers Minecraft 1.16 through 26.x+ on Fabric, Forge and NeoForge.</p>
-  <h3>Does AuthCore work with proxies like Velocity?</h3>
-  <p>Yes. AuthCore supports Velocity and BungeeCord forwarding with modern HMAC identity verification and proxy-side authentication.</p>
-  <h3>Is AuthCore free?</h3>
-  <p>AuthCore is free to use, fork and modify under the Apache-2.0 license with the Commons Clause; the software itself may not be sold as a product.</p>
-</section>
-<script>
-fetch("/docs/versions.json", { cache: "no-cache" })
-  .then(function (r) { return r.json(); })
-  .then(function (versions) {
-    var host = document.getElementById("version-cards");
-    if (!host) return;
-    host.innerHTML = "";
-    versions.forEach(function (v) {
-      var a = document.createElement("a");
-      a.className = "card";
-      a.href = v.docs;
-      var title = document.createElement("span");
-      title.className = "v";
-      title.textContent = "AuthCore v" + v.version;
-      if (v.status === "stable") {
-        var b = document.createElement("span");
-        b.className = "badge";
-        b.textContent = "Latest";
-        title.appendChild(b);
-      }
-      var d = document.createElement("span");
-      d.className = "d";
-      d.textContent = (v.released ? "Released " + v.released + " · " : "") +
-        "Admin guide, auth flows, configuration reference, API, web panel, security model, and changelog.";
-      a.appendChild(title);
-      a.appendChild(d);
-      host.appendChild(a);
-    });
-  })
-  .catch(function () {
-    var host = document.getElementById("version-cards");
-    if (host && !host.children.length) {
-      host.innerHTML = '<a class="card" href="/docs/1.0.0/index.html"><span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span><span class="d">Admin guide, configuration, and security documentation.</span></a>';
-    }
-  });
-</script>
-</body>
+      <div class="foot">
+        AuthCore ·
+        <a href="https://github.com/PotenFYR-Studios/AuthCore"
+          >GitHub Repository</a
+        >
+        ·
+        <a href="https://github.com/PotenFYR-Studios/AuthCore/releases"
+          >Releases</a
+        >
+        · <a href="https://modrinth.com/mod/authcore">Modrinth</a> · Licensed
+        under CC0 1.0 Universal
+      </div>
+    </div>
+    <script>
+      fetch("/docs/versions.json", { cache: "no-cache" })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (versions) {
+          var host = document.getElementById("version-cards");
+          if (!host) return;
+          host.innerHTML = "";
+          versions.forEach(function (v) {
+            var a = document.createElement("a");
+            a.className = "card";
+            a.href = v.docs;
+            var title = document.createElement("span");
+            title.className = "v";
+            title.textContent = "AuthCore v" + v.version;
+            if (v.status === "stable") {
+              var b = document.createElement("span");
+              b.className = "badge";
+              b.textContent = "Latest";
+              title.appendChild(b);
+            }
+            var d = document.createElement("span");
+            d.className = "d";
+            d.textContent =
+              (v.released ? "Released " + v.released + " · " : "") +
+              "Admin guide, auth flows, configuration reference, API, web panel, security model, and changelog.";
+            a.appendChild(title);
+            a.appendChild(d);
+            host.appendChild(a);
+          });
+        })
+        .catch(function () {
+          var host = document.getElementById("version-cards");
+          if (host && !host.children.length) {
+            host.innerHTML =
+              '<a class="card" href="/docs/1.0.0/index.html"><span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span><span class="d">Admin guide, configuration, and security documentation.</span></a>';
+          }
+        });
+    </script>
+  </body>
 </html>
