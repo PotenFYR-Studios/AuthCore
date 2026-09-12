@@ -391,7 +391,12 @@ main blockquote p { margin: 0.35em 0; }
 .pulse-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--emerald);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+  animation: pulse-glow 2.4s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(16,185,129,.5); opacity: 1; }
+  50% { box-shadow: 0 0 14px rgba(16,185,129,.95); opacity: 0.75; }
 }
 .hero h1 {
   font-size: clamp(2.6em, 6vw, 4em);
