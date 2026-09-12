@@ -56,6 +56,7 @@ jobs:
           cp robots.txt site/robots.txt
           cp sitemap.xml site/sitemap.xml
           cp CNAME site/CNAME
+          cp LICENSE site/LICENSE
           cp docs/versions.json site/docs/versions.json
           cp -r docs/app/dist/. site/docs/
           ls -R site | head -40

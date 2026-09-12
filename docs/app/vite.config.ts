@@ -1,7 +1,13 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  copyFileSync,
+  existsSync,
+} from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -41,17 +47,29 @@ function multiPageEmit(): Plugin {
           if (d) desc = d[1];
           const c = raw.match(/rel="canonical" href="([^"]*)"/);
           if (c) canon = c[1];
-        } catch { /* content optional */ }
+        } catch {
+          /* content optional */
+        }
         let html = shell
-          .replace(/<title>.*?<\/title>/, `<title>${p.title} - AuthCore Docs</title>`)
-          .replace("</head>", `  <meta name="description" content="${desc.replace(/"/g, "&quot;")}">\n<link rel="canonical" href="${canon}">\n</head>`);
+          .replace(
+            /<title>.*?<\/title>/,
+            `<title>${p.title} - AuthCore Docs</title>`,
+          )
+          .replace(
+            "</head>",
+            `  <meta name="description" content="${desc.replace(/"/g, "&quot;")}">\n<link rel="canonical" href="${canon}">\n</head>`,
+          );
         writeFileSync(resolve(outDir, "1.0.0", `${p.id}.html`), html);
       }
       // keep legacy static assets (used by the static root homepage) served under /docs/assets/
       const assetsOut = resolve(outDir, "assets");
       mkdirSync(assetsOut, { recursive: true });
       for (const f of ["site.css", "nav.js"]) {
-        try { copyFileSync(resolve(__dir, "../assets", f), resolve(assetsOut, f)); } catch { /* optional */ }
+        try {
+          copyFileSync(resolve(__dir, "../assets", f), resolve(assetsOut, f));
+        } catch {
+          /* optional */
+        }
       }
     },
   };

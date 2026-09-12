@@ -4,12 +4,69 @@ import {
   PAGES,
   pageById,
   extractHeadings,
+  extractMain,
   currentPageId,
   type Heading,
 } from "./content";
 import { DotPattern, BorderBeam } from "../magicui";
 
 const CANON_HUB = "/docs/1.0.0/index.html";
+
+/* --------------------------------------------------- version selector menu */
+interface DocVersion {
+  version: string;
+  docs: string;
+  status: string;
+}
+
+function VersionSelect() {
+  const [versions, setVersions] = useState<DocVersion[]>([]);
+  const [current, setCurrent] = useState<string>("");
+  useEffect(() => {
+    fetch("/docs/versions.json", { cache: "no-cache" })
+      .then((r) => r.json())
+      .then((vs: DocVersion[]) => {
+        setVersions(vs);
+        const path = location.pathname;
+        const m = path.match(/\/docs\/([^/]+)\//);
+        const dir = m?.[1];
+        const hit = vs.find((v) => v.docs.includes(`/${dir}/`));
+        setCurrent(hit?.version ?? vs[0]?.version ?? "");
+      })
+      .catch(() => {});
+  }, []);
+  if (!versions.length) return null;
+  const active = versions.find((v) => v.version === current);
+  return (
+    <span className="flex items-center gap-2">
+      <span className="text-line-light">|</span>
+      <span className="font-mono text-[11px] uppercase tracking-wider text-[#6a7089]">
+        v
+      </span>
+      <select
+        value={current}
+        onChange={(e) => {
+          const v = versions.find((x) => x.version === e.target.value);
+          if (v) location.href = v.docs;
+        }}
+        className="rounded-lg border border-line-light bg-[#151828] px-2.5 py-1 font-mono text-xs text-[#e8eaf2] outline-none transition-colors hover:border-brand-violet/50 focus:border-brand-violet"
+        aria-label="Documentation version"
+      >
+        {versions.map((v) => (
+          <option key={v.version} value={v.version}>
+            v{v.version}
+            {v.status === "deprecated" ? " (deprecated)" : ""}
+          </option>
+        ))}
+      </select>
+      {active?.status === "stable" && (
+        <span className="rounded-full border border-brand-emerald/30 bg-brand-emerald/10 px-2 py-0.5 text-[10px] font-bold text-brand-emerald">
+          Latest
+        </span>
+      )}
+    </span>
+  );
+}
 
 /* ------------------------------------------------------------------ topbar */
 function Topbar({
@@ -38,6 +95,7 @@ function Topbar({
       >
         Docs
       </a>
+      <VersionSelect />
       <button
         onClick={onSearch}
         className="ml-auto flex items-center gap-2 rounded-lg border border-line-light bg-white/[0.03] px-3 py-1.5 text-xs text-[#9aa0b4] hover:border-brand-violet/50 hover:text-[#e8eaf2] transition-colors"
@@ -204,13 +262,13 @@ function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {
     href: p.id === "index" ? CANON_HUB : `/docs/1.0.0/${p.id}.html`,
     kind: "page" as const,
   }));
-  const sectionItems = extractHeadings(
-    pageById(currentPageId())?.html ?? "",
-  ).map((h) => ({
-    label: h.text,
-    href: `#${h.id}`,
-    kind: "section" as const,
-  }));
+  const sectionItems = extractHeadings(extractMain(currentPageId())).map(
+    (h) => ({
+      label: h.text,
+      href: `#${h.id}`,
+      kind: "section" as const,
+    }),
+  );
   const all = [...sectionItems, ...pageItems]
     .filter((i) => i.label.toLowerCase().includes(q.toLowerCase()))
     .slice(0, 14);
@@ -342,10 +400,14 @@ function useContentEffects(html: string) {
 export default function App() {
   const current = currentPageId();
   const page = pageById(current)!;
-  const headings = useMemo(() => extractHeadings(page.html), [page]);
+  const headings = useMemo(
+    () => extractHeadings(extractMain(current)),
+    [current],
+  );
+  const contentHtml = useMemo(() => extractMain(current), [current]);
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  useContentEffects(page.html);
+  useContentEffects(contentHtml);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -429,9 +491,7 @@ export default function App() {
             </header>
             <article
               className="doc-content"
-              dangerouslySetInnerHTML={{
-                __html: page.html.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, ""),
-              }}
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
             />
             <Pagination current={current} />
           </main>

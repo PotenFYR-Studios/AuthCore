@@ -1,6 +1,10 @@
 /** Content pipeline: legacy doc pages loaded as raw HTML at build time. */
 
-const raw = import.meta.glob("../content/*.html", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const raw = import.meta.glob("../content/*.html", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+}) as Record<string, string>;
 
 export interface DocPage {
   id: string;
@@ -24,7 +28,11 @@ export const PAGES: DocPage[] = [
 ].map((p) => {
   const html = raw[`../content/${p.id}.html`] ?? "";
   const d = html.match(/<meta name="description" content="([^"]*)"/);
-  return { ...p, description: d ? d[1] : `AuthCore documentation — ${p.title}.`, html };
+  return {
+    ...p,
+    description: d ? d[1] : `AuthCore documentation — ${p.title}.`,
+    html,
+  };
 });
 
 export function pageById(id: string): DocPage | undefined {
@@ -35,6 +43,31 @@ export interface Heading {
   id: string;
   text: string;
   level: 2 | 3;
+}
+
+const mainCache = new Map<string, string>();
+
+/**
+ * Extract only the article content from a legacy page: the <main> inside the
+ * old .layout wrapper — dropping the legacy site header, TOC, progress bar,
+ * back-to-top button and scripts, all replaced by the React layout.
+ */
+export function extractMain(id: string): string {
+  if (mainCache.has(id)) return mainCache.get(id)!;
+  const html = pageById(id)?.html ?? "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc
+    .querySelectorAll(
+      "script, .site-header, .toc, #progress, #authcore-versionbar, .page-nav, #back-to-top, .back-to-top, .foot",
+    )
+    .forEach((n) => n.remove());
+  const main =
+    doc.querySelector(".layout > main") ??
+    doc.querySelector("main") ??
+    doc.body;
+  const inner = main.innerHTML;
+  mainCache.set(id, inner);
+  return inner;
 }
 
 /** Extract h2/h3 headings (with ids) from a content HTML string. */
