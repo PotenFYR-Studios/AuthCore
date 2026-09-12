@@ -92,3 +92,7 @@ Thumbs.db
 CLAUDE.md
 .rtk
 .plan
+
+# docs app
+docs/app/node_modules/
+docs/app/dist/

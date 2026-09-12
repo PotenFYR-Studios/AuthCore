@@ -39,7 +39,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Stage site (main page + docs/)
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build docs app (Vite + React + TS)
+        working-directory: docs/app
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Stage site (main page + built docs app)
         run: |
           mkdir -p site/docs
           cp index.html site/index.html
@@ -47,7 +56,8 @@ jobs:
           cp robots.txt site/robots.txt
           cp sitemap.xml site/sitemap.xml
           cp CNAME site/CNAME
-          cp -r docs/. site/docs/
+          cp docs/versions.json site/docs/versions.json
+          cp -r docs/app/dist/. site/docs/
           ls -R site | head -40
 
       - name: Setup Pages

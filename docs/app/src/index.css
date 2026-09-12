@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0b0d14;
+  --color-bg2: #101320;
+  --color-panel: #151828;
+  --color-panel-elevated: #1a1e32;
+  --color-line: rgba(139, 92, 246, 0.16);
+  --color-line-light: rgba(255, 255, 255, 0.08);
+  --color-brand-violet: #8b5cf6;
+  --color-brand-pink: #ec4899;
+  --color-brand-orange: #f97316;
+  --color-brand-cyan: #06b6d4;
+  --color-brand-emerald: #10b981;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+}
+
+html { scroll-behavior: smooth; color-scheme: dark; }
+
+body {
+  background: var(--color-bg);
+  color: #e8eaf2;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection { background: rgba(139, 92, 246, 0.45); color: #fff; }
+
+/* ---------- legacy doc content typography (rendered inside React shell) ---------- */
+.doc-content { min-width: 0; font-size: 15px; line-height: 1.75; color: #b9bfd4; }
+.doc-content h1 {
+  font-size: 1.9em; font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; margin: 0 0 12px;
+  background: linear-gradient(120deg, #c4b5fd, #f9a8d4 50%, #fdba74);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.doc-content h2 {
+  margin: 2.2em 0 0.7em; font-size: 1.3em; font-weight: 700; color: #fff;
+  padding-bottom: 0.35em; border-bottom: 1px solid var(--color-line);
+  scroll-margin-top: 90px;
+}
+.doc-content h3 { margin: 1.8em 0 0.5em; font-size: 1.08em; font-weight: 640; color: var(--color-text, #e8eaf2); scroll-margin-top: 90px; }
+.doc-content h4 { margin: 1.4em 0 0.4em; font-size: 0.96em; font-weight: 620; color: #b9bfd4; }
+.doc-content p { margin: 0.75em 0; }
+.doc-content a { color: #c4b5fd; text-decoration: none; }
+.doc-content a:hover { color: #f9a8d4; text-decoration: underline; text-underline-offset: 3px; }
+.doc-content ul, .doc-content ol { padding-left: 1.35em; margin: 0.7em 0; }
+.doc-content li { margin: 0.3em 0; }
+.doc-content li::marker { color: #6a7089; }
+.doc-content hr { border: none; border-top: 1px solid var(--color-line); margin: 2.2em 0; }
+.doc-content img { max-width: 100%; border-radius: 10px; border: 1px solid var(--color-line-light); }
+.doc-content strong { color: #e8eaf2; font-weight: 620; }
+.doc-content code {
+  font-family: var(--font-mono); font-size: 0.85em;
+  background: rgba(139, 92, 246, 0.1); border: 1px solid var(--color-line);
+  color: #d8ccfe; border-radius: 6px; padding: 0.12em 0.4em; word-break: break-word;
+}
+.doc-content pre {
+  position: relative; margin: 1em 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--color-panel); border: 1px solid var(--color-line);
+  border-radius: 10px;
+  scrollbar-width: thin; scrollbar-color: #2c3150 transparent;
+}
+.doc-content pre code { background: none; border: none; padding: 0; color: #dfe2ef; font-size: 0.84em; line-height: 1.65; display: block; white-space: pre; }
+.doc-content table {
+  width: 100%; margin: 1.1em 0; border-collapse: separate; border-spacing: 0;
+  font-size: 0.9em; background: var(--color-panel);
+  border: 1px solid var(--color-line); border-radius: 10px; overflow: hidden;
+}
+.doc-content th { text-align: left; padding: 9px 14px; background: var(--color-panel-elevated); color: #e8eaf2; font-weight: 620; border-bottom: 1px solid var(--color-line); }
+.doc-content td { padding: 9px 14px; border-bottom: 1px solid var(--color-line-light); vertical-align: top; }
+.doc-content tr:last-child td { border-bottom: none; }
+.doc-content tbody tr:hover { background: rgba(139, 92, 246, 0.06); }
+.doc-content blockquote {
+  margin: 1.1em 0; padding: 10px 16px;
+  border-left: 3px solid var(--color-brand-violet);
+  background: var(--color-panel); border-radius: 0 10px 10px 0;
+}
+.doc-content blockquote p { margin: 0.35em 0; }
+
+/* copy button injected on pre blocks */
+.copy-btn {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+  color: #9aa0b4; background: rgba(255,255,255,0.05);
+  border: 1px solid var(--color-line-light); border-radius: 6px;
+  padding: 3px 9px; cursor: pointer; opacity: 0; transition: opacity .15s, color .15s, border-color .15s;
+}
+.doc-content pre:hover .copy-btn, .copy-btn:focus-visible { opacity: 1; }
+.copy-btn:hover { color: #fff; border-color: rgba(139,92,246,.5); }
+.copy-btn.ok { color: #34d399; border-color: rgba(16,185,129,.4); }
+
+/* toc active state */
+.toc-item.active { color: #d8ccfe !important; border-left-color: var(--color-brand-violet) !important; background: linear-gradient(90deg, rgba(139,92,246,.12), transparent); }

@@ -32,7 +32,8 @@
     "#ac-vbar select{background:#151828;color:#e8eaf2;border:1px solid rgba(139,92,246,.16);border-radius:8px;",
     "padding:4px 10px;font-size:13px;cursor:pointer}",
     "#ac-vbar .ac-badge{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);border-radius:20px;",
-    "padding:2px 10px;font-size:11px;font-weight:700}"
+    "padding:2px 10px;font-size:11px;font-weight:700}",
+    "#ac-vbar .ac-gh{margin-left:auto;color:#9aa0b4;font-weight:500}"
   ].join("");
 
   function el(tag, cls, text) {
@@ -50,13 +51,13 @@
     style.textContent = CSS;
     bar.appendChild(style);
 
-    var home = el("a", null, "AuthCore Docs");
+    var home = el("a", null, "AuthCore");
     home.href = "/index.html";
     bar.appendChild(home);
     bar.appendChild(el("span", "ac-sep", "|"));
 
     if (current) {
-      bar.appendChild(el("span", "ac-label", "docs for"));
+      bar.appendChild(el("span", "ac-label", "Docs"));
       var sel = document.createElement("select");
       versions.forEach(function (v) {
         var o = document.createElement("option");
@@ -70,10 +71,15 @@
       var me = versions.filter(function (v) { return v.version === current; })[0];
       if (me && me.status === "stable") bar.appendChild(el("span", "ac-badge", "Latest"));
     } else {
-      bar.appendChild(el("span", "ac-label", "common documentation (all versions)"));
+      var newest = versions.length ? versions[0].docs : "/docs/1.0.0/index.html";
+      var docsLink = el("a", null, "Docs");
+      docsLink.href = newest;
+      bar.appendChild(docsLink);
+      var latest = versions.length && versions[0].status === "stable" ? el("span", "ac-badge", "Latest") : null;
+      if (latest) bar.appendChild(latest);
     }
     bar.appendChild(el("span", "ac-sep", "|"));
-    var gh = el("a", null, "GitHub \u2197");
+    var gh = el("a", "ac-gh", "GitHub");
     gh.href = "https://github.com/PotenFYR-Studios/AuthCore";
     gh.target = "_blank";
     gh.rel = "noopener";
