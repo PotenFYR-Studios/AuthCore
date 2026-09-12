@@ -19,7 +19,6 @@
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
-      <span class="brand-mark">🏰🔐</span>
       <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
     </a>
     <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -28,16 +27,16 @@
     <nav class="site-nav">
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
-      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
-      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
-      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
-      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
-      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
-      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
-      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
-      <a class="nav-link active" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
-      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
-      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html">Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html">Flows</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html">Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html">Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html">Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html">Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html">26.x</a>
+      <a class="nav-link active" href="../../docs/1.0.0/api.html">API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html">Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html">Changelog</a>
       <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -52,8 +51,8 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
-<h1>🔌 AuthCore Developer API</h1>
-<h2 id="overview">📖 Overview</h2>
+<h1>AuthCore Developer API</h1>
+<h2 id="overview">Overview</h2>
 <p>AuthCore exposes a public, static developer API for other mods (Fabric / Forge / NeoForge)
 and server scripts:</p>
 <blockquote>
@@ -69,7 +68,7 @@ safe to call from the <strong>server thread</strong> at any time after the serve
 <li>Anti-cheat / moderation tools kicking or logging out players</li>
 <li>Website-facing bridge mods verifying passwords without touching the database</li>
 </ul>
-<h2 id="method-reference">📋 Method Reference</h2>
+<h2 id="method-reference">Method Reference</h2>
 <table>
 <thead>
 <tr>
@@ -229,7 +228,7 @@ for (User u : User.fetchPlayersPublic(100, &quot;ste&quot;)) {
     System.out.println(u.username + &quot; -&gt; &quot; + u.uuid);
 }
 </code></pre>
-<h2 id="example">🧪 Example</h2>
+<h2 id="example">Example</h2>
 <pre><code class="language-java">import in.potenfyr.authcore.api.AuthCoreApi;
 import in.potenfyr.authcore.models.User;
 
@@ -265,15 +264,15 @@ public class MyIntegration {
     }
 }
 </code></pre>
-<h2 id="integration-notes">📝 Integration Notes</h2>
-<h3 id="threading">🧵 Threading</h3>
+<h2 id="integration-notes">Integration Notes</h2>
+<h3 id="threading">Threading</h3>
 <ul>
 <li>All API methods are safe to call from the <strong>Minecraft server thread</strong>.</li>
 <li>If you call from another thread (async tasks, HTTP callbacks, web bridges), marshal the call
 back onto the server thread first, e.g. via <code>MinecraftServer.execute(...)</code> or
 <code>ServerLifecycleEvents</code>-based schedulers. The <code>User</code> objects returned are live cache objects.</li>
 </ul>
-<h3 id="lazy-loading-for-100k-users">🐢 Lazy Loading for 100k+ Users</h3>
+<h3 id="lazy-loading-for-100k-users">Lazy Loading for 100k+ Users</h3>
 <p>Since <strong>1.0.0</strong> the mod no longer loads the whole user table into memory at startup, so it
 scales to <strong>500k+ registered accounts</strong> with flat memory and no startup spike:</p>
 <ul>
@@ -303,7 +302,7 @@ API calls like <code>getUser(...)</code>, <code>isRegistered(...)</code> and <co
 <li>Check <code>Database.migrationBlocked</code> in your integration to surface a &quot;database needs repair&quot;
 state to players/admins instead of failing silently.</li>
 </ul>
-<h3 id="encrypter--argon2id-fallback-behavior">🧂 Encrypter, Argon2id Fallback Behavior</h3>
+<h3 id="encrypter--argon2id-fallback-behavior">Encrypter, Argon2id Fallback Behavior</h3>
 <p><code>in.potenfyr.authcore.security.Encrypter</code> never stores an unusable hash:</p>
 <ul>
 <li>An <strong>unknown algorithm</strong> in <code>password-rules.password-hash-algorithm</code> logs a warning
@@ -316,7 +315,7 @@ response&quot; enumeration-prevention policy.</li>
 <li><code>md5</code> is <strong>never stored</strong>: configured <code>md5</code> hashes through SHA-256 internally (legacy
 compatibility) and flags the account with a weak-algorithm risk warning.</li>
 </ul>
-<h3 id="null-safety">⚠️ Null Safety</h3>
+<h3 id="null-safety">Null Safety</h3>
 <ul>
 <li><code>getUser(...)</code> and every <code>boolean</code>/<code>int</code>-returning query handle unknown accounts gracefully:
 they return <code>null</code> / <code>false</code> / <code>100</code> (risk) instead of throwing.</li>
@@ -324,7 +323,7 @@ they return <code>null</code> / <code>false</code> / <code>100</code> (risk) ins
 <code>false</code> when the account is unknown or the player is offline.</li>
 <li><code>getUser(...)</code> accepts a <code>null</code> argument and returns <code>null</code> rather than throwing.</li>
 </ul>
-<h3 id="version-compatibility">🔄 Version Compatibility</h3>
+<h3 id="version-compatibility">Version Compatibility</h3>
 <ul>
 <li>AuthCore covers <strong>Minecraft 1.16.0 - 26.1-26.2</strong> on <strong>Fabric / Forge / NeoForge</strong> with
 <strong>seven jars</strong> (3 version ranges × loaders) built from one source tree (Mojang mappings,
@@ -347,7 +346,7 @@ crashing the server. As long as you only use <code>AuthCoreApi</code>, you never
 endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
  1.19.4/1.20.6/1.21.1/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2, all <strong>PASS</strong> (2026-08-10).</li>
 </ul>
-<h2 id="internal-packages">🗂️ Internal Packages</h2>
+<h2 id="internal-packages">Internal Packages</h2>
 <table>
 <thead>
 <tr>
@@ -393,7 +392,7 @@ endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar
 <code>ServerLivingEntityEvents</code>) are registered <strong>reflectively</strong>, so the same jar adapts to the
 fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 </blockquote>
-<h2 id="database-schema-reference">🗄️ Database Schema Reference</h2>
+<h2 id="database-schema-reference">Database Schema Reference</h2>
 <h3 id="users-table"><code>USERS</code> table</h3>
 <table>
 <thead>
@@ -539,7 +538,7 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 <td>Event timestamp (epoch ms)</td>
 </tr>
 </tbody></table>
-<h2 id="placeholder-tokens">🔤 Placeholder Tokens</h2>
+<h2 id="placeholder-tokens">Placeholder Tokens</h2>
 <p>Message templates (announcements, custom messages, webhook payloads) support the following
 <code>%authcore_*%</code> tokens, they are resolved per-player at render time:</p>
 <table>
@@ -582,7 +581,7 @@ fabric-api version present at runtime. Missing APIs are skipped gracefully.</p>
 <td><code>true</code> / <code>false</code>, whether the account is currently locked</td>
 </tr>
 </tbody></table>
-<h2 id="new-admin-commands-100">🛠️ New Admin Commands (1.0.0)</h2>
+<h2 id="new-admin-commands-100">New Admin Commands (1.0.0)</h2>
 <table>
 <thead>
 <tr>
@@ -614,7 +613,7 @@ AuthCore with Prometheus/Grafana:</p>
 <pre><code class="language-bash">curl -H &quot;Authorization: Bearer $TOKEN&quot; http://127.0.0.1:25570/metrics
 </code></pre>
 <p>See <a href="webpanel.html">WEBPANEL.md</a> for the endpoint reference.</p>
-<h2 id="server-side-files">🗂️ Server-Side Files</h2>
+<h2 id="server-side-files">Server-Side Files</h2>
 <ul>
 <li><strong><code>config/authcore/ip-rules.conf</code></strong>, per-IP allow/deny rules (see <code>session.security.ip-rules-file</code>
 in <a href="config.html">CONFIG.md</a>). Lines: <code>allow 1.2.3.4</code> / <code>deny 5.6.7.8</code>, <code>#</code> comments; first match
@@ -623,7 +622,7 @@ wins, default allow. Denied IPs are kicked on join.</li>
 &quot;Custom Locales&quot;).</li>
 </ul>
 <hr>
-<h2 id="discord-account-linking">🔗 Discord Account Linking</h2>
+<h2 id="discord-account-linking">Discord Account Linking</h2>
 <p>Players pair their Minecraft account with a Discord user using a short-lived code flow:</p>
 <h3 id="in-game-commands">In-game commands</h3>
 <table>
@@ -681,7 +680,7 @@ Discord ↔ Minecraft mapping (<code>authcore:discord:&lt;discordId&gt;</code> �
 are implemented in
 <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/src/main/java/in/potenfyr/authcore/network/RedisManager.java"><code>RedisManager</code></a>.</p>
 <hr>
-<h2 id="cross-server-security-event-bus-redis-pubsub">📡 Cross-Server Security Event Bus (Redis pub/sub)</h2>
+<h2 id="cross-server-security-event-bus-redis-pubsub">Cross-Server Security Event Bus (Redis pub/sub)</h2>
 <p>When <code>database.redis.enabled</code> is on, every server publishes security events to the Redis
 pub/sub channel <strong><code>authcore:events</code></strong>, no additional configuration is needed. The event bus
 is enabled automatically with Redis.</p>
@@ -737,7 +736,7 @@ locally-connected player.</li>
 </ol>
 <p>Events published by the local server (matching <code>server</code>) are ignored to avoid loops.</p>
 <hr>
-<h2 id="security-test-suite">🧪 Security Test Suite</h2>
+<h2 id="security-test-suite">Security Test Suite</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required):
 <code>test/</code>, <strong>80 checks</strong> covering password hashing round-trips for all 6
 algorithms, unique per-hash salts, email recovery codes, the rate limiter,
@@ -748,7 +747,7 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 <p>The suite is part of the security process, see <a href="security.html">SECURITY.md</a> for what it caught
 (the PBKDF2 server-thread hang) and how it guards regressions.</p>
 <hr>
-<h2 id="interop--network-events">📡 Interop &amp; Network Events</h2>
+<h2 id="interop--network-events">Interop &amp; Network Events</h2>
 <p>AuthCore broadcasts auth-state changes so OTHER mods (and proxy plugins) can react - useful
 when a backend runs a different authentication mod.</p>
 <table>

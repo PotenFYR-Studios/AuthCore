@@ -22,16 +22,16 @@
   var current = script ? (script.getAttribute("data-version") || "") : "";
 
   var CSS = [
-    "#ac-vbar{position:sticky;top:0;z-index:999;background:#0b0f17ee;backdrop-filter:blur(6px);",
-    "border-bottom:1px solid #1f2a3d;padding:8px 20px;display:flex;align-items:center;gap:14px;",
-    "font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif;font-size:13.5px;color:#d8e1f0}",
-    "#ac-vbar a{color:#38bdf8;text-decoration:none;font-weight:600}",
+    "#ac-vbar{position:sticky;top:0;z-index:999;background:rgba(11,13,20,.85);backdrop-filter:blur(12px);",
+    "border-bottom:1px solid rgba(139,92,246,.16);padding:8px 20px;display:flex;align-items:center;gap:14px;",
+    "font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif;font-size:13.5px;color:#e8eaf2}",
+    "#ac-vbar a{color:#c4b5fd;text-decoration:none;font-weight:600}",
     "#ac-vbar a:hover{text-decoration:underline}",
-    "#ac-vbar .ac-sep{color:#3c4a63}",
+    "#ac-vbar .ac-sep{color:#6a7089}",
     "#ac-vbar .ac-label{color:#7f8ca6;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em}",
-    "#ac-vbar select{background:#121926;color:#d8e1f0;border:1px solid #1f2a3d;border-radius:8px;",
+    "#ac-vbar select{background:#151828;color:#e8eaf2;border:1px solid rgba(139,92,246,.16);border-radius:8px;",
     "padding:4px 10px;font-size:13px;cursor:pointer}",
-    "#ac-vbar .ac-badge{background:#14311f;color:#22c55e;border:1px solid #1c3a2a;border-radius:20px;",
+    "#ac-vbar .ac-badge{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);border-radius:20px;",
     "padding:2px 10px;font-size:11px;font-weight:700}"
   ].join("");
 
@@ -50,7 +50,7 @@
     style.textContent = CSS;
     bar.appendChild(style);
 
-    var home = el("a", null, "\ud83d\udda3\ufe0f AuthCore Docs");
+    var home = el("a", null, "AuthCore Docs");
     home.href = "/index.html";
     bar.appendChild(home);
     bar.appendChild(el("span", "ac-sep", "|"));

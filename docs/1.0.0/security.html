@@ -19,7 +19,6 @@
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
-      <span class="brand-mark">🏰🔐</span>
       <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
     </a>
     <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -28,16 +27,16 @@
     <nav class="site-nav">
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
-      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
-      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
-      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
-      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
-      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
-      <a class="nav-link active" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
-      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
-      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
-      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
-      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html">Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html">Flows</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html">Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html">Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html">Web Panel</a>
+      <a class="nav-link active" href="../../docs/1.0.0/security.html">Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html">26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html">API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html">Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html">Changelog</a>
       <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -52,12 +51,12 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
-<h1>🔐 AuthCore Security Model</h1>
+<h1>AuthCore Security Model</h1>
 <p>This document describes how AuthCore protects player accounts and the server: password
 hashing, brute-force defense, session protection, premium-API failure handling, limbo
 isolation, and the mitigation of OWASP Top-10 and Minecraft-specific threats.</p>
 <hr>
-<h2 id="password-hashing">🔑 Password Hashing</h2>
+<h2 id="password-hashing">Password Hashing</h2>
 <ul>
 <li><strong>Default algorithm: Argon2id</strong> (memory-hard, GPU/ASIC-resistant): 64 MiB memory,
 3 iterations, parallelism 1, 16-byte hash.</li>
@@ -116,7 +115,7 @@ it hashes through SHA-256 internally (legacy compatibility) and flags the accoun
 - round-trips for all 6 algorithms plus unique per-hash salts; see
 <a href="#-automated-test-suite">the test suite</a> below.</li>
 </ul>
-<h2 id="brute-force-defense-layers">🛡️ Brute-Force Defense Layers</h2>
+<h2 id="brute-force-defense-layers">Brute-Force Defense Layers</h2>
 <p>Defense is layered so a single failure never exposes accounts:</p>
 <ol>
 <li><strong>Max login attempts</strong> (<code>session.authentication.max-login-attempts</code>, default 8), kick after
@@ -145,18 +144,18 @@ disconnect→rejoin in under <code>fast-rejoin-window-ms</code> (default 500 ms)
 AuthCore fires a <strong>webhook + security-log alert</strong> (alert-only, no kick) so you can spot
 automated clients without punishing legitimate laggy players.</li>
 </ol>
-<h3 id="password-reuse-blocking">🔑 Password Reuse Blocking</h3>
+<h3 id="password-reuse-blocking">Password Reuse Blocking</h3>
 <p><code>password-rules.history-size</code> (default 5) remembers the last N passwords per account and
 <strong>blocks reuse</strong> on change. Combined with <code>allow-reuse = false</code>, players cannot cycle back to an
 old password, so a leaked old hash can never become the current one again. Set to <code>0</code> to disable
 the history.</p>
-<h3 id="trusted-players-captcha-bypass">⭐ Trusted Players (verification bypass)</h3>
+<h3 id="trusted-players-captcha-bypass">Trusted Players (verification bypass)</h3>
 <p>After a <strong>successful login</strong> the account is marked &quot;trusted&quot; for <code>bypass-captcha-hours</code>
 (default 24 h) and <strong>skips the human-verification challenge</strong> on rejoins (<code>session.trusted</code>).
 This keeps repeat, already-verified players friction-free while guests still prove they are
 not bots. Trust status is stored in the database (<code>trustedUntilMs</code>), so it survives
 restarts.</p>
-<h3 id="network-device-fingerprint">🖇️ Network Device Fingerprint</h3>
+<h3 id="network-device-fingerprint">Network Device Fingerprint</h3>
 <p>On every login AuthCore computes a <strong>SHA-256 fingerprint of the login origin (IP + country)</strong> -
 a strong &quot;same network/device&quot; signal, not a hardware fingerprint (impossible server-side). It
 is stored per account in the <code>deviceFingerprint</code> DB column.</p>
@@ -167,7 +166,7 @@ the same signal that backs optional <code>block-on-new-country</code>.</li>
 <li>New logins just record the fingerprint; only <em>changes</em> are flagged, so legitimate roaming
 across IPs is noticed but not punished automatically.</li>
 </ul>
-<h3 id="ip-allowdeny-rules">🚫 IP Allow/Deny Rules</h3>
+<h3 id="ip-allowdeny-rules">IP Allow/Deny Rules</h3>
 <p><code>config/authcore/ip-rules.conf</code> (<code>session.security.ip-rules-file</code>, default <code>ip-rules.conf</code>)
 provides a static, first-match-wins access list applied on join:</p>
 <pre><code class="language-text"># block a known abuser, allow a trusted build proxy
@@ -180,18 +179,18 @@ allow 1.2.3.4
 <li><strong>Denied IPs are kicked on join</strong>, before they can reach the lobby.</li>
 <li>The file is loaded at startup and on <code>/authcore reload</code>.</li>
 </ul>
-<h3 id="shadow-ban-mode">👻 Shadow-Ban Mode</h3>
+<h3 id="shadow-ban-mode">Shadow-Ban Mode</h3>
 <p><code>session.shadow-ban</code> (default off) hides <em>why</em> players are blocked. When enabled, security
 blocks (e.g. <code>block-on-new-country</code>) disconnect the player with a generic
 <code>disconnect-reason</code> (&quot;Connection lost&quot;) instead of the revealing security message, while the
 <strong>webhook alert still fires</strong>, so admins keep full visibility without tipping off the blocked
 player (useful against account sharers who adapt to specific block messages).</p>
-<h3 id="auto-whitelist">📜 Auto-Whitelist</h3>
+<h3 id="auto-whitelist">Auto-Whitelist</h3>
 <p><code>session.auto-whitelist.enabled</code> (default off): successfully <strong>registered</strong> accounts are added
 to the <strong>vanilla server whitelist</strong> automatically (applies while the server whitelist is
 enabled). Works across 1.16.0 - 26.1-26.2 via the Compat layer, so a registered player is never
 locked out by an admin-managed whitelist.</p>
-<h3 id="honeypot-auto-banning-decoy-port">🍯 Honeypot (auto-banning decoy port)</h3>
+<h3 id="honeypot-auto-banning-decoy-port">Honeypot (auto-banning decoy port)</h3>
 <p><code>session.honeypot</code> (default off) runs a <strong>fake server listener</strong> on its own port (default
 25599). <em>Every</em> connection to it is treated as an attacker scan:</p>
 <ul>
@@ -202,13 +201,13 @@ the scanner is banned for good and kicked on any real join attempt.</li>
 </ul>
 <p>Scenario: enable it on a public server so port scanners probing 25599 permanently ban
 themselves.</p>
-<h3 id="maintenance-mode">🛠️ Maintenance Mode</h3>
+<h3 id="maintenance-mode">Maintenance Mode</h3>
 <p><code>session.maintenance</code> (default off) blocks <strong>all</strong> joins with a custom <code>kick-message</code>. Toggle it
 at runtime with <code>/authcore maintenance on|off</code> (persisted to <code>settings.conf</code>), useful during
 world updates, backups or security incidents. Combine with <code>security.webhook-url</code> so the
 maintenance window is visible in your alerting. <code>/authcore validate</code> performs a dry-run config
 check before you rely on any of these settings.</p>
-<h3 id="race-condition-hardening">🧵 Race-Condition Hardening</h3>
+<h3 id="race-condition-hardening">Race-Condition Hardening</h3>
 <p>1.0.0 hardened the shared state that multiple threads (server thread, web panel daemon, Redis
 subscriber, honeypot, backup scheduler, IO pool) touch, so the design is race-condition-free
 even at <strong>500k+ accounts and thousands of concurrent joins</strong>:</p>
@@ -226,7 +225,7 @@ dedupe so a loader firing the event twice can never double-process a player.</li
 unbounded) so a burst of lookups can never exhaust threads; <code>TaskScheduler</code> tasks are
 idempotent and stopped on logout.</li>
 </ul>
-<h3 id="database-migration-safety">🛑 Database Migration Safety</h3>
+<h3 id="database-migration-safety">Database Migration Safety</h3>
 <p>AuthCore migrates the <code>USERS</code> schema automatically at startup (dialect-aware <code>ALTER TABLE</code> for
 missing columns, SQLite <code>PRAGMA</code>, MySQL/PostgreSQL <code>information_schema</code>). If the migration
 <strong>fails</strong>:</p>
@@ -244,7 +243,7 @@ schema errors; security-log/webhook alerts keep working.</li>
 migration; the server refuses new registrations, prints exact fix instructions, and only
 resumes after the admin repairs or restores the database.</p>
 </blockquote>
-<h2 id="session-protection">🔄 Session Protection</h2>
+<h2 id="session-protection">Session Protection</h2>
 <ul>
 <li><strong>IP binding</strong>, <code>session-from-same-ip-only</code> (default true): a resumed session is only
 accepted from the IP that originally logged in, protecting against session hijacking.</li>
@@ -258,7 +257,7 @@ being authenticated from multiple locations at once.</li>
 <li><strong>Bedrock / proxy / VPN gating</strong>, <code>allow-bedrock-players</code>, <code>allow-proxy-users</code> can
 completely block untrusted client classes.</li>
 </ul>
-<h2 id="cross-server-security-event-bus">📡 Cross-Server Security Event Bus</h2>
+<h2 id="cross-server-security-event-bus">Cross-Server Security Event Bus</h2>
 <p>When <code>database.redis.enabled</code> is on, every server in a network participates in a <strong>Redis
 pub/sub security event bus</strong> (channel <code>authcore:events</code>), no extra configuration:</p>
 <ul>
@@ -271,7 +270,7 @@ forwarded to the local Discord webhook as a &quot;Cross-Server Event&quot; embed
 <strong>every</strong> backend immediately, there is no window where a locked/compromised account can
 hop to another server in the network. Events from the local server are ignored (no loops).</li>
 </ul>
-<h2 id="discord-link-codes">🔗 Discord Link Codes</h2>
+<h2 id="discord-link-codes">Discord Link Codes</h2>
 <p>Discord account linking (<code>/discord link</code>) uses short-lived, single-use codes:</p>
 <ul>
 <li>Codes are <strong>6 chars</strong> drawn from an unambiguous charset (<code>A-Z</code> minus <code>I/O</code>, <code>2-9</code>) via
@@ -285,7 +284,7 @@ the security log (<code>DISCORD_LINK_CODE</code>), the completed link (<code>DIS
 <li>The <code>link</code> action is only exposed on the token-protected web panel API
 (<code>POST /api/action</code>), never in-game.</li>
 </ul>
-<h2 id="automated-test-suite">🧪 Automated Test Suite</h2>
+<h2 id="automated-test-suite">Automated Test Suite</h2>
 <p>Security is enforced by code, and that code is continuously verified: <strong><code>test/</code></strong>
 is a standalone suite (no Minecraft required) with <strong>80 checks</strong>, run with
 <code>test/run-security-tests.sh</code> after a build. It covers password hashing round-trips for
@@ -294,7 +293,7 @@ single-use), the rate limiter (window behavior, per-key isolation), proxy IP par
 garbage rejection), device fingerprints and time formatting. It already caught and fixed a real
 vulnerability, the PBKDF2 server-thread hang (see <a href="#password-hashing">Password Hashing</a>) -
 and any regression in these paths fails the suite.</p>
-<h2 id="premium-api-outage-safety">☁️ Premium API Outage Safety</h2>
+<h2 id="premium-api-outage-safety">Premium API Outage Safety</h2>
 <ul>
 <li>Premium verification is done by the <strong>server&#39;s own Mojang session service</strong> (the same call
 vanilla makes) - no external API calls from AuthCore, so there is no external dependency to
@@ -305,7 +304,7 @@ server modes; auto-login players are never given a generated password (their sto
 stays null), and they can switch to password login themselves with <code>/account set-mode offline</code>
 (admins: <code>/authcore set-mode offline &lt;player&gt;</code>).</li>
 </ul>
-<h2 id="account-enumeration-prevention">👤 Account Enumeration Prevention</h2>
+<h2 id="account-enumeration-prevention">Account Enumeration Prevention</h2>
 <ul>
 <li>Login and registration responses are deliberately uniform; the system does not reveal
 whether a name exists before authentication.</li>
@@ -314,7 +313,7 @@ once, and <code>look-up-by-username</code> can enforce globally unique names.</l
 <li>Login history records every attempt (<code>LOGIN_HISTORY</code> table) so mass enumeration attempts are
 visible in the web panel and security log.</li>
 </ul>
-<h2 id="op-safety">👑 OP Safety</h2>
+<h2 id="op-safety">OP Safety</h2>
 <ul>
 <li><code>lobby.safe-operators</code> (default true): a player&#39;s OP status is <strong>temporarily removed</strong> while
 unauthenticated and restored only after a successful login (and only if they were originally
@@ -323,7 +322,7 @@ execute operator commands.</li>
 <li>Admin commands require LuckPerms nodes (<code>authcore.admin.*</code>) or permission level 3, and the
 <code>commands</code> section lets you tune every node individually.</li>
 </ul>
-<h2 id="limbo-isolation">🏠 Limbo Isolation</h2>
+<h2 id="limbo-isolation">Limbo Isolation</h2>
 <p>Unauthenticated players are quarantined in the auth lobby:</p>
 <ul>
 <li>Movement, chat, commands, block/entity interaction, item use/drop/pickup and combat are
@@ -335,7 +334,7 @@ focuses them on the login prompt.</li>
 <li><code>max-lobby-users</code> (50) caps concurrent unauthenticated players, and <code>rate-limit</code> throttles
 connection floods.</li>
 </ul>
-<h2 id="ssrf--https-only-outbound">🌍 SSRF &amp; HTTPS-Only Outbound</h2>
+<h2 id="ssrf--https-only-outbound">SSRF &amp; HTTPS-Only Outbound</h2>
 <ul>
 <li>Webhook and email endpoints accept only <code>https://</code> URLs in their documented configuration
 (Discord webhook, SMTP over STARTTLS/SSL).</li>
@@ -346,7 +345,7 @@ with its SHA-256 fingerprint printed to the console, or a user-supplied PKCS12/J
 <strong>read-only token</strong> (<code>web-panel.readonly-token</code>) for viewers that must never run actions -
 read-only tokens get <code>403</code> on <code>POST /api/action</code>.</li>
 </ul>
-<h2 id="resource-safety">🧮 Resource Safety</h2>
+<h2 id="resource-safety">Resource Safety</h2>
 <ul>
 <li><strong>Scales to 500k+ registered accounts</strong> with flat, spike-free usage: lazy loading,
 bounded caches, O(1) hot paths and rate-limited bursts mean a join/login flood never causes
@@ -366,7 +365,7 @@ windows (10 000), user cache (20 000) all purge expired entries automatically.</
 operations; nothing blocks netty&#39;s event loop.</li>
 <li>The web panel runs on a <strong>daemon thread pool</strong> (<code>AuthCore-WebPanel</code>), never the server thread.</li>
 </ul>
-<h2 id="webhook--email-alerting">📣 Webhook &amp; Email Alerting</h2>
+<h2 id="webhook--email-alerting">Webhook &amp; Email Alerting</h2>
 <ul>
 <li><strong>Discord webhook</strong> (<code>session.security.webhook-url</code>) receives join, login, failed-login,
 lockout and suspicious-login events.</li>
@@ -387,7 +386,7 @@ exceeds the limit it rotates to <code>security.log.1</code> → <code>.2</code> 
 log can never fill the disk.</li>
 </ul>
 <hr>
-<h2 id="multi-version--build-compatibility">🔮 Multi-Version &amp; Build Compatibility</h2>
+<h2 id="multi-version--build-compatibility">Multi-Version &amp; Build Compatibility</h2>
 <ul>
 <li><strong>Version-fragile mixins are <code>required:false</code></strong>, <code>ServerHandshakeNetworkHandlerMixin</code>,
 <code>ServerLoginNetworkHandlerMixin</code> and <code>ServerPlayNetworkHandlerChatMixin</code> are declared
@@ -418,7 +417,7 @@ BungeeCord/Velocity proxy plugin; there is no client code in the jar. Players al
 authenticate with plain chat commands.</li>
 </ul>
 <hr>
-<h2 id="threat-model">🧨 Threat Model</h2>
+<h2 id="threat-model">Threat Model</h2>
 <table>
 <thead>
 <tr>
@@ -608,7 +607,7 @@ is never stalled by a hung Redis.</li>
     
     
     
-<h2 id="detection-bypass-resistance">🛡️ Detection Bypass Resistance</h2>
+<h2 id="detection-bypass-resistance">Detection Bypass Resistance</h2>
 <p>AuthCore implements a <strong>7-layer defense-in-depth stack</strong> that makes bypassing
 authentication practically infeasible for automated clients. Each layer is independent - bypassing
 one never disables the others.</p>

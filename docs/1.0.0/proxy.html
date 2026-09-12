@@ -19,7 +19,6 @@
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
-      <span class="brand-mark">🏰🔐</span>
       <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
     </a>
     <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -28,16 +27,16 @@
     <nav class="site-nav">
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
-      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
-      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
-      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
-      <a class="nav-link active" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
-      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
-      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
-      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
-      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
-      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
-      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html">Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html">Flows</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html">Config</a>
+      <a class="nav-link active" href="../../docs/1.0.0/proxy.html">Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html">Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html">Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html">26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html">API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html">Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html">Changelog</a>
       <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -52,7 +51,7 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
-<h1>🌐 AuthCore Proxy Support (BungeeCord / Velocity)</h1>
+<h1>AuthCore Proxy Support (BungeeCord / Velocity)</h1>
 <p>AuthCore works behind network proxies and uses the forwarded real client IP for GeoIP lookups,
 session IP binding, rate limiting and login intelligence. This document explains the forwarding
 format, the configuration, how it works server-side, and how to set up BungeeCord and Velocity.</p>
@@ -65,7 +64,7 @@ build. Proxy behavior is entirely configuration-driven via <code>session.proxy-s
 disabled, AuthCore is a plain server-side mod, and nothing else changes.</p>
 </blockquote>
 <hr>
-<h2 id="how-ip-forwarding-works">📮 How IP Forwarding Works</h2>
+<h2 id="how-ip-forwarding-works">How IP Forwarding Works</h2>
 <p>In a proxy network the backend Minecraft server never talks to the client directly, it only sees
 the proxy&#39;s IP. To recover the real client IP, proxies inject forwarding data into the handshake.</p>
 <p><strong>BungeeCord</strong> (and Velocity in <strong>legacy</strong> mode) pack the real IP into the handshake address
@@ -80,7 +79,7 @@ NUL separators) and validates that the result actually looks like an IPv4 or IPv
 <p><strong>Velocity modern forwarding</strong> delivers the real IP natively on recent protocol versions; the
 legacy handshake parse is kept as a fallback and can be validated with the shared secret.</p>
 <hr>
-<h2 id="configuration">⚙️ Configuration</h2>
+<h2 id="configuration">Configuration</h2>
 <p>In <code>config/settings.conf</code>:</p>
 <pre><code class="language-hocon">session {
   proxy-support {
@@ -124,7 +123,7 @@ enable it on a direct (non-proxy) server, nothing is rewritten, the parser simpl
 forwarding payload and leaves the connection address untouched.</p>
 </blockquote>
 <hr>
-<h2 id="how-it-works-server-side">🔧 How It Works Server-Side</h2>
+<h2 id="how-it-works-server-side">How It Works Server-Side</h2>
 <ol>
 <li><p>Every client connection starts with a handshake packet (<code>HandshakeC2SPacket</code>).</p>
 </li>
@@ -155,7 +154,7 @@ security log.</p>
 <p>The parser validates candidate IPs (<code>ProxySupport.isValidIp</code>) for IPv4 (<code>1.2.3.4</code>) and IPv6
 (including zone indexes) before rewriting, so garbage handshake data is ignored safely.</p>
 <hr>
-<h2 id="compatibility-with-other-mods-behind-velocity">🤝 Compatibility With Other Mods Behind Velocity</h2>
+<h2 id="compatibility-with-other-mods-behind-velocity">Compatibility With Other Mods Behind Velocity</h2>
 <ul>
 <li>The handshake mixin is <strong>targeted</strong>, it injects only into
 <code>ServerHandshakeNetworkHandler.onHandshake</code>, reads the packet address, and writes the
@@ -168,7 +167,7 @@ libraries, or other proxy plugins).</li>
 the mixin short-circuits immediately and AuthCore behaves as a plain server-side mod.</li>
 </ul>
 <hr>
-<h2 id="distributed-config-across-a-proxy-network-redis">🔁 Distributed Config Across a Proxy Network (Redis)</h2>
+<h2 id="distributed-config-across-a-proxy-network-redis">Distributed Config Across a Proxy Network (Redis)</h2>
 <p>With <code>database.redis.enabled</code>, every backend server in the proxy network reads a shared HOCON
 snippet from the Redis key <strong><code>authcore:config:overrides</code></strong> and <strong>merges it over the local
 <code>settings.conf</code> on load</strong>. That lets you push network-wide settings (e.g. the same
@@ -181,7 +180,7 @@ BungeeCord/Velocity, where you often want identical security behavior on every b
 See <a href="config.html">CONFIG.md</a>
 (<code>database.redis</code>) for details.</p>
 <hr>
-<h2 id="setup-guide">🧩 Setup Guide</h2>
+<h2 id="setup-guide">Setup Guide</h2>
 <h3 id="bungeecord">BungeeCord</h3>
 <ol>
 <li><p>In <code>config.yml</code> on the BungeeCord proxy, enable IP forwarding:</p>
@@ -238,7 +237,7 @@ IP is shown.</p>
 <p>AuthCore parses the handshake payload without needing to know the proxy type in advance. The
 forwarding format is identical for BungeeCord and Velocity-legacy, so <code>auto</code> works for both.</p>
 <hr>
-<h2 id="velocity-modern-identity-forwarding-mod-server-all-loaders">🚀 Velocity Modern Identity Forwarding (mod server, all loaders)</h2>
+<h2 id="velocity-modern-identity-forwarding-mod-server-all-loaders">Velocity Modern Identity Forwarding (mod server, all loaders)</h2>
 <p>With <code>player-info-forwarding-mode = &quot;modern&quot;</code> in <code>velocity.toml</code>, the proxy forwards the REAL
 client identity (UUID + username, HMAC-signed) in a login-phase plugin message
 (<code>velocity:player_info</code>). AuthCore handles this on the mod server:</p>
@@ -267,7 +266,7 @@ on Forge/NeoForge it is skipped gracefully, use <strong>legacy</strong> forwardi
 (<code>protocol = &quot;auto&quot;</code>, works on every loader) there.</p>
 </blockquote>
 <hr>
-<h2 id="interop-with-other-mods-different-auth-mod-on-the-backend">🤝 Interop with OTHER mods (different auth mod on the backend)</h2>
+<h2 id="interop-with-other-mods-different-auth-mod-on-the-backend">Interop with OTHER mods (different auth mod on the backend)</h2>
 <p>If a backend server runs a DIFFERENT authentication mod, AuthCore can still participate
 network-wide: it broadcasts auth-state changes as lightweight plugin messages so other mods
 can react (or so the admin can mix and match). <code>session.interop</code> (default on):</p>
@@ -284,7 +283,7 @@ can react (or so the admin can mix and match). <code>session.interop</code> (def
 (loader-neutral custom payload via <code>minecraft:register</code>); proxy-side plugins listen on
 <code>bungeecord:main</code> (<code>AuthCore</code> subchannel).</p>
 <hr>
-<h2 id="separate-config-files-per-role">🗂️ Separate config files per role</h2>
+<h2 id="separate-config-files-per-role">Separate config files per role</h2>
 <table>
 <thead>
 <tr>
@@ -302,7 +301,7 @@ can react (or so the admin can mix and match). <code>session.interop</code> (def
 </tr>
 </tbody></table>
 <hr>
-<h2 id="full-proxy-side-auth-block-before-any-backend">🛡️ FULL Proxy-Side Auth (block before any backend)</h2>
+<h2 id="full-proxy-side-auth-block-before-any-backend">FULL Proxy-Side Auth (block before any backend)</h2>
 <p>Beyond tracking sessions, the proxy plugin can ENFORCE authentication network-wide: with
 <code>block-unauthenticated=true</code>, players without a valid Redis session are <strong>disconnected at the
 proxy</strong> before they ever reach a backend server.</p>
@@ -329,24 +328,24 @@ backend. Valid session (or Redis unreachable) -&gt; allowed.</li>
 so a Redis outage can never lock an entire network. Keep <code>block-unauthenticated=false</code> until
 every backend has Redis-enabled sessions.</p>
 </blockquote>
-<h2 id="resilience--build-notes">🛡️ Resilience &amp; Build Notes</h2>
+<h2 id="resilience--build-notes">Resilience &amp; Build Notes</h2>
 <h3 id="version-fragile-mixins-requiredfalse">🧩 Version-Fragile Mixins (<code>required:false</code>)</h3>
 <p>The proxy-relevant mixins, <code>ServerHandshakeNetworkHandlerMixin</code> (handshake forwarding) and
 <code>ServerLoginNetworkHandlerMixin</code> (login hello), are declared <strong><code>required:false</code></strong> in
 <code>authcore.server.mixins.json</code>. If a future Minecraft version changes a method signature, the
 mixin <strong>does not apply instead of crashing the server</strong>: AuthCore keeps running, and the
 multi-version CI matrix reports exactly which mixin needs re-mapping.</p>
-<h3 id="database-migration-suspension">🛑 Database Migration Suspension</h3>
+<h3 id="database-migration-suspension">Database Migration Suspension</h3>
 <p>If AuthCore&#39;s automatic schema migration fails at startup, <code>Database.migrationBlocked</code> is set
 and <strong>registration/login are suspended</strong> until the database is fixed, the console prints
 actionable fix steps (recreate the DB, run the manual <code>ALTER TABLE</code> statements, or restore a
 backup from <code>config/authcore/backups/</code>). On a proxy network this blocks auth on the affected
 backend only; other backends keep serving. Fix the database and <code>/authcore reload</code>.</p>
-<h3 id="encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</h3>
+<h3 id="encrypter-argon2-fallback">Encrypter Argon2 Fallback</h3>
 <p>Unknown or failing hash algorithms fall back to <strong>Argon2id</strong> (with a warning) so registration
 and password resets never store an unusable hash, consistent behavior across all backends of a
 proxy network. See <a href="security.html">SECURITY.md</a>.</p>
-<h3 id="multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
+<h3 id="multi-version-workspace--host-compatibility-matrix">Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
 <ul>
 <li>The <strong>Stonecraft 1.10 + Stonecutter 0.9</strong> workspace compiles one merged source tree
 (<code>src/main/java</code>, Mojang mappings) per version-group × loader variant (<code>:1.18.2-fabric</code>,
@@ -360,7 +359,7 @@ proxy network. See <a href="security.html">SECURITY.md</a>.</p>
 (2026-08-10).</li>
 </ul>
 <hr>
-<h2 id="troubleshooting-faq">❓ Troubleshooting FAQ</h2>
+<h2 id="troubleshooting-faq">Troubleshooting FAQ</h2>
 <p><strong>Q: I enabled proxy support and the server still records the proxy IP.</strong>
 A: The mixin only rewrites when a valid forwarding payload is found. Confirm <code>enabled = true</code>
 is under <code>session.proxy-support</code> and that the proxy actually forwards IPs (<code>ip_forward: true</code>

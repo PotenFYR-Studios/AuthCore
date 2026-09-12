@@ -19,7 +19,6 @@
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
-      <span class="brand-mark">🏰🔐</span>
       <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
     </a>
     <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -28,16 +27,16 @@
     <nav class="site-nav">
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
-      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
-      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
-      <a class="nav-link" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
-      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
-      <a class="nav-link active" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
-      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
-      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
-      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
-      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
-      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html">Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html">Flows</a>
+      <a class="nav-link" href="../../docs/1.0.0/config.html">Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html">Proxy</a>
+      <a class="nav-link active" href="../../docs/1.0.0/webpanel.html">Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html">Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html">26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html">API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html">Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html">Changelog</a>
       <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -52,20 +51,20 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
-<h1>🖥️ AuthCore Web Panel</h1>
+<h1>AuthCore Web Panel</h1>
 <p>A lightweight, single-page admin dashboard built into AuthCore. It serves read-only stats,
 player lists, login history, and a small set of admin actions over HTTP(S) with bearer-token
 authentication.</p>
 <hr>
-<h2 id="features">✨ Features</h2>
-<h3 id="overview">📊 Overview</h3>
+<h2 id="features">Features</h2>
+<h3 id="overview">Overview</h3>
 <ul>
 <li>Server version, registered/online/lobby/locked/online-mode account counts</li>
 <li>Live TPS</li>
 <li>Active database dialect and Redis status</li>
 <li>Auto-refreshing dashboard (every 5 s)</li>
 </ul>
-<h3 id="players">👥 Players</h3>
+<h3 id="players">Players</h3>
 <ul>
 <li>Searchable table of registered accounts, <strong>fetched directly from the database</strong> (bounded to
 the <strong>500 most recent by username order</strong>, no in-memory cache scan, so it stays fast with
@@ -74,11 +73,11 @@ the <strong>500 most recent by username order</strong>, no in-memory cache scan,
 last IP and country</li>
 <li>Live status badges and risk coloring (risk ≥ 60 shown in red)</li>
 </ul>
-<h3 id="history">🕘 History</h3>
+<h3 id="history">History</h3>
 <ul>
 <li>Per-player login history (last 20 entries), including IP, country, mode, result and risk</li>
 </ul>
-<h3 id="actions">⚡ Actions</h3>
+<h3 id="actions">Actions</h3>
 <ul>
 <li><strong>Kick</strong>, disconnect an online player (admin reason message)</li>
 <li><strong>Logout</strong>, end an active session</li>
@@ -90,7 +89,7 @@ last IP and country</li>
 <p>Every action is written to the security log (<code>security.log</code>) with a <code>WEB_*</code> event tag (the
 <code>link</code> action additionally writes a <code>DISCORD_LINK</code> entry).</p>
 <hr>
-<h2 id="setup">🛠️ Setup</h2>
+<h2 id="setup">Setup</h2>
 <h3 id="1-generate-a-token">1. Generate a token</h3>
 <pre><code class="language-bash">openssl rand -hex 16
 </code></pre>
@@ -165,7 +164,7 @@ authenticated with it are answered normally for <code>GET</code> endpoints but r
 <p>Generate a second token the same way (<code>openssl rand -hex 16</code>). The read-only token works only
 when the panel has a valid full-access token too.</p>
 <hr>
-<h2 id="security-recommendations">🔐 Security Recommendations</h2>
+<h2 id="security-recommendations">Security Recommendations</h2>
 <ol>
 <li><strong>Always set a strong token</strong>, the panel refuses to start without one.</li>
 <li><strong>Bind to <code>127.0.0.1</code></strong>, never expose <code>0.0.0.0</code> to the public internet.</li>
@@ -178,7 +177,7 @@ to <em>view</em> data.</li>
 <li>The panel runs on a <strong>daemon thread</strong> and never blocks the server thread.</li>
 </ol>
 <hr>
-<h2 id="api-reference">📡 API Reference</h2>
+<h2 id="api-reference">API Reference</h2>
 <p><strong>Base URL:</strong> <code>http://127.0.0.1:25570</code> (or <code>https://127.0.0.1:25571</code>)</p>
 <p><strong>Authentication:</strong> every request must include:</p>
 <pre><code class="language-http">Authorization: Bearer &lt;token&gt;
@@ -534,8 +533,8 @@ curl -X POST -H &quot;Authorization: Bearer $TOKEN&quot; -H &quot;Content-Type: 
   -d &quot;{\&quot;action\&quot;:\&quot;link\&quot;,\&quot;uuid\&quot;:\&quot;$UUID\&quot;,\&quot;value\&quot;:\&quot;123456789012345678\&quot;}&quot; $BASE/api/action
 </code></pre>
 <hr>
-<h2 id="behavior-notes--compatibility">🛡️ Behavior Notes &amp; Compatibility</h2>
-<h3 id="database-migration-suspension">🛑 Database Migration Suspension</h3>
+<h2 id="behavior-notes--compatibility">Behavior Notes &amp; Compatibility</h2>
+<h3 id="database-migration-suspension">Database Migration Suspension</h3>
 <p>If AuthCore&#39;s automatic schema migration <strong>fails</strong> at startup (<code>Database.migrationBlocked = true</code>), the server <strong>suspends registration and login</strong> and prints fix instructions (back up +
 delete the DB file to recreate it, run the manual <code>ALTER TABLE</code> statements from the log, or
 restore a backup). The web panel stays up so you can inspect the damage:</p>
@@ -546,7 +545,7 @@ return), but counts may be partial.</li>
 clear error until the schema is repaired, no half-applied writes.</li>
 <li>The panel itself never triggers the migration; fix the database, then <code>/authcore reload</code>.</li>
 </ul>
-<h3 id="encrypter-argon2-fallback">🧂 Encrypter Argon2 Fallback</h3>
+<h3 id="encrypter-argon2-fallback">Encrypter Argon2 Fallback</h3>
 <p>Password hashing never silently degrades: an unknown <code>password-hash-algorithm</code> value (or a
 hashing exception) logs a warning and <strong>falls back to Argon2id</strong> so <code>set-password</code> and
 <code>/register</code> never store an unusable hash. <code>md5</code> is mapped to SHA-256 internally and flagged as
@@ -558,7 +557,7 @@ details.</p>
 <code>required:false</code> in <code>authcore.server.mixins.json</code>. If a future Minecraft version changes a
 method signature, the mixin <strong>does not apply instead of crashing the server</strong>, the panel and
 the rest of the mod keep working, and CI&#39;s multi-version matrix reports the mismatch.</p>
-<h3 id="multi-version-workspace--host-compatibility-matrix">🔮 Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
+<h3 id="multi-version-workspace--host-compatibility-matrix">Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
 <ul>
 <li>The <strong>Stonecraft 1.10 + Stonecutter 0.9</strong> workspace compiles one merged source tree
 (<code>src/main/java</code>, Mojang mappings) per version-group × loader variant (<code>:1.18.2-fabric</code>,
@@ -572,7 +571,7 @@ the rest of the mod keep working, and CI&#39;s multi-version matrix reports the 
 (2026-08-10).</li>
 </ul>
 <hr>
-<h2 id="self-signed-certificate-details">🧾 Self-Signed Certificate Details</h2>
+<h2 id="self-signed-certificate-details">Self-Signed Certificate Details</h2>
 <ul>
 <li><strong>Location:</strong> <code>config/authcore/panel-keystore.p12</code></li>
 <li><strong>Algorithm:</strong> RSA 2048, SHA256withRSA, valid 10 years</li>
@@ -589,7 +588,7 @@ openssl s_client -connect 127.0.0.1:25571 -servername 127.0.0.1 &lt;/dev/null 2&
 curl -kv https://127.0.0.1:25571/api/overview -H &quot;Authorization: Bearer $TOKEN&quot; 2&gt;&amp;1 \
   | grep -A1 &quot;Server certificate&quot;
 </code></pre>
-<h3 id="brute-force-protection">🔒 Brute-force protection</h3>
+<h3 id="brute-force-protection">Brute-force protection</h3>
 <ul>
 <li>Token comparisons are <strong>constant-time</strong> (no timing side-channels).</li>
 <li>After <strong>5 failed token attempts</strong> from one source IP, the panel returns <strong>429</strong> for a

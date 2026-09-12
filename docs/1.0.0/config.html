@@ -19,7 +19,6 @@
 
   <header class="site-header">
     <a class="brand" href="../../index.html">
-      <span class="brand-mark">🏰🔐</span>
       <span class="brand-text">AuthCore<span class="brand-dot">.</span>docs</span>
     </a>
     <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -28,16 +27,16 @@
     <nav class="site-nav">
       <a class="nav-link" href="../../index.html">Home</a>
       <a class="nav-link" href="../../docs/1.0.0/index.html">Docs Hub</a>
-      <a class="nav-link" href="../../docs/1.0.0/guide.html"><span class="nav-icon">🧭</span>Admin Guide</a>
-      <a class="nav-link" href="../../docs/1.0.0/flows.html"><span class="nav-icon">🔀</span>Flows</a>
-      <a class="nav-link active" href="../../docs/1.0.0/config.html"><span class="nav-icon">⚙️</span>Config</a>
-      <a class="nav-link" href="../../docs/1.0.0/proxy.html"><span class="nav-icon">🔁</span>Proxy</a>
-      <a class="nav-link" href="../../docs/1.0.0/webpanel.html"><span class="nav-icon">🌐</span>Web Panel</a>
-      <a class="nav-link" href="../../docs/1.0.0/security.html"><span class="nav-icon">🛡️</span>Security</a>
-      <a class="nav-link" href="../../docs/1.0.0/26x.html"><span class="nav-icon">📦</span>26.x</a>
-      <a class="nav-link" href="../../docs/1.0.0/api.html"><span class="nav-icon">🔌</span>API</a>
-      <a class="nav-link" href="../../docs/1.0.0/development.html"><span class="nav-icon">⚙️</span>Dev</a>
-      <a class="nav-link" href="../../docs/1.0.0/changelog.html"><span class="nav-icon">📜</span>Changelog</a>
+      <a class="nav-link" href="../../docs/1.0.0/guide.html">Admin Guide</a>
+      <a class="nav-link" href="../../docs/1.0.0/flows.html">Flows</a>
+      <a class="nav-link active" href="../../docs/1.0.0/config.html">Config</a>
+      <a class="nav-link" href="../../docs/1.0.0/proxy.html">Proxy</a>
+      <a class="nav-link" href="../../docs/1.0.0/webpanel.html">Web Panel</a>
+      <a class="nav-link" href="../../docs/1.0.0/security.html">Security</a>
+      <a class="nav-link" href="../../docs/1.0.0/26x.html">26.x</a>
+      <a class="nav-link" href="../../docs/1.0.0/api.html">API</a>
+      <a class="nav-link" href="../../docs/1.0.0/development.html">Dev</a>
+      <a class="nav-link" href="../../docs/1.0.0/changelog.html">Changelog</a>
       <a class="nav-link nav-gh" href="https://github.com/PotenFYR-Studios/AuthCore" target="_blank" rel="noopener">GitHub ↗</a>
     </nav>
   </header>
@@ -52,7 +51,7 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p><a href="https://github.com/PotenFYR-Studios/AuthCore/releases"><img src="https://shieldcn.dev/badge/version-1.0.0-blue.svg" alt="Version"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/actions"><img src="https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg" alt="Build"></a> <a href="https://github.com/PotenFYR-Studios/AuthCore/blob/master/README.md"><img src="https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg" alt="Back to README"></a></p>
 </div><hr>
 <hr>
-<h1>⚙️ AuthCore Configuration Reference</h1>
+<h1>AuthCore Configuration Reference</h1>
 <p>This document describes <strong>every</strong> setting in AuthCore&#39;s <code>config/settings.conf</code> (HOCON format).
 Settings are grouped into sections; keys are shown in kebab-case as they appear in the file.
 Defaults are the values shipped with a fresh install.</p>
@@ -70,7 +69,7 @@ event bus and Discord link-code storage need <strong>no new settings</strong>, t
 automatically with <code>database.redis.enabled</code>.</p>
 </blockquote>
 <hr>
-<h2 id="root-settings">🌍 Root Settings</h2>
+<h2 id="root-settings">Root Settings</h2>
 <table>
 <thead>
 <tr>
@@ -1982,7 +1981,7 @@ LuckPerms is not loaded: <code>0</code> = all players, <code>1</code> = moderato
 </tr>
 </tbody></table>
 <hr>
-<h2 id="discord-account-linking">🔗 Discord Account Linking</h2>
+<h2 id="discord-account-linking">Discord Account Linking</h2>
 <p>Discord linking has <strong>no settings</strong>, it reuses <code>session.security.webhook-url</code> (the code is
 published there) and <code>database.redis</code> (code storage + <code>discordId</code> mapping). Players use
 <code>/discord link</code> / <code>/discord unlink</code>; Discord bots complete the pairing via the web panel API
@@ -2025,7 +2024,7 @@ account-locked/kick events are published on the <code>authcore:events</code> cha
 backend (security log + webhook + local actions). There is nothing to configure.</p>
 </blockquote>
 <hr>
-<h2 id="custom-locales">🗣️ Custom Locales</h2>
+<h2 id="custom-locales">Custom Locales</h2>
 <p>AuthCore ships with bundled locales for every supported <code>language</code> (extracted on first start).
 To fully customize a locale, or add one of your own, drop a <code>messages-&lt;lang&gt;.conf</code> file into
 <strong><code>config/authcore/</code></strong>:</p>
@@ -2069,7 +2068,7 @@ logs a <strong>WARNING listing the missing keys</strong> so you know exactly wha
 to the bundled defaults. The completeness warning helps translators deliver 100% coverage.</p>
 </blockquote>
 <hr>
-<h2 id="security-testing">🧪 Security Testing</h2>
+<h2 id="security-testing">Security Testing</h2>
 <p>The security &amp; business-logic core ships with a standalone test suite (no Minecraft required)
 at <strong><code>test/</code></strong>, <strong>57 checks</strong> covering password hashing round-trips for all 6
 algorithms, unique per-hash salts, email recovery codes, the rate limiter,
@@ -2085,7 +2084,7 @@ host-compatibility harness (<code>test/docker/run-tests.sh</code>) boots every r
  1.21.11 (1.19-1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2), with
 live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix passed
 on 2026-08-10.</p>
-<h3 id="proxy-interop--per-role-configs">🧩 Proxy, Interop &amp; per-role configs</h3>
+<h3 id="proxy-interop--per-role-configs">Proxy, Interop &amp; per-role configs</h3>
 <ul>
 <li><code>session.proxy-support</code> - BungeeCord/Velocity forwarding: <code>enabled</code>, <code>protocol</code>
 (<code>auto</code>/<code>bungeecord</code>/<code>velocity</code>) and <code>velocity-secret</code> (HMAC for Velocity modern
