@@ -469,7 +469,7 @@ export default function App() {
                 <h3 className="mb-1.5 text-[15px] font-semibold text-white group-hover:text-[#c4b5fd]">
                   {p.title}
                 </h3>
-                <p className="text-xs leading-relaxed text-[#9aa0b4]">
+                <p className="text-xs leading-relaxed text-[#9aa0b4] line-clamp-3">
                   {p.description.slice(0, 110)}…
                 </p>
               </a>
