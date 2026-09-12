@@ -113,10 +113,10 @@
         ]
       }
     </script>
-    <link rel="stylesheet" href="/docs/assets/site.css" />
+    <link rel="stylesheet" href="/docs/assets/site.css?v=3" />
   </head>
   <body>
-    <script src="/docs/assets/nav.js" defer></script>
+    <script src="/docs/assets/nav.js?v=3" defer></script>
     <div class="wrap">
       <header class="hero">
         <div class="hero-badge">
@@ -296,7 +296,7 @@
         <noscript>
           <a class="card" href="/docs/1.0.0/index.html">
             <span class="v"
-              >AuthCore v1.0.0 <span class="badge">Latest</span></span
+              >AuthCore v1.0.0</span
             >
             <span class="d"
               >Complete admin guide, auth flows, configuration reference, proxy
@@ -323,16 +323,12 @@
 </p>
 
       <div class="foot">
-        AuthCore ·
-        <a href="https://github.com/PotenFYR-Studios/AuthCore"
-          >GitHub Repository</a
-        >
-        ·
-        <a href="https://github.com/PotenFYR-Studios/AuthCore/releases"
-          >Releases</a
-        >
-        · <a href="https://modrinth.com/mod/authcore">Modrinth</a> · Licensed
-        under <a href="/LICENSE">Apache-2.0 + Commons Clause</a>
+        <a href="https://github.com/PotenFYR-Studios">GitHub Org</a> ·
+        <a href="https://potenfyr.in">potenfyr.in</a> ·
+        <a href="https://discord.com/invite/zUaN2FPBec">Discord</a> ·
+        <a href="https://modrinth.com/mod/authcore">Modrinth</a> ·
+        <a href="https://github.com/PotenFYR-Studios/AuthCore/releases">Releases</a> ·
+        Licensed under <a href="/LICENSE">Apache-2.0 + Commons Clause</a>
       </div>
     </div>
     <script>
@@ -351,12 +347,6 @@
             var title = document.createElement("span");
             title.className = "v";
             title.textContent = "AuthCore v" + v.version;
-            if (v.status === "stable") {
-              var b = document.createElement("span");
-              b.className = "badge";
-              b.textContent = "Latest";
-              title.appendChild(b);
-            }
             var d = document.createElement("span");
             d.className = "d";
             d.textContent =
@@ -371,7 +361,7 @@
           var host = document.getElementById("version-cards");
           if (host && !host.children.length) {
             host.innerHTML =
-              '<a class="card" href="/docs/1.0.0/index.html"><span class="v">AuthCore v1.0.0 <span class="badge">Latest</span></span><span class="d">Admin guide, configuration, and security documentation.</span></a>';
+              '<a class="card" href="/docs/1.0.0/index.html"><span class="v">AuthCore v1.0.0</span><span class="d">Admin guide, configuration, and security documentation.</span></a>';
           }
         });
     </script>

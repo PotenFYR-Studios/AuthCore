@@ -391,12 +391,7 @@ main blockquote p { margin: 0.35em 0; }
 .pulse-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--emerald);
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
-  animation: pulse-glow 2.4s ease-in-out infinite;
-}
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 6px rgba(16,185,129,.5); opacity: 1; }
-  50% { box-shadow: 0 0 14px rgba(16,185,129,.95); opacity: 0.75; }
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
 }
 .hero h1 {
   font-size: clamp(2.6em, 6vw, 4em);
@@ -407,11 +402,13 @@ main blockquote p { margin: 0.35em 0; }
 .hero .dot { -webkit-text-fill-color: var(--pink); }
 .tagline { max-width: 720px; margin: 0 auto 26px; color: var(--muted); font-size: 1.04em; line-height: 1.75; }
 
-.hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin: 0 0 26px; }
+.hero-cta { display: flex; gap: 16px; justify-content: center; align-items: center; flex-wrap: wrap; margin: 30px 0 34px; }
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 10px 22px; border-radius: 999px;
+  padding: 12px 26px; border-radius: 999px;
+  border: 1px solid transparent;
   font-weight: 650; font-size: 0.9em; text-decoration: none !important;
+  line-height: 1;
   transition: transform 0.16s, box-shadow 0.16s, background 0.16s;
 }
 .btn-primary {
@@ -435,9 +432,10 @@ main blockquote p { margin: 0.35em 0; }
 /* section tables / cards */
 .table-card {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-lg);
-  overflow: hidden; margin: 1.1em 0;
+  overflow-x: auto; margin: 1.1em 0;
+  scrollbar-width: thin; scrollbar-color: #2c3150 transparent;
 }
-.table-card table { border: none; margin: 0; background: transparent; }
+.table-card table { border: none; margin: 0; background: transparent; min-width: 640px; }
 .table-card th { background: var(--panel-elevated); }
 .badge-tag {
   display: inline-block;

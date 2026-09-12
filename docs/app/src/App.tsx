@@ -8,7 +8,7 @@ import {
   currentPageId,
   type Heading,
 } from "./content";
-import { DotPattern, BorderBeam } from "../magicui";
+import { DotPattern } from "../magicui";
 
 const CANON_HUB = "/docs/1.0.0/index.html";
 
@@ -37,12 +37,10 @@ function VersionSelect() {
   }, []);
   if (!versions.length) return null;
   const active = versions.find((v) => v.version === current);
+  void active;
   return (
     <span className="flex items-center gap-2">
       <span className="text-line-light">|</span>
-      <span className="font-mono text-[11px] uppercase tracking-wider text-[#6a7089]">
-        v
-      </span>
       <select
         value={current}
         onChange={(e) => {
@@ -59,11 +57,6 @@ function VersionSelect() {
           </option>
         ))}
       </select>
-      {active?.status === "stable" && (
-        <span className="rounded-full border border-brand-emerald/30 bg-brand-emerald/10 px-2 py-0.5 text-[10px] font-bold text-brand-emerald">
-          Latest
-        </span>
-      )}
     </span>
   );
 }
@@ -98,13 +91,25 @@ function Topbar({
       <VersionSelect />
       <button
         onClick={onSearch}
-        className="ml-auto flex items-center gap-2 rounded-lg border border-line-light bg-white/[0.03] px-3 py-1.5 text-xs text-[#9aa0b4] hover:border-brand-violet/50 hover:text-[#e8eaf2] transition-colors"
+        className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-line-light bg-white/[0.03] px-3 py-1.5 text-xs text-[#9aa0b4] hover:border-brand-violet/50 hover:text-[#e8eaf2] transition-colors"
       >
-        <Search size={13} /> Search
-        <kbd className="rounded border border-line-light px-1.5 py-0.5 font-mono text-[10px]">
+        <Search size={13} /> <span className="hidden sm:inline">Search</span>
+        <kbd className="hidden sm:inline rounded border border-line-light px-1.5 py-0.5 font-mono text-[10px]">
           ⌘K
         </kbd>
       </button>
+      <a
+        href="https://potenfyr.in"
+        className="ml-auto text-xs text-[#9aa0b4] hover:text-[#c4b5fd]"
+      >
+        Website
+      </a>
+      <a
+        href="https://discord.com/invite/zUaN2FPBec"
+        className="text-xs text-[#9aa0b4] hover:text-[#c4b5fd]"
+      >
+        Discord
+      </a>
       <a
         href="https://github.com/PotenFYR-Studios/AuthCore"
         target="_blank"
@@ -461,7 +466,6 @@ export default function App() {
                 href={`/docs/1.0.0/${p.id}.html`}
                 className="group relative overflow-hidden rounded-2xl border border-line-light bg-white/[0.02] p-5 backdrop-blur-md transition-all hover:-translate-y-1 hover:border-brand-violet/50 hover:shadow-[0_12px_40px_rgba(0,0,0,.5)]"
               >
-                <BorderBeam size={60} duration={8} />
                 <h3 className="mb-1.5 text-[15px] font-semibold text-white group-hover:text-[#c4b5fd]">
                   {p.title}
                 </h3>

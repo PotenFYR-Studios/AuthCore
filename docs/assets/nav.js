@@ -23,8 +23,8 @@
 
   var CSS = [
     "#ac-vbar{position:sticky;top:0;z-index:999;background:rgba(11,13,20,.85);backdrop-filter:blur(12px);",
-    "border-bottom:1px solid rgba(139,92,246,.16);padding:8px 20px;display:flex;align-items:center;gap:14px;",
-    "font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,sans-serif;font-size:13.5px;color:#e8eaf2}",
+    "border-bottom:1px solid rgba(139,92,246,.16);height:56px;padding:0 20px;display:flex;align-items:center;gap:14px;",
+    "font-family:var(--font, Inter),ui-sans-serif,system-ui,'Segoe UI',sans-serif;font-size:13.5px;color:#e8eaf2}",
     "#ac-vbar a{color:#c4b5fd;text-decoration:none;font-weight:600}",
     "#ac-vbar a:hover{text-decoration:underline}",
     "#ac-vbar .ac-sep{color:#6a7089}",
@@ -33,7 +33,7 @@
     "padding:4px 10px;font-size:13px;cursor:pointer}",
     "#ac-vbar .ac-badge{background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.3);border-radius:20px;",
     "padding:2px 10px;font-size:11px;font-weight:700}",
-    "#ac-vbar .ac-gh{margin-left:auto;color:#9aa0b4;font-weight:500}"
+    "#ac-vbar .ac-gh{margin-left:auto;color:#9aa0b4;font-weight:500}#ac-vbar .ac-x{color:#9aa0b4;font-weight:500;margin-left:8px}"
   ].join("");
 
   function el(tag, cls, text) {
@@ -51,7 +51,7 @@
     style.textContent = CSS;
     bar.appendChild(style);
 
-    var home = el("a", null, "AuthCore");
+    var home = el("a", null, "AuthCore.docs");
     home.href = "/index.html";
     bar.appendChild(home);
     bar.appendChild(el("span", "ac-sep", "|"));
@@ -68,17 +68,19 @@
       });
       sel.addEventListener("change", function () { window.location.href = sel.value; });
       bar.appendChild(sel);
-      var me = versions.filter(function (v) { return v.version === current; })[0];
-      if (me && me.status === "stable") bar.appendChild(el("span", "ac-badge", "Latest"));
     } else {
       var newest = versions.length ? versions[0].docs : "/docs/1.0.0/index.html";
       var docsLink = el("a", null, "Docs");
       docsLink.href = newest;
       bar.appendChild(docsLink);
-      var latest = versions.length && versions[0].status === "stable" ? el("span", "ac-badge", "Latest") : null;
-      if (latest) bar.appendChild(latest);
     }
     bar.appendChild(el("span", "ac-sep", "|"));
+    var ws = el("a", "ac-x", "Website");
+    ws.href = "https://potenfyr.in";
+    bar.appendChild(ws);
+    var dc = el("a", "ac-x", "Discord");
+    dc.href = "https://discord.com/invite/zUaN2FPBec";
+    bar.appendChild(dc);
     var gh = el("a", "ac-gh", "GitHub");
     gh.href = "https://github.com/PotenFYR-Studios/AuthCore";
     gh.target = "_blank";
