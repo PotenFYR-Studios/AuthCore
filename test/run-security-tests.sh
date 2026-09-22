@@ -26,7 +26,7 @@ done
 VARIANT="${VARIANT_ARG:-}"
 
 # Auto-download java-jars / provided libraries if missing
-if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.4.jar" ]; then
+if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.5.jar" ]; then
   echo "== java-jars missing or incomplete - downloading automatically =="
   bash "$REPO/test/install-java-and-provided-jars.sh"
 fi

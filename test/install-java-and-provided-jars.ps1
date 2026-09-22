@@ -77,14 +77,14 @@ Install-JdkZip "jdk-21" "https://api.adoptium.net/v3/binary/latest/21/ga/windows
 Install-JdkZip "jdk-25" "https://api.adoptium.net/v3/binary/latest/25/ga/windows/x64/jdk/hotspot/normal/eclipse"
 
 # 2. Provided API jars (with fallback to local alias if upstream is unreachable)
-$LuckPermsJar = Join-Path $ProvidedDir "luckperms-api-5.4.jar"
+$LuckPermsJar = Join-Path $ProvidedDir "luckperms-api-5.5.jar"
 if (-not (Test-Path $LuckPermsJar) -or ((Get-Item $LuckPermsJar).Length -eq 0)) {
-    $Alt1 = Join-Path $ProvidedDir "net.luckperms-api-5.4.jar"
-    $Alt2 = Join-Path $ProvidedDir "api-5.4.jar"
+    $Alt1 = Join-Path $ProvidedDir "net.luckperms-api-5.5.jar"
+    $Alt2 = Join-Path $ProvidedDir "api-5.5.jar"
     if (Test-Path $Alt1) { Copy-Item $Alt1 $LuckPermsJar -Force }
     elseif (Test-Path $Alt2) { Copy-Item $Alt2 $LuckPermsJar -Force }
     else {
-        try { Download-FileWithRetry -Url "https://repo.luckperms.net/releases/me/luckperms/api/5.4/api-5.4.jar" -OutputFile $LuckPermsJar }
+        try { Download-FileWithRetry -Url "https://repo.luckperms.net/releases/me/luckperms/api/5.5/api-5.5.jar" -OutputFile $LuckPermsJar }
         catch { New-Item -ItemType File -Path $LuckPermsJar -Force | Out-Null }
     }
 }
@@ -95,9 +95,9 @@ if (-not (Test-Path $BungeeJar) -or ((Get-Item $BungeeJar).Length -eq 0)) {
     catch { New-Item -ItemType File -Path $BungeeJar -Force | Out-Null }
 }
 
-$VelocityJar = Join-Path $ProvidedDir "velocity-api-3.1.1.jar"
+$VelocityJar = Join-Path $ProvidedDir "velocity-api-3.4.0.jar"
 if (-not (Test-Path $VelocityJar) -or ((Get-Item $VelocityJar).Length -eq 0)) {
-    try { Download-FileWithRetry -Url "https://repo.papermc.io/repository/maven-public/com/velocitypowered/velocity-api/3.1.1/velocity-api-3.1.1.jar" -OutputFile $VelocityJar }
+    try { Download-FileWithRetry -Url "https://repo.papermc.io/repository/maven-public/com/velocitypowered/velocity-api/3.4.0/velocity-api-3.4.0.jar" -OutputFile $VelocityJar }
     catch { New-Item -ItemType File -Path $VelocityJar -Force | Out-Null }
 }
 
