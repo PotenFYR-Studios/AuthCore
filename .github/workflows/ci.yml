@@ -130,12 +130,14 @@ jobs:
               fi
             done
             if unzip -l "$JAR" | grep -q 'fabric.mod.json'; then
-              unzip -p "$JAR" fabric.mod.json | grep -q '"environment": "server"' \
+              # Whitespace-tolerant: newer Stonecraft emits minified JSON
+              # ("environment":"server") while older releases wrote a space after the colon.
+              unzip -p "$JAR" fabric.mod.json | grep -Eq '"environment"[[:space:]]*:[[:space:]]*"server"' \
                 && echo "  OK fabric env server" || { echo "::error::$JAR wrong fabric environment"; STATUS=1; }
             fi
             for TOML in META-INF/neoforge.mods.toml META-INF/mods.toml; do
               if unzip -l "$JAR" | grep -q "$TOML"; then
-                unzip -p "$JAR" "$TOML" | grep -q 'modId = "authcore"' \
+                unzip -p "$JAR" "$TOML" | grep -Eq 'modId[[:space:]]*=[[:space:]]*"authcore"' \
                   && echo "  OK $TOML metadata" || { echo "::error::$JAR bad $TOML"; STATUS=1; }
               fi
             done
