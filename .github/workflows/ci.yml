@@ -333,6 +333,15 @@ jobs:
           : "${TAG:?TAG is required}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists - updating notes and replacing assets."
+            # `gh release upload --clobber` only replaces same-named files, so an asset
+            # that is no longer part of the build (e.g. after a range rename like
+            # 26.1-26.2 -> 26.1-26.3) would linger forever. Prune anything not in release/.
+            for ASSET in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
+              if [ ! -f "release/$ASSET" ]; then
+                echo "  pruning stale asset: $ASSET"
+                gh release delete-asset "$TAG" "$ASSET" --yes
+              fi
+            done
             gh release upload "$TAG" release/*.jar --clobber
             gh release edit "$TAG" --notes-file release-notes.md --latest=true
           else
@@ -415,6 +424,14 @@ jobs:
           TAG="latest"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists - replacing assets and notes."
+            # Prune assets no longer produced by the build (see the stable-release
+            # job) so the rolling `latest` release always mirrors the current jars.
+            for ASSET in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
+              if [ ! -f "release/$ASSET" ]; then
+                echo "  pruning stale asset: $ASSET"
+                gh release delete-asset "$TAG" "$ASSET" --yes
+              fi
+            done
             gh release upload "$TAG" release/*.jar --clobber
             gh release edit "$TAG" --title "AuthCore - Latest Development Build" \
               --notes-file release-notes.md --prerelease=true --latest=false
