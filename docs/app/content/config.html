@@ -62,7 +62,7 @@ Defaults are the values shipped with a fresh install.</p>
 <p>🎁 <strong>Range jars, every loader</strong>, AuthCore ships one jar per supported version range <strong>and
 loader</strong>: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code> (1.16.0 - 1.18.2, built at 1.18.2),
 <code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code> (1.19.0 - 1.21.11, built at 1.21.11) and
-<code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code> (26.1 - 26.2, built at 26.2). Every jar runs standalone <strong>and</strong>
+<code>authcore-26.1-26.3-{fabric,neoforge}-&lt;v&gt;.jar</code> (26.1 - 26.3, built at 26.3). Every jar runs standalone <strong>and</strong>
 behind Velocity/BungeeCord. The same <code>settings.conf</code> works in both setups; proxy IP
 forwarding is the only thing you toggle (<code>session.proxy-support</code>). The cross-server security
 event bus and Discord link-code storage need <strong>no new settings</strong>, they activate
@@ -138,7 +138,7 @@ automatically with <code>database.redis.enabled</code>.</p>
 <td><code>show-untested-version-warning</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0-1.18.2, 1.19.0-1.21.11 and 26.1-26.2). AuthCore <strong>never refuses to load</strong>, it warns and keeps working.</td>
+<td>Warn when running on an untested Minecraft version (outside the verified range groups: 1.16.0-1.18.2, 1.19.0-1.21.11 and 26.1-26.3). AuthCore <strong>never refuses to load</strong>, it warns and keeps working.</td>
 <td>Keep on when riding a brand-new Minecraft release; set to <code>false</code> once you&#39;ve verified your version in staging.</td>
 </tr>
 </tbody></table>
@@ -213,8 +213,8 @@ warning.</p>
 <td><code>session-from-same-ip-only</code></td>
 <td>boolean</td>
 <td><code>true</code></td>
-<td>Require new sessions to come from the same IP as the original login. Protects against session hijacking.</td>
-<td>Disable only if players legitimately switch IPs (mobile + PC) and get kicked.</td>
+<td>Only silently resume an <strong>active</strong> session when the player reconnects from the same IP they last authenticated from. Protects against session hijacking (a stolen session token cannot resume from another address). It does <strong>not</strong> block a normal <code>/login</code> - a rotated ISP IP still requires re-authentication and is then persisted.</td>
+<td>Disable only if players legitimately switch IPs (mobile + PC) and you want the session to resume without re-entering a password.</td>
 </tr>
 </tbody></table>
 <h3 id="combat-log"><code>combat-log</code> ⚔️</h3>
@@ -709,7 +709,7 @@ is no toggle.</p>
 <td><code>enabled</code></td>
 <td>boolean</td>
 <td><code>false</code></td>
-<td>Add successfully registered accounts to the <strong>vanilla server whitelist</strong> automatically (only applies while the whitelist is enabled). Works across 1.16.0 - 26.1-26.2 via the Compat layer.</td>
+<td>Add successfully registered accounts to the <strong>vanilla server whitelist</strong> automatically (only applies while the whitelist is enabled). Works across 1.16.0 - 26.1-26.3 via the Compat layer.</td>
 <td>Enable on a whitelisted server so registered players never get locked out.</td>
 </tr>
 </tbody></table>
@@ -2081,7 +2081,7 @@ powershell -ExecutionPolicy Bypass -File tools\security-tests\run-tests.ps1
 bug it caught and how it guards regressions. CI runs the suite on every push, and the
 host-compatibility harness (<code>test/docker/run-tests.sh</code>) boots every range jar on its
  verify matrix, 1.16.5 / 1.17.1 / 1.18.2 (1.16-1.18 jar, built at 1.18.2), 1.19.4 / 1.20.6 / 1.21.1 /
- 1.21.11 (1.19-1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 (26.1-26.2 jar, built at 26.2), with
+ 1.21.11 (1.19-1.21 jar, built at 1.21.11) and 26.1.2 / 26.2 / 26.3 (26.1-26.3 jar, built at 26.3), with
 live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix passed
 on 2026-08-10.</p>
 <h3 id="proxy-interop--per-role-configs">Proxy, Interop &amp; per-role configs</h3>

@@ -405,8 +405,13 @@ public class Config {
 
     @Comment(
         """
-                Require new sessions to come from the same IP as the original login.
-                • Protects against session hijacking.
+                Only silently resume an ACTIVE session when the player reconnects from the
+                same IP they last authenticated from.
+                • Protects against session hijacking (a stolen session token cannot resume
+                  the session from a different address).
+                • It does NOT block a normal /login: players whose ISP rotates their IP are
+                  still able to authenticate from the new address, which is then persisted.
+                  (Blocking the join instead would permanently lock those players out.)
                 • Strongly recommended to keep enabled.
                 • Default: true""")
     public boolean sessionFromSameIPOnly = true;

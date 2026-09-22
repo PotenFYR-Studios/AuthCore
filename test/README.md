@@ -71,7 +71,7 @@ group, verified on every endpoint of its range:
 |:------|:----------|:-------------|:----------------------------------|:-----|
 | G1    | 1.16-1.18 | 1.18.2       | 1.16.5, 1.17.1, 1.18.2            | 17   |
 | G2    | 1.19-1.21 | 1.21.11      | 1.19.4, 1.20.6, 1.21.1, 1.21.11   | 21   |
-| G3    | 26.1-26.2 | 26.2         | 26.1.2, 26.2                      | 25   |
+| G3    | 26.1-26.3 | 26.3         | 26.1.2, 26.2, 26.3                | 25   |
 
 Known skip: Forge 1.16-1.18 (SRG runtime) does not construct the `@Mod` class
 inside the harness module layer - same jar + source pass on every other

@@ -71,12 +71,12 @@ jobs:
           - variant: 1.21.11-neoforge
             group: 1.19-1.21
             java: 21
-          # Group G3: 26.1 - 26.2 (Java 25)
-          - variant: 26.2-fabric
-            group: 26.1-26.2
+          # Group G3: 26.1 - 26.3 (Java 25)
+          - variant: 26.3-fabric
+            group: 26.1-26.3
             java: 25
-          - variant: 26.2-neoforge
-            group: 26.1-26.2
+          - variant: 26.3-neoforge
+            group: 26.1-26.3
             java: 25
     steps:
       - name: Checkout repository
@@ -217,7 +217,7 @@ jobs:
 
   # ------------------------------------------------------------------
   # Docker compatibility harness: real servers, real boots, booted in
-  # PARALLEL across group runners (G1: 1.16-1.18, G2: 1.19-1.21, G3: 26.1-26.2)
+  # PARALLEL across group runners (G1: 1.16-1.18, G2: 1.19-1.21, G3: 26.1-26.3)
   # on the official eclipse-temurin JRE images (17/21/25).
   # Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
@@ -233,7 +233,7 @@ jobs:
             java: 17
           - group: 1.19-1.21
             java: 21
-          - group: 26.1-26.2
+          - group: 26.1-26.3
             java: 25
     steps:
       - name: Checkout repository

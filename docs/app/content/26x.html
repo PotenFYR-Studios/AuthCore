@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>26.1 - 26.2 Builds - AuthCore Docs</title>
+<title>26.1 - 26.3 Builds - AuthCore Docs</title>
 <link rel="icon" type="image/png" href="/favicon.png">
 <meta name="description" content="Range jars, the unobfuscated era, architecture and verification.">
-<meta property="og:title" content="26.1 - 26.2 Builds - AuthCore Docs">
+<meta property="og:title" content="26.1 - 26.3 Builds - AuthCore Docs">
 <meta property="og:description" content="Range jars, the unobfuscated era, architecture and verification.">
 <meta property="og:type" content="website">
 <link rel="canonical" href="https://authcore.docs.potenfyr.in/docs/1.0.0/26x.html">
@@ -43,7 +43,7 @@
 <div class="layout">
   <aside class="toc" id="toc">
     <div class="toc-title">On this page</div>
-    <ul><li class="toc-item toc-2"><a href="#source-layout">Source layout</a></li><li class="toc-item toc-2"><a href="#building">Building</a></li><li class="toc-item toc-2"><a href="#version-specific-code-stonecutter-conditionals">Version-specific code (Stonecutter conditionals)</a></li><li class="toc-item toc-3"><a href="#how-to-find-262-api-ground-truth">How to find 26.2 API ground truth</a></li><li class="toc-item toc-2"><a href="#verified-on-real-servers">🔍 Verified on real servers</a></li></ul>
+    <ul><li class="toc-item toc-2"><a href="#source-layout">Source layout</a></li><li class="toc-item toc-2"><a href="#building">Building</a></li><li class="toc-item toc-2"><a href="#version-specific-code-stonecutter-conditionals">Version-specific code (Stonecutter conditionals)</a></li><li class="toc-item toc-3"><a href="#how-to-find-262-api-ground-truth">How to find 26.3 API ground truth</a></li><li class="toc-item toc-2"><a href="#verified-on-real-servers">🔍 Verified on real servers</a></li></ul>
   </aside>
   <main>
     <article>
@@ -51,7 +51,7 @@
 <div align="center" style="font-family: 'Clash of Clans', 'Comic Sans MS', 'Comic Sans', cursive;"><p></p>
 </div><hr>
 <hr>
-<h1>Building AuthCore for every version (1.16.x - 26.1-26.2)</h1>
+<h1>Building AuthCore for every version (1.16.x - 26.1-26.3)</h1>
 <p>Minecraft changed the rules at <strong>26.1</strong>: Mojang released the game <strong>unobfuscated</strong> (readable
 Mojang names in the shipped jar, parameter names included) and <strong>Fabric&#39;s intermediary no
 longer exists</strong> for that era. The Fabric project <a href="https://fabricmc.net/2025/10/31/obfuscation.html">announced</a>
@@ -111,23 +111,23 @@ names everywhere):</p>
 <td align="left">21</td>
 </tr>
 <tr>
-<td align="left"><code>authcore-26.1-26.2-fabric-&lt;v&gt;.jar</code></td>
-<td align="left">26.2</td>
+<td align="left"><code>authcore-26.1-26.3-fabric-&lt;v&gt;.jar</code></td>
+<td align="left">26.3</td>
 <td align="left">Fabric</td>
 <td align="left">Mojang (unobfuscated)</td>
-<td align="left">26.1 - 26.2</td>
+<td align="left">26.1 - 26.3</td>
 <td align="left">25</td>
 </tr>
 <tr>
-<td align="left"><code>authcore-26.1-26.2-neoforge-&lt;v&gt;.jar</code></td>
-<td align="left">26.2</td>
+<td align="left"><code>authcore-26.1-26.3-neoforge-&lt;v&gt;.jar</code></td>
+<td align="left">26.3</td>
 <td align="left">NeoForge</td>
 <td align="left">Mojang (unobfuscated)</td>
-<td align="left">26.1 - 26.2</td>
+<td align="left">26.1 - 26.3</td>
 <td align="left">25</td>
 </tr>
 </tbody></table>
-<p>Mappings are <strong>Mojang (mojmap) for every line</strong>, the old yarn line is gone. The 26.1-26.2 jar
+<p>Mappings are <strong>Mojang (mojmap) for every line</strong>, the old yarn line is gone. The 26.1-26.3 jar
 ships unobfuscated (Mojang names in the game jar itself, so no remap is needed), while the
 1.16-1.21 jars are remapped to intermediary for the game runtime. Because the game uses
 <strong>either</strong> intermediary (≤1.21.11) <strong>or</strong> Mojang names (≥26.1), the two name-spaces cannot
@@ -150,9 +150,9 @@ is compiled once in <code>src/main/java</code> and lands in <strong>every</stron
                             + bungee.yml + velocity-plugin.json + assets (lang files, icon)
 </code></pre>
 <h2 id="building">Building</h2>
-<p>The build is a <strong>Stonecraft 1.10 + Stonecutter 0.9 workspace</strong>: <code>settings.gradle.kts</code>
+<p>The build is a <strong>Stonecraft 1.14 + Stonecutter 0.9 workspace</strong>: <code>settings.gradle.kts</code>
 registers one variant per (Minecraft, loader), <code>:1.18.2-fabric</code>, <code>:1.18.2-forge</code>,
-<code>:1.21.11-fabric</code>, <code>:1.21.11-forge</code>, <code>:1.21.11-neoforge</code>, <code>:26.2-fabric</code>, <code>:26.2-neoforge</code>
+<code>:1.21.11-fabric</code>, <code>:1.21.11-forge</code>, <code>:1.21.11-neoforge</code>, <code>:26.3-fabric</code>, <code>:26.3-neoforge</code>
 (the active version is <code>1.21.11-fabric</code>), all configured by the central
 <code>build.gradle.kts</code> (Kotlin DSL). Per-version game/loader dependencies live in
 <code>versions/dependencies/&lt;mc&gt;.properties</code>.</p>
@@ -164,10 +164,10 @@ registers one variant per (Minecraft, loader), <code>:1.18.2-fabric</code>, <cod
 ./gradlew chiseledBuild
 
 # One specific variant:
-./gradlew :26.2-fabric:build
-#  -&gt; versions/26.2-fabric/build/libs/authcore-26.1-26.2-fabric-1.0.0.jar
-./gradlew :26.2-neoforge:build
-#  -&gt; versions/26.2-neoforge/build/libs/authcore-26.1-26.2-neoforge-1.0.0.jar
+./gradlew :26.3-fabric:build
+#  -&gt; versions/26.3-fabric/build/libs/authcore-26.1-26.3-fabric-1.0.0.jar
+./gradlew :26.3-neoforge:build
+#  -&gt; versions/26.3-neoforge/build/libs/authcore-26.1-26.3-neoforge-1.0.0.jar
 ./gradlew :1.21.11-forge:build
 #  -&gt; versions/1.21.11-forge/build/libs/authcore-1.19-1.21-forge-1.0.0.jar
 
@@ -175,11 +175,11 @@ registers one variant per (Minecraft, loader), <code>:1.18.2-fabric</code>, <cod
 ./gradlew :1.18.2-fabric:collectJars
 </code></pre>
 <p>Missing JDK toolchains are auto-downloaded by the foojay resolver (17 for the 1.16-1.18
-group, 21 for 1.19-1.21, 25 for 26.1-26.2).</p>
+group, 21 for 1.19-1.21, 25 for 26.1-26.3).</p>
 <h2 id="version-specific-code-stonecutter-conditionals">Version-specific code (Stonecutter conditionals)</h2>
 <p>There is <strong>one</strong> source tree, no more mirrored <code>classic</code> / <code>modern</code> copies. Version-specific
 code is gated inline with Stonecutter preprocessor comments, e.g. the inventory mixins use
-<code>ClickType</code> below 26 and the 26.1-26.2 <code>ContainerInput</code> API above:</p>
+<code>ClickType</code> below 26 and the 26.1-26.3 <code>ContainerInput</code> API above:</p>
 <pre><code class="language-java">/*? if &lt; 26 {*/
 actionType == ClickType.THROW
 /*?} else {*/
@@ -189,16 +189,16 @@ actionType == ContainerInput.THROW
 <ul>
 <li>Loader conditionals are registered automatically by Stonecraft: <code>fabric</code>, <code>forge</code>,
 <code>neoforge</code>, <code>forgeLike</code>.</li>
-<li>26.1-26.2 API differences already handled via conditionals:<ul>
+<li>26.1-26.3 API differences already handled via conditionals:<ul>
   <li><code>displayClientMessage(Component, boolean)</code> → <code>sendSystemMessage(Component, boolean)</code></li>
   <li><code>ClickType</code> → <code>ContainerInput</code> (same constants)</li>
 </ul>
 </li>
 </ul>
-<h3 id="how-to-find-262-api-ground-truth">How to find 26.2 API ground truth</h3>
-<p>The 26.2 game jar is unobfuscated, so <code>javap</code> gives exact answers, point it at the 26.2
+<h3 id="how-to-find-262-api-ground-truth">How to find 26.3 API ground truth</h3>
+<p>The 26.3 game jar is unobfuscated, so <code>javap</code> gives exact answers, point it at the 26.3
 merged game jar from the Gradle cache:</p>
-<pre><code class="language-bash">javap -cp &lt;path-to-26.2-minecraft-merged.jar&gt; \
+<pre><code class="language-bash">javap -cp &lt;path-to-26.3-minecraft-merged.jar&gt; \
   net.minecraft.client.gui.screens.Screen
 </code></pre>
 <hr>
@@ -234,15 +234,15 @@ errors/warnings, banner shows the correct version/MC/security summary, config fi
 </tr>
 <tr>
 <td align="left">G3</td>
-<td align="left"><code>authcore-26.1-26.2-*</code> (26.2)</td>
+<td align="left"><code>authcore-26.1-26.3-*</code> (26.3)</td>
 <td align="left">fabric, neoforge</td>
-<td align="left">26.1.2, 26.2</td>
+<td align="left">26.1.2, 26.2, 26.3</td>
 <td align="center">25</td>
 </tr>
 </tbody></table>
 <p>Verified matrix (2026-08-29): every loader build target boots clean on its range
-endpoints - fabric 1.18.2 / 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11 / 26.1.2 / 26.2,
-forge 1.21.11, neoforge 1.21.11 / 26.1.2 / 26.2 - zero errors and zero warnings.
+endpoints - fabric 1.18.2 / 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11 / 26.1.2 / 26.2 / 26.3,
+forge 1.21.11, neoforge 1.21.11 / 26.1.2 / 26.2 / 26.3 - zero errors and zero warnings.
 Older endpoints (fabric 1.16.5/1.17.1 provisioning, forge 1.19.4-1.21.1,
 neoforge 1.20.6/1.21.1) are being brought to full green; future lines (27+) get an
 open-ended <code>&lt;version&gt;+</code> range jar automatically.</p>

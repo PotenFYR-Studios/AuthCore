@@ -5,7 +5,9 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import java.nio.file.Path;
-import javax.inject.Inject;
+// com.google.inject.Inject is the annotation Velocity expects and is present in both
+// Guice 5 (velocity-api 3.1.x) and Guice 7 (3.5.x); javax.inject was dropped by Guice 7.
+import com.google.inject.Inject;
 import org.slf4j.Logger;
 
 /**

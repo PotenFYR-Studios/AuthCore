@@ -4,7 +4,7 @@
 # eclipse-temurin JDK image. No local JDK setup required: only Docker.
 #
 #   test/build.sh                  # build all 7 variants, jars land in dist/
-#   test/build.sh 26.2-fabric      # build one variant
+#   test/build.sh 26.3-fabric      # build one variant
 #   test/build.sh clean            # gradle clean of all variants
 #
 # The Gradle cache lives in a named volume (authcore-gradle-cache) so repeat
@@ -36,7 +36,7 @@ echo "== repo: $REPO_DOCKER"
 echo "== image: $IMAGE"
 
 # Auto-download java-jars / provided libraries if missing
-if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.4.jar" ]; then
+if [ ! -d "$REPO/java-jars" ] || [ ! -d "$REPO/java-jars/provided" ] || [ ! -f "$REPO/java-jars/provided/luckperms-api-5.5.jar" ]; then
   echo "== java-jars missing or incomplete - downloading automatically =="
   bash "$REPO/test/install-java-and-provided-jars.sh"
 fi

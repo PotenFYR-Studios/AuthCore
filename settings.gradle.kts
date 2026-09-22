@@ -18,7 +18,7 @@
 // Version groups (one released jar per group):
 //   G1  1.16 - 1.18  (build target 1.18.2, intermediary era)
 //   G2  1.19 - 1.21  (build target 1.21.11, intermediary era)
-//   G3  26.1-26.2         (build target 26.2, unobfuscated / Mojang names)
+//   G3  26.1-26.3         (build target 26.3, unobfuscated / Mojang names)
 // ============================================================================
 
 pluginManagement {
@@ -36,7 +36,8 @@ pluginManagement {
 }
 
 plugins {
-    id("gg.meza.stonecraft") version "1.10.+"
+    // 1.12.7+ is required for the Minecraft 26.3 pack-format map (26.3 support).
+    id("gg.meza.stonecraft") version "1.14.+"
     id("dev.kikugie.stonecutter") version "0.9.+"
     // Auto-downloads the JDK toolchains required by each version group
     // (17 for G1, 21 for G2, 25 for G3) when they are not installed locally.
@@ -54,7 +55,7 @@ stonecutter {
 
         mc("1.18.2", "fabric", "forge")          // G1: authcore-1.16-1.18-{fabric,forge}
         mc("1.21.11", "fabric", "neoforge")      // G2: authcore-1.19-1.21-{fabric,neoforge}
-        mc("26.2", "fabric", "neoforge")         // G3: authcore-26.1-26.2-{fabric,neoforge}
+        mc("26.3", "fabric", "neoforge")         // G3: authcore-26.1-26.3-{fabric,neoforge}
 
         // The default version used by IDEs and bare `gradlew` invocations.
         vcsVersion = "1.21.11-fabric"

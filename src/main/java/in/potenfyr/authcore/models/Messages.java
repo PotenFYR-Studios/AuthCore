@@ -1790,6 +1790,26 @@ public class Messages {
 
   @Comment(
       """
+            Kick reason: Player logged in from a foreign country that differs from their
+            previous login country.
+            • Only used when session.intelligence.blockOnNewCountry is enabled.
+            • Previously this path reused the different-IP message, which was misleading.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserNewCountryLoginNotAllowed =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Login from a different country is not allowed!";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
             Kick reason: Player's data has been deleted from the server/database.
             • Request based interaction with User!.
             • Placeholders:

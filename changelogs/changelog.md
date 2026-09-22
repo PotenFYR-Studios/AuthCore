@@ -16,6 +16,57 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > pass that ever shipped under a `1.0.0*` label lives in this single section
 > (the separate `alpha.1`-`alpha.5` entries were folded in; nothing was lost).
 
+### 26.3 support, session IP-lockout fix & CI cleanup (2026-09-22)
+
+**Minecraft 26.3 (latest release) support**
+
+- The G3 group now builds against **26.3** instead of 26.2: artifacts are released as
+  `authcore-26.1-26.3-{fabric,neoforge}-<v>.jar` (the range stays open-ended,
+  `>=26.1` / NeoForge `[26.1,)`). Pins: Fabric loader 0.19.5, Fabric API
+  `0.161.0+26.3`, NeoForge `26.3.0.8-beta`.
+- Stonecraft bumped `1.10.+` -> `1.14.+` (1.12.7 is the first release with the
+  26.3 pack-format map; without it `processResources` fails with
+  `Unknown Minecraft version: 26.3`). Gradle itself must run on JDK 25 for the
+  26.x variants (unchanged requirement, now enforced by 26.3 too).
+- 26.3 renamed `Entity#setInvulnerable(boolean)` to
+  `setPermanentlyInvulnerable(boolean)`; the lobby damage shield now selects the
+  method with a `>= 26.3` Stonecutter conditional (`Lobby.java`).
+- Velocity API bumped to 3.4.0 (Java 17 / Guice 6) rather than 3.5.x, which
+  requires Java 21 and would break the Java-17 G1 group. The proxy entrypoint now
+  imports `com.google.inject.Inject` (the annotation Velocity's docs specify, and
+  which exists in Guice 5/6/7), so it is future-proof against Guice 7's
+  `javax.inject` removal.
+- CI matrix, the Docker harness (`versions.json`: build 26.3, verify
+  26.1.2 / 26.2 / 26.3), docs and the untested-version banner were updated to
+  26.1-26.3.
+
+**Non-breaking dependency updates**
+
+- Shaded libraries: MySQL Connector/J 9.5.0 -> 9.7.0, SQLite JDBC 3.51.1.0 ->
+  3.53.4.0, PostgreSQL 42.7.5 -> 42.7.13, commons-pool2 2.12.0 -> 2.13.1,
+  Gson 2.13.2 -> 2.14.0, Kotlin stdlib 2.2.20 -> 2.4.20, BouncyCastle
+  1.78.1 -> 1.86, geantyref 1.3.13 -> 1.3.16.
+- Compile-only APIs: LuckPerms 5.4 -> 5.5, Velocity API 3.1.1 -> 3.4.0. Jedis
+  (5.2.0), Configurate (4.2.0), password4j (1.8.4), kyori-option (1.1.0),
+  two-factor-auth (1.3) and the BungeeCord API (1.21-R0.3) are already current.
+- Every update stays within the dependency's existing major version (no breaking
+  API changes); the Gradle wrapper moves 9.7.0 -> 9.7.1.
+
+**Session same-IP lockout fixed**
+
+- The join-time same-IP check no longer kicks a player whose ISP rotated their IP.
+  `session.session-from-same-ip-only` now only suppresses the silent session resume
+  (forcing a normal `/login`, after which the new IP is persisted) instead of aborting
+  the join before `login()` could refresh the address - which permanently locked out
+  dynamic-IP players.
+- `intelligence.block-on-new-country` now uses a dedicated "different country" message
+  instead of the misleading different-IP text.
+
+**Weekly snapshot-compatibility workflow removed**
+
+- `.github/workflows/snapshot-compat.yml` and its README badge were removed; the CI
+  `build` + `host-tests` jobs remain the compatibility gate.
+
 ### Build, mixin & proxy-gate hardening (2026-09-06)
 
 **Build-time remap errors fixed (all 4 `Cannot remap` warnings gone)**

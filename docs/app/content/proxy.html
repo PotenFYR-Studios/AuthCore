@@ -128,7 +128,7 @@ forwarding payload and leaves the connection address untouched.</p>
 <li><p>Every client connection starts with a handshake packet (<code>HandshakeC2SPacket</code>).</p>
 </li>
 <li><p>AuthCore&#39;s mixin <code>ServerHandshakeNetworkHandlerMixin</code> (in <code>in.potenfyr.authcore.mixin</code>) injects at the
-very beginning of <code>onHandshake</code>. The mixin is <strong>universal</strong> (1.16.0 - 26.1-26.2): it reads the
+very beginning of <code>onHandshake</code>. The mixin is <strong>universal</strong> (1.16.0 - 26.1-26.3): it reads the
 handshake address via reflection, the record accessor (<code>address()</code>) on newer versions, the
 private <code>address</code> field on 1.16-1.20.4.</p>
 </li>
@@ -347,14 +347,14 @@ and password resets never store an unusable hash, consistent behavior across all
 proxy network. See <a href="security.html">SECURITY.md</a>.</p>
 <h3 id="multi-version-workspace--host-compatibility-matrix">Multi-Version Workspace &amp; Host-Compatibility Matrix</h3>
 <ul>
-<li>The <strong>Stonecraft 1.10 + Stonecutter 0.9</strong> workspace compiles one merged source tree
+<li>The <strong>Stonecraft 1.14 + Stonecutter 0.9</strong> workspace compiles one merged source tree
 (<code>src/main/java</code>, Mojang mappings) per version-group × loader variant (<code>:1.18.2-fabric</code>,
 <code>:1.18.2-forge</code>, <code>:1.21.11-fabric</code>, <code>:1.21.11-forge</code>, <code>:1.21.11-neoforge</code>,
-<code>:26.2-fabric</code>, <code>:26.2-neoforge</code>; active <code>1.21.11-fabric</code>) into the seven range jars
+<code>:26.3-fabric</code>, <code>:26.3-neoforge</code>; active <code>1.21.11-fabric</code>) into the seven range jars
 (<code>authcore-&lt;range&gt;-&lt;loader&gt;-&lt;v&gt;.jar</code>); Java toolchains are 17 / 21 / 25 per group.</li>
 <li>The host-compatibility harness (<code>test/docker/run-tests.sh</code>) boots each range jar
  on its verify versions in Docker, 1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11,
-26.1.2 / 26.2, with live log streaming and report pruning
+26.1.2 / 26.2 / 26.3, with live log streaming and report pruning
 (<code>reports/latest.md|html|json</code>). Full matrix: <strong>8/8 endpoints × 7/7 loader targets PASS</strong>
 (2026-08-10).</li>
 </ul>
@@ -375,7 +375,7 @@ A: It is safe but pointless, the parser finds no payload and nothing is rewritte
 A: Yes, intentionally. <code>session-from-same-ip-only</code>, GeoIP country detection, per-IP rate
 limits and risk scoring all operate on the real client IP, which is exactly what you want.</p>
 <p><strong>Q: The mixin shows an error in the console.</strong>
-A: The universal mixin applies cleanly on every supported version (1.16.0 - 26.1-26.2). If another
+A: The universal mixin applies cleanly on every supported version (1.16.0 - 26.1-26.3). If another
 mod rewrites handshake addresses too, both may run, AuthCore&#39;s rewrite is idempotent and only
 runs once per connection. Enable <code>debug-mode</code> for details.</p>
 

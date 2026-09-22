@@ -20,7 +20,7 @@
 
 - [ ] G1 (1.16 - 1.18, Fabric/Forge)
 - [ ] G2 (1.19 - 1.21, Fabric/NeoForge)
-- [ ] G3 (26.1 - 26.2, Fabric/NeoForge)
+- [ ] G3 (26.1 - 26.3, Fabric/NeoForge)
 - [ ] Proxy roles (BungeeCord / Velocity) unaffected
 
 ## Testing done

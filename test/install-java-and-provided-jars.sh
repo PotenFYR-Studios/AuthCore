@@ -84,13 +84,13 @@ dl_jdk "jdk-25" \
   "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse"
 
 # Compile-only proxy API jars (with fallback to local alias if upstream is unreachable)
-if [ ! -s "$JARS_DIR/provided/luckperms-api-5.4.jar" ]; then
-  if [ -s "$JARS_DIR/provided/net.luckperms-api-5.4.jar" ]; then
-    cp "$JARS_DIR/provided/net.luckperms-api-5.4.jar" "$JARS_DIR/provided/luckperms-api-5.4.jar"
-  elif [ -s "$JARS_DIR/provided/api-5.4.jar" ]; then
-    cp "$JARS_DIR/provided/api-5.4.jar" "$JARS_DIR/provided/luckperms-api-5.4.jar"
+if [ ! -s "$JARS_DIR/provided/luckperms-api-5.5.jar" ]; then
+  if [ -s "$JARS_DIR/provided/net.luckperms-api-5.5.jar" ]; then
+    cp "$JARS_DIR/provided/net.luckperms-api-5.5.jar" "$JARS_DIR/provided/luckperms-api-5.5.jar"
+  elif [ -s "$JARS_DIR/provided/api-5.5.jar" ]; then
+    cp "$JARS_DIR/provided/api-5.5.jar" "$JARS_DIR/provided/luckperms-api-5.5.jar"
   else
-    dl "https://repo.luckperms.net/releases/me/luckperms/api/5.4/api-5.4.jar" "$JARS_DIR/provided/luckperms-api-5.4.jar" || touch "$JARS_DIR/provided/luckperms-api-5.4.jar"
+    dl "https://repo.luckperms.net/releases/me/luckperms/api/5.5/api-5.5.jar" "$JARS_DIR/provided/luckperms-api-5.5.jar" || touch "$JARS_DIR/provided/luckperms-api-5.5.jar"
   fi
 fi
 
@@ -98,8 +98,8 @@ if [ ! -s "$JARS_DIR/provided/bungeecord-api-1.21-R0.3.jar" ]; then
   dl "https://hub.spigotmc.org/jenkins/job/BungeeCord/lastSuccessfulBuild/artifact/bootstrap/target/BungeeCord.jar" "$JARS_DIR/provided/bungeecord-api-1.21-R0.3.jar" || touch "$JARS_DIR/provided/bungeecord-api-1.21-R0.3.jar"
 fi
 
-if [ ! -s "$JARS_DIR/provided/velocity-api-3.1.1.jar" ]; then
-  dl "https://repo.papermc.io/repository/maven-public/com/velocitypowered/velocity-api/3.1.1/velocity-api-3.1.1.jar" "$JARS_DIR/provided/velocity-api-3.1.1.jar" || touch "$JARS_DIR/provided/velocity-api-3.1.1.jar"
+if [ ! -s "$JARS_DIR/provided/velocity-api-3.4.0.jar" ]; then
+  dl "https://repo.papermc.io/repository/maven-public/com/velocitypowered/velocity-api/3.4.0/velocity-api-3.4.0.jar" "$JARS_DIR/provided/velocity-api-3.4.0.jar" || touch "$JARS_DIR/provided/velocity-api-3.4.0.jar"
 fi
 
 FLOODGATE_JAR="$JARS_DIR/provided/floodgate-api-2.2.7.jar"

@@ -34,7 +34,7 @@ val loader: String = project.name.substringAfterLast("-")
 // FUTURE-SNAPSHOT SUPPORT: everything from 26.x on is the unobfuscated era with stable
 // Mojang names, so a FUTURE major line (e.g. building against a 27.0 snapshot) is
 // detected dynamically and gets its own open-ended label ("<version>+") instead of
-// being silently mislabeled as 26.1-26.2. The three known groups keep their historical
+// being silently mislabeled as 26.1-26.3. The three known groups keep their historical
 // jar names so the host-test harness and release tooling stay stable.
 // NOTE: stonecutter.current.parsed is a ParsedVersion (comparable against strings);
 // it must NOT be annotated as String.
@@ -45,7 +45,7 @@ val rangeLabel: String =
     when {
         parsedVersion < "1.19" -> "1.16-1.18"
         parsedVersion < "26" -> "1.19-1.21"
-        knownModernLine -> "26.1-26.2"
+        knownModernLine -> "26.1-26.3"
         else -> "$parsedVersion+"
     }
 
@@ -96,10 +96,10 @@ val variantDependencies = Properties().apply {
 // Precise loader minimums (maven range syntax) declared in mods.toml so the loader
 // resolves the exact supported range. IMPORTANT: the minimum is the FIRST version that
 // supports the group's LOWEST Minecraft version - never the build target, otherwise a
-// server on an in-range version (e.g. 26.1 with the 26.2-built jar) is rejected.
+// server on an in-range version (e.g. 26.1 with the 26.3-built jar) is rejected.
 //   G1 (1.16-1.18): forge 36.1.0+ (1.16.5 line)
 //   G2 (1.19-1.21): forge 41.1.0+ (1.19 line), neoforge 20.2.59-beta+ (1.20.2 line)
-//   G3 (26.1-26.2): neoforge 26.1.0+ (26.1 line)
+//   G3 (26.1-26.3): neoforge 26.1.0+ (26.1 line)
 val forgeRange: String =
     if (parsedVersion < "1.19") "[36.1.0,)"
     else "[41.1.0,)"
@@ -123,7 +123,7 @@ val fabricLoaderRange: String =
 // Minecraft version - never the build target, otherwise in-range servers are rejected):
 //   G1 (1.16-1.18): fabric-api 0.28.x (1.16.5 line)
 //   G2 (1.19-1.21): fabric-api 0.59.x (1.19 line)
-//   G3 (26.1-26.2): fabric-api 0.134.x (26.1 line)
+//   G3 (26.1-26.3): fabric-api 0.134.x (26.1 line)
 val fabricApiRange: String =
     when {
         parsedVersion < "1.19" -> ">=0.28.0"
@@ -187,7 +187,7 @@ stonecutter {
 
     java {
         // Java level follows the Minecraft version of each group:
-        //   G1 (1.16-1.18): Java 17   G2 (1.19-1.21): Java 21   G3 (26.1-26.2): Java 25
+        //   G1 (1.16-1.18): Java 17   G2 (1.19-1.21): Java 21   G3 (26.1-26.3): Java 25
         val javaMajor =
             when {
                 stonecutter.current.parsed < "1.17" -> 16
@@ -264,10 +264,10 @@ dependencies {
     // McApiManager) - no compile-time dependency needed. A compileOnly entry is
     // pointless here anyway: org.geysermc.floodgate:api has no stable release on
     // any Maven repo (snapshots only), which broke dependency resolution on CI.
-    compileOnly("net.luckperms:api:5.4")
+    compileOnly("net.luckperms:api:${property("luckperms_version")}")
     // Proxy plugin APIs - the same jar doubles as a BungeeCord / Velocity plugin.
-    compileOnly("net.md-5:bungeecord-api:1.21-R0.3")
-    compileOnly("com.velocitypowered:velocity-api:3.1.1")
+    compileOnly("net.md-5:bungeecord-api:${property("bungeecord_api_version")}")
+    compileOnly("com.velocitypowered:velocity-api:${property("velocity_api_version")}")
 }
 
 // ----------------------------------------------------------------------------

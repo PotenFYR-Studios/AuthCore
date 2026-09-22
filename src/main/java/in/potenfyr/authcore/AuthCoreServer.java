@@ -307,7 +307,7 @@ public class AuthCoreServer {
       if (!tested && config.logging.showUntestedVersionWarning)
         LOGGER.warn(
             false,
-            "Minecraft {} is not in the officially tested set (1.16-1.21 / 26.1-26.2). The "
+            "Minecraft {} is not in the officially tested set (1.16-1.21 / 26.1-26.3). The "
                 + "mod uses version-agnostic APIs, so it should work - but please report any "
                 + "issue!",
             gameVersion);

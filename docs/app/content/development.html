@@ -51,14 +51,14 @@
 <h1>AuthCore, Development &amp; Architecture</h1>
 <p>This document explains <strong>how AuthCore is built</strong>, <strong>how the codebase is organized</strong> and
 <strong>how multi-version / multi-loader support is managed</strong> so contributors can extend the mod
-without breaking the 1.16.x - 26.1-26.2 compatibility promise.</p>
+without breaking the 1.16.x - 26.1-26.3 compatibility promise.</p>
 <hr>
 <h2 id="1-overview">1. Overview</h2>
 <p>AuthCore is a universal authentication framework for Minecraft servers:</p>
 <ul>
 <li><strong>One jar</strong> is simultaneously a server mod and a
 BungeeCord/Velocity proxy plugin (the loader picks the right entrypoint at runtime).</li>
-<li><strong>One codebase</strong> targets Minecraft <strong>1.16.0 - 26.1-26.2</strong> across <strong>all three loaders -
+<li><strong>One codebase</strong> targets Minecraft <strong>1.16.0 - 26.1-26.3</strong> across <strong>all three loaders -
 Fabric, Forge and NeoForge</strong> (7 released jars: 3 version ranges × loaders).</li>
 <li>Compatibility is not assumed, it is <strong>verified by the host-test harness</strong> on every
 version-group endpoint inside Docker (see §6).</li>
@@ -80,13 +80,13 @@ version-group endpoint inside Docker (see §6).</li>
 </tr>
 <tr>
 <td>Multi-loader wiring</td>
-<td><strong>Stonecraft 1.10</strong> (<code>gg.meza.stonecraft</code>)</td>
+<td><strong>Stonecraft 1.14</strong> (<code>gg.meza.stonecraft</code>)</td>
 <td>Wires Stonecutter + Architectury Loom + Mod-Publish-Plugin; registers the <code>fabric</code> / <code>forge</code> / <code>neoforge</code> / <code>forgeLike</code> / <code>fabricLike</code> constants and per-version dependencies</td>
 </tr>
 <tr>
 <td>Mappings</td>
 <td><strong>Mojang (mojmap)</strong> for every version</td>
-<td>One naming convention 1.16.5 → 26.1-26.2; 26.1-26.2 is unobfuscated so dev names == runtime names</td>
+<td>One naming convention 1.16.5 → 26.1-26.3; 26.1-26.3 is unobfuscated so dev names == runtime names</td>
 </tr>
 <tr>
 <td>Toolchains</td>
@@ -102,14 +102,14 @@ gradle.properties          # mod metadata + third-party library versions
 versions/dependencies/
   1.18.2.properties        # per-version loader/API pins (minecraft, fabric, forge, neoforge)
   1.21.11.properties
-  26.2.properties
+  26.3.properties
 </code></pre>
 <h3 id="the-variant-model">The variant model</h3>
 <p>Every released jar is one <strong>variant</strong> (a generated Gradle project in <code>versions/&lt;mc&gt;-&lt;loader&gt;/</code>).
 <code>stonecutter.shared</code> in <code>settings.gradle.kts</code> declares the matrix:</p>
 <pre><code class="language-kotlin">mc(&quot;1.18.2&quot;, &quot;fabric&quot;, &quot;forge&quot;)              // G1 jars: authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar
 mc(&quot;1.21.11&quot;, &quot;fabric&quot;, &quot;forge&quot;, &quot;neoforge&quot;) // G2 jars: authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar
-mc(&quot;26.2&quot;, &quot;fabric&quot;, &quot;neoforge&quot;)             // G3 jars: authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar
+mc(&quot;26.3&quot;, &quot;fabric&quot;, &quot;neoforge&quot;)             // G3 jars: authcore-26.1-26.3-{fabric,neoforge}-&lt;v&gt;.jar
 </code></pre>
 <p><code>vcsVersion = &quot;1.21.11-fabric&quot;</code> is the <strong>active</strong> variant: the raw template sources are
 written in its output state (see §4), IDEs and <code>gradlew build</code> act on it.</p>
@@ -121,8 +121,8 @@ written in its output state (see §4), IDEs and <code>gradlew build</code> act o
 </code></pre>
 <p>Notes:</p>
 <ul>
-<li>Gradle itself must run on <strong>JDK 25</strong> when a 26.1-26.2 variant is configured
-(MC 26.2 enforces it); the foojay resolver downloads 17/21/25 toolchains automatically.</li>
+<li>Gradle itself must run on <strong>JDK 25</strong> when a 26.1-26.3 variant is configured
+(MC 26.3 enforces it); the foojay resolver downloads 17/21/25 toolchains automatically.</li>
 <li>Runtime libraries (SQLite/MySQL/PostgreSQL JDBC, Redis, HOCON configurate, password4j,
 bouncycastle, gson, kotlin-stdlib, two-factor-auth) are <strong>shaded</strong> into the jar with
 Loom&#39;s <code>include</code>; Floodgate, LuckPerms, Bungee/ Velocity APIs are <code>compileOnly</code>.</li>
@@ -185,9 +185,9 @@ silently at the edges:</p>
 </tr>
 <tr>
 <td>G3</td>
-<td>26.1 - 26.2</td>
-<td>26.2</td>
-<td>26.1.2, 26.2</td>
+<td>26.1 - 26.3</td>
+<td>26.3</td>
+<td>26.1.2, 26.2, 26.3</td>
 <td>unobfuscated (mojmap runtime)</td>
 </tr>
 </tbody></table>
@@ -197,13 +197,13 @@ found while building the range jars (each one <em>crashed a real server</em> unt
 <ul>
 <li><code>ServerCommandSource.getPlayer()</code>, intermediary id <code>method_9207</code> (1.16-1.18) vs
 <code>method_44023</code> (1.19.4+) → resolved via <code>Compat.sourcePlayer()</code> (reflection over the
-candidate ids; also works on unobfuscated 26.1-26.2 via the mojmap name).</li>
+candidate ids; also works on unobfuscated 26.1-26.3 via the mojmap name).</li>
 <li><code>ActionResult</code> constants, on 1.20.5+ they became classes with nested subclasses and the
 1.21.11 mappings type them as <code>ActionResult$Pass</code> etc. A direct field reference
 compiled for 1.21.11 fails to load on 1.20.6 → <code>Compat.actionResultPass()/Fail()</code>
 resolve by field name (&quot;PASS&quot;/&quot;FAIL&quot;, or stable intermediary ids <code>field_5811</code>/<code>field_5814</code>).</li>
 <li><code>ScreenHandler.clicked</code>, <code>(…ClickType…)LItemStack;</code> on 1.16, <code>(…ClickType…)V</code> on 1.17-1.21,
-<code>(…ContainerInput…)V</code> on 26.1-26.2 → two mixins with <strong>descriptor-based selectors</strong>,
+<code>(…ContainerInput…)V</code> on 26.1-26.3 → two mixins with <strong>descriptor-based selectors</strong>,
 each <code>require = 0</code>, so exactly one matches per runtime.</li>
 <li><code>ServerPlayer.setGameMode</code>, returns <code>void</code> on 1.16, <code>boolean</code> on 1.17+ → two <code>@Inject</code>
 handlers (one <code>CallbackInfo</code>, one <code>CallbackInfoReturnable</code>), descriptor-gated.</li>
@@ -227,7 +227,7 @@ is active code, every other branch is <code>/*...*/</code>-commented:</p>
           &quot;clicked(IILnet/minecraft/world/inventory/ContainerInput;Lnet/minecraft/world/entity/player/Player;)V&quot;,
           /*?}*/
 </code></pre>
-<p>Supported: <code>if</code>, <code>else if</code>, <code>else</code>, version comparisons (<code>&lt; 1.19.4</code>, <code>&gt;= 1.20.5</code>, <code>= 26.2</code>),
+<p>Supported: <code>if</code>, <code>else if</code>, <code>else</code>, version comparisons (<code>&lt; 1.19.4</code>, <code>&gt;= 1.20.5</code>, <code>= 26.3</code>),
 loader constants (<code>fabric</code>, <code>forge</code>, <code>neoforge</code>, <code>forgeLike</code>). <strong>Never put conditionals
 inside JSON metadata</strong>, Loom parses <code>fabric.mod.json</code> at configure time; use the
 <code>${placeholder}</code> expansion from <code>modSettings.variableReplacements</code> instead.</p>
@@ -297,7 +297,7 @@ cached in <code>test/docker/.cache</code>), markdown/JSON reports under
 the full range-endpoint matrix on manual dispatch; the stable release job only publishes after
 all host tests pass.</p>
 <p><strong>Current status:</strong> every loader build target boots clean on its range
-endpoints (fabric 1.18.2 → 26.2, forge 1.21.11, neoforge 1.21.11 + 26.1.2/26.2 - zero
+endpoints (fabric 1.18.2 → 26.3, forge 1.21.11, neoforge 1.21.11 + 26.1.2/26.2/26.3 - zero
 errors/warnings, 2026-08-29). Forge 1.16-1.18 is a documented harness-environment skip
 (the same jars pass on every other loader); older range endpoints are being brought to
 full green.</p>

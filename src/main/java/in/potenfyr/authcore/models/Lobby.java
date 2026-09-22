@@ -923,7 +923,11 @@ public class Lobby {
 
       // --- DAMAGE PROTECTION ---
       if (AuthCoreServer.config.lobby.preventDamage) {
+        /*? if >= 26.3 {*/
+        /*player.setPermanentlyInvulnerable(true);
+        *//*?} else {*/
         player.setInvulnerable(true);
+        /*?}*/
         player.setHealth(player.getMaxHealth());
       }
 
@@ -951,7 +955,11 @@ public class Lobby {
 
       // --- CLEAR LOBBY EFFECTS ---
       player.removeAllEffects();
+      /*? if >= 26.3 {*/
+      /*player.setPermanentlyInvulnerable(false);
+      *//*?} else {*/
       player.setInvulnerable(false);
+      /*?}*/
 
       // --- RESTORE GAMEMODE (FIRST - never skipped by a later failure) ---
       // The lobby forced Adventure; if any restore step below throws, the player must

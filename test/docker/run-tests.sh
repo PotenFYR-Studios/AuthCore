@@ -10,7 +10,7 @@
 #   group  range     build    verify endpoints                          released jar
 #   G1     1.16-1.18 1.18.2   1.16.5, 1.17.1, 1.18.2                    authcore-1.16-1.18-*
 #   G2     1.19-1.21 1.21.11  1.19.4, 1.20.6, 1.21.1, 1.21.11           authcore-1.19-1.21-*
-#   G3     26.1-26.2 26.2     26.1.2, 26.2                              authcore-26.1-26.2-*
+#   G3     26.1-26.3 26.3     26.1.2, 26.2, 26.3                       authcore-26.1-26.3-*
 #
 # Each container: downloads its server files itself (Fabric meta / Modrinth /
 # Forge + NeoForge maven, cached in the authcore-test-cache volume or the

@@ -27,15 +27,16 @@
       }
     },
     {
-      "range": "26.1-26.2",
-      "build": "26.2",
+      "range": "26.1-26.3",
+      "build": "26.3",
       "loaders": ["fabric", "neoforge"],
-      "verify": ["26.1.2", "26.2"],
+      "verify": ["26.1.2", "26.2", "26.3"],
       "scanPattern": "^26(\\.[0-9]+.*|w[0-9]+[a-z])$",
       "javaMajor": 25,
       "loaderPins": {
         "26.1.2": { "neoforge": "26.1.2.95" },
-        "26.2": { "neoforge": "26.2.0.57" }
+        "26.2": { "neoforge": "26.2.0.57" },
+        "26.3": { "neoforge": "26.3.0.8-beta" }
       }
     }
   ],

@@ -188,7 +188,7 @@ player (useful against account sharers who adapt to specific block messages).</p
 <h3 id="auto-whitelist">Auto-Whitelist</h3>
 <p><code>session.auto-whitelist.enabled</code> (default off): successfully <strong>registered</strong> accounts are added
 to the <strong>vanilla server whitelist</strong> automatically (applies while the server whitelist is
-enabled). Works across 1.16.0 - 26.1-26.2 via the Compat layer, so a registered player is never
+enabled). Works across 1.16.0 - 26.1-26.3 via the Compat layer, so a registered player is never
 locked out by an admin-managed whitelist.</p>
 <h3 id="honeypot-auto-banning-decoy-port">Honeypot (auto-banning decoy port)</h3>
 <p><code>session.honeypot</code> (default off) runs a <strong>fake server listener</strong> on its own port (default
@@ -395,20 +395,20 @@ target signature, the mixin is <strong>skipped instead of crashing the server</s
 the mod&#39;s defenses (commands, hashing, rate limits, lobby restrictions) stay active.</li>
 <li><strong>Stonecraft/Stonecutter workspace, Mojang mappings everywhere</strong>, a single merged source
 tree (<code>src/main/java</code> + <code>src/main/resources</code>) is compiled per version-group × loader variant
-by the Stonecraft 1.10 + Stonecutter 0.9 workspace (<code>settings.gradle.kts</code>,
+by the Stonecraft 1.14 + Stonecutter 0.9 workspace (<code>settings.gradle.kts</code>,
 <code>stonecutter.gradle.kts</code>, central <code>build.gradle.kts</code> Kotlin DSL, <code>versions/dependencies/*.properties</code>;
 variants <code>:1.18.2-fabric</code> / <code>:1.18.2-forge</code> / <code>:1.21.11-fabric</code> / <code>:1.21.11-forge</code> /
-<code>:1.21.11-neoforge</code> / <code>:26.2-fabric</code> / <code>:26.2-neoforge</code>, active <code>1.21.11-fabric</code>).
-Every group uses official (Mojang) mappings; 26.1-26.2 is additionally unobfuscated (Mojang names
-at runtime). Java toolchains follow the group: 17 (1.16-1.18), 21 (1.19-1.21), 25 (26.1-26.2).</li>
+<code>:1.21.11-neoforge</code> / <code>:26.3-fabric</code> / <code>:26.3-neoforge</code>, active <code>1.21.11-fabric</code>).
+Every group uses official (Mojang) mappings; 26.1-26.3 is additionally unobfuscated (Mojang names
+at runtime). Java toolchains follow the group: 17 (1.16-1.18), 21 (1.19-1.21), 25 (26.1-26.3).</li>
 <li><strong>Range jars</strong>, one jar per group × loader: <code>authcore-1.16-1.18-{fabric,forge}-&lt;v&gt;.jar</code>
 (built at 1.18.2, covers 1.16.0 - 1.18.2), <code>authcore-1.19-1.21-{fabric,forge,neoforge}-&lt;v&gt;.jar</code>
-(built at 1.21.11, covers 1.19.0 - 1.21.11) and <code>authcore-26.1-26.2-{fabric,neoforge}-&lt;v&gt;.jar</code>
-(built at 26.2, covers 26.1 - 26.2).
+(built at 1.21.11, covers 1.19.0 - 1.21.11) and <code>authcore-26.1-26.3-{fabric,neoforge}-&lt;v&gt;.jar</code>
+(built at 26.3, covers 26.1 - 26.3).
 The legacy <code>authcore-classic</code>/<code>authcore-modern</code> split is gone.</li>
 <li><strong>Host-compatibility harness</strong>, <code>test/docker/run-tests.sh</code> boots every range jar
  on its full verify matrix (1.16.5 / 1.17.1 / 1.18.2, 1.19.4 / 1.20.6 / 1.21.1 / 1.21.11, 26.1.2 /
-26.2) in Docker containers, driven by the <code>versions.json</code> range-group matrix (options
+26.2 / 26.3) in Docker containers, driven by the <code>versions.json</code> range-group matrix (options
 <code>-Groups</code>, <code>-Version</code>, <code>-Jar</code>, <code>-Smoke</code>, <code>-Build</code>, <code>-Parallel</code>, <code>-KeepReports</code> and more),
 with live log streaming and pruned reports (<code>reports/latest.md|html|json</code>). The full matrix
 passed on 2026-08-10.</li>

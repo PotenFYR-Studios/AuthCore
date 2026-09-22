@@ -603,6 +603,7 @@ public class AuthCoreSecurityTests {
     check("1.21.11 recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("1.21.11"));
     check("26.1 recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("26.1"));
     check("26.2 recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("26.2"));
+    check("26.3 recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("26.3"));
     check("26w09a snapshot recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("26w09a"));
     check("24w45a snapshot recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("24w45a"));
     check("23w12a snapshot recognized as tested", in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("23w12a"));

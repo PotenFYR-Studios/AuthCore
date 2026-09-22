@@ -397,16 +397,14 @@ public class ServerEvents {
       }
     }
 
-    // Same-IP restriction (empty/legacy IPs are never considered a mismatch)
-    if (AuthCoreServer.config.session.sessionFromSameIPOnly
-        && user.isRegistered.get()
-        && org.apache.commons.lang3.StringUtils.isNotBlank(user.ipAddress)
-        && !user.ipAddress.equals(player.getIpAddress())) {
-
-      AuthCoreServer.LOGGER.toKick(
-          false, connection, AuthCoreServer.messages.promptUserDifferentIpLoginNotAllowed);
-      return;
-    }
+    // NOTE: the same-IP restriction is enforced ONLY on the session-resume fast-path below
+    // (sameIpOk). It must NOT abort the join here: the stored IP is refreshed by
+    // User.login() after a SUCCESSFUL authentication, so kicking a different-IP join before
+    // /login can run permanently locked out every player whose ISP rotated their IP - the
+    // player never reached login() and therefore could never update the address. A mismatch
+    // simply suppresses the silent session resume and forces a normal /login, which is
+    // equally safe against session hijacking (the companion token alone cannot resume a
+    // session from another IP).
 
     // Online-mode-only servers: when offline (cracked) players are disallowed, reject any
     // join the server did NOT verify as a genuine online-mode session. On an online-mode
@@ -434,6 +432,19 @@ public class ServerEvents {
         !AuthCoreServer.config.session.sessionFromSameIPOnly
             || (org.apache.commons.lang3.StringUtils.isNotBlank(user.ipAddress)
                 && user.ipAddress.equals(player.getIpAddress()));
+
+    // A mismatching IP no longer kicks; it only denies the silent resume. Log it so admins
+    // can tell why a returning player was asked to authenticate again.
+    if (!sameIpOk && user.uuid.equals(uuid) && user.isActiveSession.get()) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | join - active session not resumed: join IP {} differs from session IP {} "
+              + "(re-authentication required)",
+          username,
+          player.getIpAddress(),
+          user.ipAddress);
+    }
+
     if (user.uuid.equals(uuid) && sameIpOk && user.isActiveSession.get()) {
 
       AuthCoreServer.LOGGER.debug(
@@ -597,7 +608,7 @@ public class ServerEvents {
               0xE74C3C);
           return;
         }
-        user.kick(AuthCoreServer.messages.promptUserDifferentIpLoginNotAllowed);
+        user.kick(AuthCoreServer.messages.promptUserNewCountryLoginNotAllowed);
         return;
       }
 

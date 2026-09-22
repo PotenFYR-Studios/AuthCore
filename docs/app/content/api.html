@@ -325,11 +325,11 @@ they return <code>null</code> / <code>false</code> / <code>100</code> (risk) ins
 </ul>
 <h3 id="version-compatibility">Version Compatibility</h3>
 <ul>
-<li>AuthCore covers <strong>Minecraft 1.16.0 - 26.1-26.2</strong> on <strong>Fabric / Forge / NeoForge</strong> with
+<li>AuthCore covers <strong>Minecraft 1.16.0 - 26.1-26.3</strong> on <strong>Fabric / Forge / NeoForge</strong> with
 <strong>seven jars</strong> (3 version ranges × loaders) built from one source tree (Mojang mappings,
 Stonecutter conditionals): fabric/forge jars built at 1.18.2 (Java 17) and 1.21.11
 (Java 21), a neoforge jar built at 1.21.11 (Java 21), and fabric/neoforge jars built at
-26.2 (Java 25). Install the jar matching your server version <strong>and loader</strong>. Every jar runs
+26.3 (Java 25). Install the jar matching your server version <strong>and loader</strong>. Every jar runs
 standalone or behind Velocity/BungeeCord (it doubles as a proxy plugin).</li>
 <li>AuthCore is a <strong>server-side mod</strong>: the jar is a Fabric/Forge/NeoForge server mod and a
 BungeeCord/Velocity proxy plugin (auto-detected at runtime), never a client mod. Players
@@ -344,7 +344,7 @@ signature on a future Minecraft version degrades gracefully (mixin skipped) inst
 crashing the server. As long as you only use <code>AuthCoreApi</code>, you never touch any of it.</li>
 <li><strong>Verified on real servers</strong>, the host-test harness (<code>test/docker</code>) boots every range
 endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar on
- 1.19.4/1.20.6/1.21.1/1.21.11 and the 26.1-26.2 jar on 26.1.2/26.2, all <strong>PASS</strong> (2026-08-10).</li>
+ 1.19.4/1.20.6/1.21.1/1.21.11 and the 26.1-26.3 jar on 26.1.2/26.2/26.3, all <strong>PASS</strong> (2026-08-10).</li>
 </ul>
 <h2 id="internal-packages">Internal Packages</h2>
 <table>
@@ -356,7 +356,7 @@ endpoint in Docker: the 1.16-1.18 jar on 1.16.5/1.17.1/1.18.2, the 1.19-1.21 jar
 </thead>
 <tbody><tr>
 <td><code>in.potenfyr.authcore.compat</code></td>
-<td>Universal reflection layer bridging APIs that changed between Minecraft 1.16.0 - 26.1-26.2 (text, effects, teleports, packets, registries, whitelist, OP handling)</td>
+<td>Universal reflection layer bridging APIs that changed between Minecraft 1.16.0 - 26.1-26.3 (text, effects, teleports, packets, registries, whitelist, OP handling)</td>
 </tr>
 <tr>
 <td><code>in.potenfyr.authcore.util</code></td>

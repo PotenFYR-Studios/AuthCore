@@ -17,7 +17,6 @@
 [![Release](https://img.shields.io/github/v/release/PotenFYR-Studios/AuthCore?style=flat-square&display_name=release&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/releases/latest)
 [![Development Build](https://img.shields.io/badge/Dev%20Build-latest-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore/releases/tag/latest)
 [![CI Build](https://img.shields.io/github/actions/workflow/status/PotenFYR-Studios/AuthCore/ci.yml?style=flat-square&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/ci.yml)
-[![Snapshot Compat](https://img.shields.io/github/actions/workflow/status/PotenFYR-Studios/AuthCore/snapshot-compat.yml?style=flat-square&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/snapshot-compat.yml)
 [![Minecraft Versions](https://img.shields.io/badge/Minecraft-1.16.0%20%E2%86%92%2026.x%2B-5865F2?style=flat-square&logo=minecraft&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-which-jar-do-i-need)
 [![Loaders](https://img.shields.io/badge/Loaders-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-multi-version--multi-loader-compatibility)
 [![Java](https://img.shields.io/badge/Java-17%20%7C%2021%20%7C%2025-b07219?style=flat-square&logo=openjdk&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-building-from-source)
@@ -122,8 +121,8 @@ Each compiled jar performs **both roles**: a native server mod (Fabric, Forge, o
 | `authcore-1.16-1.18-forge-<v>.jar` | **1.16.0 – 1.18.2** | Forge | 17 | Intermediary mappings era |
 | `authcore-1.19-1.21-fabric-<v>.jar` | **1.19.0 – 1.21.11** | Fabric | 21 | Intermediary mappings era |
 | `authcore-1.19-1.21-neoforge-<v>.jar` | **1.19.0 – 1.21.11** | NeoForge | 21 | Intermediary mappings era |
-| `authcore-26.1-26.2-fabric-<v>.jar` | **26.1 – 26.2+ & Snapshots** | Fabric | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
-| `authcore-26.1-26.2-neoforge-<v>.jar` | **26.1 – 26.2+ & Snapshots** | NeoForge | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
+| `authcore-26.1-26.3-fabric-<v>.jar` | **26.1 – 26.3+ & Snapshots** | Fabric | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
+| `authcore-26.1-26.3-neoforge-<v>.jar` | **26.1 – 26.3+ & Snapshots** | NeoForge | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
 
 > [!TIP]
 > **Why range jars?** Minecraft 26.0+ ships completely **unobfuscated code** and Fabric intermediary is deprecated for 26.x onwards (see [Fabric announcement](https://fabricmc.net/2025/10/31/obfuscation.html)). Each range jar is thoroughly verified across every endpoint in its version bracket using our parallel Docker test harness.
@@ -418,8 +417,8 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 ./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.0.jar
 ./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.0.jar
 ./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.0.jar
-./gradlew :26.2-fabric:build        # -> dist/authcore-26.1-26.2-fabric-1.0.0.jar
-./gradlew :26.2-neoforge:build      # -> dist/authcore-26.1-26.2-neoforge-1.0.0.jar
+./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.0.jar
+./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.0.jar
 ```
 
 ---
@@ -460,7 +459,7 @@ test/docker/run-tests.sh --all
 # Run specific version brackets
 test/docker/run-tests.sh --groups 1.16-1.18 --java 17
 test/docker/run-tests.sh --groups 1.19-1.21 --java 21
-test/docker/run-tests.sh --groups 26.1-26.2 --java 25
+test/docker/run-tests.sh --groups 26.1-26.3 --java 25
 ```
 
 Each automated test validates:

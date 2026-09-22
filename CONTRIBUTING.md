@@ -16,7 +16,7 @@ AuthCore is a **Gradle + Stonecutter (Stonecraft)** multi-loader workspace: one 
 
 Prerequisites:
 
-- **Any installed JDK** (17+) to launch Gradle - the toolchains auto-provision **JDK 17 / 21 / 25** for the build groups (G1: 1.16-1.18 → 17, G2: 1.19-1.21 → 21, G3: 26.1-26.2 → 25). The first build downloads toolchains automatically.
+- **Any installed JDK** (17+) to launch Gradle - the toolchains auto-provision **JDK 17 / 21 / 25** for the build groups (G1: 1.16-1.18 → 17, G2: 1.19-1.21 → 21, G3: 26.1-26.3 → 25). The first build downloads toolchains automatically.
 - Optional: `bash test/install-java-and-provided-jars.sh` installs portable Adoptium JDKs and the vendored proxy/API jars under `java-jars/` (the test scripts run it automatically if missing).
 - **Bun** only if you work on the documentation app in `docs/app`.
 

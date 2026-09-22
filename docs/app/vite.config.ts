@@ -20,7 +20,7 @@ const PAGES = [
   { id: "proxy", title: "Proxy Support" },
   { id: "webpanel", title: "Web Admin Panel" },
   { id: "security", title: "Security Model" },
-  { id: "26x", title: "26.1 - 26.2 Builds" },
+  { id: "26x", title: "26.1 - 26.3 Builds" },
   { id: "api", title: "Developer API" },
   { id: "development", title: "Development & Architecture" },
   { id: "changelog", title: "Changelog" },
