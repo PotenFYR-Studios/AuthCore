@@ -77,7 +77,8 @@ function Topbar({
   onMenu: () => void;
 }) {
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-line-light bg-[#0b0d14]/80 px-5 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 border-b border-line-light bg-[#0b0d14]/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-5">
       <button
         className="md:hidden text-[#9aa0b4] hover:text-white"
         onClick={onMenu}
@@ -107,13 +108,13 @@ function Topbar({
       </button>
       <a
         href="https://potenfyr.in"
-        className="ml-auto text-xs text-[#9aa0b4] hover:text-[#c4b5fd]"
+        className="ml-auto hidden text-xs text-[#9aa0b4] hover:text-[#c4b5fd] sm:inline"
       >
         Website
       </a>
       <a
         href="https://discord.com/invite/zUaN2FPBec"
-        className="text-xs text-[#9aa0b4] hover:text-[#c4b5fd]"
+        className="hidden text-xs text-[#9aa0b4] hover:text-[#c4b5fd] sm:inline"
       >
         Discord
       </a>
@@ -121,10 +122,11 @@ function Topbar({
         href="https://github.com/PotenFYR-Studios/AuthCore"
         target="_blank"
         rel="noopener"
-        className="text-xs text-[#9aa0b4] hover:text-white"
+        className="hidden text-xs text-[#9aa0b4] hover:text-white sm:inline"
       >
         GitHub
       </a>
+      </div>
     </header>
   );
 }
@@ -227,7 +229,7 @@ function SideLink({
     <a
       href={p.id === "index" ? CANON_HUB : `/docs/1.0.0/${p.id}.html`}
       onClick={onClick}
-      className={`rounded-lg px-3 py-1.5 text-[13px] transition-colors ${
+      className={`block rounded-lg px-3 py-1.5 text-[13px] leading-snug transition-colors ${
         active
           ? "bg-brand-violet/15 text-white shadow-[inset_0_0_0_1px_rgba(139,92,246,.4)]"
           : "text-[#9aa0b4] hover:bg-white/5 hover:text-[#e8eaf2]"
@@ -510,14 +512,14 @@ export default function App() {
         </main>
       ) : (
         /* -------- doc page: full-height side rails (fumadocs layout) -------- */
-        <div className="relative z-10 mx-auto flex max-w-full items-start">
+        <div className="relative z-10 mx-auto flex w-full max-w-7xl items-start">
           <Sidebar
             current={current}
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
           />
           <div className="flex min-w-0 flex-1 justify-center">
-            <main className="min-w-0 max-w-6xl flex-1 px-8 py-10">
+            <main className="min-w-0 w-full max-w-4xl flex-1 px-8 py-10">
               <header className="mb-8 border-b border-line-light pb-6">
                 <nav
                   aria-label="Breadcrumb"
