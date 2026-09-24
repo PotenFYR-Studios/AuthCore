@@ -13,6 +13,8 @@ on:
     branches: [ master ]
     paths:
       - index.html
+      - 404.html
+      - CNAME
       - favicon.png
       - robots.txt
       - sitemap.xml
@@ -59,6 +61,7 @@ jobs:
           cp sitemap.xml site/sitemap.xml
           cp llms.txt site/llms.txt
           cp og.png site/og.png
+          cp 404.html site/404.html
           cp CNAME site/CNAME
           cp LICENSE site/LICENSE
           cp docs/versions.json site/docs/versions.json
