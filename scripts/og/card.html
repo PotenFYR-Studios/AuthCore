@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>AuthCore link preview</title>
+    <!--
+      Shared template for PotenFYR Studios project OG cards.
+      Edit only the CONFIG block below; the layout stays identical across the org
+      so every project's link preview reads as one family.
+      Render with: bun run og:image  (scripts/og/build-og.mjs)
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ---------------- CONFIG ---------------- */
+      :root {
+        --accent: #8b5cf6;         /* project accent, matches the docs site */
+        --accent-soft: #c4b5fd;    /* lighter tint of --accent */
+      }
+      /* ---------------- /CONFIG --------------- */
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1200px; height: 630px; overflow: hidden; }
+      body {
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        background: #030712;
+        color: #fff;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .card {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        padding: 60px 84px 56px;
+        display: flex;
+        flex-direction: column;
+        background:
+          radial-gradient(720px 460px at 96% 2%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 64%),
+          radial-gradient(700px 500px at -4% 106%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
+          linear-gradient(160deg, #061021 0%, #030712 54%, #03050d 100%);
+        overflow: hidden;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(148, 163, 184, 0.10) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(148, 163, 184, 0.10) 1px, transparent 1px);
+        background-size: 64px 64px;
+        -webkit-mask-image: radial-gradient(780px 430px at 32% 50%, #000 0%, rgba(0, 0, 0, 0.5) 60%, transparent 88%);
+        mask-image: radial-gradient(780px 430px at 32% 50%, #000 0%, rgba(0, 0, 0, 0.5) 60%, transparent 88%);
+      }
+
+      .edge {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, var(--accent) 0%, var(--accent-soft) 52%, transparent 100%);
+      }
+
+      .content { position: relative; z-index: 2; display: flex; flex-direction: column; height: 100%; }
+
+      .lockup { display: flex; align-items: center; gap: 18px; }
+      .lockup img { width: 54px; height: 54px; display: block; }
+      .lockup .studio {
+        font-size: 15px;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #94a3b8;
+      }
+      .lockup .studio em { font-style: normal; color: var(--accent); }
+
+      .body {
+        margin-top: auto;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 54px;
+      }
+      .copy { max-width: 720px; }
+
+      h1 {
+        font-size: 70px;
+        line-height: 1.12;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+      }
+      h1 .grad {
+        background: linear-gradient(96deg, #ffffff 0%, var(--accent-soft) 55%, var(--accent) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      p.lede {
+        margin-top: 24px;
+        font-size: 24px;
+        line-height: 1.5;
+        color: #a8b4c6;
+      }
+
+      .facts { display: flex; flex-direction: column; min-width: 300px; padding-bottom: 4px; }
+      .facts .eyebrow {
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #7c8ba1;
+        padding-bottom: 16px;
+      }
+      .fact {
+        border-top: 1px solid rgba(148, 163, 184, 0.22);
+        padding: 18px 0 20px;
+      }
+      .fact.last { border-bottom: 1px solid rgba(148, 163, 184, 0.22); }
+      .fact b {
+        display: block;
+        font-size: 27px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: #eef6ff;
+      }
+      .fact span {
+        display: block;
+        margin-top: 4px;
+        font-size: 16px;
+        font-weight: 500;
+        color: #8fa0b6;
+      }
+
+      .foot {
+        margin-top: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid rgba(148, 163, 184, 0.18);
+        padding-top: 22px;
+        font-size: 19px;
+        font-weight: 500;
+      }
+      .foot .domain { color: var(--accent-soft); }
+      .foot .org { color: #8fa0b6; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="grid"></div>
+      <div class="edge"></div>
+
+      <div class="content">
+        <div class="lockup">
+          <img src="../../favicon.png" alt="" />
+          <div class="studio">PotenFYR Studios <em>·</em> Minecraft Security</div>
+        </div>
+
+        <div class="body">
+          <div class="copy">
+            <h1>
+              Fortress auth<br />
+              <span class="grad">for Minecraft.</span>
+            </h1>
+            <p class="lede">
+              Universal authentication and session defense across<br />
+              1.16 to 26.x+ on Fabric, Forge and NeoForge.
+            </p>
+          </div>
+
+          <div class="facts">
+            <div class="eyebrow">At a glance</div>
+            <div class="fact">
+              <b>One codebase</b>
+              <span>Fabric, Forge and NeoForge</span>
+            </div>
+            <div class="fact">
+              <b>1.16 to 26.x+</b>
+              <span>Version support</span>
+            </div>
+            <div class="fact last">
+              <b>Defense</b>
+              <span>Sessions, MFA, anti-abuse</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="foot">
+          <div class="domain">authcore.docs.potenfyr.in</div>
+          <div class="org">github.com/PotenFYR-Studios</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
