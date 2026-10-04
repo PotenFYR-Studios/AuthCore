@@ -309,7 +309,7 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 | **Network-Wide SSO** | `session.sso` + Redis | Single sign-on across multi-server proxy networks; authenticate once, play anywhere | `database { redis { enabled = true } }` + `sso { enabled = true }` |
 | **Web Administration Panel** | `session.web-panel` | Secure token-authenticated browser interface and REST API for remote management | `session { web-panel { enabled = true; token = "..." } }` |
 | **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25599 } }` |
-| **Hybrid Auto-Login** | `session.authentication` | Automatically logs in verified Mojang accounts while seamlessly allowing cracked clients | `session { authentication { premium-auto-login = true } }` |
+| **Hybrid Auto-Login** | `session.authentication` | Automatically logs in verified Mojang accounts while allowing cracked clients | `session { authentication { premium-auto-login = true } }` |
 | **Proxy Forwarding** | `session.proxy-support` | Unpacks real client IPs and UUIDs from BungeeCord or modern Velocity HMAC handshakes | `session { proxy-support { enabled = true; protocol = "auto" } }` |
 | **Maintenance Mode** | `session.maintenance` | Restricts player access to administrators during database upgrades or server updates | `/authcore maintenance on` |
 | **Automatic Whitelist** | `session.auto-whitelist` | Automatically whitelists players on the native vanilla whitelist once registered | `session { auto-whitelist { enabled = true } }` |
@@ -342,7 +342,7 @@ AuthCore natively supports modern Minecraft proxy architectures, whether deploye
 
 - **Universal IP Forwarding Auto-Detection**: Automatically parses BungeeCord and Velocity legacy (`ip\0uuid\0properties`) handshake payloads. The authentic remote IP address is immediately applied to GeoIP lookup, session validation, rate limiting, and login intelligence.
 - **Velocity Modern Identity Forwarding**: High-security HMAC-verified `velocity:player_info` login receiver reads credentials securely using the shared `velocity-secret` configured in `velocity.toml`.
-- **Cross-Mod Interop Channel (`authcore:auth`)**: Emits `AUTH_CHANGED|<uuid>|<username>|<1|0>` network packets, allowing AuthCore to coexist seamlessly alongside foreign backend auth plugins.
+- **Cross-Mod Interop Channel (`authcore:auth`)**: Emits `AUTH_CHANGED|<uuid>|<username>|<1|0>` network packets, allowing AuthCore to run alongside foreign backend auth plugins.
 - **Redis SSO Hub-to-Game Transfers**: Players authenticated in hub/limbo servers maintain session validity when transferred across backend game nodes without being re-prompted for passwords.
 - **Fail-Closed Proxy Enforcement**: Direct connections bypassing the proxy are rejected outright when proxy support is active.
 
@@ -350,7 +350,7 @@ AuthCore natively supports modern Minecraft proxy architectures, whether deploye
 
 ## ⚡ Performance
 
-Engineered from inception to scale effortlessly to **500,000+ registered accounts** and **thousands of concurrent logins** without thread contention or memory spikes:
+Engineered from inception to scale to **500,000+ registered accounts** and **thousands of concurrent logins** without thread contention or memory spikes:
 
 - **O(1) Lockless User Resolvers**: Hot path events (packet interception, movement checks, inventory clicks, and chat events) resolve the player in O(1) time through a UUID-keyed `ConcurrentHashMap` (`User.getUser(player)`). Zero string allocations and zero database queries occur on hot paths.
 - **Concurrency Without Deadlocks**: Thread-safe canonical in-memory user cache guarantees exactly one `User` instance exists per account. Cache-miss database fetches serialize under fine-grained locks; background I/O operations execute on a bounded daemon pool.
@@ -478,7 +478,7 @@ Detailed documentation guides are hosted at [authcore.docs.potenfyr.in](https://
 |:---|:---|
 | [🏠 **Documentation Home**](https://authcore.docs.potenfyr.in/) | Project portal, release downloads, and version switchers |
 | [🧭 **Server Admin Guide**](https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html) | Complete step-by-step setup guide: jar selection, installation, commands, and troubleshooting |
-| [🔀 **Authentication Flows**](https://authcore.docs.potenfyr.in/docs/1.0.0/flows.html) | Deep dive into join handshakes, limbo anchors, TOTP validation, and session lifecycles |
+| [🔀 **Authentication Flows**](https://authcore.docs.potenfyr.in/docs/1.0.0/flows.html) | Reference for join handshakes, limbo anchors, TOTP validation, and session lifecycles |
 | [📖 **Configuration Reference**](https://authcore.docs.potenfyr.in/docs/1.0.0/config.html) | Exhaustive parameter reference (~180 settings) with defaults and usage scenarios |
 | [🔌 **Developer API**](https://authcore.docs.potenfyr.in/docs/1.0.0/api.html) | `AuthCoreApi` integration guide, event bus hooks, and custom database schemas |
 | [⚙️ **Development & Architecture**](https://authcore.docs.potenfyr.in/docs/1.0.0/development.html) | Gradle build pipeline, Stonecutter conditional compiling, and test harnesses |
@@ -501,7 +501,7 @@ Yes. AuthCore features a built-in hybrid mode. On online-mode servers, ensure <c
 <details>
 <summary><b>Does AuthCore work in LAN or offline test environments?</b></summary>
 <br>
-Yes. Private and loopback IP addresses (<code>127.0.0.1</code>, <code>10.x.x.x</code>, <code>192.168.x.x</code>) are never forwarded to external Mojang or GeoIP APIs. The server boots seamlessly without requiring active internet connectivity.
+Yes. Private and loopback IP addresses (<code>127.0.0.1</code>, <code>10.x.x.x</code>, <code>192.168.x.x</code>) are never forwarded to external Mojang or GeoIP APIs. The server boots without requiring active internet connectivity.
 </details>
 
 <details>

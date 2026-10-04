@@ -299,7 +299,7 @@ and any regression in these paths fails the suite.</p>
 vanilla makes) - no external API calls from AuthCore, so there is no external dependency to
 outage: on offline-mode servers the vanilla encryption handshake is re-run during login and
 failures fall back to offline register/login (players are never blocked or kicked).</li>
-<li><code>premium-auto-login</code> (on by default) makes hybrid online/offline servers seamless on both
+<li><code>premium-auto-login</code> (on by default) makes hybrid online/offline servers consistent on both
 server modes; auto-login players are never given a generated password (their stored password
 stays null), and they can switch to password login themselves with <code>/account set-mode offline</code>
 (admins: <code>/authcore set-mode offline &lt;player&gt;</code>).</li>
