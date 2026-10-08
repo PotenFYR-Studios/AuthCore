@@ -6,7 +6,7 @@ Thanks for helping improve AuthCore! This guide covers what you need to know to 
 
 - **Bugs**: open a GitHub Issue using the **Bug Report** form (it asks for your AuthCore version, loader, Minecraft/Java versions, and reproduction steps). Search existing issues first.
 - **Features**: open a GitHub Issue using the **Feature Request** form and describe the problem you are solving, not just the solution.
-- **Documentation**: use the **Documentation** form for typos, unclear passages, or missing pages at [authcore.docs.potenfyr.in](https://authcore.docs.potenfyr.in).
+- **Documentation**: use the **Documentation** form for typos, unclear passages, or missing pages at [https:/docs.potenfyr.in/AuthCore](https:/docs.potenfyr.in/AuthCore).
 - **Questions**: the **Question** form or the community Discord works best.
 - **Security vulnerabilities**: **never** in public issues - see [SECURITY.md](SECURITY.md) for the private reporting channels.
 
@@ -69,12 +69,12 @@ There is no separate formatting/lint gate in CI - format Java consistently with 
 
 1. One logical change per PR (refactors separate from fixes).
 2. All CI checks green (build matrix, security tests, host tests).
-3. Player-facing behavior or config changes come with matching updates in `docs/app/content/*.html` and, if needed, the bundled `messages-*.conf` locale keys.
+3. Player-facing behavior or config changes come with matching updates in `docs/app/content/*` and, if needed, the bundled `messages-*.conf` locale keys.
 4. Follow the PR template so reviewers can reproduce your testing.
 
 ## Documentation contributions
 
-The docs site is generated from `docs/app/content/*.html` (per-page meta in each file feeds titles/descriptions/canonicals) plus the React shell in `docs/app/src/`. Versioned pages live under `/docs/1.0.0/` on deploy. If you add or rename a page, also update the root `sitemap.xml` and `llms.txt`.
+The docs site is generated from `docs/app/content/*` (per-page meta in each file feeds titles/descriptions/canonicals) plus the React shell in `docs/app/src/`. Versioned pages live under `/1.0.0/` on deploy. If you add or rename a page, also update the root `sitemap.xml` and `llms.txt`.
 
 ## License
 
