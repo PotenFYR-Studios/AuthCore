@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://potenfyr.in"><img src="https://img.shields.io/badge/Website-potenfyr.in-8b5cf6?style=for-the-badge&logo=googlechrome&logoColor=white&labelColor=1c1e26" alt="Website" /></a>
-  <a href="https:/docs.potenfyr.in/AuthCore"><img src="https://img.shields.io/badge/https:/docs.potenfyr.in/AuthCore-ec4899?style=for-the-badge&logo=gitbook&logoColor=white&labelColor=1c1e26" alt="Documentation" /></a>
+  <a href="https://docs.potenfyr.in/repo/authcore"><img src="https://img.shields.io/badge/https://docs.potenfyr.in/repo/authcore?style=for-the-badge&logo=gitbook&logoColor=white&labelColor=1c1e26" alt="Documentation" /></a>
   <a href="https://discord.com/invite/zUaN2FPBec"><img src="https://img.shields.io/badge/Discord-Join%20us-5865F2?style=for-the-badge&logo=discord&logoColor=white&labelColor=1c1e26" alt="Discord" /></a>
   <a href="https://modrinth.com/mod/authCore"><img src="https://img.shields.io/badge/Modrinth-authCore-1bd96a?style=for-the-badge&logo=modrinth&logoColor=white&labelColor=1c1e26" alt="Modrinth" /></a>
   <a href="mailto:support@potenfyr.in"><img src="https://img.shields.io/badge/Email-support%40potenfyr.in-f97316?style=for-the-badge&logo=gmail&logoColor=white&labelColor=1c1e26" alt="Email" /></a>
@@ -107,7 +107,7 @@ graph LR
 5. **Administer**: Run `/authcore validate` to dry-run configuration integrity. For remote administration, enable the optional web panel (disabled by default) and reach it at `http://127.0.0.1:25570` with your access token.
 
 > [!NOTE]
-> New to AuthCore? Check out the full [Server Admin Guide](https:/docs.potenfyr.in/AuthCore/1.0.0/guide) for visual step-by-step walkthroughs, permission setups, and proxy topologies.
+> New to AuthCore? Check out the full [Server Admin Guide](https://docs.potenfyr.in/repo/authcore/guide) for visual step-by-step walkthroughs, permission setups, and proxy topologies.
 
 ---
 
@@ -288,7 +288,7 @@ lobby {
 }
 ```
 
-Explore all ~180 parameters with defaults and use-cases in the [Configuration Reference](https:/docs.potenfyr.in/AuthCore/1.0.0/config).
+Explore all ~180 parameters with defaults and use-cases in the [Configuration Reference](https://docs.potenfyr.in/repo/authcore/config).
 
 ---
 
@@ -472,21 +472,21 @@ Each automated test validates:
 
 ## 📚 Documentation
 
-Detailed documentation guides are hosted at [https:/docs.potenfyr.in/AuthCore](https:/docs.potenfyr.in/AuthCore):
+Detailed documentation guides are hosted at [https://docs.potenfyr.in/repo/authcore](https://docs.potenfyr.in/repo/authcore):
 
 | Guide | Description |
 |:---|:---|
-| [🏠 **Documentation Home**](https:/docs.potenfyr.in/AuthCore/) | Project portal, release downloads, and version switchers |
-| [🧭 **Server Admin Guide**](https:/docs.potenfyr.in/AuthCore/1.0.0/guide) | Complete step-by-step setup guide: jar selection, installation, commands, and troubleshooting |
-| [🔀 **Authentication Flows**](https:/docs.potenfyr.in/AuthCore/1.0.0/flows) | Reference for join handshakes, limbo anchors, TOTP validation, and session lifecycles |
-| [📖 **Configuration Reference**](https:/docs.potenfyr.in/AuthCore/1.0.0/config) | Exhaustive parameter reference (~180 settings) with defaults and usage scenarios |
-| [🔌 **Developer API**](https:/docs.potenfyr.in/AuthCore/1.0.0/api) | `AuthCoreApi` integration guide, event bus hooks, and custom database schemas |
-| [⚙️ **Development & Architecture**](https:/docs.potenfyr.in/AuthCore/1.0.0/development) | Gradle build pipeline, Stonecutter conditional compiling, and test harnesses |
-| [🌐 **Web Admin Panel**](https:/docs.potenfyr.in/AuthCore/1.0.0/webpanel) | Web dashboard configuration, TLS/HTTPS setup, and REST API endpoints |
-| [🔁 **Proxy Setup Guide**](https:/docs.potenfyr.in/AuthCore/1.0.0/proxy) | Configuring Velocity modern forwarding, BungeeCord, and Redis SSO networks |
-| [🛡️ **Security Threat Model**](https:/docs.potenfyr.in/AuthCore/1.0.0/security) | Comprehensive threat model aligning with OWASP and Minecraft network architecture |
-| [📦 **26.x Builds & Migration**](https:/docs.potenfyr.in/AuthCore/1.0.0/26x) | Guide to unobfuscated 26.x Mojang mappings, forward compatibility, and setup |
-| [📜 **Changelog**](https:/docs.potenfyr.in/AuthCore/1.0.0/changelog) | Complete history of releases, feature additions, and security patches |
+| [🏠 **Documentation Home**](https://docs.potenfyr.in/repo/authcore) | Project portal, release downloads, and version switchers |
+| [🧭 **Server Admin Guide**](https://docs.potenfyr.in/repo/authcore/guide) | Complete step-by-step setup guide: jar selection, installation, commands, and troubleshooting |
+| [🔀 **Authentication Flows**](https://docs.potenfyr.in/repo/authcore/flows) | Reference for join handshakes, limbo anchors, TOTP validation, and session lifecycles |
+| [📖 **Configuration Reference**](https://docs.potenfyr.in/repo/authcore/config) | Exhaustive parameter reference (~180 settings) with defaults and usage scenarios |
+| [🔌 **Developer API**](https://docs.potenfyr.in/repo/authcore/api) | `AuthCoreApi` integration guide, event bus hooks, and custom database schemas |
+| [⚙️ **Development & Architecture**](https://docs.potenfyr.in/repo/authcore/development) | Gradle build pipeline, Stonecutter conditional compiling, and test harnesses |
+| [🌐 **Web Admin Panel**](https://docs.potenfyr.in/repo/authcore/webpanel) | Web dashboard configuration, TLS/HTTPS setup, and REST API endpoints |
+| [🔁 **Proxy Setup Guide**](https://docs.potenfyr.in/repo/authcore/proxy) | Configuring Velocity modern forwarding, BungeeCord, and Redis SSO networks |
+| [🛡️ **Security Threat Model**](https://docs.potenfyr.in/repo/authcore/security) | Comprehensive threat model aligning with OWASP and Minecraft network architecture |
+| [📦 **26.x Builds & Migration**](https://docs.potenfyr.in/repo/authcore/26x) | Guide to unobfuscated 26.x Mojang mappings, forward compatibility, and setup |
+| [📜 **Changelog**](https://docs.potenfyr.in/repo/authcore/changelog) | Complete history of releases, feature additions, and security patches |
 
 ---
 
