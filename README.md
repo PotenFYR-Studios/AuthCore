@@ -15,7 +15,6 @@
 </p>
 
 [![Release](https://img.shields.io/github/v/release/PotenFYR-Studios/AuthCore?style=flat-square&display_name=release&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/releases/latest)
-[![Development Build](https://img.shields.io/badge/Dev%20Build-latest-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore/releases/tag/latest)
 [![CI Build](https://img.shields.io/github/actions/workflow/status/PotenFYR-Studios/AuthCore/ci.yml?style=flat-square&labelColor=1c1e26&color=2ea043)](https://github.com/PotenFYR-Studios/AuthCore/actions/workflows/ci.yml)
 [![Minecraft Versions](https://img.shields.io/badge/Minecraft-1.16.0%20%E2%86%92%2026.x%2B-5865F2?style=flat-square&logo=minecraft&logoColor=white&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-which-jar-do-i-need)
 [![Loaders](https://img.shields.io/badge/Loaders-Fabric%20%7C%20Forge%20%7C%20NeoForge%20%7C%20Velocity-f97316?style=flat-square&labelColor=1c1e26)](https://github.com/PotenFYR-Studios/AuthCore#-multi-version--multi-loader-compatibility)

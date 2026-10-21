@@ -14,7 +14,7 @@ body:
         before attaching. If this is an exploitable **security vulnerability**, stop here and
         follow [SECURITY.md](../blob/master/SECURITY.md) for private reporting instead.
 
-        **Before submitting:** search [existing issues](https://github.com/PotenFYR-Studios/AuthCore/issues?q=is%3Aissue) for duplicates and test against the latest release or `latest` development build.
+        **Before submitting:** search [existing issues](https://github.com/PotenFYR-Studios/AuthCore/issues?q=is%3Aissue) for duplicates and test against the latest release.
 
   - type: dropdown
     id: version
@@ -23,7 +23,6 @@ body:
       options:
         - "1.0.1 (stable)"
         - "1.0.0"
-        - "latest (development build)"
         - "older (unsupported - please update first)"
     validations:
       required: true
@@ -131,7 +130,7 @@ body:
       options:
         - label: I searched existing issues and found no duplicate.
           required: true
-        - label: I reproduced this on AuthCore 1.0.1 or the latest development build.
+        - label: I reproduced this on the latest stable release (1.0.1).
           required: true
         - label: I removed all secrets (tokens, webhook URLs, credentials) from logs and config.
           required: true

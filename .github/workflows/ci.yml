@@ -1,30 +1,27 @@
 name: CI
 
-# ONE workflow, FOUR jobs - cross-connected so nothing builds twice:
-#   build       - builds the SEVEN variants (3 ranges x fabric/forge/neoforge) IN PARALLEL
-#                 via a matrix (one runner per variant), verifies each jar's role, runs
-#                 the security test suite once on the primary variant, uploads per-variant
-#                 jar artifacts
-#   merge       - needs build: collects all seven jars, enforces the exact-count gate +
-#                 full role verification, publishes the shared "authcore-jars" artifact
-#   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker
-#                 harness (smoke on push/PR, full range matrix on workflow_dispatch)
-#   release     - needs merge + host-tests, v* tags only: publishes/updates the stable
-#                 GitHub Release for the tag (jars + changelog section). If the release
-#                 already exists for the same version, the jars are replaced (--clobber)
-#                 and the changelog notes are re-published in place.
-#   dev-release - needs merge + host-tests, main-branch pushes only: publishes/updates
-#                 the rolling "latest" development release with the newest verified
-#                 jars. Same-version uploads REPLACE the existing assets and regenerate
-#                 the notes (changelog section + build metadata), so the release always
-#                 holds exactly the current main build. Marked as a pre-release so the
-#                 stable v* tag release stays the "Latest" one on the Releases page.
+# ONE workflow, FIVE jobs - cross-connected so nothing builds twice:
+#   build             - builds the SIX variants (3 ranges x fabric/forge/neoforge) IN PARALLEL
+#                       via a matrix (one runner per variant), verifies each jar's role, runs
+#                       the security test suite once on the primary variant, uploads per-variant
+#                       jar artifacts
+#   merge             - needs build: collects all six jars, enforces the exact-count gate +
+#                       full role verification, publishes the shared "authcore-jars" artifact
+#   host-tests        - needs merge: downloads the jars (no rebuild) and runs the Docker
+#                       harness (smoke on push/PR, full range matrix on workflow_dispatch)
+#   release           - needs merge + host-tests, v* tags only: publishes/updates the stable
+#                       GitHub Release for the tag (jars + changelog section). Re-releasing
+#                       the same version replaces the jars and re-publishes the notes in
+#                       place - same tag = same release, never a second entry.
 #   version-tag-guard - master pushes only: fails the run when gradle.properties'
-#                 mod.version was bumped but no matching v* tag exists on the remote,
-#                 because the release job is tag-gated and would silently publish
-#                 nothing. Red here means: "git tag v<version> && git push origin
-#                 v<version>" was forgotten - the release does not exist until the
-#                 tag is pushed.
+#                       mod.version was bumped but no matching v* tag exists on the remote,
+#                       because the release job is tag-gated and would silently publish
+#                       nothing. Red here means: "git tag v<version> && git push origin
+#                       v<version>" was forgotten - the release does not exist until the
+#                       tag is pushed.
+#
+# Release policy: stable v* tag releases ONLY. Master pushes build and test but
+# never publish - there is no dev/latest build and never will be.
 #
 # Speed notes: the matrix cuts wall-clock build time roughly by the variant count
 # (each leg compiles one Stonecutter variant); Gradle deps + build cache are persisted
@@ -215,7 +212,7 @@ jobs:
           fi
           ls -la release/
 
-      - name: Upload merged jars (shared with host-tests, release and dev-release)
+      - name: Upload merged jars (shared with host-tests and the stable release)
         uses: actions/upload-artifact@v7
         with:
           name: authcore-jars
@@ -360,97 +357,6 @@ jobs:
           fi
         env:
           TAG: ${{ github.ref_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-
-  # ------------------------------------------------------------------
-  # Rolling "latest" development release: on every main-branch push that
-  # passed build + host-tests, publish/replace the `latest` release with
-  # the freshly built jars. If the release (same version) already exists,
-  # the assets are replaced (--clobber) and the changelog notes are
-  # regenerated in place - the release always mirrors current main.
-  # ------------------------------------------------------------------
-  dev-release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    needs: [merge, host-tests]
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Download validated jars
-        uses: actions/download-artifact@v8
-        with:
-          name: authcore-jars
-          path: release
-
-      - name: Build development release notes
-        run: |
-          VER=$(ls release/authcore-*-fabric-*.jar | sed -E 's/.*-([0-9]+\.[0-9]+\.[0-9]+[^/]*)\.jar/\1/' | head -1)
-          echo "AuthCore version: $VER"
-          {
-            echo "> Development build of **AuthCore $VER**"
-            echo "> Commit: \`${GITHUB_SHA:0:7}\` - built $(date -u '+%Y-%m-%d %H:%M UTC')"
-            echo
-            # Changelog section for the current version (same exact-bracket match
-            # as the stable release job) + a standing description of dev builds.
-            awk -v ver="$VER" '
-              /^## / {
-                field = $2
-                if (field == "[" ver "]") { in_section = 1; next }
-                else if (in_section) exit
-                next
-              }
-              in_section { print }
-            ' changelogs/changelog.md
-            echo
-            echo "---"
-            echo "Rolling development release: replaced automatically on every \`master\` push."
-            echo "Assets: one jar per version range and loader - drop the matching jar into"
-            echo "\`mods/\` (Fabric/Forge/NeoForge server) or \`plugins/\` (BungeeCord/Velocity)."
-          } > release-notes.md
-
-      # Keep the moving `latest` tag on the commit that was actually built and
-      # tested (does not match the `v*` release trigger, so no re-run loops).
-      - name: Move the latest tag to this commit
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -f latest "$GITHUB_SHA"
-          git push -f origin "refs/tags/latest"
-
-      - name: Publish or update the rolling latest release
-        # Existing release = same version already published: replace the jars
-        # (--clobber) and regenerate the notes. Never deletes first, so a
-        # failed publish cannot leave the release missing.
-        run: |
-          TAG="latest"
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists - replacing assets and notes."
-            # Prune assets no longer produced by the build (see the stable-release
-            # job) so the rolling `latest` release always mirrors the current jars.
-            for ASSET in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
-              if [ ! -f "release/$ASSET" ]; then
-                echo "  pruning stale asset: $ASSET"
-                gh release delete-asset "$TAG" "$ASSET" --yes
-              fi
-            done
-            gh release upload "$TAG" release/*.jar --clobber
-            gh release edit "$TAG" --title "AuthCore - Latest Development Build" \
-              --notes-file release-notes.md --prerelease=true --latest=false
-          else
-            echo "Release $TAG does not exist - creating it."
-            gh release create "$TAG" \
-              release/*.jar \
-              --target "$GITHUB_SHA" \
-              --title "AuthCore - Latest Development Build" \
-              --notes-file release-notes.md \
-              --prerelease=true --latest=false
-          fi
-        env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
 
