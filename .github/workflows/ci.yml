@@ -19,6 +19,12 @@ name: CI
 #                 the notes (changelog section + build metadata), so the release always
 #                 holds exactly the current main build. Marked as a pre-release so the
 #                 stable v* tag release stays the "Latest" one on the Releases page.
+#   version-tag-guard - master pushes only: fails the run when gradle.properties'
+#                 mod.version was bumped but no matching v* tag exists on the remote,
+#                 because the release job is tag-gated and would silently publish
+#                 nothing. Red here means: "git tag v<version> && git push origin
+#                 v<version>" was forgotten - the release does not exist until the
+#                 tag is pushed.
 #
 # Speed notes: the matrix cuts wall-clock build time roughly by the variant count
 # (each leg compiles one Stonecutter variant); Gradle deps + build cache are persisted
@@ -447,5 +453,43 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+
+  # ------------------------------------------------------------------
+  # Release-consistency guard: the stable release job only fires on v* tags,
+  # so a version bump that lands on master without its tag publishes nothing
+  # and looks green. This job fails the run in exactly that case.
+  # ------------------------------------------------------------------
+  version-tag-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Verify a version bump carries its v* tag
+        run: |
+          VER=$(grep -E '^mod\.version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read mod.version from gradle.properties"
+            exit 1
+          fi
+          PREV_VER=$(git show HEAD~1:gradle.properties 2>/dev/null \
+            | grep -E '^mod\.version=' | cut -d= -f2 | tr -d '[:space:]')
+          if [ "$VER" = "$PREV_VER" ]; then
+            echo "Version unchanged ($VER) - nothing to check."
+            exit 0
+          fi
+          echo "Version bumped on master: ${PREV_VER:-<none>} -> $VER"
+          if git ls-remote --exit-code origin "refs/tags/v$VER" >/dev/null 2>&1; then
+            echo "Tag v$VER exists on the remote - the release job will publish it."
+          else
+            echo "::error::Version bumped to $VER but tag v$VER is missing - no stable release will be published. Fix: git tag v$VER && git push origin v$VER, then re-run this job."
+            exit 1
+          fi
 
 
