@@ -189,6 +189,33 @@ public final class Encrypter {
     return sb.toString();
   }
 
+  private static volatile boolean weakNewCredentialWarned = false;
+
+  /**
+   * The algorithm that NEW credentials (registration, password change, admin reset) are hashed
+   * with. Weak/unsalted digests (md5, sha-256, sha-512) and unknown names remain verifiable for
+   * legacy and imported accounts, but are never used to create a new hash: they are replaced
+   * by Argon2id so a permissive {@code password-hash-algorithm} setting cannot silently store
+   * fast, unsalted password hashes. The returned name must be stored with the hash.
+   */
+  public static String newCredentialAlgorithm(String configured) {
+    String algo = configured == null ? "" : configured.trim().toLowerCase(Locale.ROOT);
+    switch (algo) {
+      case "argon2", "bcrypt", "scrypt", "pbkdf2":
+        return algo;
+      default:
+        if (!weakNewCredentialWarned) {
+          weakNewCredentialWarned = true;
+          AuthCoreServer.LOGGER.warn(
+              false,
+              "password-hash-algorithm '{}' is weak or unknown and is not used for NEW passwords "
+                  + "- using argon2 instead (existing hashes keep verifying and are upgraded on login).",
+              configured);
+        }
+        return "argon2";
+    }
+  }
+
   /**
    * Whether a hash algorithm is considered weak (legacy): md5 and the plain SHA digests.
    * Accounts hashed with these are flagged by whois and transparently re-hashed with the

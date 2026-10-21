@@ -326,12 +326,49 @@ public class Database {
           AuthCoreServer.LOGGER.info(true, "Added missing column: " + entry.getKey());
         }
 
+      createLookupIndexes(stmt);
+
       AuthCoreServer.LOGGER.info(true, "Users database initialized and patched!");
 
     } catch (SQLException err) {
       migrationBlocked = true;
       AuthCoreServer.LOGGER.error(false, "User's database connection is facing an error!", err);
       printMigrationGuidance();
+    }
+  }
+
+  /**
+   * Indexes for the hot lookups. {@code WHERE LOWER(username) = LOWER(?)} (every join cache
+   * miss) and {@code LOGIN_HISTORY WHERE uuid = ?} were full table scans, which stalls the
+   * join path on large account stores. Best-effort: a failure only costs speed, never boots
+   * the database into the migration-blocked state.
+   *
+   * <p>{@code LOWER(username)} is a functional index on SQLite/PostgreSQL; MySQL compares
+   * text case-insensitively by default collation, so a (prefix) index on the column serves it.
+   */
+  static void createLookupIndexes(Statement stmt) {
+    String[] statements =
+        switch (dialect) {
+          case SQLITE, POSTGRESQL ->
+              new String[] {
+                "CREATE INDEX IF NOT EXISTS idx_users_lower_username ON USERS (LOWER(username))",
+                "CREATE INDEX IF NOT EXISTS idx_login_history_uuid ON LOGIN_HISTORY (uuid)"
+              };
+          case MYSQL ->
+              new String[] {
+                "CREATE INDEX idx_users_username ON USERS (username(191))",
+                "CREATE INDEX idx_login_history_uuid ON LOGIN_HISTORY (uuid(36))"
+              };
+        };
+    for (String sql : statements) {
+      try {
+        stmt.execute(sql);
+      } catch (SQLException err) {
+        // MySQL has no IF NOT EXISTS for indexes: "Duplicate key name" (1061) is the normal
+        // already-created case on every boot after the first.
+        if (err.getErrorCode() != 1061)
+          AuthCoreServer.LOGGER.debug(false, "Lookup index not created ({}): {}", sql, err.getMessage());
+      }
     }
   }
 

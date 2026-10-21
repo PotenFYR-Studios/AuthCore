@@ -396,7 +396,10 @@ if [ "$STATUS" = "ready" ]; then
     && ls "$SERVER_DIR/config/authcore/backups/"*.db >/dev/null 2>&1 && chk_backup=1
   [ -f "$SERVER_DIR/config/authcore/settings.conf" ] \
     && [ -f "$SERVER_DIR/config/authcore/messages.conf" ] && chk_config=1
-  [ -f "$SERVER_DIR/config/authcore/database/authCore-db.sqlite" ] && chk_db=1
+  # DB exists AND the schema migration created the username lookup index (the schema text
+  # lives in the db file, or in the -wal file until the first checkpoint).
+  DBF="$SERVER_DIR/config/authcore/database/authCore-db.sqlite"
+  [ -f "$DBF" ] && cat "$DBF" "$DBF-wal" 2>/dev/null | grep -aq "idx_users_lower_username" && chk_db=1
 
   # Banner version line (loader-independent): "  Version          : 1.0.0".
   # Fabric additionally prints "- authcore 1.0.0" in the loader mod list - either
@@ -452,7 +455,7 @@ if [ "$STATUS" = "ready" ]; then
   [ "$chk_backup" -eq 0 ] && FAILURES="$FAILURES command-backup-failed"
   [ "$chk_maintenance" -eq 0 ] && FAILURES="$FAILURES command-maintenance-failed"
   [ "$chk_config" -eq 0 ] && FAILURES="$FAILURES config-files-not-created"
-  [ "$chk_db" -eq 0 ] && FAILURES="$FAILURES sqlite-db-not-created"
+  [ "$chk_db" -eq 0 ] && FAILURES="$FAILURES sqlite-db-or-lookup-index-missing"
   [ "$chk_portListen" -eq 0 ] && FAILURES="$FAILURES game-port-not-listening"
 fi
 # The booted MC version must match what the harness requested - otherwise the

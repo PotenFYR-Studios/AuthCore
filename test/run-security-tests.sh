@@ -108,8 +108,11 @@ done
 
 if command -v cygpath >/dev/null 2>&1; then
   OUT_NATIVE="$(cygpath -w "$OUT")"
-  CP_NATIVE="$(cygpath -wp "$CP")"
-  FULL_CP_NATIVE="$(cygpath -wp "$OUT:$CP")"
+  # Libraries go in as a classpath WILDCARD ("dir\*"): `cygpath -wp` silently truncates the
+  # converted path at 32767 characters, and the exported libs of several variants easily
+  # exceed that - the cut-off jars then fail with "package ... does not exist".
+  CP_NATIVE="$(cygpath -w "$MAIN_CLASSES");$(cygpath -w "$LIBS")\*"
+  FULL_CP_NATIVE="$(cygpath -w "$OUT");$CP_NATIVE"
   SRC_SERVER="$(cygpath -w "$SCRIPT_DIR/security-src/in/potenfyr/authcore/AuthCoreServer.java")"
   SRC_LOGGER="$(cygpath -w "$SCRIPT_DIR/security-src/in/potenfyr/authcore/util/Logger.java")"
   SRC_TESTS="$(cygpath -w "$SCRIPT_DIR/security-src/AuthCoreSecurityTests.java")"

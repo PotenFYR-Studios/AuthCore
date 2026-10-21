@@ -42,6 +42,12 @@ public class AuthCoreSecurityTests {
     testLookPatternDetection();
     testLoginTimingDetection();
     testPacketSequenceTracking();
+    testInvulnerabilityCompat();
+    testLobbyCommandGate();
+    testNewCredentialAlgorithm();
+    testTotpReplayProtection();
+    testSecondFactorAtomicity();
+    testSqliteLookupIndexAndTransaction();
     testSnapshotAndVersionSupport();
 
     System.out.println();
@@ -613,5 +619,412 @@ public class AuthCoreSecurityTests {
     check("null handled safely", !in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion(null));
     check("empty string handled safely", !in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion(""));
     check("invalid string handled safely", !in.potenfyr.authcore.AuthCoreServer.isTestedMinecraftVersion("invalid"));
+  }
+
+  /**
+   * Regression tests for issue #10: the limbo damage shield (invulnerability flag) must
+   * resolve the setter/getter the RUNNING server actually provides. Minecraft 26.3 renamed
+   * Entity#setInvulnerable -> setPermanentlyInvulnerable while the 26.1-26.3 jar stays a
+   * single artifact, so a compile-time choice of one name crashes the other end of the
+   * range with NoSuchMethodError during the join-time limbo lock.
+   *
+   * <p>The era shapes are simulated with synthetic classes (no live server needed); the
+   * real game classes are probed reflectively so the suite stays "no Minecraft required"
+   * and works against whichever variant's libraries were exported.
+   */
+  private static void testInvulnerabilityCompat() {
+    System.out.println("== Invulnerability compat (issue #10) ==");
+
+    // 26.2-era runtime shape: ONLY the legacy name exists.
+    class Era262 {
+      boolean flag;
+      public void setInvulnerable(boolean v) { this.flag = v; }
+      public boolean isInvulnerable() { return this.flag; }
+    }
+    // 26.3-era runtime shape: ONLY the renamed API exists.
+    class Era263 {
+      boolean flag;
+      public void setPermanentlyInvulnerable(boolean v) { this.flag = v; }
+      public boolean isPermanentlyInvulnerable() { return this.flag; }
+    }
+    // A runtime exposing BOTH names: the 26.3+ canonical name must win.
+    class EraBoth {
+      boolean legacyFlag;
+      boolean permanentFlag;
+      public void setInvulnerable(boolean v) { this.legacyFlag = v; }
+      public void setPermanentlyInvulnerable(boolean v) { this.permanentFlag = v; }
+      public boolean isInvulnerable() { return this.legacyFlag; }
+      public boolean isPermanentlyInvulnerable() { return this.permanentFlag; }
+    }
+    // An unknown future shape without either name must resolve to null (never throw).
+    class EraNone {}
+
+    Class<?> compatClass = in.potenfyr.authcore.compat.Compat.class;
+
+    // --- setter resolution per era -------------------------------------------------
+    java.lang.reflect.Method legacySetter =
+        in.potenfyr.authcore.compat.Compat.invulnerableSetter(Era262.class);
+    check(
+        "26.2-era shape resolves the legacy setInvulnerable(boolean)",
+        legacySetter != null && "setInvulnerable".equals(legacySetter.getName()));
+    java.lang.reflect.Method modernSetter =
+        in.potenfyr.authcore.compat.Compat.invulnerableSetter(Era263.class);
+    check(
+        "26.3-era shape resolves setPermanentlyInvulnerable(boolean)",
+        modernSetter != null && "setPermanentlyInvulnerable".equals(modernSetter.getName()));
+    java.lang.reflect.Method bothSetter =
+        in.potenfyr.authcore.compat.Compat.invulnerableSetter(EraBoth.class);
+    check(
+        "canonical 26.3+ setter preferred when both names exist",
+        bothSetter != null && "setPermanentlyInvulnerable".equals(bothSetter.getName()));
+    check(
+        "no setter found resolves to null instead of throwing",
+        in.potenfyr.authcore.compat.Compat.invulnerableSetter(EraNone.class) == null);
+
+    // --- the toggle actually reaches the flag on each era's join/unlock path --------
+    Era262 legacyPlayer = new Era262();
+    invokeQuietly(legacySetter, legacyPlayer, true);
+    check("legacy (<=26.2) join path: shield applied", legacyPlayer.flag);
+    invokeQuietly(legacySetter, legacyPlayer, false);
+    check("legacy (<=26.2) unlock path: shield cleared", !legacyPlayer.flag);
+
+    Era263 modernPlayer = new Era263();
+    invokeQuietly(modernSetter, modernPlayer, true);
+    check("26.3+ join path: shield applied", modernPlayer.flag);
+    invokeQuietly(modernSetter, modernPlayer, false);
+    check("26.3+ unlock path: shield cleared", !modernPlayer.flag);
+
+    EraBoth bothPlayer = new EraBoth();
+    invokeQuietly(bothSetter, bothPlayer, true);
+    check(
+        "only the canonical flag is touched when both names exist",
+        bothPlayer.permanentFlag && !bothPlayer.legacyFlag);
+
+    // --- getter resolution per era (pre-limbo state capture) ------------------------
+    java.lang.reflect.Method legacyGetter =
+        in.potenfyr.authcore.compat.Compat.invulnerableGetter(Era262.class);
+    check(
+        "26.2-era shape resolves isInvulnerable()",
+        legacyGetter != null && "isInvulnerable".equals(legacyGetter.getName()));
+    java.lang.reflect.Method modernGetter =
+        in.potenfyr.authcore.compat.Compat.invulnerableGetter(Era263.class);
+    check(
+        "26.3-era shape resolves isPermanentlyInvulnerable()",
+        modernGetter != null && "isPermanentlyInvulnerable".equals(modernGetter.getName()));
+    check(
+        "no getter found resolves to null instead of throwing",
+        in.potenfyr.authcore.compat.Compat.invulnerableGetter(EraNone.class) == null);
+
+    // --- the real game classes of the built variant ---------------------------------
+    // (reflective: the suite must compile and run without Minecraft types on the
+    // classpath, and must stay valid whichever variant's libraries were exported.
+    // The classes are loaded WITHOUT initialization - Entity's static initializer
+    // bootstraps the vanilla registries, which a bare JVM has not done - method
+    // resolution does not need it.)
+    try {
+      ClassLoader loader = compatClass.getClassLoader();
+      Class<?> entity = Class.forName("net.minecraft.world.entity.Entity", false, loader);
+      Class<?> serverPlayer =
+          Class.forName("net.minecraft.server.level.ServerPlayer", false, loader);
+      Object realSetter =
+          compatClass
+              .getMethod("invulnerableSetter", Class.class)
+              .invoke(null, entity);
+      check(
+          "invulnerability setter resolves against this build's real Entity class",
+          realSetter != null);
+      Object realGetter =
+          compatClass
+              .getMethod("invulnerableGetter", Class.class)
+              .invoke(null, entity);
+      check(
+          "invulnerability getter resolves against this build's real Entity class",
+          realGetter != null);
+
+      // Null-safety: a null player (mid-join entity not resolvable) must never throw.
+      compatClass
+          .getMethod("setInvulnerable", serverPlayer, boolean.class)
+          .invoke(null, null, true);
+      check("Compat.setInvulnerable(null, true) is a safe no-op", true);
+      Object nullRead =
+          compatClass
+              .getMethod("isInvulnerable", serverPlayer)
+              .invoke(null, (Object) null);
+      check("Compat.isInvulnerable(null) reads false", Boolean.FALSE.equals(nullRead));
+    } catch (ClassNotFoundException missing) {
+      System.out.println("  [SKIP] real Entity class not on the test classpath");
+    } catch (ReflectiveOperationException | RuntimeException broken) {
+      check("invulnerability compat against the real Entity class (unexpected failure)", false);
+      System.out.println("    " + broken);
+    }
+  }
+
+  /**
+   * Regression: the lobby command gate sliced the command at the first '/' ANYWHERE in the
+   * string. Commands reach the server without a leading slash, so "msg bob hi /login" was
+   * judged as the whitelisted root "login" and every command could be smuggled through.
+   */
+  private static void testLobbyCommandGate() {
+    System.out.println("== Lobby command gate (slash smuggling) ==");
+    Config cfg = (Config) in.potenfyr.authcore.AuthCoreServer.config;
+    boolean oldAllow = cfg.lobby.allowCommands;
+    boolean oldBlack = cfg.lobby.useWhitelistAsBlacklist;
+    java.util.Set<String> oldList = cfg.lobby.whitelistedCommands;
+    try {
+      cfg.lobby.allowCommands = false;
+      cfg.lobby.useWhitelistAsBlacklist = false;
+      cfg.lobby.whitelistedCommands = new java.util.HashSet<>(java.util.List.of("help"));
+      in.potenfyr.authcore.models.User u =
+          new in.potenfyr.authcore.models.User(UUID.randomUUID(), "GateTester", 0L, false);
+      java.util.function.Predicate<String> ok = c -> Security.isCommandAllowedInLobby(u, c);
+      check("login allowed (no slash)", ok.test("login secret"));
+      check("login allowed (leading slash)", ok.test("/login secret"));
+      check("register allowed (namespaced)", ok.test("authcore:register a a"));
+      check("whitelisted command allowed", ok.test("help"));
+      check("unlisted command blocked", !ok.test("tp @s 0 0 0"));
+      check("smuggle 'x /login' blocked", !ok.test("msg bob hi /login"));
+      check("smuggle 'x/login' blocked", !ok.test("tp @s 0 0 0/login"));
+      check("smuggle '/x /register' blocked", !ok.test("/give @s diamond /register"));
+      check("double slash root blocked", !ok.test("//login"));
+      check("null command blocked", !ok.test(null));
+      check("blank command blocked", !ok.test("   "));
+      cfg.lobby.useWhitelistAsBlacklist = true;
+      cfg.lobby.whitelistedCommands = new java.util.HashSet<>(java.util.List.of("tp"));
+      check("blacklist: listed command blocked", !ok.test("tp @s 0 0 0"));
+      check("blacklist: listed command cannot hide behind '/login'", !ok.test("tp @s 0 0 0 /login"));
+      check("blacklist: unlisted command passes", ok.test("list"));
+    } catch (Throwable t) {
+      check("lobby command gate harness (unexpected failure: " + t + ")", false);
+    } finally {
+      cfg.lobby.allowCommands = oldAllow;
+      cfg.lobby.useWhitelistAsBlacklist = oldBlack;
+      cfg.lobby.whitelistedCommands = oldList;
+    }
+  }
+
+  /** Regression: weak/unknown algorithms are never used to create NEW credentials. */
+  private static void testNewCredentialAlgorithm() {
+    System.out.println("== New-credential algorithm policy ==");
+    for (String strong : new String[] {"argon2", "bcrypt", "scrypt", "pbkdf2", "ARGON2", " bcrypt "})
+      check("strong '" + strong + "' kept", Encrypter.newCredentialAlgorithm(strong).equals(strong.trim().toLowerCase()));
+    for (String weak : new String[] {"md5", "sha-256", "sha-512", "SHA-256", "nope", "", null})
+      check("weak/unknown '" + weak + "' replaced by argon2", "argon2".equals(Encrypter.newCredentialAlgorithm(weak)));
+    // The stored label must always match the hash that is produced with it.
+    String algo = Encrypter.newCredentialAlgorithm("md5");
+    String hash = Encrypter.hash(algo, "Policy-Pass-1");
+    check("hash created under the replaced algorithm verifies with its label", Encrypter.verify("Policy-Pass-1", hash, algo));
+    check("hash is not a bare unsalted digest", hash != null && !hash.matches("(?i)[0-9a-f]{32,128}"));
+    // Legacy hashes keep verifying (backward compatibility).
+    String legacy = Encrypter.hash("sha-256", "Legacy-Pass-1");
+    check("legacy sha-256 hash still verifies", Encrypter.verify("Legacy-Pass-1", legacy, "sha-256"));
+  }
+
+  /** Regression: an accepted TOTP code must not be accepted a second time (RFC 6238 5.2). */
+  private static void testTotpReplayProtection() {
+    System.out.println("== TOTP replay protection ==");
+    try {
+      String secret = Security.TOTPManager.getSecret();
+      String code =
+          com.j256.twofactorauth.TimeBasedOneTimePasswordUtil.generateCurrentNumberString(secret);
+      UUID a = UUID.randomUUID();
+      UUID b = UUID.randomUUID();
+      check("plain verify still accepts a fresh code", Security.TOTPManager.verify(code, secret));
+      check("first use accepted", Security.TOTPManager.verifyOnce(a, code, secret));
+      check("replay of the same code rejected", !Security.TOTPManager.verifyOnce(a, code, secret));
+      check(
+          "replay with surrounding whitespace rejected",
+          !Security.TOTPManager.verifyOnce(a, " " + code + " ", secret));
+      check(
+          "same code for another account is independent",
+          Security.TOTPManager.verifyOnce(b, code, secret));
+      String wrongCode = "000000".equals(code) ? "111111" : "000000";
+      check(
+          "wrong code rejected",
+          !Security.TOTPManager.verifyOnce(UUID.randomUUID(), wrongCode, secret));
+      check("null uuid rejected", !Security.TOTPManager.verifyOnce(null, code, secret));
+      Security.TOTPManager.clearReplayHistory(a);
+      check(
+          "history cleared allows reuse in-window",
+          Security.TOTPManager.verifyOnce(a, code, secret));
+
+      // Concurrent submissions of one valid code: exactly one may win.
+      UUID c = UUID.randomUUID();
+      java.util.concurrent.atomic.AtomicInteger wins = new java.util.concurrent.atomic.AtomicInteger();
+      runParallel(
+          32,
+          () -> {
+            if (Security.TOTPManager.verifyOnce(c, code, secret)) wins.incrementAndGet();
+          });
+      check(
+          "32 parallel submissions of one code -> exactly 1 accepted (got " + wins.get() + ")",
+          wins.get() == 1);
+    } catch (Throwable t) {
+      check("TOTP replay harness (unexpected failure: " + t + ")", false);
+    }
+  }
+
+  /** Regression: attempt caps / single-use of email codes must hold under parallel guessing. */
+  private static void testSecondFactorAtomicity() {
+    System.out.println("== Second-factor attempt caps under concurrency ==");
+    // EmailRecovery: the right code is consumed exactly once even when raced.
+    String email = "race-" + UUID.randomUUID() + "@example.test";
+    String code = Security.EmailRecovery.generateCode(email);
+    check("recovery code issued", code != null);
+    java.util.concurrent.atomic.AtomicInteger redeemed = new java.util.concurrent.atomic.AtomicInteger();
+    runParallel(
+        16,
+        () -> {
+          if (Security.EmailRecovery.verifyCode(email, code)) redeemed.incrementAndGet();
+        });
+    check(
+        "recovery code redeemed exactly once under 16 racers (got " + redeemed.get() + ")",
+        redeemed.get() == 1);
+
+    // EmailRecovery: parallel wrong guesses may never exceed the 5-attempt budget.
+    String email2 = "cap-" + UUID.randomUUID() + "@example.test";
+    String real = Security.EmailRecovery.generateCode(email2);
+    java.util.concurrent.atomic.AtomicInteger counter = new java.util.concurrent.atomic.AtomicInteger();
+    runParallel(64, () -> Security.EmailRecovery.verifyCode(email2, "x" + counter.incrementAndGet()));
+    check(
+        "recovery code revoked after the attempt cap (correct code now fails)",
+        !Security.EmailRecovery.verifyCode(email2, real));
+
+    // Backup recovery codes: single-use under parallel redemption, others stay valid.
+    try {
+      in.potenfyr.authcore.models.User ru =
+          new in.potenfyr.authcore.models.User(UUID.randomUUID(), "RecoveryRacer", 0L, false);
+      ru.recoveryCodes = "AAAAA-BBBBB,CCCCC-DDDDD";
+      java.util.concurrent.atomic.AtomicInteger rcWins = new java.util.concurrent.atomic.AtomicInteger();
+      runParallel(
+          16,
+          () -> {
+            if (Security.RecoveryCodes.verifyAndConsume(ru, "aaaaa-bbbbb")) rcWins.incrementAndGet();
+          });
+      check(
+          "backup recovery code consumed exactly once under 16 racers (got " + rcWins.get() + ")",
+          rcWins.get() == 1);
+      check("other recovery codes survive the consumption", "CCCCC-DDDDD".equals(ru.recoveryCodes));
+      check("consumed code cannot be reused", !Security.RecoveryCodes.verifyAndConsume(ru, "AAAAA-BBBBB"));
+    } catch (Throwable t) {
+      check("recovery code harness (unexpected failure: " + t + ")", false);
+    }
+
+    // EmailOtp: same guarantees.
+    UUID u = UUID.randomUUID();
+    String otp = Security.EmailOtp.issue(u);
+    java.util.concurrent.atomic.AtomicInteger otpWins = new java.util.concurrent.atomic.AtomicInteger();
+    runParallel(
+        16,
+        () -> {
+          if (Security.EmailOtp.verify(u, otp)) otpWins.incrementAndGet();
+        });
+    check(
+        "email OTP accepted exactly once under 16 racers (got " + otpWins.get() + ")",
+        otpWins.get() == 1);
+
+    UUID u2 = UUID.randomUUID();
+    String otp2 = Security.EmailOtp.issue(u2);
+    String wrong = "000000".equals(otp2) ? "111111" : "000000";
+    runParallel(64, () -> Security.EmailOtp.verify(u2, wrong));
+    check(
+        "email OTP revoked after the attempt cap (correct code now fails)",
+        !Security.EmailOtp.verify(u2, otp2));
+  }
+
+  /**
+   * Regression: schema indexes are created idempotently and used by the case-insensitive
+   * lookup; a rolled-back multi-statement write leaves nothing behind.
+   */
+  private static void testSqliteLookupIndexAndTransaction() {
+    System.out.println("== SQLite lookup index + transactional write ==");
+    java.nio.file.Path dir = null;
+    try {
+      dir = java.nio.file.Files.createTempDirectory("authcore-sqlite-test");
+      try (java.sql.Connection c =
+              java.sql.DriverManager.getConnection("jdbc:sqlite:" + dir.resolve("t.db"));
+          java.sql.Statement st = c.createStatement()) {
+        st.execute("CREATE TABLE USERS (uuid TEXT NOT NULL PRIMARY KEY, username TEXT, password TEXT)");
+        st.execute("CREATE TABLE LOGIN_HISTORY (id INTEGER PRIMARY KEY AUTOINCREMENT, uuid TEXT)");
+        java.lang.reflect.Method m =
+            in.potenfyr.authcore.util.Database.class.getDeclaredMethod(
+                "createLookupIndexes", java.sql.Statement.class);
+        m.setAccessible(true);
+        java.lang.reflect.Field dialect =
+            in.potenfyr.authcore.util.Database.class.getDeclaredField("dialect");
+        dialect.setAccessible(true);
+        Object sqlite =
+            java.util.Arrays.stream(dialect.getType().getEnumConstants())
+                .filter(e -> e.toString().equals("SQLITE"))
+                .findFirst()
+                .orElseThrow();
+        dialect.set(null, sqlite);
+        m.invoke(null, st);
+        m.invoke(null, st); // idempotent
+        boolean usedIndex = false;
+        try (java.sql.ResultSet rs =
+            st.executeQuery(
+                "EXPLAIN QUERY PLAN SELECT * FROM USERS WHERE LOWER(username) = LOWER('abc') LIMIT 1")) {
+          while (rs.next()) usedIndex |= rs.getString("detail").contains("idx_users_lower_username");
+        }
+        check("case-insensitive username lookup uses the functional index", usedIndex);
+
+        c.setAutoCommit(false);
+        st.execute("INSERT INTO USERS VALUES ('u1','Alice','h')");
+        c.rollback();
+        c.setAutoCommit(true);
+        try (java.sql.ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM USERS")) {
+          check("rolled-back write leaves no partial row", rs.next() && rs.getInt(1) == 0);
+        }
+      }
+    } catch (Throwable t) {
+      check("SQLite index/transaction harness (unexpected failure: " + t + ")", false);
+    } finally {
+      if (dir != null) {
+        try (var walk = java.nio.file.Files.walk(dir)) {
+          walk.sorted(java.util.Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+        } catch (java.io.IOException ignored) {
+          // temp dir cleanup is best-effort
+        }
+      }
+    }
+  }
+
+  /** Runs {@code task} on {@code threads} threads released simultaneously; waits for all. */
+  private static void runParallel(int threads, Runnable task) {
+    java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(threads);
+    java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+    java.util.List<Thread> ts = new java.util.ArrayList<>();
+    for (int i = 0; i < threads; i++) {
+      Thread t =
+          new Thread(
+              () -> {
+                ready.countDown();
+                try {
+                  go.await();
+                } catch (InterruptedException e) {
+                  return;
+                }
+                task.run();
+              });
+      t.setDaemon(true);
+      ts.add(t);
+      t.start();
+    }
+    try {
+      ready.await();
+      go.countDown();
+      for (Thread t : ts) t.join(10_000);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+  }
+
+  /** Invokes a resolved boolean setter, swallowing failures (checks below observe state). */
+  private static void invokeQuietly(java.lang.reflect.Method setter, Object target, boolean value) {
+    try {
+      if (setter != null) setter.invoke(target, value);
+    } catch (Exception ignored) {
+      // the flag stays untouched - the check on the flag reports the failure
+    }
   }
 }

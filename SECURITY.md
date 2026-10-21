@@ -2,12 +2,12 @@
 
 ## Supported versions
 
-Security fixes are released for the **1.0.0 line** (the current stable release, including its rolling `latest` development builds). Older builds are not supported - please update before reporting an issue.
+Security fixes are released for the **1.0.x line** (the current stable release, including its rolling `latest` development builds). Older builds are not supported - please update before reporting an issue.
 
 | Version | Supported |
 |:---|:---|
-| 1.0.0 (stable line and `latest` dev builds) | ✅ |
-| Older releases / legacy configurations | ❌ (migrate to 1.0.0 first) |
+| 1.0.x (stable line and `latest` dev builds) | ✅ |
+| Older releases / legacy configurations | ❌ (migrate to 1.0.1 first) |
 
 ## Reporting a vulnerability
 
@@ -33,7 +33,7 @@ Scrub logs before attaching them: AuthCore logs do not print secrets, but stack 
 ## What to expect
 
 - We evaluate every private report and will get back to you as soon as we can - we do not promise specific response or fix times.
-- Confirmed vulnerabilities are fixed in the current 1.0.0 line and disclosed in the release notes / changelog once a patched build ships. We credit reporters in the changelog on request.
+- Confirmed vulnerabilities are fixed in the current 1.0.x line and disclosed in the release notes / changelog once a patched build ships. We credit reporters in the changelog on request.
 - Reports about outdated builds will ask you to reproduce on the current release first.
 
 ## Scope notes

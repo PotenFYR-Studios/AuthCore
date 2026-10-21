@@ -413,12 +413,12 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 ./gradlew build
 
 # Build a specific loader and version target
-./gradlew :1.18.2-fabric:build      # -> dist/authcore-1.16-1.18-fabric-1.0.0.jar
-./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.0.jar
-./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.0.jar
-./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.0.jar
-./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.0.jar
-./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.0.jar
+./gradlew :1.18.2-fabric:build      # -> dist/authcore-1.16-1.18-fabric-1.0.1.jar
+./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.1.jar
+./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.1.jar
+./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.1.jar
+./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.1.jar
+./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.1.jar
 ```
 
 ---

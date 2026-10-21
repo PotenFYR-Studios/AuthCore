@@ -152,123 +152,200 @@ public class Login {
         // Inform the user if they are not registered.
         return AuthCoreServer.LOGGER.toUser(
             0, player.connection, AuthCoreServer.messages.promptUserNotRegistered);
-      else if (Encrypter.verify(password, user.password, user.passwordEncryption)) {
-        AuthCoreServer.LOGGER.debug(
-            false, "{} | /login password verified - authenticating", username);
-        // Authenticate the user if the password matches.
 
-        // Transparent password-hash upgrade: weak (md5 / sha-256 / sha-512) or outdated
-        // stored hashes - including AuthMe-style imported ones - are re-hashed with the
-        // configured algorithm on the next successful login (best-effort; a failure never
-        // blocks the login).
-
-        boolean mfaConfigured =
-            AuthCoreServer.config.session.authentication.allowTOTPSupport
-                && user.authSecret != null
-                && !user.authSecret.isBlank();
-        boolean emailMfa =
-            AuthCoreServer.config.session.authentication.emailOtpSupport
-                && user.email != null
-                && !user.email.isBlank();
-
-        if (mfaConfigured || emailMfa) {
-          if (authCode == null || authCode.isBlank()) {
-            // Missing the second factor: for email OTP, issue + send the code on this attempt.
-            if (emailMfa && !mfaConfigured && !Security.EmailOtp.isPending(uuid)) {
-              String code = Security.EmailOtp.issue(uuid);
-              EmailSender.sendAsync(
-                  user.email,
-                  "AuthCore - Login verification code",
-                  "Hello " + username + ",\n\nYour login verification code is: " + code
-                      + "\nIt expires in 10 minutes. If this wasn't you, contact the server staff immediately.");
-              SecurityLog.log("EMAIL_OTP_SENT", username + " | " + user.email);
-            }
-            return AuthCoreServer.LOGGER.toUser(
-                1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
-          }
-
-          if (!in.potenfyr.authcore.security.RateLimiter.tryMfa(player.getIpAddress(), user.uuid))
-            return AuthCoreServer.LOGGER.toUser(
-                1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "one minute");
-
-          boolean mfaOk =
-              (mfaConfigured && Security.TOTPManager.verify(authCode, user.authSecret))
-                  || (mfaConfigured && Security.RecoveryCodes.verifyAndConsume(user, authCode))
-                  || (emailMfa && Security.EmailOtp.verify(uuid, authCode));
-          if (!mfaOk) {
-            // 2FA brute force: the password was correct, the code was not - the account is
-            // likely compromised and the attacker is guessing the second factor.
-            in.potenfyr.authcore.security.AuthIntelligence.recordFailed2fa(
-                uuid, username, player.getIpAddress());
-
-            // Hard stop after a small number of wrong codes: the 6-digit space is only
-            // 1M, so an unbounded guess budget (in-memory counters die on restart/cache
-            // eviction) is brute-forceable. Destroying the session forces a FULL re-login
-            // (password + code) and counts as a failed attempt for the account lock.
-            user.failed2faAttempts++;
-            if (user.failed2faAttempts >= 5) {
-              SecurityLog.log(
-                  "2FA_LOCKOUT",
-                  username + " | " + user.failed2faAttempts + " wrong 2FA codes this session");
-              Webhook.sendEmbed(
-                  "AuthCore - 2FA Brute Force",
-                  "**" + username + "** had its session destroyed after repeated wrong "
-                      + "2FA codes from `" + player.getIpAddress() + "`.",
-                  0xE74C3C);
-              handleBruteForce(user, player);
-              return 1;
-            }
-            return AuthCoreServer.LOGGER.toUser(
-                1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
-          } else {
-            user.mfaVerified = true;
-            user.failed2faAttempts = 0;
-          }
-        }
-
-        AuthCoreServer.LOGGER.debug(
-            1, "{} have authenticated in the Server!", player.getName().getString());
-        upgradeHashIfNeeded(user, password);
-        user.login(player); // broadcasts the auth state to other mods / the proxy
-
-        // Login-timing distribution analysis (bot-farm synchronized timers)
-        in.potenfyr.authcore.security.AuthIntelligence.recordLoginTiming(
-            player.getIpAddress(), player.getName().getString());
-
-        // Security events (log + webhook + login history - the history row is written by
-        // user.login() so every login path is recorded consistently)
-        int risk = user.riskScore;
-        SecurityLog.log("LOGIN_SUCCESS", username + " | IP: " + player.getIpAddress() + " | Risk: " + risk);
-
-        if (risk >= AuthCoreServer.config.session.intelligence.alertRiskThreshold)
-          Webhook.sendEmbed(
-              "High-Risk Login",
-              "**" + username + "** logged in with risk score **" + risk + "/100** from `" + player.getIpAddress() + "`",
-              0xE67E22);
-
-        // Auth intelligence: guess-then-success detection.
-        in.potenfyr.authcore.security.AuthIntelligence.recordSuccessfulLogin(user, player.getIpAddress());
-
-        // Notify the user of successful login.
+      // Password hashing is deliberately CPU/memory hard (Argon2id: 64 MiB, 3 passes). Running
+      // it on the server thread stalled the whole server for every /login attempt, so a few
+      // unauthenticated players spamming wrong passwords could lag everyone. The check runs on
+      // the IO executor instead and the outcome is applied back on the server thread.
+      if (!user.passwordCheckInFlight.compareAndSet(false, true))
         return AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserLoggedInSuccessfully);
-      } else {
-        // Notify the user of an incorrect password.
-        SecurityLog.log(
-            "LOGIN_FAILED",
-            username + " | IP: " + player.getIpAddress() + " | Attempt: " + user.loginAttempts);
-        User.logLogin(user, player.getIpAddress(), user.country.get(), "failed", user.riskScore);
-
-        // Auth intelligence: password spraying + per-IP login floods.
-        in.potenfyr.authcore.security.AuthIntelligence.recordFailedPassword(
-            username, player.getIpAddress(), password);
-
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+      if (!VERIFY_PERMITS.tryAcquire()) {
+        user.passwordCheckInFlight.set(false);
         return AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserWrongPassword);
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
       }
+
+      final String storedHash = user.password;
+      final String storedAlgo = user.passwordEncryption;
+      final net.minecraft.server.MinecraftServer server =
+          in.potenfyr.authcore.compat.Compat.getServer(player);
+      if (server == null) {
+        // No server handle (cannot happen for a live player): verify inline rather than fail open.
+        try {
+          return finishLogin(
+              user, player, password, authCode, Encrypter.verify(password, storedHash, storedAlgo));
+        } finally {
+          VERIFY_PERMITS.release();
+          user.passwordCheckInFlight.set(false);
+        }
+      }
+      try {
+        AuthCoreServer.IO_EXECUTOR.execute(
+            () -> {
+              boolean matches = false;
+              try {
+                matches = Encrypter.verify(password, storedHash, storedAlgo);
+              } catch (Throwable err) {
+                AuthCoreServer.LOGGER.debug(false, "Password verification failed:", err);
+              } finally {
+                VERIFY_PERMITS.release();
+              }
+              final boolean passwordOk = matches;
+              server.execute(
+                  () -> {
+                    try {
+                      finishLogin(user, player, password, authCode, passwordOk);
+                    } catch (Exception err) {
+                      AuthCoreServer.LOGGER.error(0, "Faced Error in '/login' Command: ", err);
+                    } finally {
+                      user.passwordCheckInFlight.set(false);
+                    }
+                  });
+            });
+      } catch (java.util.concurrent.RejectedExecutionException err) {
+        VERIFY_PERMITS.release();
+        user.passwordCheckInFlight.set(false);
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+      }
+      return 1;
     } catch (Exception err) {
       // Log any errors encountered during command execution.
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/login' Command: ", err);
+    }
+  }
+
+  /** Max simultaneous password verifications (each Argon2 check holds ~64 MiB). */
+  private static final java.util.concurrent.Semaphore VERIFY_PERMITS =
+      new java.util.concurrent.Semaphore(4);
+
+  /**
+   * Applies the outcome of the password check on the server thread: second factor, session
+   * creation and failure bookkeeping. Re-validates the lobby state first - the player may have
+   * disconnected, been logged in by another path or been kicked while the hash was computed.
+   */
+  private static int finishLogin(
+      User user, ServerPlayer player, String password, String authCode, boolean passwordOk) {
+    UUID uuid = player.getUUID();
+    String username = player.getName().getString();
+    if (user.player.get() != player || !user.isInLobby.get() || user.isAuthenticated.get())
+      return 0;
+
+    if (passwordOk) {
+      AuthCoreServer.LOGGER.debug(
+          false, "{} | /login password verified - authenticating", username);
+      // Authenticate the user if the password matches.
+
+      // Transparent password-hash upgrade: weak (md5 / sha-256 / sha-512) or outdated
+      // stored hashes - including AuthMe-style imported ones - are re-hashed with the
+      // configured algorithm on the next successful login (best-effort; a failure never
+      // blocks the login).
+
+      boolean mfaConfigured =
+          AuthCoreServer.config.session.authentication.allowTOTPSupport
+              && user.authSecret != null
+              && !user.authSecret.isBlank();
+      boolean emailMfa =
+          AuthCoreServer.config.session.authentication.emailOtpSupport
+              && user.email != null
+              && !user.email.isBlank();
+
+      if (mfaConfigured || emailMfa) {
+        if (authCode == null || authCode.isBlank()) {
+          // Missing the second factor: for email OTP, issue + send the code on this attempt.
+          if (emailMfa && !mfaConfigured && !Security.EmailOtp.isPending(uuid)) {
+            String code = Security.EmailOtp.issue(uuid);
+            EmailSender.sendAsync(
+                user.email,
+                "AuthCore - Login verification code",
+                "Hello " + username + ",\n\nYour login verification code is: " + code
+                    + "\nIt expires in 10 minutes. If this wasn't you, contact the server staff immediately.");
+            SecurityLog.log("EMAIL_OTP_SENT", username + " | " + user.email);
+          }
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
+        }
+
+        if (!in.potenfyr.authcore.security.RateLimiter.tryMfa(player.getIpAddress(), user.uuid))
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "one minute");
+
+        boolean mfaOk =
+            (mfaConfigured && Security.TOTPManager.verifyOnce(user.uuid, authCode, user.authSecret))
+                || (mfaConfigured && Security.RecoveryCodes.verifyAndConsume(user, authCode))
+                || (emailMfa && Security.EmailOtp.verify(uuid, authCode));
+        if (!mfaOk) {
+          // 2FA brute force: the password was correct, the code was not - the account is
+          // likely compromised and the attacker is guessing the second factor.
+          in.potenfyr.authcore.security.AuthIntelligence.recordFailed2fa(
+              uuid, username, player.getIpAddress());
+
+          // Hard stop after a small number of wrong codes: the 6-digit space is only
+          // 1M, so an unbounded guess budget (in-memory counters die on restart/cache
+          // eviction) is brute-forceable. Destroying the session forces a FULL re-login
+          // (password + code) and counts as a failed attempt for the account lock.
+          user.failed2faAttempts++;
+          if (user.failed2faAttempts >= 5) {
+            SecurityLog.log(
+                "2FA_LOCKOUT",
+                username + " | " + user.failed2faAttempts + " wrong 2FA codes this session");
+            Webhook.sendEmbed(
+                "AuthCore - 2FA Brute Force",
+                "**" + username + "** had its session destroyed after repeated wrong "
+                    + "2FA codes from `" + player.getIpAddress() + "`.",
+                0xE74C3C);
+            handleBruteForce(user, player);
+            return 1;
+          }
+          return AuthCoreServer.LOGGER.toUser(
+              1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
+      } else {
+          user.mfaVerified = true;
+          user.failed2faAttempts = 0;
+        }
+      }
+
+      AuthCoreServer.LOGGER.debug(
+          1, "{} have authenticated in the Server!", player.getName().getString());
+      upgradeHashIfNeeded(user, password);
+      user.login(player); // broadcasts the auth state to other mods / the proxy
+
+      // Login-timing distribution analysis (bot-farm synchronized timers)
+      in.potenfyr.authcore.security.AuthIntelligence.recordLoginTiming(
+          player.getIpAddress(), player.getName().getString());
+
+      // Security events (log + webhook + login history - the history row is written by
+      // user.login() so every login path is recorded consistently)
+      int risk = user.riskScore;
+      SecurityLog.log("LOGIN_SUCCESS", username + " | IP: " + player.getIpAddress() + " | Risk: " + risk);
+
+      if (risk >= AuthCoreServer.config.session.intelligence.alertRiskThreshold)
+        Webhook.sendEmbed(
+            "High-Risk Login",
+            "**" + username + "** logged in with risk score **" + risk + "/100** from `" + player.getIpAddress() + "`",
+            0xE67E22);
+
+      // Auth intelligence: guess-then-success detection.
+      in.potenfyr.authcore.security.AuthIntelligence.recordSuccessfulLogin(user, player.getIpAddress());
+
+      // Notify the user of successful login.
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.connection, AuthCoreServer.messages.promptUserLoggedInSuccessfully);
+    } else {
+      // Notify the user of an incorrect password.
+      SecurityLog.log(
+          "LOGIN_FAILED",
+          username + " | IP: " + player.getIpAddress() + " | Attempt: " + user.loginAttempts);
+      User.logLogin(user, player.getIpAddress(), user.country.get(), "failed", user.riskScore);
+
+      // Auth intelligence: password spraying + per-IP login floods.
+      in.potenfyr.authcore.security.AuthIntelligence.recordFailedPassword(
+          username, player.getIpAddress(), password);
+
+      return AuthCoreServer.LOGGER.toUser(
+          1, player.connection, AuthCoreServer.messages.promptUserWrongPassword);
+    
     }
   }
 

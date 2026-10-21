@@ -29,7 +29,7 @@ import net.minecraft.server.MinecraftServer;
  */
 public class AuthCoreServer {
   public static final String MOD_ID = "authcore";
-  public static final String MOD_VERSION = "1.0.0";
+  public static final String MOD_VERSION = "1.0.1";
   public static final Logger LOGGER = new Logger(MOD_ID);
   public static final Path configPath =
       in.potenfyr.authcore.compat.Compat.getConfigDir().resolve("authcore");

@@ -464,7 +464,7 @@ public class Account {
       // Validate against the password policy (message shown to the player on failure)
       if (!in.potenfyr.authcore.security.Security.Password.check(player, newPassword)) return 0;
 
-      user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+      user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
       user.password = in.potenfyr.authcore.security.Encrypter.hash(user.passwordEncryption, newPassword);
       if (user.password == null) {
         // Never leave the account unregistered because hashing failed
@@ -709,9 +709,9 @@ public class Account {
       String tempPassword = Encrypter.hash(user.passwordEncryption, password);
 
       if (checkNewPassword(player, tempPassword, user.password)) {
-        user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+        user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
         user.password =
-            Encrypter.hash(AuthCoreServer.config.passwordRules.passwordHashAlgorithm, password);
+            Encrypter.hash(user.passwordEncryption, password);
 
         if (user.password == null) {
           // Never leave the account unregistered because hashing failed

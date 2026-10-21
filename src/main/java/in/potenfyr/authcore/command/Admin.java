@@ -1133,9 +1133,9 @@ public class Admin {
       else if (user == null)
         return AuthCoreServer.LOGGER.info(0, "User '{}' not Found in the database!", username);
 
-      user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+      user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
       user.password =
-          Encrypter.hash(AuthCoreServer.config.passwordRules.passwordHashAlgorithm, password);
+          Encrypter.hash(user.passwordEncryption, password);
 
       if (user.password == null) {
         // Never leave the account unregistered because hashing failed

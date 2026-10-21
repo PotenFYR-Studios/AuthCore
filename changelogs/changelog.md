@@ -4,9 +4,58 @@
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://shieldcn.dev/badge/version-1.0.0-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
+[![Version](https://shieldcn.dev/badge/version-1.0.1-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
 
 </div>
+
+---
+
+## [1.0.1] - 2026-10-22
+
+> Security audit release: lobby command-gate bypass, TOTP replay, second-factor races,
+> async password verification, database hardening, plus the 26.1/26.2 join-crash fix.
+
+### Security audit fixes (2026-10-21)
+
+- **High - lobby command gate bypass fixed.** `Security.isCommandAllowedInLobby` derived the
+  command root from the text after the first `/` anywhere in the string. Commands arrive
+  without a leading slash, so `msg bob hi /login` was judged as the always-allowed root
+  `login` and any command could be smuggled past the whitelist/blacklist. Only a leading
+  slash is now stripped.
+- **TOTP replay protection.** An accepted TOTP code can no longer be reused inside its
+  validity window (RFC 6238 §5.2). A player who just logged in must wait for the next code
+  to log in again.
+- **Second-factor atomicity.** Recovery-code consumption, email OTP and email-recovery codes
+  are now single-use and attempt-capped under concurrent submissions.
+- **`/login` no longer hashes on the server thread.** The Argon2/bcrypt check runs on the IO
+  executor (max 4 concurrent, one in flight per account) and its outcome is applied back on
+  the server thread, where the lobby state is re-validated first (the player may have
+  disconnected or authenticated in the meantime). Wrong-password spam can no longer stall the
+  server.
+- **No weak algorithms for new passwords.** `md5`, `sha-256`, `sha-512` and unknown values of
+  `password-hash-algorithm` are replaced by `argon2` when a password is created or changed
+  (registration, `/changepassword`, admin and web-panel resets); the stored algorithm label
+  always matches the hash. Existing legacy hashes still verify and are upgraded on login.
+- Hardening: the offline-UUID check no longer depends on the platform default charset, and two
+  admin/history queries now close their JDBC statements.
+- **Database.** `User` writes (upsert + extended columns) run in one transaction, JDBC
+  statements/result sets are closed, account deletion matches by uuid or case-insensitive
+  username, and lookup indexes (`LOWER(username)`, `LOGIN_HISTORY.uuid`) are created
+  idempotently on boot (best-effort; failures only log at debug).
+
+### Minecraft 26.1/26.2 join crash fixed (2026-10-21)
+
+- Fixed `NoSuchMethodError: ServerPlayer.setPermanentlyInvulnerable(boolean)` that crashed
+  Fabric/NeoForge 26.1 and 26.2 servers the moment a player joined (issue #10): the
+  26.3-built G3 jar is one artifact for the whole open-ended `>=26.1` range, and the
+  compile-time Stonecutter switch always baked the 26.3-renamed setter into its bytecode.
+  The limbo damage shield now dispatches between `setPermanentlyInvulnerable` (26.3+) and
+  `setInvulnerable` (26.2 and older) at runtime via `Compat` (`Compat.setInvulnerable` /
+  `Compat.isInvulnerable`) - the same single-jar-per-range pattern as `setFallDistance`.
+- The limbo snapshot now captures the PRE-lobby invulnerability flag and restores it on
+  unlock, so a player who was already invulnerable before the limbo keeps that state after
+  authenticating. The crash-safe limbo snapshot file persists the flag as well (older files
+  without the key clear the flag, as before).
 
 ---
 

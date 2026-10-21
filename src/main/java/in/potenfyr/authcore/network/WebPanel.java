@@ -526,7 +526,7 @@ public final class WebPanel {
         if (!request.has("value")) return error("Missing 'value'");
         String password = request.get("value").getAsString();
         if (password == null || password.isBlank()) return error("Password cannot be empty");
-        user.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+        user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
         user.password = Encrypter.hash(user.passwordEncryption, password);
         if (user.password == null) {
           // Never leave the account unregistered because hashing failed

@@ -1430,8 +1430,9 @@ public class Config {
                   - "bcrypt"   : Proven adaptive hash
                   - "scrypt"   : Memory-hard alternative
                   - "pbkdf2"   : Standard key-derivation function
-                  - "sha-512" / "sha-256" : Fast cryptographic hashes (less ideal for passwords)
-                  - "md5"      : Insecure - do not use""")
+                  - "sha-512" / "sha-256" : Fast unsalted hashes - NOT used for new passwords (argon2 is used
+                                   instead); only existing legacy hashes of these types still verify
+                  - "md5"      : Insecure - NOT used for new passwords (argon2 is used instead)""")
     public String passwordHashAlgorithm = "argon2";
 
     @Comment(

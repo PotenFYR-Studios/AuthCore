@@ -56,7 +56,7 @@ abstract class ServerLoginNetworkHandlerMixin {
     in.potenfyr.authcore.events.ServerEvents.trackPacket(this, "HELLO");
 
     // Only intercept clients that use the offline-mode UUID convention
-    if (!UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes()).equals(uuid)) return;
+    if (!UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(java.nio.charset.StandardCharsets.UTF_8)).equals(uuid)) return;
 
     // Detect the real server.properties mode once (the mod always follows the REAL server
     // mode - no config override).

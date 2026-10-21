@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 @Plugin(
     id = "authcore",
     name = "AuthCore",
-    version = "1.0.0",
+    version = "1.0.1",
     description = "Network auth-state bridge: tracks which players authenticated on AuthCore backends.",
     authors = {"Ded3ec"})
 public final class VelocityEntry {

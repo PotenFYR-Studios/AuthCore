@@ -41,7 +41,11 @@ public class Security {
     // Namespaced forms ("minecraft:give") resolve to their root literal so they can never
     // dodge the list by adding a namespace prefix.
     String trimmed = command.trim();
-    String root = trimmed.substring(trimmed.indexOf('/') + 1).split(" ")[0];
+    // Only a LEADING slash is optional: the command packet carries the text WITHOUT it, so
+    // slicing at the first '/' anywhere turned "msg bob hi /login" into the root "login" and
+    // let any lobby command through by appending "/login" to its arguments.
+    if (trimmed.startsWith("/")) trimmed = trimmed.substring(1).stripLeading();
+    String root = trimmed.split(" ", 2)[0];
     int colon = root.indexOf(':');
     if (colon >= 0) root = root.substring(colon + 1);
     root = root.toLowerCase(Locale.ROOT);
@@ -222,6 +226,42 @@ public class Security {
       }
     }
 
+    /** A TOTP code is valid for at most 3 time steps (±1 window x 30s); keep it past that. */
+    private static final long REPLAY_TTL_MS = 120_000L;
+
+    private static final int REPLAY_MAX_ENTRIES = 10_000;
+
+    /** "uuid:code" -> expiry. Rejects a code that was already accepted inside its window. */
+    private static final Map<String, Long> USED_CODES = new ConcurrentHashMap<>();
+
+    /**
+     * Like {@link #verify} but a code is accepted only ONCE per account (RFC 6238 section 5.2:
+     * the verifier MUST NOT accept a second attempt of the same OTP). Without this a code
+     * observed over a shoulder, in a screen share or in a log could be replayed for the rest
+     * of its ±30s validity window.
+     */
+    public static boolean verifyOnce(UUID uuid, String inputCode, String secret) {
+      if (uuid == null || !verify(inputCode, secret)) return false;
+      long now = System.currentTimeMillis();
+      if (USED_CODES.size() >= REPLAY_MAX_ENTRIES) USED_CODES.values().removeIf(exp -> exp < now);
+      if (USED_CODES.size() >= REPLAY_MAX_ENTRIES) return false; // fail closed under flood
+      // compute() is atomic per key: of two concurrent submissions of one code only one wins.
+      boolean[] firstUse = {false};
+      USED_CODES.compute(
+          uuid + ":" + inputCode.trim(),
+          (key, expiry) -> {
+            if (expiry != null && expiry >= now) return expiry;
+            firstUse[0] = true;
+            return now + REPLAY_TTL_MS;
+          });
+      return firstUse[0];
+    }
+
+    /** Forgets the replay history of an account (secret rotated / 2FA disabled). */
+    public static void clearReplayHistory(UUID uuid) {
+      if (uuid != null) USED_CODES.keySet().removeIf(key -> key.startsWith(uuid + ":"));
+    }
+
     /**
      * Builds the otpauth:// URI for manual authenticator setup.
      *
@@ -283,6 +323,15 @@ public class Security {
       if (user == null || user.recoveryCodes == null || user.recoveryCodes.isBlank() || input == null)
         return false;
       String normalized = input.trim().toUpperCase(java.util.Locale.ROOT).replace("-", "");
+      // Check-then-consume must be atomic per account: two simultaneous submissions of the
+      // same code would otherwise both read it as still present and both succeed.
+      synchronized (user) {
+        return consumeLocked(user, normalized);
+      }
+    }
+
+    private static boolean consumeLocked(in.potenfyr.authcore.models.User user, String normalized) {
+      if (user.recoveryCodes == null || user.recoveryCodes.isBlank()) return false;
       String[] storedCodes = user.recoveryCodes.split(",");
       for (int i = 0; i < storedCodes.length; i++) {
         String stored = storedCodes[i].trim().toUpperCase(java.util.Locale.ROOT).replace("-", "");
@@ -329,19 +378,27 @@ public class Security {
       if (uuid == null || input == null) return false;
       long[] entry = STORE.get(uuid);
       if (entry == null) return false;
-      if (System.currentTimeMillis() > entry[0]) {
-        STORE.remove(uuid);
-        return false;
+      // The attempt counter is a plain array slot: without the lock, parallel guesses all
+      // read the same count and the 5-attempt cap over a 1M code space is bypassed.
+      synchronized (entry) {
+        if (System.currentTimeMillis() > entry[0]) {
+          STORE.remove(uuid, entry);
+          return false;
+        }
+        if (entry[2] >= MAX_ATTEMPTS) {
+          STORE.remove(uuid, entry);
+          return false;
+        }
+        if (entry[1] < 0) return false; // already consumed by a racing thread
+        entry[2]++;
+        long expected = Long.parseLong(sha256(input.trim()).substring(0, 15), 16);
+        boolean ok = (entry[1] ^ expected) == 0;
+        if (ok) {
+          entry[1] = -1; // hashes are 60-bit non-negative: -1 marks the code as spent
+          STORE.remove(uuid, entry);
+        }
+        return ok;
       }
-      if (entry[2] >= MAX_ATTEMPTS) {
-        STORE.remove(uuid);
-        return false;
-      }
-      long expected = Long.parseLong(sha256(input.trim()).substring(0, 15), 16);
-      boolean ok = (entry[1] ^ expected) == 0;
-      entry[2]++;
-      if (ok) STORE.remove(uuid);
-      return ok;
     }
 
     /** Whether a code is pending for the player (sent but not yet consumed). */
@@ -503,20 +560,28 @@ public class Security {
         return false;
       }
 
-      // Anti-brute-force: a code may only be tried a few times before it is revoked
-      if (entry.attempts >= MAX_ATTEMPTS) {
-        pending.remove(key);
-        return false;
+      // Anti-brute-force: a code may only be tried a few times before it is revoked. The
+      // counter and the consume step share one lock so parallel guesses cannot exceed the
+      // cap and a correct code cannot be redeemed twice.
+      synchronized (entry) {
+        if (entry.consumed) return false; // redeemed by a racing thread
+        if (entry.attempts >= MAX_ATTEMPTS) {
+          pending.remove(key, entry);
+          return false;
+        }
+
+        entry.attempts++;
+        boolean matches =
+            java.security.MessageDigest.isEqual(
+                entry.code.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                code.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        if (matches) {
+          entry.consumed = true;
+          pending.remove(key, entry);
+        }
+        return matches;
       }
-
-      entry.attempts++;
-      boolean matches =
-          java.security.MessageDigest.isEqual(
-              entry.code.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-              code.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-
-      if (matches) pending.remove(key);
-      return matches;
     }
 
     /** Basic email format check. */
@@ -541,6 +606,7 @@ public class Security {
       final long expiresAtMs;
       final long createdAtMs;
       int attempts;
+      boolean consumed;
 
       CodeEntry(String code) {
         this.code = code;

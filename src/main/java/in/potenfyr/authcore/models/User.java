@@ -249,6 +249,10 @@ public class User {
   /** Login attempts count on authentication! */
   public volatile int loginAttempts = 0;
 
+  /** True while an asynchronous password verification for this account is running. */
+  public final transient java.util.concurrent.atomic.AtomicBoolean passwordCheckInFlight =
+      new java.util.concurrent.atomic.AtomicBoolean(false);
+
   /** Session Timeout timer task instance! */
   private int sessionTimeoutId;
 
@@ -485,7 +489,7 @@ public class User {
    * @param password the password to load
    */
   public void register(ServerPlayer player, String password) {
-    this.passwordEncryption = AuthCoreServer.config.passwordRules.passwordHashAlgorithm;
+    this.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
     this.password = Encrypter.hash(this.passwordEncryption, password);
 
     if (this.password == null) {
@@ -847,12 +851,13 @@ public class User {
       try {
         if (!Database.connect()) return null;
 
-        PreparedStatement statement =
-            Database.connection.prepareStatement("SELECT * FROM users WHERE username = ?");
-        statement.setString(1, username);
-        ResultSet rs = statement.executeQuery();
-
-        return rs.next() ? parse(rs) : null;
+        try (PreparedStatement statement =
+            Database.connection.prepareStatement("SELECT * FROM users WHERE username = ?")) {
+          statement.setString(1, username);
+          try (ResultSet rs = statement.executeQuery()) {
+            return rs.next() ? parse(rs) : null;
+          }
+        }
       } catch (SQLException err) {
         return AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
       }
@@ -863,15 +868,16 @@ public class User {
       try {
         if (!Database.connect()) return null;
 
-        PreparedStatement statement =
+        try (PreparedStatement statement =
             Database.connection.prepareStatement(
-                "SELECT * FROM USERS WHERE LOWER(username) = LOWER(?) LIMIT 1");
-        statement.setString(1, lowerUsername);
-        ResultSet rs = statement.executeQuery();
-
-        User user = rs.next() ? parse(rs) : null;
-        if (user != null) User.touch(user.uuid);
-        return user;
+                "SELECT * FROM USERS WHERE LOWER(username) = LOWER(?) LIMIT 1")) {
+          statement.setString(1, lowerUsername);
+          try (ResultSet rs = statement.executeQuery()) {
+            User user = rs.next() ? parse(rs) : null;
+            if (user != null) User.touch(user.uuid);
+            return user;
+          }
+        }
       } catch (SQLException err) {
         return AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
       }
@@ -884,26 +890,37 @@ public class User {
      * @param user the user to insert
      */
     public static synchronized void insert(User user) {
+      java.sql.Connection conn = null;
+      boolean previousAutoCommit = true;
+      boolean transactional = false;
       try {
         if (!Database.connect()) return;
+        conn = Database.connection;
 
-        PreparedStatement statement = Database.connection.prepareStatement(Database.usersUpsertSql());
+        // ONE transaction for both statements: the SQLite upsert is INSERT OR REPLACE
+        // (delete + insert), which momentarily blanks the extended columns (recovery codes,
+        // account lock, email, discord id...). A crash or failure between the two writes
+        // used to leave an account without its lock / recovery codes / 2FA-related data.
+        previousAutoCommit = conn.getAutoCommit();
+        conn.setAutoCommit(false);
+        transactional = true;
 
-        statement.setString(1, user.uuid.toString());
-        statement.setString(2, user.username);
-        statement.setString(3, user.password);
-        statement.setString(4, user.authSecret);
-        statement.setString(5, user.isPremium ? "online-mode" : "offline-mode");
-        statement.setString(6, user.ipAddress);
-        statement.setString(7, user.passwordEncryption);
-        statement.setLong(8, user.userCreatedMs);
-        statement.setLong(9, user.registeredAtMs);
-
-        statement.execute();
+        try (PreparedStatement statement = conn.prepareStatement(Database.usersUpsertSql())) {
+          statement.setString(1, user.uuid.toString());
+          statement.setString(2, user.username);
+          statement.setString(3, user.password);
+          statement.setString(4, user.authSecret);
+          statement.setString(5, user.isPremium ? "online-mode" : "offline-mode");
+          statement.setString(6, user.ipAddress);
+          statement.setString(7, user.passwordEncryption);
+          statement.setLong(8, user.userCreatedMs);
+          statement.setLong(9, user.registeredAtMs);
+          statement.execute();
+        }
 
         // Persist the extended columns (recovery codes / account lock / email) on the same row
         try (PreparedStatement extra =
-            Database.connection.prepareStatement(
+            conn.prepareStatement(
                 "UPDATE USERS SET recoveryCodes = ?, lockUntilMs = ?, email = ?, nickname = ?, deviceFingerprint = ?, trustedUntilMs = ?, discordId = ? WHERE uuid = ?")) {
           extra.setString(1, user.recoveryCodes);
           extra.setLong(2, user.lockUntilMs);
@@ -917,9 +934,26 @@ public class User {
           extra.execute();
         }
 
+        conn.commit();
+
         AuthCoreServer.LOGGER.debug(true, "{} has been added into the database!", user.username);
       } catch (SQLException err) {
+        if (transactional) {
+          try {
+            conn.rollback();
+          } catch (SQLException rollbackErr) {
+            AuthCoreServer.LOGGER.debug(false, "Rollback failed:", rollbackErr);
+          }
+        }
         AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
+      } finally {
+        if (transactional) {
+          try {
+            conn.setAutoCommit(previousAutoCommit);
+          } catch (SQLException ignored) {
+            // connection is being replaced by the next Database.connect()
+          }
+        }
       }
     }
 
@@ -936,21 +970,21 @@ public class User {
       try {
         if (!Database.connect()) return;
 
-        PreparedStatement statement =
+        try (PreparedStatement statement =
             Database.connection.prepareStatement(
                 "INSERT INTO LOGIN_HISTORY(uuid, username, ip, country, mode, result, riskScore, ts)"
-                    + " VALUES(?,?,?,?,?,?,?,?)");
+                    + " VALUES(?,?,?,?,?,?,?,?)")) {
+          statement.setString(1, user.uuid.toString());
+          statement.setString(2, user.username);
+          statement.setString(3, ip);
+          statement.setString(4, country);
+          statement.setString(5, user.isPremium ? "online-mode" : "offline-mode");
+          statement.setString(6, result);
+          statement.setInt(7, riskScore);
+          statement.setLong(8, System.currentTimeMillis());
 
-        statement.setString(1, user.uuid.toString());
-        statement.setString(2, user.username);
-        statement.setString(3, ip);
-        statement.setString(4, country);
-        statement.setString(5, user.isPremium ? "online-mode" : "offline-mode");
-        statement.setString(6, result);
-        statement.setInt(7, riskScore);
-        statement.setLong(8, System.currentTimeMillis());
-
-        statement.execute();
+          statement.execute();
+        }
       } catch (SQLException err) {
         AuthCoreServer.LOGGER.debug(null, "Failed to record login history:", err);
       }
@@ -965,12 +999,17 @@ public class User {
       try {
         if (!Database.connect()) return;
 
-        PreparedStatement statement =
-            Database.connection.prepareStatement("DELETE FROM USERS WHERE username = ?");
+        // By uuid AND by (case-insensitive) username: the row is keyed by uuid, so a
+        // username-only delete missed accounts whose stored name differs in case, and an
+        // uuid-only delete would leave the stale row of a re-keyed (offline->new uuid) account.
+        try (PreparedStatement statement =
+            Database.connection.prepareStatement(
+                "DELETE FROM USERS WHERE uuid = ? OR LOWER(username) = LOWER(?)")) {
+          statement.setString(1, user.uuid.toString());
+          statement.setString(2, user.username);
 
-        statement.setString(1, user.username);
-
-        statement.execute();
+          statement.execute();
+        }
 
         AuthCoreServer.LOGGER.debug(true, "{} has been removed from the database!", user.username);
       } catch (SQLException err) {
@@ -1095,7 +1134,7 @@ public class User {
         if (search != null && !search.isBlank()) sql += " WHERE LOWER(username) LIKE LOWER(?)";
         sql += " ORDER BY username LIMIT " + capped;
 
-        PreparedStatement statement = Database.connection.prepareStatement(sql);
+        try (PreparedStatement statement = Database.connection.prepareStatement(sql)) {
         if (search != null && !search.isBlank()) statement.setString(1, search.toLowerCase(Locale.ROOT) + "%");
 
         try (ResultSet rs = statement.executeQuery()) {
@@ -1103,6 +1142,7 @@ public class User {
             User user = parse(rs);
             if (user != null) players.add(user);
           }
+        }
         }
       } catch (SQLException err) {
         AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
@@ -1164,10 +1204,10 @@ public class User {
       try {
         if (!Database.connect()) return lines;
 
-        PreparedStatement statement =
+        try (PreparedStatement statement =
             Database.connection.prepareStatement(
                 "SELECT ip, country, result, riskScore, ts FROM LOGIN_HISTORY WHERE uuid = ?"
-                    + " ORDER BY ts DESC LIMIT ?");
+                    + " ORDER BY ts DESC LIMIT ?")) {
         statement.setString(1, uuid.toString());
         statement.setInt(2, Math.min(Math.max(limit, 1), 50));
 
@@ -1183,6 +1223,7 @@ public class User {
                         + rs.getString("ip")
                         + " | "
                         + rs.getString("country"));
+        }
         }
       } catch (SQLException err) {
         AuthCoreServer.LOGGER.debug(null, "Failed to fetch login history:", err);
