@@ -338,6 +338,94 @@ public final class Compat {
     }
   }
 
+  // ------------------------------------------------------------------
+  // Entity invulnerability flag (the limbo damage shield).
+  //
+  // Minecraft 26.3 REMOVED Entity#setInvulnerable(boolean) in favour of
+  // Entity#setPermanentlyInvulnerable(boolean) (verified on the 26.3 official-mappings
+  // jar; the isInvulnerable() GETTER was kept as the combined read). The G3 jar is ONE
+  // artifact compiled against 26.3 but released for the whole OPEN-ENDED >=26.1 range,
+  // so a compile-time Stonecutter switch always bakes the 26.3 name into the bytecode -
+  // 26.1/26.2 servers then crashed with NoSuchMethodError inside the join-time limbo
+  // lock (issue #10). Within the 26.x era (unobfuscated, runtime names = Mojang names)
+  // the rename must therefore be dispatched at RUNTIME. The same single-jar-per-range
+  // pattern already used by setFallDistance / runCommand / playerLevel.
+  // ------------------------------------------------------------------
+
+  /**
+   * Resolves the invulnerability setter available on the given entity class
+   * ({@code setPermanentlyInvulnerable(boolean)} on 26.3+,
+   * {@code setInvulnerable(boolean)} on 26.2 and older), or {@code null} when neither
+   * exists. Public so tests can exercise the era dispatch against synthetic shapes.
+   */
+  public static Method invulnerableSetter(Class<?> entityType) {
+    if (entityType == null) return null;
+    for (String name : new String[] {"setPermanentlyInvulnerable", "setInvulnerable"}) {
+      try {
+        return entityType.getMethod(name, boolean.class);
+      } catch (ReflectiveOperationException ignored) {
+        // try the next era's name
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Resolves the invulnerability getter available on the given entity class, or
+   * {@code null} when neither exists. 26.3 kept {@code isInvulnerable()} (the combined
+   * temporary-or-permanent read) alongside the new {@code isPermanentlyInvulnerable()};
+   * the permanent flag is what the limbo shield toggles, so it is matched FIRST - on
+   * 26.2 and older only {@code isInvulnerable()} exists and that single flag is both
+   * the shield and the read.
+   */
+  public static Method invulnerableGetter(Class<?> entityType) {
+    if (entityType == null) return null;
+    for (String name : new String[] {"isPermanentlyInvulnerable", "isInvulnerable"}) {
+      try {
+        return entityType.getMethod(name);
+      } catch (ReflectiveOperationException ignored) {
+        // try the next era's name
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Toggles the player's invulnerability flag on every supported version - the limbo
+   * damage shield. Never throws: on an unknown future shape the flag is left untouched
+   * and the remaining limbo protections (adventure mode, attack/damage guards, health
+   * restore) stay in effect.
+   */
+  public static void setInvulnerable(ServerPlayer player, boolean invulnerable) {
+    if (player == null) return;
+    Method setter = invulnerableSetter(Entity.class);
+    if (setter == null) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "No invulnerability setter on this Minecraft version - limbo damage shield "
+              + "not toggled (adventure-mode and attack guards remain active).");
+      return;
+    }
+    try {
+      setter.invoke(player, invulnerable);
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      AuthCoreServer.LOGGER.debug(
+          false, "Failed to toggle the invulnerability flag: {}", String.valueOf(err));
+    }
+  }
+
+  /** Reads the player's invulnerability flag on every supported version (false when unreadable). */
+  public static boolean isInvulnerable(ServerPlayer player) {
+    if (player == null) return false;
+    try {
+      Method getter = invulnerableGetter(Entity.class);
+      if (getter == null) return false;
+      return getter.invoke(player) instanceof Boolean flag && flag;
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      return false;
+    }
+  }
+
   /** Resolves a public (or hierarchy-private) float/double field by any of the given names. */
   private static java.lang.reflect.Field entityField(Class<?> owner, String... names) {
     for (String name : names) {

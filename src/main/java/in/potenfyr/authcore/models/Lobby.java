@@ -146,14 +146,20 @@ public class Lobby {
 
   /**
    * Persists the player's pre-limbo state (game mode, inventory, effects, health/food/xp,
-   * position) to the crash-safe snapshot file. Restored on the next join if the limbo
-   * session ended uncleanly (server crash).
+   * position, invulnerability) to the crash-safe snapshot file. Restored on the next join if
+   * the limbo session ended uncleanly (server crash).
+   *
+   * <p>The pre-limbo invulnerability flag must be passed in explicitly: this runs AFTER the
+   * limbo shield was applied, so the live flag already reads {@code true} and the original
+   * value is only known to the {@link Snapshot}.
    */
-  public static boolean saveCrashSnapshot(ServerPlayer player, java.nio.file.Path file) {
+  public static boolean saveCrashSnapshot(
+      ServerPlayer player, java.nio.file.Path file, boolean preLobbyInvulnerable) {
     try {
       java.nio.file.Files.createDirectories(file.getParent());
       com.google.gson.JsonObject o = new com.google.gson.JsonObject();
       o.addProperty("gameMode", player.gameMode.getGameModeForPlayer().getName());
+      o.addProperty("invulnerable", preLobbyInvulnerable);
       o.addProperty("health", player.getHealth());
       o.addProperty("food", player.getFoodData().getFoodLevel());
       o.addProperty("saturation", player.getFoodData().getSaturationLevel());
@@ -212,6 +218,19 @@ public class Lobby {
                 o.get("gameMode").getAsString(), net.minecraft.world.level.GameType.SURVIVAL);
         in.potenfyr.authcore.compat.Compat.changeGameMode(player, mode);
       }
+
+      // Restore (or conservatively clear) the invulnerability flag: a crash mid-limbo
+      // leaves the limbo-forced flag persisted in the vanilla player data - without an
+      // explicit reset here the fresh lock below would capture it as "pre-limbo" state
+      // and re-grant permanent invulnerability after authentication. Snapshots written
+      // before this field existed (no "invulnerable" key) clear the flag, matching the
+      // old hardcoded-false restore.
+      boolean preLobbyInvulnerable = o.has("invulnerable") && o.get("invulnerable").getAsBoolean();
+      /*? if < 26.1 {*/
+      player.setInvulnerable(preLobbyInvulnerable);
+      /*?} else {*/
+      /*in.potenfyr.authcore.compat.Compat.setInvulnerable(player, preLobbyInvulnerable);
+      *//*?}*/
 
       net.minecraft.world.entity.player.Inventory liveInv =
           in.potenfyr.authcore.compat.Compat.getInventory(player);
@@ -349,8 +368,10 @@ public class Lobby {
     // Crash-safe snapshot: persist the pre-limbo state to disk so a server crash while
     // the player is in limbo cannot leave them stuck (vanilla saves the FORCED Adventure
     // mode + emptied inventory, so a plain rejoin would restore the limbo state forever).
-    // Deleted on unlock; restored on the next join if it still exists.
-    if (!saveCrashSnapshot(player, snapshotFile(user.uuid)))
+    // Deleted on unlock; restored on the next join if it still exists. The snapshot's
+    // captured PRE-LOBBY invulnerability flag is persisted alongside, so a crash mid-limbo
+    // cannot leave the forced shield in the player data after the recovery.
+    if (!saveCrashSnapshot(player, snapshotFile(user.uuid), this.snapshot.invulnerable))
       AuthCoreServer.LOGGER.debug(
           false, "Failed to persist limbo snapshot for {}", user.username);
 
@@ -831,6 +852,14 @@ public class Lobby {
     private final boolean operator;
     private int opPermissionLevel = 0;
 
+    /**
+     * The player's invulnerability flag BEFORE the limbo (captured even when
+     * {@code lobby.prevent-damage} is disabled, so the unlock always restores the exact
+     * pre-lobby value instead of a hardcoded {@code false} that would strip an
+     * already-invulnerable player's god-mode flag).
+     */
+    private final boolean invulnerable;
+
     /** The vehicle the player was riding before the lobby (re-mounted on unlock). */
     private final net.minecraft.world.entity.Entity vehicle;
 
@@ -893,6 +922,16 @@ public class Lobby {
       if (this.operator)
         this.opPermissionLevel = in.potenfyr.authcore.compat.Compat.getOperatorLevel(server, player);
 
+      // --- INVULNERABILITY (pre-lobby value, before the shield is applied below) ---
+      /*? if < 26.1 {*/
+      this.invulnerable = player.isInvulnerable();
+      /*?} else {*/
+      /*// 26.1+: ONE jar covers the whole open-ended >=26.1 range and 26.3 split the
+      // invulnerability API (the shield's flag is isPermanentlyInvulnerable there) -
+      // read through the runtime dispatch, never a compile-time name.
+      this.invulnerable = in.potenfyr.authcore.compat.Compat.isInvulnerable(player);
+      *//*?}*/
+
       // --- CLEAR EFFECTS ---
       player.removeAllEffects();
 
@@ -923,11 +962,17 @@ public class Lobby {
 
       // --- DAMAGE PROTECTION ---
       if (AuthCoreServer.config.lobby.preventDamage) {
-        /*? if >= 26.3 {*/
-        /*player.setPermanentlyInvulnerable(true);
-        *//*?} else {*/
+        /*? if < 26.1 {*/
+        // 1.16-1.21.11: the setter name is stable across the whole group - the direct
+        // call is remapped by the build for intermediary/SRG runtimes.
         player.setInvulnerable(true);
-        /*?}*/
+        /*?} else {*/
+        /*// 26.1+: ONE unobfuscated jar covers 26.1-26.3+, and 26.3 renamed the setter
+        // (setInvulnerable -> setPermanentlyInvulnerable). A compile-time switch always
+        // bakes the 26.3 name into the bytecode, so 26.1/26.2 servers crashed with
+        // NoSuchMethodError during the join-time lock (issue #10) - dispatch at runtime.
+        in.potenfyr.authcore.compat.Compat.setInvulnerable(player, true);
+        *//*?}*/
         player.setHealth(player.getMaxHealth());
       }
 
@@ -955,11 +1000,15 @@ public class Lobby {
 
       // --- CLEAR LOBBY EFFECTS ---
       player.removeAllEffects();
-      /*? if >= 26.3 {*/
-      /*player.setPermanentlyInvulnerable(false);
-      *//*?} else {*/
-      player.setInvulnerable(false);
-      /*?}*/
+      /*? if < 26.1 {*/
+      // Restore the CAPTURED pre-lobby flag - never a hardcoded false: a player who was
+      // already invulnerable before the limbo (e.g. a god-mode mod using the vanilla
+      // flag) must keep that state after authenticating.
+      player.setInvulnerable(this.invulnerable);
+      /*?} else {*/
+      /*// 26.1+: runtime dispatch for the 26.3 setter rename (issue #10).
+      in.potenfyr.authcore.compat.Compat.setInvulnerable(player, this.invulnerable);
+      *//*?}*/
 
       // --- RESTORE GAMEMODE (FIRST - never skipped by a later failure) ---
       // The lobby forced Adventure; if any restore step below throws, the player must
