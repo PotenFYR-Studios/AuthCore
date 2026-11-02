@@ -37,6 +37,20 @@ public class Database {
   /** SQL Connection with java driver. */
   public static volatile Connection connection;
 
+  /**
+   * Serialises every JDBC call. A single shared {@link Connection} must never be used concurrently:
+   * MySQL/PostgreSQL connections are not thread-safe, and a transaction started on one thread would
+   * otherwise absorb - or roll back - another thread's statements. Every driver object handed out
+   * through {@link #connection} is a proxy that acquires this monitor per call, and multi-statement
+   * transactions hold it for their whole duration via {@link #monitor()}.
+   */
+  private static final Object DB_MONITOR = new Object();
+
+  /** The lock that serialises JDBC work (held by transactional code). */
+  public static Object monitor() {
+    return DB_MONITOR;
+  }
+
   private Database() {}
 
   /**
@@ -45,6 +59,13 @@ public class Database {
    * @return true if connection is successful, false otherwise
    */
   public static synchronized boolean connect() {
+    // Never swap the connection while another thread is mid-query.
+    synchronized (DB_MONITOR) {
+      return connectLocked();
+    }
+  }
+
+  private static boolean connectLocked() {
     if (AuthCoreServer.config == null) return false;
 
     AuthCoreServer.LOGGER.debug(
@@ -56,6 +77,53 @@ public class Database {
     if (AuthCoreServer.config.database.postgres.enabled) return connectPostgres();
     if (AuthCoreServer.config.database.mysql.enabled) return connectMySql();
     return connectSqlite();
+  }
+
+  /**
+   * Wraps a JDBC object so every method call is serialised on {@link #DB_MONITOR}. Returned
+   * statements/result sets are wrapped recursively, which makes the single shared connection safe
+   * for the server thread, the IO pool and the web panel without touching every call site.
+   */
+  private static Object wrapJdbc(Object target) {
+    if (target == null) return null;
+    Class<?>[] interfaces = jdbcInterfaces(target.getClass());
+    if (interfaces.length == 0) return target;
+    return java.lang.reflect.Proxy.newProxyInstance(
+        Database.class.getClassLoader(),
+        interfaces,
+        (proxy, method, arguments) -> {
+          if (method.getDeclaringClass() == Object.class) {
+            return switch (method.getName()) {
+              case "equals" -> proxy == (arguments == null || arguments.length == 0
+                  ? null
+                  : arguments[0]);
+              case "hashCode" -> System.identityHashCode(proxy);
+              case "toString" -> target.toString();
+              default -> null;
+            };
+          }
+          synchronized (DB_MONITOR) {
+            try {
+              return wrapJdbc(method.invoke(target, arguments));
+            } catch (java.lang.reflect.InvocationTargetException err) {
+              throw err.getCause();
+            }
+          }
+        });
+  }
+
+  /** All {@code java.sql} interfaces implemented by a driver class (proxied surface). */
+  private static Class<?>[] jdbcInterfaces(Class<?> type) {
+    java.util.LinkedHashSet<Class<?>> collected = new java.util.LinkedHashSet<>();
+    for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+      for (Class<?> candidate : current.getInterfaces()) collectJdbcInterfaces(candidate, collected);
+    }
+    return collected.toArray(new Class<?>[0]);
+  }
+
+  private static void collectJdbcInterfaces(Class<?> candidate, java.util.Set<Class<?>> out) {
+    if (candidate.getName().startsWith("java.sql.")) out.add(candidate);
+    for (Class<?> parent : candidate.getInterfaces()) collectJdbcInterfaces(parent, out);
   }
 
   /** Connects to the PostgreSQL database (if not already connected and healthy). */
@@ -81,16 +149,18 @@ public class Database {
 
       boolean ssl = AuthCoreServer.config.database.postgres.ssl;
       connection =
-          DriverManager.getConnection(
-              "jdbc:postgresql://"
-                  + host
-                  + ':'
-                  + AuthCoreServer.config.database.postgres.port
-                  + '/'
-                  + database
-                  + (ssl ? "?ssl=true&sslmode=require" : ""),
-              AuthCoreServer.config.database.postgres.username,
-              AuthCoreServer.config.database.postgres.password);
+          (Connection)
+              wrapJdbc(
+                  DriverManager.getConnection(
+                      "jdbc:postgresql://"
+                          + host
+                          + ':'
+                          + AuthCoreServer.config.database.postgres.port
+                          + '/'
+                          + database
+                          + (ssl ? "?ssl=true&sslmode=require" : ""),
+                      AuthCoreServer.config.database.postgres.username,
+                      AuthCoreServer.config.database.postgres.password));
 
       dialect = Dialect.POSTGRESQL;
       return AuthCoreServer.LOGGER.info(true, "PostgreSQL database has been connected with AuthCore!");
@@ -135,10 +205,12 @@ public class Database {
               .append("&allowPublicKeyRetrieval=").append(!ssl);
 
       connection =
-          DriverManager.getConnection(
-              url.toString(),
-              AuthCoreServer.config.database.mysql.username,
-              AuthCoreServer.config.database.mysql.password);
+          (Connection)
+              wrapJdbc(
+                  DriverManager.getConnection(
+                      url.toString(),
+                      AuthCoreServer.config.database.mysql.username,
+                      AuthCoreServer.config.database.mysql.password));
 
       dialect = Dialect.MYSQL;
       return AuthCoreServer.LOGGER.info(true, "MySQL database has been connected with AuthCore!");
@@ -173,7 +245,7 @@ public class Database {
         }
       }
 
-      connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath());
+      connection = (Connection) wrapJdbc(DriverManager.getConnection("jdbc:sqlite:" + dbPath.toAbsolutePath()));
 
       // Low-resource SQLite tuning: WAL journaling reduces fsync stalls (smoother ticks on
       // 1-core boxes), synchronous=NORMAL keeps crash-safety while cutting disk writes, and
@@ -293,6 +365,17 @@ public class Database {
               + "           ts BIGINT\n"
               + "       )");
 
+      stmt.execute(
+          "CREATE TABLE IF NOT EXISTS PASSWORD_HISTORY (\n"
+              + "           "
+              + historyId
+              + ",\n"
+              + "           uuid TEXT,\n"
+              + "           passwordHash TEXT,\n"
+              + "           algorithm TEXT,\n"
+              + "           ts BIGINT\n"
+              + "       )");
+
       AuthCoreServer.LOGGER.info(true, "Created users database if it doesn't exist!");
 
       // Define expected columns + types
@@ -352,12 +435,14 @@ public class Database {
           case SQLITE, POSTGRESQL ->
               new String[] {
                 "CREATE INDEX IF NOT EXISTS idx_users_lower_username ON USERS (LOWER(username))",
-                "CREATE INDEX IF NOT EXISTS idx_login_history_uuid ON LOGIN_HISTORY (uuid)"
+                "CREATE INDEX IF NOT EXISTS idx_login_history_uuid ON LOGIN_HISTORY (uuid)",
+                "CREATE INDEX IF NOT EXISTS idx_password_history_uuid ON PASSWORD_HISTORY (uuid)"
               };
           case MYSQL ->
               new String[] {
                 "CREATE INDEX idx_users_username ON USERS (username(191))",
-                "CREATE INDEX idx_login_history_uuid ON LOGIN_HISTORY (uuid(36))"
+                "CREATE INDEX idx_login_history_uuid ON LOGIN_HISTORY (uuid(36))",
+                "CREATE INDEX idx_password_history_uuid ON PASSWORD_HISTORY (uuid(36))"
               };
         };
     for (String sql : statements) {

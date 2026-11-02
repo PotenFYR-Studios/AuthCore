@@ -53,6 +53,7 @@ abstract class ServerPlayerInteractionManagerMixin {
       require = 0)
   private void authCore$onTryBreakBlock(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowBlockBreaking) {
@@ -86,6 +87,7 @@ abstract class ServerPlayerInteractionManagerMixin {
         && action != ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK)
       return;
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowBlockBreaking) {
@@ -105,6 +107,7 @@ abstract class ServerPlayerInteractionManagerMixin {
   private void authCore$onDestroyAndAck(
       BlockPos pos, int sequence, String reason, CallbackInfo ci) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowBlockBreaking) {
@@ -132,6 +135,7 @@ abstract class ServerPlayerInteractionManagerMixin {
       BlockHitResult hitResult,
       CallbackInfoReturnable<InteractionResult> cir) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null
@@ -166,6 +170,7 @@ abstract class ServerPlayerInteractionManagerMixin {
       InteractionHand hand,
       CallbackInfoReturnable<InteractionResult> cir) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemUse) {

@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import java.util.UUID;
 
 import in.potenfyr.authcore.AuthCoreServer;
@@ -68,6 +70,7 @@ abstract class ServerPlayNetworkHandlerChatMixin {
 
   /** Shared restriction logic for every version. */
   private void restrictChat(CallbackInfo ci) {
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     // ClientGuard: chat-rate accounting (flood detection in the lobby).
@@ -90,7 +93,7 @@ abstract class ServerPlayNetworkHandlerChatMixin {
     // 1. Known method names (Mojang / Forge / NeoForge / Yarn dev)
     for (String m : new String[] {"message", "getMessage", "getStrippedMessage"}) {
       try {
-        Object value = packet.getClass().getMethod(m).invoke(packet);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
         if (value instanceof String s) return s;
       } catch (Throwable ignored) {
         // try the next name

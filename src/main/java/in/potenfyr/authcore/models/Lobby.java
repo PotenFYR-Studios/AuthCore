@@ -336,6 +336,29 @@ public class Lobby {
           false,
           "Deferred limbo lock for {} - player entity not resolvable yet.",
           user.username);
+      // Retry on the next tick. An online, unauthenticated player must NEVER be left outside the
+      // limbo: isAuthenticated reads true for any ACTIVE player that is not in the lobby map, so
+      // every guard would silently skip and the player could roam unauthenticated. If the entity
+      // never becomes resolvable, kick the session instead of leaving it unrestricted.
+      TaskScheduler.getInstance()
+          .setTimeout(
+              () -> {
+                if (this.user.isInLobby.get() || !this.user.isActive) return;
+                if (this.user.player.get() != null) {
+                  this.lock();
+                  return;
+                }
+                AuthCoreServer.LOGGER.debug(
+                    false,
+                    "Limbo lock failed for {} - player entity never became resolvable, kicking.",
+                    this.user.username);
+                AuthCoreServer.LOGGER.toKick(
+                    false,
+                    this.user.connection,
+                    AuthCoreServer.messages.promptUserAuthenticationExpiredTimeout,
+                    "a moment");
+              },
+              50L);
       return;
     }
 
@@ -600,6 +623,26 @@ public class Lobby {
         "{} | limbo unlock - lobby.users.size={}",
         this.user.username,
         Lobby.users.size());
+
+    // The restore teleport puts the player back at their pre-lobby position. If AuthCore's own
+    // temporary anti-float platform occupies that space (e.g. the default (0,64,0) limbo sits one
+    // block above the world spawn), the barrier must be removed FIRST - otherwise the player is
+    // teleported into a solid block and stays stuck until the delayed restore runs.
+    if (player != null && this.snapshot != null && this.platformPos != null) {
+      BlockPos restore = this.snapshot.blockPos;
+      if (restore != null
+          && this.platformWorld != null
+          && this.platformWorld.dimension().equals(this.snapshot.dimensionKey)
+          && this.platformPos.getX() == restore.getX()
+          && this.platformPos.getZ() == restore.getZ()
+          && this.platformPos.getY() >= restore.getY() - 1
+          && this.platformPos.getY() <= restore.getY() + 2) {
+        restorePlatformBlock(this.platformWorld, this.platformPos, this.platformOriginal);
+        this.platformPos = null;
+        this.platformOriginal = null;
+        this.platformWorld = null;
+      }
+    }
 
     if (player != null && this.snapshot != null) this.snapshot.reset(player);
     else
@@ -1106,6 +1149,9 @@ public class Lobby {
      */
     private void safeLandIfNeeded(ServerPlayer player, ServerLevel world) {
       try {
+        // Spectators fly freely - never yank them to the ground.
+        if (player.isSpectator()) return;
+
         boolean flying =
             in.potenfyr.authcore.compat.Compat.getAbilities(player) != null
                 && in.potenfyr.authcore.compat.Compat.getAbilities(player).flying;
@@ -1120,19 +1166,118 @@ public class Lobby {
           }
         }
 
-        // Airborne in survival (was gliding / jumping / falling) -> land on safe ground.
-        if (!flying
-            && !player.isInWater()
-            && !/*? if < 1.20.2 {*//*player.isOnGround()
-            *//*?} else {*/player.onGround()/*?}*/) {
-          BlockPos ground = getGroundBelow(world, player.blockPosition());
-          if (ground != null) {
-            this.teleport(player, ground.above(), world);
-          }
+        // Airborne in survival (was gliding / jumping / falling, or logged out mid-air) -> land
+        // on safe ground.
+        //
+        // The "is the player standing on something" decision is deliberately WORLD-based and
+        // never reads Entity#onGround(): vanilla only refreshes that flag inside Entity#move and
+        // from incoming move packets, and the restore teleport above bypasses both. In the limbo
+        // the client stands on the anti-float BARRIER platform and reports onGround=true, so at
+        // unlock the flag still describes the LIMBO even when the restored position is high in
+        // the air - the old check trusted it, skipped this landing and the player fell from their
+        // logout height to their death (issue #11).
+        if (flying
+            || player.isPassenger()
+            || player.isInWater()
+            || hasSupport(player, world)) return;
+        BlockPos ground = getGroundBelow(world, player.blockPosition());
+        if (ground != null) {
+          this.teleport(player, ground.above(), world);
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "{} was restored airborne - landed on safe ground at {}",
+              player.getName().getString(),
+              ground.above());
         }
       } catch (RuntimeException ignored) {
         // safe-landing is best-effort - never break the unlock
       }
+    }
+
+    /**
+     * Whether the player is standing on (or within a fall-safe distance of) solid support at
+     * their CURRENT position - computed from world geometry.
+     *
+     * <p>This is the world-aware replacement for
+     * {@link net.minecraft.world.entity.Entity#onGround()}: that flag is only refreshed by
+     * {@code Entity#move} and by incoming move packets, so right after a teleport it still reports
+     * the PRE-teleport state. The limbo's anti-float platform makes it read {@code true} while the
+     * player stands in the lobby, which used to hide a mid-air restore position and drop the player
+     * to their death (issue #11).
+     */
+    private static boolean hasSupport(ServerPlayer player, ServerLevel world) {
+      if (player == null || world == null) return false;
+      // A player hanging on a ladder/vine/scaffolding is safe even though those blocks have no
+      // collision shape - never yank them down to the ground far below.
+      BlockPos feet = player.blockPosition();
+      if (isClimbable(world, feet)
+          || isClimbable(world, feet.above())
+          || isClimbable(world, feet.above(2))) return true;
+      // A cobweb catches the player (slow descent, no fall damage) - leave them in place.
+      if (world.getBlockState(feet).is(Blocks.COBWEB)) return true;
+      net.minecraft.world.phys.AABB box = player.getBoundingBox();
+      return hasSupportBelow(
+          box.minX,
+          box.maxX,
+          box.minY,
+          box.minZ,
+          box.maxZ,
+          (x, y, z) -> {
+            BlockPos pos = new BlockPos(x, y, z);
+            BlockState state = world.getBlockState(pos);
+            // AuthCore's own anti-float platform is temporary (restored ~10s after the auth
+            // flow) - it must never count as permanent ground here, or a restore position that
+            // happens to overlap it would be left unsupported once the barrier is removed.
+            if (state.is(Blocks.BARRIER)) return false;
+            return !state.getCollisionShape(world, pos).isEmpty();
+          });
+    }
+
+    /** Whether the block is something a player can safely hang on (ladder, vine, scaffolding). */
+    private static boolean isClimbable(ServerLevel world, BlockPos pos) {
+      BlockState state = world.getBlockState(pos);
+      return state.getBlock() instanceof LadderBlock
+          || state.getBlock() instanceof VineBlock
+          || state.getBlock() instanceof ScaffoldingBlock;
+    }
+
+    /**
+     * Minimal block-collision query for {@link #hasSupportBelow}. A plain functional interface
+     * (instead of a Minecraft {@code Predicate<BlockPos>}) keeps the support geometry unit-testable
+     * in a plain JVM without the game classes on the compile classpath.
+     */
+    @FunctionalInterface
+    public interface BlockSupport {
+      /** Whether the block at the given coordinates has a collision shape. */
+      boolean solidAt(int x, int y, int z);
+    }
+
+    /**
+     * Pure geometry form of {@link #hasSupport}: true when any block the player's bounding-box
+     * footprint overlaps at the feet - or one block lower (tolerates the restore teleport's
+     * +0.5 offset and partial blocks such as slabs, carpets and stairs) - has a collision shape.
+     *
+     * <p>Public so the host test suite can exercise the support decision against synthetic block
+     * shapes without a live server (see {@code AuthCoreSecurityTests}).
+     */
+    public static boolean hasSupportBelow(
+        double minX,
+        double maxX,
+        double minY,
+        double minZ,
+        double maxZ,
+        BlockSupport support) {
+      if (support == null) return false;
+      // Just under the feet: a block whose top is exactly at the feet still counts.
+      int topY = (int) Math.floor(minY - 0.05);
+      int x0 = (int) Math.floor(minX + 1.0E-7);
+      int x1 = (int) Math.floor(maxX - 1.0E-7);
+      int z0 = (int) Math.floor(minZ + 1.0E-7);
+      int z1 = (int) Math.floor(maxZ - 1.0E-7);
+      for (int y = topY; y >= topY - 1; y--)
+        for (int x = x0; x <= x1; x++)
+          for (int z = z0; z <= z1; z++) if (support.solidAt(x, y, z)) return true;
+      return false;
     }
 
     /**
@@ -1172,16 +1317,20 @@ public class Lobby {
 
       BlockPos candidate = pos;
 
+      // World-based "standing on something" (never Entity#onGround() - see hasSupport): at this
+      // point the player still stands at their pre-lobby position, so their own level is the
+      // world to probe (the limbo world above may be a different dimension).
+      boolean supported =
+          hasSupport(player, in.potenfyr.authcore.compat.Compat.playerLevel(player));
+
       boolean airborne =
           in.potenfyr.authcore.compat.Compat.getAbilities(player).flying
               || in.potenfyr.authcore.compat.Compat.isGliding(player)
               || player.isPassenger()
-              || !/*? if < 1.20.2 {*//*player.isOnGround()
-              *//*?} else {*/player.onGround()/*?}*/;
+              || !supported;
 
       boolean inGap =
-          (in.potenfyr.authcore.compat.Compat.isGliding(player) || !/*? if < 1.20.2 {*//*player.isOnGround()
-              *//*?} else {*/player.onGround()/*?}*/)
+          (in.potenfyr.authcore.compat.Compat.isGliding(player) || !supported)
               && !world.getBlockState(pos).isAir()
               && world.getBlockState(pos.below()).canOcclude()
               && world.getBlockState(pos.above()).canOcclude();
@@ -1251,20 +1400,81 @@ public class Lobby {
     }
 
     /**
-     * Searches downwards for the nearest solid ground.
+     * Searches downwards for the nearest safe landing surface.
      *
-     * @return The ground position, or {@code null} if the void is reached.
+     * <p>Descends from the feet: air and non-solid decoration (tall grass, flowers, torches,
+     * cobwebs...) are passed through, a fluid stops the search (the player lands in it naturally
+     * and water cancels fall damage), and the first solid surface is the landing - provided the
+     * player fits on top of it. Reaching the world bottom means the void, i.e. no landing.
+     *
+     * @return the standable block (the caller teleports to {@code ground.above()}), or
+     *     {@code null} when there is no safe landing below.
      */
     private BlockPos getGroundBelow(ServerLevel world, BlockPos origin) {
-      BlockPos.MutableBlockPos check = origin.mutable();
+      final int x = origin.getX();
+      final int z = origin.getZ();
+      Integer groundY =
+          findGroundBelow(
+              origin.getY(),
+              in.potenfyr.authcore.compat.Compat.getBottomY(world),
+              y -> {
+                BlockPos pos = new BlockPos(x, y, z);
+                BlockState state = world.getBlockState(pos);
+                if (isStandable(world, pos, state))
+                  return isBlockSafe(world, pos) ? GroundType.LANDING : GroundType.BLOCKED;
+                if (!state.getFluidState().isEmpty()) return GroundType.FLUID;
+                if (state.isAir()) return GroundType.AIR;
+                return GroundType.PASSABLE;
+              });
+      return groundY == null ? null : new BlockPos(x, groundY, z);
+    }
 
-      while (check.getY() >= in.potenfyr.authcore.compat.Compat.getBottomY(world) && world.getBlockState(check.below()).isAir()) {
-        check.move(0, -1, 0);
+    /** What a single block in a vertical column means for {@link #findGroundBelow}. */
+    public enum GroundType {
+      /** Air - keep descending. */
+      AIR,
+      /** Non-solid decoration (tall grass, flowers, torches...) - keep descending. */
+      PASSABLE,
+      /** Fluid - stop: the player falls into it naturally. */
+      FLUID,
+      /** Solid surface with headroom - the landing spot. */
+      LANDING,
+      /** Solid surface without headroom - stop, never teleport the player through it. */
+      BLOCKED
+    }
 
-        if (isBlockSafe(world, check)) return check.immutable();
+    /**
+     * Pure vertical ground search used by {@link #getGroundBelow}.
+     *
+     * <p>The old implementation only descended while the block BELOW was air and then tested the
+     * air block it had just moved into, so it could never return a landing surface - the
+     * post-login restore therefore never landed a mid-air player (issue #11). Kept pure so the
+     * host test suite can exercise the search against synthetic columns.
+     *
+     * @return the Y of the landing block, or {@code null} when there is none (fluid/blocked/void).
+     */
+    public static Integer findGroundBelow(int startY, int bottomY, BlockColumn column) {
+      if (column == null) return null;
+      for (int y = startY - 1; y >= bottomY; y--) {
+        switch (column.typeAt(y)) {
+          case AIR:
+          case PASSABLE:
+            break;
+          case LANDING:
+            return Integer.valueOf(y);
+          default:
+            // FLUID or BLOCKED: never teleport the player past this point.
+            return null;
+        }
       }
-
       return null;
+    }
+
+    /** One-block-wide vertical view for {@link #findGroundBelow}. */
+    @FunctionalInterface
+    public interface BlockColumn {
+      /** Classifies the block at the given height. */
+      GroundType typeAt(int y);
     }
 
     /**
@@ -1287,6 +1497,24 @@ public class Lobby {
       return null;
     }
 
+    /** Whether a block can be stood on (full collision or a known standable shape). */
+    private static boolean isStandable(ServerLevel world, BlockPos pos, BlockState state) {
+      return state.canOcclude()
+          || state.getBlock() instanceof LeavesBlock
+          || state.getBlock() instanceof CarpetBlock
+          || state.getBlock() instanceof ScaffoldingBlock
+          || state.getBlock() instanceof SlimeBlock
+          || state.getBlock() instanceof HoneyBlock
+          || state.getBlock() instanceof FenceBlock
+          || state.getBlock() instanceof WallBlock
+          || state.getBlock() instanceof LadderBlock
+          || state.getBlock() instanceof VineBlock
+          || in.potenfyr.authcore.compat.Compat.isDripleaf(state)
+          || state.is(Blocks.SNOW)
+          || state.is(Blocks.SNOW_BLOCK)
+          || !state.getCollisionShape(world, pos).isEmpty();
+    }
+
     /**
      * Validates if a block position is safe for a player to stand on without suffocating or
      * falling.
@@ -1297,22 +1525,7 @@ public class Lobby {
 
       BlockState state = world.getBlockState(pos);
 
-      // A block is "standable" if it has a solid collision shape or is a known safe block
-      boolean standable =
-          state.canOcclude()
-              || state.getBlock() instanceof LeavesBlock
-              || state.getBlock() instanceof CarpetBlock
-              || state.getBlock() instanceof ScaffoldingBlock
-              || state.getBlock() instanceof SlimeBlock
-              || state.getBlock() instanceof HoneyBlock
-              || state.getBlock() instanceof FenceBlock
-              || state.getBlock() instanceof WallBlock
-              || state.getBlock() instanceof LadderBlock
-              || state.getBlock() instanceof VineBlock
-              || in.potenfyr.authcore.compat.Compat.isDripleaf(state)
-              || state.is(Blocks.SNOW)
-              || state.is(Blocks.SNOW_BLOCK)
-              || !state.getCollisionShape(world, pos).isEmpty();
+      boolean standable = isStandable(world, pos, state);
 
       // Must have air above for head + body
       boolean headroom =

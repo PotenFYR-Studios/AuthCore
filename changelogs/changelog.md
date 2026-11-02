@@ -4,9 +4,324 @@
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://shieldcn.dev/badge/version-1.0.1-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
+[![Version](https://shieldcn.dev/badge/version-1.0.2-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
 
 </div>
+
+---
+
+## [1.0.2] - 2026-11-02
+
+> Everything below this heading happened after the 1.0.1 release: the issue #11 fix, the flow/bypass
+> hardening pass, the map-image feature and the full audit/hardening pass. The 1.0.1 and older
+> sections are released history and are kept unchanged.
+
+### Protocol & anti-bypass hardening (audit pass)
+
+- **Lobby packet gate extended (no hacked-client/action bypass).** Several
+  `ServerGamePacketListenerImpl` handlers with real side effects were not guarded, so an
+  unauthenticated player (or a hacked client crafting the packet directly) could still act during
+  the limbo: `handleUseItem` (ender pearl/chorus fruit teleport the player server-side, fireworks,
+  consumables), `handleEditBook`/`handleRenameItem` (NBT/item mutation), `handleContainerButtonClick`
+  (enchanting/anvil), `handleSelectTrade` (villager item generation), `handleSignUpdate` (block
+  entity writes), `handlePickItem*` (creative item creation) and `handleClientCommand`
+  (respawn/relocation), plus `handleTeleportToEntityPacket` and the gliding action of
+  `handlePlayerCommand`. All of them now go through `LobbyPacketPolicy` (fail-closed, config-aware:
+  `allow-item-use`, `allow-item-moving`, `allow-block-interaction`, `allow-movement`, `allow-crafting`
+  and `allow-entity-interact-with` restore exactly the documented behaviour) with
+  `require = 0` injections, so a future version that renames a handler degrades to "unguarded on
+  that version" instead of crashing. Sneak/sprint stay allowed - the human-verification captcha
+  measures them.
+- **Malformed-packet resilience.** Every new guard is wrapped: an unreadable packet action, a null
+  player, a broken user object or a failing inventory resync can never throw out of a packet
+  handler. Unknown/unreadable actions are treated as blocked in the lobby (`UNKNOWN`), never as
+  allowed. Blocked packets are logged through a per-player 5-second throttle (with a suppressed
+  count) so a hacked client spamming one packet cannot bury real security events or hammer the
+  disk, and the respawn guard only applies to alive players - a legitimately dead player can always
+  respawn (no lobby soft-lock).
+- **Invalid-username connections rejected.** A vanilla Java client can only send
+  `[A-Za-z0-9_.-]{1,16}`, but the hello name is client-controlled: control characters, newlines or
+  Unicode lookalikes reached the database, chat and staff tooling (log-injection and
+  staff-impersonation vector). Joins with such a name are now disconnected before any session state
+  is created and the attempt is logged sanitised.
+- **Log injection closed.** `security.log` now sanitises every field (`Sanitizer`): CR/LF, ANSI
+  escapes, NUL and Unicode line separators are stripped and the line length is capped, so a crafted
+  username/command/IP can no longer forge extra entries or bloat the file. The configured log file
+  is resolved under the config directory (no traversal).
+- **No off-thread player mutation / JDBC corruption.** Two concurrency defects were fixed:
+  1. The web panel's `link` and `set-password` actions mutated live `User` objects and wrote the
+     database from an HTTP worker thread (racing the server tick). Both now hash/validate
+     synchronously and schedule the mutation on the server thread; Discord ids must be numeric
+     snowflakes (they are embedded in outbound API URLs) and panel query parameters are bounded.
+  2. The single shared JDBC `Connection` was used by the server thread, the IO pool and the panel
+     concurrently, and `User.insert()` toggles `autoCommit` for a two-statement transaction - a
+     statement from another thread could join or roll back that transaction. The connection is now
+     handed out as a serialising proxy (every JDBC call acquires one monitor) and the transaction
+     holds that monitor for its whole duration, which also makes connection replacement during
+     reconnect safe.
+
+### Reliability, leaks & concurrency (audit pass)
+
+- **Premium-verification tracking bounded.** The login-handshake tracking maps (`PENDING`,
+  `HANDLED`) are cleaned on disconnect, but a version whose disconnect hook does not fire could grow
+  them forever (each key holds a connection). They are now size-capped.
+- **Confusable-name index capped.** The lookalike-name index (rebuilt from the registered-name
+  list) is bounded at 200k names so a network with millions of accounts cannot turn a detection aid
+  into a huge cache.
+- **GeoIP hardening.** AURI-parse/runtime failure in one provider no longer aborts the lookup
+  (`RuntimeException` is caught per provider), and the batched resolver dispatches at most 256
+  lookups per flush so a join burst cannot flood the IO pool.
+- **Recovery-code cache eviction.** When the pending email-recovery map is full it now evicts the
+  OLDEST codes instead of clearing every pending code, so a request flood cannot invalidate
+  legitimate users' in-flight codes.
+- **Raw username validation, `Sanitizer` utilities.** Central helpers for log-safe text, username
+  and Discord-id validation, file-name sanitisation and path containment; used by the security log,
+  the join path, the web panel and (below) the importer.
+
+### Business-logic & flow verification (audit pass)
+
+- **18-check in-mod simulation suite.** Added `sanitizer-simulation` (hostile log/username/path
+  inputs), `lobby-packet-policy-simulation` (blocked/allowed matrix for every guarded action and a
+  malformed action) and `concurrency-simulation` (8 threads hammering the rate limiter, session
+  cache and captcha store while asserting no failures, bounded caches and that every generated
+  captcha verifies exactly once). Together with the existing checks the suite now covers hashing,
+  password policy/history, rate limiting, landing geometry, the join -> limbo -> guard flow,
+  proxy-gate fail-closed/open, SRG runtime shapes, bounded caches, map rendering, the map give/take
+  lifecycle, map content/QR/captcha, input hardening, packet-gate decisions and concurrency.
+- **Host suite unchanged at 229 checks** (they compile and pass against the patched sources); the
+  Docker matrix still runs every check inside all 17 real (version, loader) servers.
+
+### Performance & memory
+
+- **Per-packet reflection caching.** The packet guards resolved methods with
+  `getClass().getMethod(...)` on every attack/interact/chat/command/click packet - each call
+  walks the class hierarchy and allocates. A bounded `ReflectCache` (keyed by class + name +
+  arity; the key space is bounded by the runtime's packet classes) now serves them.
+- **Lobby fast path.** Per-packet guards first check whether anyone is in the limbo
+  (`Lobby.users.isEmpty()`, O(1)) and return before touching the user cache when nobody is.
+- **Bounded security caches (leaks).** `Honeypot.BANNED`, `AuthCoreServer.PREMIUM_VERIFIED`,
+  `Security.EmailOtp.STORE`, the `AuthIntelligence` per-IP/per-account windows and
+  `McApiManager`'s GeoIP cache are size-bounded with expired-entry pruning, so a botnet
+  rotating IPs or a code-request flood can no longer grow memory without limit.
+- **Connection-state leak fixed.** The `ServerEvents` leave handler now removes its dedupe
+  marker and packet-sequence state in a `finally` block - previously every disconnect leaked
+  one entry keyed by the connection (a strong reference to the player/level) for the whole
+  server uptime.
+- **User cache cleanup.** Deleting an account now also drops its last-access timestamp.
+
+### Fixed
+
+- **Players dying right after login - fall damage from the restore (issue #11).** Two defects
+  in the post-login restore combined into a lethal fall:
+  1. `Lobby.Snapshot.getGroundBelow` could never return a landing surface - the loop only
+     descended while the block *below* was air and then tested the air block it had just moved
+     into, so the "land airborne players on safe ground" teleport was always a no-op.
+  2. The restore decided whether a player was airborne from vanilla's `Entity#onGround()` flag.
+     That flag is only refreshed by entity movement and incoming move packets, and the unlock
+     teleport bypasses both - while in the limbo the anti-float platform makes it read
+     "on ground", so even the landing attempt was skipped.
+  A player who disconnected mid-air (or while gliding) was therefore put back at their logout
+  position with nothing to stop the fall, and died (lethal fast with Lifesteal-style reduced max
+  health). The restore now derives support from world geometry (collision shapes under the
+  player's bounding-box footprint, including partial blocks and climbables) and the ground
+  resolver actually finds the first safe surface below (skipping tall grass/flowers, stopping at
+  fluids/void). AuthCore's temporary limbo barrier never counts as ground, and if it occupies
+  the restore position it is restored before the teleport so the player cannot be embedded in
+  it. The same support decision is used when picking the limbo anchor position. Covered by new
+  host-suite regression checks (`Safe-landing support geometry`, `Ground-below resolver`).
+
+### Flow & bypass hardening
+
+- **UUID-drift limbo bypass (critical).** On offline-mode servers a case-changed name (or an
+  online/offline switch) gives the same account a different joining UUID. The account is indexed
+  by its stored UUID, but every per-packet limbo guard resolves the user by the joining player's
+  UUID - so all guards saw `user == null` and let an unauthenticated player move, break blocks,
+  chat, run commands and use items freely. `User.connect` now aliases the joining UUID to the
+  account for the session (dropped on leave, replaced on login) and the player-based
+  `User.getUser` overloads fall back to the in-memory name index.
+- **26.x melee-attack bypass (high).** 26.1+ split attacks out of `ServerboundInteractPacket`
+  into `ServerboundAttackPacket`, which no limbo guard covered - an unauthenticated 26.x player
+  could attack players, mobs, item frames and armor stands. The guard now hooks the
+  version-stable `Player#attack` / `ServerPlayer#attack` methods (covering every version,
+  including 26.3 where `ServerPlayer` no longer overrides `attack`), deliberately without a
+  version-specific class in the mixin descriptor - a descriptor naming a class absent on an
+  older endpoint of a range would fail the whole mixin.
+- **Inventory-click bypass (medium).** `allow-item-moving` / `allow-crafting` had no click-layer
+  enforcement; inventory clicks were only incidentally blocked via `Inventory.removeItem` when
+  `allow-item-drop` was off. With item dropping enabled an unauthenticated player could
+  move/equip items and hand-craft. Raw container clicks are now cancelled (with a client resync)
+  while in the limbo unless the config allows it.
+- **Pre-auth premium-flag write (high).** A hybrid-mode client claiming a premium player's name
+  could permanently clear that account's stored online-mode flag (the join path wrote the
+  downgrade before any password check). The downgrade is now in-memory only and is persisted
+  after a successful password login; on online-mode servers an unverified session claiming a
+  stored premium account's name is rejected outright.
+- **"kick-old" concurrent-login policy (high).** It armed the 2-minute account kick cooldown
+  (so the NEW join was kicked too) and left the old session's limbo entry in place, making the
+  new session's lock a no-op and restoring the old position/inventory at login. The old limbo is
+  now released first and the old connection is disconnected without touching account kick state.
+- **Deferred limbo lock (medium).** If the player entity was not resolvable at join, `lock()`
+  returned without restricting the player (an active, non-lobby player reads as authenticated).
+  The lock now retries on the next tick and kicks the session if the entity never resolves.
+- **Password policy / reuse bypass on `/account set-password` (medium).** The command validated a
+  HASH against the complexity rules and compared two independently salted hashes for reuse, so a
+  weak password was always accepted and reuse was always allowed. It now validates the raw
+  password and verifies it against the current hash.
+- **Admin permission fail-open (medium).** `McApiManager.hasForSource` treated an unresolvable
+  command source as console and allowed it. The console/player decision now uses the same
+  multi-candidate accessors as `resolvePlayer` (their names differ between Mojang-mapped, SRG and
+  intermediary runtimes - a single Mojang name such as `getEntity` silently denied the CONSOLE on
+  every production runtime): an existing accessor that reports no player is the console, a
+  resolvable player goes through the normal permission check, and only a runtime where no accessor
+  resolves at all (SRG on Forge 1.16-1.18) keeps the legacy fail-open so admins can still use the
+  console there.
+- **Rate-limiter global lockout DoS (medium).** Once 10 000 live windows existed, every caller
+  was rate-limited until they expired (a botnet could block all joins/logins). The oldest window
+  is evicted instead, while per-key limits still apply.
+- **Web panel off-thread player mutation (medium).** `unlock`, `delete`, `kick`, `logout` and
+  config reload ran on the HTTP worker thread and mutated live player state (teleport, inventory,
+  player-list removal, global config) concurrently with the server tick. They are now scheduled
+  onto the server thread.
+- **Web panel CORS (medium).** Every response carried `Access-Control-Allow-Origin: *`, letting
+  any page (or DNS rebinding to 127.0.0.1) read the admin API once the token leaked. CORS headers
+  are now only returned for a same-origin request.
+- **Honeypot / IP rules join-path stall (medium).** `IpRules.isDenied` (server thread, every
+  join) shared a monitor with the file-I/O `IpRules.load()`, so a port scanner hitting the
+  honeypot stalled joins. Rules are now an immutable copy-on-write snapshot; honeypot bans are
+  deduped per IP.
+- **Redis config overrides persisted to disk (medium).** Runtime overrides were written into the
+  local config files, letting anyone with Redis write access permanently rewrite the server's
+  security config. Overrides are runtime-only now and local config is never overwritten while
+  they are active.
+- **Broken config file silently replaced (medium).** A section file that failed to parse fell
+  back to defaults and was then overwritten by the save. A parse failure now backs the file up
+  and skips the save.
+- **Legacy MD5 hashes could never verify (low).** `md5` was implemented as SHA-256, so imported
+  32-hex MD5 hashes (inferred as `md5`) never authenticated. Real MD5 is used for verification.
+- **User cache name index leaked (low).** The lowercase-name index was not pruned with the user
+  cache, pinning evicted accounts in memory on large databases.
+- **Proxy `block-unauthenticated` could never be satisfied (high).** The gate ran on the proxy's
+  login event, before any backend - but the session it checked is only written after an in-game
+  login the gate had already blocked. The gate now runs when a player connects to a backend
+  (`ServerPreConnectEvent` / `ServerConnectEvent`), is satisfied by the backend `AUTH_CHANGED`
+  interop session cache (no Redis round-trip needed) or Redis, sends unauthenticated players to
+  the new `auth-server` (initial connect is redirected there; transfers to game servers are
+  blocked), and only falls back to fail-closed Redis handling when no session can be confirmed.
+- **26.3 signed-command packet gate (low).** Added the packet-level lobby command gate for
+  `handleSignedChatCommand` (1.19.1+), matching the unsigned handler.
+- **Item-drop guard on 26.3 (low).** 26.3 replaced the drop ownership boolean with a `Prediction`
+  enum, so the old `drop(ItemStack,ZZ)` guard silently missed there. Instead of adding a
+  descriptor naming the 26.3-only class, the drop key is now blocked at the stable packet level
+  (`handlePlayerAction` / `DROP_ITEM` / `DROP_ALL_ITEMS`), which covers every version;
+  `Inventory.removeItem` stays the second backstop.
+- **Portal travel guard (low).** An unauthenticated player can no longer be carried to another
+  dimension by a portal. The driver was renamed from `handleNetherPortal` to `handlePortal` in the
+  1.20 portal refactor, so the target is Stonecutter-scoped per era (`< 1.20` / `>= 1.20`) - listing
+  both names in one mixin makes the annotation processor warn that one of them cannot be remapped
+  for every variant. AuthCore's own teleports are unaffected.
+- **Web panel Discord link stored the link CODE as the Discord ID (medium).** The bot must now
+  send the real Discord ID alongside the code, and the code-completion branch is handled before
+  the UUID requirement - the Discord bot knows the code, not the Minecraft UUID, so the documented
+  bot flow previously could not reach it at all. Direct-ID linking is unchanged. Accounts are no
+  longer bound to a bogus ID that broke role sync.
+- **SSO `trustVanilla` had no address binding (medium).** With SSO enabled and `trust-vanilla`,
+  a client claiming another player's UUID while an SSO ticket existed could authenticate without
+  a password. The session is now only trusted when the joining IP matches the stored session IP.
+- **Web panel password resets bypassed the password policy (low).** Panel resets and admin
+  `/authcore set-password` now enforce the configured complexity rules (the policy check is now
+  player-independent), and the previous password is kept in history.
+- **Password history was documented but never implemented (low).** `password-rules.history-size`
+  now works: the previous password is recorded before every change (player command, admin reset,
+  web panel) in a new `PASSWORD_HISTORY` table and blocked from reuse.
+- **Honeypot bind address was hard-coded (low).** Added `session.honeypot.host` (default
+  `0.0.0.0`) so operators can pin the honeypot to a single interface.
+- **Docker host harness now exercises real code paths (test infra).** Every container boots with
+  the web panel and honeypot enabled from a pre-created config and asserts: the password-history
+  schema + index exist in the boot-created database, the honeypot bind-address key is generated,
+  web-panel auth (401 without token / 200 with), no wildcard CORS grant for cross-origin requests,
+  the Discord link code without a real `discordId` is rejected, the in-mod `/authcore simulate`
+  suite passes, and the honeypot bans the source IP exactly once (dedupe). Every boot also fails
+  on mixin application warnings/errors, so the per-version mixin targets are exercised on all 9
+  endpoints. The matrix now covers **17 (version, loader) combinations**: Forge 1.18.2 is no longer
+  skipped (it was a stale blanket skip - the only blocker was Forge's own benign "missing
+  mods.toml" log line, now allowlisted). The two remaining SKIPs are genuine platform limits, not
+  harness gaps: Forge 1.16.5/1.17.1 cannot run this Java-17 jar (Forge itself does not support
+  Java 17 before 1.18) and NeoForge does not exist for 1.19.4 (it starts at 1.20.1).
+- **Command dispatch via Mojang-name reflection (low).** `Compat.runCommand` reflected on
+  `performPrefixedCommand`/`performCommand` by their Mojang names, which never resolve on
+  intermediary/SRG runtimes - dispatched commands silently did nothing on Fabric/Forge. The player
+  and console helpers now use Stonecutter-gated direct calls (remapped by the build), so they work
+  on every loader/version.
+- **Password hashing failed on Fabric 1.16.5/1.17.1 (critical).** password4j's `SaltGenerator`
+  statically loads an slf4j logger, and those vanilla server bundles ship no slf4j - so every
+  `Encrypter.hash` call died with `NoClassDefFoundError: org/slf4j/LoggerFactory` (registration
+  and login could not work). The Argon2 salt now comes from a plain `SecureRandom` (identical
+  format, no logging dependency), and Redis initialisation catches `Throwable` so a missing
+  slf4j in Jedis can never take the mod down either.
+- **Deleted accounts kept their password history (low).** `User.delete()` removed the account row
+  but left the stored password hashes in `PASSWORD_HISTORY`; deletion now purges them too.
+- **New owner-only `/authcore simulate` self-test (feature).** Runs the built-in simulation suite
+  inside the live server - real hash/verify with the configured algorithm, a live `PASSWORD_HISTORY`
+  round-trip (insert, trim, newest-first, cleanup), rate-limiter eviction, the landing/support
+  geometry against dummy block columns and the config mapping, a join -> limbo -> guard session
+  simulation (dummy user + real summoned entity targets), a proxy-gate simulation (dummy proxy
+  config, session cache, fail-closed/fail-open), an SRG/Forge runtime simulation (dummy command
+  sources whose mapping names are unreachable), a real map-image render check, a map give/take
+  lifecycle simulation (dummy inventory) and a map-content simulation (QR codes rendered through
+  the map palette and sampled back module-by-module, captcha glyphs sampled cell-by-cell, the
+  captcha state machine and every input bound) - 18 checks, and it prints a PASS/FAIL report.
+  Disabled by default (`commands.admin.simulate.enabled=false`), requires OP level 4 or the
+  `authcore.admin.simulate` node, and is never exposed to normal players.
+
+### Map image rendering (new)
+
+- **128x128 images on in-game maps (feature).** `/authcore map-image show <player>` renders any
+  RGB image (QR codes, captcha/2FA art, server banners) onto a real `filled_map` the player carries;
+  `/authcore map-image clear <player>` takes it back. Controlled by `lobby.map-image.enabled`
+  (default `true`) and `lobby.map-image.max-per-minute` (default `4`).
+- **The image actually renders.** A filled map whose id has no server-side `MapItemSavedData` falls
+  back to the client's default terrain map ("it only shows my location"), so the display creates the
+  map data first, writes all 16384 colour bytes, and replaces it with a **locked** copy - an
+  unlocked map is re-coloured from world terrain by the vanilla updater the moment it is carried,
+  which erased the image.
+- **Palette discovered at runtime, by shape.** The colour table is resolved from the live
+  `MapColor`/`MaterialColor` classes instead of a hard-coded list, because the class was renamed in
+  1.19.4 (`MaterialColor` -> `MapColor`), the colour accessor was renamed in 1.21.2
+  (`calculateRGBColor` -> `calculateARGBColor`), the packed-id helpers changed type, and 1.16.5/1.17.1
+  have no `Brightness` enum at all (their palette is rebuilt from the `COLORS` table and the vanilla
+  shade multipliers). A 32x32x32 nearest-colour LUT keeps rendering O(1) per pixel.
+- **Lifecycle is leak- and dupe-free.** The map is removed from any slot (offhand included) and the
+  replaced item is restored into the slot the map just left, so a full inventory cannot swallow it;
+  the item is only restored when the map is still carried, so dying/respawning in between can never
+  duplicate it. Disconnects clear the display before player data is saved, and map ids are persisted
+  to `config/authcore/map-images.txt` (bounded) so a crash/mid-display disconnect is cleaned up on
+  the next join.
+- **QR codes, generated in-mod (feature).** A dependency-free ISO/IEC 18004 encoder (`QrCode`: byte
+  mode, versions 1-10, all four error-correction levels, ECI/UTF-8 for non-ASCII payloads, all eight
+  masks with penalty-based selection) makes `/authcore map-image qr <player> <text>` render a
+  genuinely scannable code (Discord invite, `otpauth://` 2FA enrolment, docs link) on a 128x128 map.
+  Payloads that would render below two pixels per module are rejected instead of producing an
+  unscannable image. The encoder was cross-checked against two independent decoders (zxing-cpp:
+  960/960 pinned version/ECC/mask matrices and all real-world/UTF-8 payloads decoded to the exact
+  input; OpenCV agreed on every matrix it could detect) and the matrices are pinned as regression
+  hashes in the in-mod suite. The payload is never logged; note that a payload passed on the
+  command line can still appear in server command logs, so 2FA enrolment secrets should be sent
+  through the server-side `MapImageService.showQr` API instead.
+- **Map captchas (feature).** `/authcore map-image captcha <player>` shows a random 6-character code
+  (unambiguous alphabet, `SecureRandom`) rendered as large glyphs, and
+  `map-image captcha-verify <player> <code>` checks the answer. Only a SHA-256 digest of the code is
+  kept in memory (never logged, never echoed into chat), verification is single-use, expires after
+  2 minutes, allows 3 guesses and compares in constant time; state is bounded at 4096 challenges and
+  a pending challenge dies with its map.
+- **No new attack surface.** The whole map-content path (encoding, glyph rendering, palette
+  lookups) is pure computation over length-bounded strings and int arrays: no file, network, process
+  or reflection access, no deserialisation, and no client-controlled input - the only inputs are an
+  admin command or server-side API call. All inputs are bounded and validated (payload size, QR
+  module scale, label charset/length, captcha answer normalisation) and failures throw
+  `IllegalArgumentException` instead of allocating or partially rendering. The new in-mod
+  `map-content-simulation` check renders QR codes and captcha text through the real palette,
+  samples every module/glyph cell back, exercises the captcha state machine and asserts the input
+  bounds, so the pipeline is verified on every endpoint/loader.
 
 ---
 

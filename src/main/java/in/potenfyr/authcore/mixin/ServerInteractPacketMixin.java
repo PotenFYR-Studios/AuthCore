@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import in.potenfyr.authcore.events.EntityEvents;
 import in.potenfyr.authcore.models.User;
 import net.minecraft.server.level.ServerPlayer;
@@ -44,6 +46,7 @@ abstract class ServerInteractPacketMixin {
       net.minecraft.network.protocol.game.ServerboundInteractPacket packet, CallbackInfo ci) {
 
     if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
@@ -74,12 +77,19 @@ abstract class ServerInteractPacketMixin {
     if (blocked) ci.cancel();
   }
 
+  // NOTE: 26.1+ split melee attacks out of ServerboundInteractPacket into a dedicated
+  // ServerboundAttackPacket, which this packet never sees. That path is guarded at the
+  // version-stable ATTACK METHOD level (PlayerAttackMixin / ServerPlayerMixin) instead of here:
+  // a mixin descriptor naming the 26.x-only packet class could fail to apply on 26.1/26.2 if the
+  // class were absent there, and mixin descriptors must only reference classes present across the
+  // whole supported range.
+
   /** Reads the enum name of the packet's action ("ATTACK" / "INTERACT" / "INTERACT_AT"). */
   private static String readActionKind(Object packet) {
     try {
-      Object action = packet.getClass().getMethod("getAction").invoke(packet);
+      Object action = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getAction").invoke(packet);
       if (action == null) return null;
-      Object type = action.getClass().getMethod("getType").invoke(action);
+      Object type = in.potenfyr.authcore.util.ReflectCache.method(action.getClass(), "getType").invoke(action);
       if (type instanceof Enum<?> enumType) {
         String name = enumType.name();
         if ("INTERACT_AT".equals(name)) return "INTERACT"; // same rules, hit-position variant
@@ -95,9 +105,8 @@ abstract class ServerInteractPacketMixin {
   private Object readTargetEntity(Object packet) {
     try {
       Object result =
-          packet
-              .getClass()
-              .getMethod("getEntity", net.minecraft.world.level.Level.class)
+          ReflectCache.method(
+                  packet.getClass(), "getEntity", net.minecraft.world.level.Level.class)
               .invoke(packet, in.potenfyr.authcore.compat.Compat.playerLevel(player));
       if (result instanceof net.minecraft.world.entity.Entity entity) return entity;
     } catch (ReflectiveOperationException | RuntimeException ignored) {

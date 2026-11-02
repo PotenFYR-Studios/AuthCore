@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,6 +59,15 @@ abstract class ServerPremiumVerificationMixin {
   /** How long to wait for the client's key packet before falling back to offline. */
   private static final long HANDSHAKE_TIMEOUT_MS = 15_000L;
 
+  /** Safety cap: the disconnect hook removes both entries, but a forged/aborted login must never
+   *  let the tracking maps grow without bound if that hook does not fire on some version. */
+  private static final int MAX_TRACKED_HANDSHAKES = 4096;
+
+  private static void boundTracking() {
+    if (HANDLED.size() > MAX_TRACKED_HANDSHAKES) HANDLED.clear();
+    if (PENDING.size() > MAX_TRACKED_HANDSHAKES) PENDING.clear();
+  }
+
   /**
    * When premium verification is wanted (offline server + premium auto-login) and the
    * client sent an offline-UUID hello: start the encryption handshake and hold the vanilla
@@ -84,6 +95,7 @@ abstract class ServerPremiumVerificationMixin {
       if (!in.potenfyr.authcore.compat.Compat.loginStartHandshake(this)) return;
 
       PENDING.put(this, packet);
+      boundTracking();
       ci.cancel();
 
       // Watchdog: if the client never answers the handshake, join as a normal offline player.
@@ -122,6 +134,7 @@ abstract class ServerPremiumVerificationMixin {
       if (digest == null) {
         // Handshake failed (bad nonce) - continue as offline
         HANDLED.add(handler);
+        boundTracking();
         in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
         return;
       }
@@ -154,6 +167,7 @@ abstract class ServerPremiumVerificationMixin {
               // Resume the vanilla offline join (same hello packet, state reset to HELLO).
               // Mark handled FIRST so the replayed hello never re-arms the handshake.
               HANDLED.add(handler);
+              boundTracking();
               in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
             }
           });
@@ -161,6 +175,7 @@ abstract class ServerPremiumVerificationMixin {
       AuthCoreServer.LOGGER.debug(
           false, "Online-mode verification failed - continuing as offline:", err);
       HANDLED.add(this);
+      boundTracking();
       in.potenfyr.authcore.compat.Compat.loginReplayHello(this, hello);
     }
   }
@@ -180,6 +195,7 @@ abstract class ServerPremiumVerificationMixin {
     AuthCoreServer.LOGGER.debug(
         true, "Client did not answer the encryption handshake - joining as offline player.");
     HANDLED.add(handler);
+        boundTracking();
     in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
   }
 
@@ -200,7 +216,7 @@ abstract class ServerPremiumVerificationMixin {
       Object connection = connection();
       if (connection == null) return null;
       Object address =
-          connection.getClass().getMethod("getRemoteAddress").invoke(connection);
+          in.potenfyr.authcore.util.ReflectCache.method(connection.getClass(), "getRemoteAddress").invoke(connection);
       return address instanceof java.net.InetSocketAddress isa
           ? isa.getAddress()
           : null;
@@ -222,11 +238,11 @@ abstract class ServerPremiumVerificationMixin {
 
   private static String readHelloName(ServerboundHelloPacket packet) {
     try {
-      Object profile = packet.getClass().getMethod("getProfile").invoke(packet);
+      Object profile = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
       if (profile != null) {
         for (String m : new String[] {"name", "getName"}) {
           try {
-            Object v = profile.getClass().getMethod(m).invoke(profile);
+            Object v = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
             if (v instanceof String s) return s;
           } catch (ReflectiveOperationException ignored) {
             // next name
@@ -235,7 +251,7 @@ abstract class ServerPremiumVerificationMixin {
       }
       for (String m : new String[] {"name", "getName"}) {
         try {
-          Object v = packet.getClass().getMethod(m).invoke(packet);
+          Object v = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
           if (v instanceof String s) return s;
         } catch (ReflectiveOperationException ignored) {
           // next name
@@ -249,11 +265,11 @@ abstract class ServerPremiumVerificationMixin {
 
   private static UUID readHelloId(ServerboundHelloPacket packet) {
     try {
-      Object profile = packet.getClass().getMethod("getProfile").invoke(packet);
+      Object profile = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
       if (profile != null) {
         for (String m : new String[] {"id", "getId"}) {
           try {
-            Object v = profile.getClass().getMethod(m).invoke(profile);
+            Object v = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
             if (v instanceof UUID u) return u;
           } catch (ReflectiveOperationException ignored) {
             // next name
@@ -262,7 +278,7 @@ abstract class ServerPremiumVerificationMixin {
       }
       for (String m : new String[] {"profileId", "getProfileId"}) {
         try {
-          Object v = packet.getClass().getMethod(m).invoke(packet);
+          Object v = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
           if (v instanceof UUID u) return u;
         } catch (ReflectiveOperationException ignored) {
           // next name

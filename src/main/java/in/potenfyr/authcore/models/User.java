@@ -325,6 +325,13 @@ public class User {
           return last == null || last < cutoff;
         });
     lastAccess.entrySet().removeIf(e -> !users.containsKey(e.getKey()));
+    // The lowercase-name index must be pruned with the cache too: stale entries would pin every
+    // evicted User in memory (unbounded growth on large databases) and keep a removed account
+    // reachable by name.
+    java.util.Set<User> live =
+        java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    live.addAll(users.values());
+    byLowerName.entrySet().removeIf(e -> e.getValue() == null || !live.contains(e.getValue()));
   }
 
   /**
@@ -339,12 +346,33 @@ public class User {
 
   /** O(1) hot-path lookup from the player object (no name string allocation). */
   public static @Nullable User getUser(net.minecraft.server.level.ServerPlayer player) {
-    return player == null ? null : getUser(player.getUUID());
+    if (player == null) return null;
+    User user = getUser(player.getUUID());
+    if (user != null) return user;
+    // Defensive fallback for a UUID-drift join that was not aliased (see connect()): resolve by
+    // the player's own name from the IN-MEMORY index only - never a database call on a packet
+    // thread. An online player's account is always cached, so the limbo guards still fire.
+    return findCachedByLowerName(player.getName().getString());
+  }
+
+  /** In-memory, case-insensitive username lookup (never touches the database). */
+  private static @Nullable User findCachedByLowerName(String username) {
+    if (username == null) return null;
+    String lower = username.toLowerCase(Locale.ROOT);
+    User indexed = byLowerName.get(lower);
+    if (indexed != null && lower.equals(indexed.lowerName)) return indexed;
+    for (User candidate : users.values())
+      if (candidate != null && lower.equals(candidate.lowerName)) return candidate;
+    return null;
   }
 
   /** O(1) hot-path lookup from a base player entity (mixin guards on Player). */
   public static @Nullable User getUser(net.minecraft.world.entity.player.Player player) {
-    return player == null ? null : getUser(player.getUUID());
+    if (player == null) return null;
+    User user = getUser(player.getUUID());
+    if (user != null) return user;
+    // See the ServerPlayer overload: UUID-drift fallback, in-memory only.
+    return findCachedByLowerName(player.getName().getString());
   }
 
   /**
@@ -433,6 +461,16 @@ public class User {
   }
 
   /**
+   * Drops the join-time uuid alias created by {@link #connect} for a drifted joining uuid. Called
+   * on leave: the account must stay reachable only through its canonical (stored) uuid, otherwise
+   * a deleted/evicted account could remain resolvable under a stale joining uuid.
+   */
+  public void releaseJoinUuid(UUID joinedUuid) {
+    if (joinedUuid == null || joinedUuid.equals(this.uuid)) return;
+    User.users.remove(joinedUuid, this);
+  }
+
+  /**
    * Register user's connection details within minecraft server.
    *
    * @param connection the server play network handler
@@ -453,6 +491,24 @@ public class User {
         this.country.get());
 
     this.isActive = true;
+
+    // UUID drift: on offline-mode servers a case-changed name (or an online<->offline switch)
+    // gives the SAME account a DIFFERENT joining UUID. The account is indexed by its stored
+    // uuid, but every per-packet limbo guard resolves the user by the JOINING player's uuid
+    // (User.getUser(player)) - without an alias they would all see "user == null" and skip,
+    // letting an unauthenticated player roam free. Alias the joining uuid for this session; it
+    // is dropped on leave, or replaced by remapUuidKey() when the login succeeds.
+    UUID joinedUuid = connection.player.getUUID();
+    if (joinedUuid != null && !joinedUuid.equals(this.uuid)) {
+      User previous = User.users.putIfAbsent(joinedUuid, this);
+      if (previous == null)
+        AuthCoreServer.LOGGER.debug(
+            false,
+            "{} | joining uuid {} differs from the stored account uuid {} - aliased for this session",
+            this.username,
+            joinedUuid,
+            this.uuid);
+    }
 
     // GeoIP lookup runs asynchronously off the main thread (and is skipped entirely for
     // private/localhost addresses - no external calls for LAN servers). The country shown
@@ -816,6 +872,26 @@ public class User {
   }
 
   /**
+   * Records the CURRENT password hash in the account's password history. Must be called right
+   * BEFORE a password change so the previous password can never be reused
+   * ({@code password-rules.history-size}; 0 disables history).
+   */
+  public void recordPasswordHistory() {
+    int keep = AuthCoreServer.config != null ? AuthCoreServer.config.passwordRules.historySize : 0;
+    if (keep <= 0 || this.password == null) return;
+    db.insertPasswordHistory(this.uuid, this.password, this.passwordEncryption, keep);
+  }
+
+  /** Whether the candidate password matches one of the last N stored passwords (history). */
+  public boolean isPasswordInHistory(String candidate) {
+    int keep = AuthCoreServer.config != null ? AuthCoreServer.config.passwordRules.historySize : 0;
+    if (keep <= 0 || candidate == null) return false;
+    for (String[] row : db.fetchPasswordHistory(this.uuid, keep))
+      if (Encrypter.verify(candidate, row[0], row[1])) return true;
+    return false;
+  }
+
+  /**
    * Delete user from cache and database! Callers are responsible for kicking/disconnecting the
    * player first if needed.
    *
@@ -825,9 +901,16 @@ public class User {
   public void delete(String reason, boolean delFromServer) {
     if (this.isInLobby.get()) this.lobby.unlock();
 
-    User.users.remove(this.uuid);
+    // Remove every cache key pointing at this user - the canonical uuid plus any join-time uuid
+    // alias created by connect() for a drifted (offline-mode) joining uuid. Leaving an alias
+    // behind would keep a deleted account resolvable by the per-packet guards.
+    User.users.entrySet().removeIf(e -> e.getValue() == this);
     if (this.lowerName != null) byLowerName.remove(this.lowerName, this);
     db.remove(this);
+    // Account deletion must also purge the stored password hashes - leaving them behind would
+    // keep credential material for an account the admin (or the player) asked to delete.
+    db.deletePasswordHistory(this.uuid);
+    lastAccess.remove(this.uuid);
 
     if (delFromServer && this.server.get() != null && this.player.get() != null) {
       this.server.get().getPlayerList().remove(this.player.get());
@@ -836,6 +919,33 @@ public class User {
     } else
       AuthCoreServer.LOGGER.debug(
           true, "{} has been deleted from the database & caches for '{}'", this.username, reason);
+  }
+
+  /**
+   * Self-test hook for the built-in {@code /authcore simulate} command: exercises the
+   * PASSWORD_HISTORY table on the LIVE database (insert, trim, newest-first read, cleanup) so a
+   * broken schema/migration is detected on the real server instead of only in unit tests.
+   */
+  public static boolean selfTestPasswordHistory(String algorithm) {
+    UUID id = UUID.nameUUIDFromBytes("authcore-selftest-history".getBytes());
+    try {
+      for (int i = 0; i < 5; i++)
+        db.insertPasswordHistory(id, Encrypter.hash(algorithm, "selftest-" + i), algorithm, 3);
+      java.util.List<String[]> rows = db.fetchPasswordHistory(id, 10);
+      boolean ok =
+          rows.size() == 3
+              && !rows.isEmpty()
+              && Encrypter.verify("selftest-4", rows.get(0)[0], rows.get(0)[1]);
+      db.deletePasswordHistory(id);
+      return ok && db.fetchPasswordHistory(id, 10).isEmpty();
+    } catch (Throwable err) {
+      try {
+        db.deletePasswordHistory(id);
+      } catch (Throwable ignored) {
+        // cleanup is best-effort
+      }
+      return false;
+    }
   }
 
   /** Database Manager for users. */
@@ -884,12 +994,105 @@ public class User {
     }
 
     /**
+     * The most recent password hashes for an account (newest first), bounded by {@code limit}.
+     * Used by the password-history check ({@code password-rules.history-size}).
+     */
+    public static synchronized java.util.List<String[]> fetchPasswordHistory(UUID uuid, int limit) {
+      java.util.List<String[]> rows = new java.util.ArrayList<>();
+      if (uuid == null || limit <= 0) return rows;
+      try {
+        if (!Database.connect()) return rows;
+        try (PreparedStatement statement =
+            Database.connection.prepareStatement(
+                "SELECT passwordHash, algorithm FROM PASSWORD_HISTORY WHERE uuid = ? ORDER BY ts DESC, id DESC LIMIT ?")) {
+          statement.setString(1, uuid.toString());
+          statement.setInt(2, limit);
+          try (ResultSet rs = statement.executeQuery()) {
+            while (rs.next())
+              rows.add(new String[] {rs.getString("passwordHash"), rs.getString("algorithm")});
+          }
+        }
+      } catch (SQLException err) {
+        AuthCoreServer.LOGGER.debug(null, "Failed to read the password history:", err);
+      }
+      return rows;
+    }
+
+    /** Removes every stored password hash for an account (account deletion / self-test cleanup). */
+  public static synchronized void deletePasswordHistory(UUID uuid) {
+    if (uuid == null) return;
+    try {
+      if (!Database.connect()) return;
+      try (PreparedStatement statement =
+          Database.connection.prepareStatement("DELETE FROM PASSWORD_HISTORY WHERE uuid = ?")) {
+        statement.setString(1, uuid.toString());
+        statement.execute();
+      }
+    } catch (SQLException err) {
+      AuthCoreServer.LOGGER.debug(null, "Failed to clear the password history:", err);
+    }
+  }
+
+  /** Records a password hash in the history and trims it to the newest {@code keep} rows. */
+    public static synchronized void insertPasswordHistory(
+        UUID uuid, String hash, String algorithm, int keep) {
+      if (uuid == null || hash == null || keep <= 0) return;
+      try {
+        if (!Database.connect()) return;
+        try (PreparedStatement statement =
+            Database.connection.prepareStatement(
+                "INSERT INTO PASSWORD_HISTORY (uuid, passwordHash, algorithm, ts) VALUES (?,?,?,?)")) {
+          statement.setString(1, uuid.toString());
+          statement.setString(2, hash);
+          statement.setString(3, algorithm);
+          statement.setLong(4, System.currentTimeMillis());
+          statement.execute();
+        }
+        // Trim to the newest `keep` rows. The ids are read first because MySQL rejects LIMIT
+        // inside an IN subquery.
+        java.util.List<Long> keepIds = new java.util.ArrayList<>();
+        try (PreparedStatement statement =
+            Database.connection.prepareStatement(
+                "SELECT id FROM PASSWORD_HISTORY WHERE uuid = ? ORDER BY ts DESC, id DESC LIMIT ?")) {
+          statement.setString(1, uuid.toString());
+          statement.setInt(2, keep);
+          try (ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) keepIds.add(rs.getLong(1));
+          }
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (int i = 0; i < keepIds.size(); i++) placeholders.append(i == 0 ? "?" : ",?");
+        String sql =
+            keepIds.isEmpty()
+                ? "DELETE FROM PASSWORD_HISTORY WHERE uuid = ?"
+                : "DELETE FROM PASSWORD_HISTORY WHERE uuid = ? AND id NOT IN ("
+                    + placeholders
+                    + ")";
+        try (PreparedStatement statement = Database.connection.prepareStatement(sql)) {
+          statement.setString(1, uuid.toString());
+          for (int i = 0; i < keepIds.size(); i++) statement.setLong(i + 2, keepIds.get(i));
+          statement.execute();
+        }
+      } catch (SQLException err) {
+        AuthCoreServer.LOGGER.debug(null, "Failed to record the password history:", err);
+      }
+    }
+
+    /**
      * Insert user data with the help of username in database! Uses the dialect-aware upsert SQL
      * (works on SQLite, MySQL and PostgreSQL).
      *
      * @param user the user to insert
      */
     public static synchronized void insert(User user) {
+      // Hold the JDBC monitor for the whole transaction: auto-commit is toggled on the shared
+      // connection, so another thread's statements must never interleave with (or join) it.
+      synchronized (Database.monitor()) {
+        insertLocked(user);
+      }
+    }
+
+    private static void insertLocked(User user) {
       java.sql.Connection conn = null;
       boolean previousAutoCommit = true;
       boolean transactional = false;

@@ -12,6 +12,7 @@ import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -65,5 +66,41 @@ public abstract class EntityMixin {
         ci.cancel();
       }
     }
+  }
+
+  /**
+   * Portal travel guard: an unauthenticated player must never be carried to another dimension by
+   * a portal (the configured limbo anchor can sit in or next to one). This hooks the per-tick
+   * portal driver - AuthCore's own teleports go through {@code teleportTo}/{@code teleport}, not
+   * this method, so the limbo teleport and the post-login restore are unaffected.
+   *
+   * <p>The driver was renamed from {@code handleNetherPortal} to {@code handlePortal} in the
+   * 1.20 portal refactor, so each era's build must target the name its mappings actually contain:
+   * a single mixin listing both names makes the annotation processor warn that one of them
+   * cannot be remapped for every variant.
+   */
+  /*? if < 1.20 {*/
+  /*@Inject(method = "handleNetherPortal()V", at = @At("HEAD"), cancellable = true, require = 0)
+  private void authCore$blockNetherPortal(CallbackInfo ci) {
+    if (blockLobbyPortal()) ci.cancel();
+  }
+  *//*?} else {*/
+  @Inject(method = "handlePortal()V", at = @At("HEAD"), cancellable = true, require = 0)
+  private void authCore$blockPortal(CallbackInfo ci) {
+    if (blockLobbyPortal()) ci.cancel();
+  }
+  /*?}*/
+
+  /** True when this entity is a player currently locked in the limbo. */
+  @Unique
+  private boolean blockLobbyPortal() {
+    if (!((Object) this instanceof Player player)) return false;
+    User user = User.getUser(player);
+    if (user != null && user.isInLobby.get()) {
+      AuthCoreServer.LOGGER.debug(
+          false, "{} | portal travel blocked in the limbo", user.username);
+      return true;
+    }
+    return false;
   }
 }

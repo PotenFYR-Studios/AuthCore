@@ -39,9 +39,13 @@ public final class RateLimiter {
     long now = System.currentTimeMillis();
 
     if (!counters.containsKey(key) && counters.size() >= MAX_ENTRIES) {
-      purgeIfLarge(now);
-      // Do not erase active lockouts when an attacker churns through new keys.
-      if (counters.size() >= MAX_ENTRIES) return false;
+      purgeExpired(now);
+      if (counters.size() >= MAX_ENTRIES) {
+        // Still full of LIVE windows: evict the oldest one and keep admitting the new key.
+        // Failing every caller closed here let a botnet with 10k distinct source IPs rate-limit
+        // every join/login/register on the server until the windows expired (an auth DoS).
+        evictOldest();
+      }
     }
     Window w = counters.computeIfAbsent(key, k -> new Window(now, windowMs));
     synchronized (w) {
@@ -57,11 +61,35 @@ public final class RateLimiter {
     return true;
   }
 
+  /** Number of tracked windows (self-test/diagnostics; never exposes keys). */
+  public static int trackedKeys() {
+    return counters.size();
+  }
+
   /** Removes expired windows when the map grows too large (bounds memory). */
   private static void purgeIfLarge(long now) {
     if (counters.size() < MAX_ENTRIES || now - lastPruneMs < 1000) return;
     lastPruneMs = now;
+    purgeExpired(now);
+  }
+
+  /** Drops every window whose time frame has already elapsed. */
+  private static void purgeExpired(long now) {
     counters.entrySet().removeIf(e -> now - e.getValue().startMs >= e.getValue().windowMs);
+  }
+
+  /** Evicts the window that started longest ago (bounded-memory fallback). */
+  private static void evictOldest() {
+    String oldestKey = null;
+    long oldestStart = Long.MAX_VALUE;
+    for (Map.Entry<String, Window> entry : counters.entrySet()) {
+      long start = entry.getValue().startMs;
+      if (start < oldestStart) {
+        oldestStart = start;
+        oldestKey = entry.getKey();
+      }
+    }
+    if (oldestKey != null) counters.remove(oldestKey);
   }
 
   private static final class Window {

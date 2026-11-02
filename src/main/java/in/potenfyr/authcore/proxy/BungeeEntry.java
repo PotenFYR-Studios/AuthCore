@@ -1,6 +1,7 @@
 package in.potenfyr.authcore.proxy;
 
 import java.nio.file.Path;
+import java.util.UUID;
 import net.md_5.bungee.api.CommandSender;
 import net.md_5.bungee.api.chat.TextComponent;
 import net.md_5.bungee.api.event.PluginMessageEvent;
@@ -32,7 +33,10 @@ public final class BungeeEntry extends Plugin implements Listener {
         getLogger().info("AuthCore proxy mode enabled (BungeeCord detected) - config: config/authcore-proxy.properties");
 
       if (config.blockUnauthenticated)
-        getLogger().info("AuthCore proxy-side auth ACTIVE - unauthenticated players are blocked before backend connect.");
+        getLogger().info(
+            "AuthCore proxy-side auth ACTIVE - unauthenticated players may only reach auth-server '"
+                + (config.authServer.isBlank() ? "(first landing server)" : config.authServer)
+                + "' (checked on backend connect).");
 
       getProxy().getPluginManager().registerCommand(this, new AuthCoreStatusCommand());
     } catch (Throwable err) {
@@ -40,31 +44,65 @@ public final class BungeeEntry extends Plugin implements Listener {
     }
   }
 
+  /**
+   * Blocks unauthenticated players from GAME servers.
+   *
+   * <p>Runs on {@code ServerConnectEvent} (the player is about to be sent to a backend), NOT on
+   * {@code LoginEvent}: a login-time gate can never be satisfied because the player must first
+   * reach a backend to run /login or /register, and only then does the backend broadcast the
+   * AUTH_CHANGED message that feeds the proxy session cache. Unauthenticated players are
+   * redirected to the configured auth server on their initial join, and blocked from transferring
+   * to any other server until they authenticate.
+   */
   @EventHandler
-  public void onLogin(net.md_5.bungee.api.event.LoginEvent event) {
+  public void onServerConnect(net.md_5.bungee.api.event.ServerConnectEvent event) {
     if (config == null || !config.enabled || !config.blockUnauthenticated) return;
     try {
-      var connection = event.getConnection();
-      if (connection == null || connection.getUniqueId() == null) {
-        // Cannot establish WHO is connecting - fail CLOSED when the gate is on.
-        event.setCancelReason(new net.md_5.bungee.api.chat.TextComponent(config.kickMessage));
-        event.setCancelled(true);
-        if (config.logEvents) getLogger().warning("AuthCore proxy auth: connection has no UUID - denying (fail-closed).");
+      var player = event.getPlayer();
+      if (player == null) return;
+
+      var target = event.getTarget();
+      String targetName = target != null ? target.getName() : null;
+
+      // The auth/hub server is always reachable - that is where /login and /register live.
+      if (ProxyAuthGate.isAuthServer(targetName, config)) return;
+
+      UUID uuid = player.getUniqueId();
+      if (uuid != null
+          && ProxyAuthGate.hasValidSession(uuid, config, msg -> getLogger().warning(msg))) {
+        return; // authenticated - free to move
+      }
+
+      boolean initial =
+          event.getReason() == net.md_5.bungee.api.event.ServerConnectEvent.Reason.JOIN_PROXY;
+      if (initial) {
+        // Never disconnect the player here - send them to the auth server when one is configured,
+        // otherwise let them stay on the first server they landed on.
+        if (!config.authServer.isBlank()) {
+          var auth = getProxy().getServerInfo(config.authServer);
+          if (auth != null) {
+            event.setTarget(auth);
+            player.sendMessage(new TextComponent(config.kickMessage));
+            return;
+          }
+          getLogger()
+              .severe(
+                  "AuthCore proxy auth: auth-server '"
+                      + config.authServer
+                      + "' is not a registered BungeeCord server - allowing the initial connect;"
+                      + " fix auth-server in config/authcore-proxy.properties.");
+        }
         return;
       }
 
-      if (!ProxyAuthGate.hasValidSession(connection.getUniqueId(), config, msg -> getLogger().warning(msg))) {
-        event.setCancelReason(new net.md_5.bungee.api.chat.TextComponent(config.kickMessage));
-        event.setCancelled(true);
-      }
+      // A transfer to a game server before authenticating -> stay on the current server.
+      player.sendMessage(new TextComponent(config.kickMessage));
+      event.setCancelled(true);
     } catch (Throwable err) {
-      // Never let a gate bug CRASH the proxy - but an unidentifiable failure must not
-      // open the gate: deny unless the operator explicitly chose fail-open behavior.
-      getLogger().warning("AuthCore proxy auth: gate error - " + err);
-      if (config.failClosed) {
-        event.setCancelReason(new net.md_5.bungee.api.chat.TextComponent(config.kickMessage));
-        event.setCancelled(true);
-      }
+      // Never let a gate bug crash the proxy - but an unidentifiable failure must not open the
+      // gate: deny unless the operator explicitly chose fail-open behavior.
+      getLogger().warning("AuthCore proxy auth: server gate error - " + err);
+      if (config.failClosed) event.setCancelled(true);
     }
   }
 

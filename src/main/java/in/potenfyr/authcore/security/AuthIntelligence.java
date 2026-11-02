@@ -26,6 +26,18 @@ public final class AuthIntelligence {
   // ------------------------------------------------------------------ windows
 
   /** Sliding-window timestamp list (bounded by pruning on access). */
+  /**
+   * Bounds a windowed per-IP/per-account map. A botnet rotating source IPs would otherwise grow
+   * these maps without limit; expired windows are dropped first and a hard cap clears the rest.
+   */
+  private static void boundWindows(
+      Map<?, ? extends Window> map, int max) {
+    if (map.size() <= max) return;
+    long now = System.currentTimeMillis();
+    map.entrySet().removeIf(e -> e.getValue().isEmptyAt(now));
+    if (map.size() > max) map.clear();
+  }
+
   private static final class Window {
     final long windowMs;
     final java.util.ArrayDeque<Long> stamps = new java.util.ArrayDeque<>();
@@ -41,6 +53,13 @@ public final class AuthIntelligence {
       while (!stamps.isEmpty() && stamps.peekFirst() < cutoff) stamps.pollFirst();
       stamps.addLast(now);
       return stamps.size();
+    }
+
+    /** True when no event inside the window remains (safe to drop the entry). */
+    synchronized boolean isEmptyAt(long now) {
+      long cutoff = now - windowMs;
+      while (!stamps.isEmpty() && stamps.peekFirst() < cutoff) stamps.pollFirst();
+      return stamps.isEmpty();
     }
 
     synchronized int count() {
@@ -96,7 +115,12 @@ public final class AuthIntelligence {
 
   private static void blockIp(String ip, int minutes) {
     if (minutes > 0 && ip != null && !ip.isBlank())
-      IP_BLOCKS.put(ip, System.currentTimeMillis() + minutes * 60_000L);
+      if (IP_BLOCKS.size() > 8192) {
+      long nowMs = System.currentTimeMillis();
+      IP_BLOCKS.entrySet().removeIf(e -> e.getValue() < nowMs);
+      if (IP_BLOCKS.size() > 8192) IP_BLOCKS.clear();
+    }
+    IP_BLOCKS.put(ip, System.currentTimeMillis() + minutes * 60_000L);
   }
 
   // ------------------------------------------------------------------ login
@@ -111,6 +135,7 @@ public final class AuthIntelligence {
     if (flood.enabled && ip != null && !ip.isBlank()) {
       Window w =
           IP_LOGIN_FAILURES.computeIfAbsent(ip, k -> new Window(flood.windowMin * 60_000L));
+      boundWindows(IP_LOGIN_FAILURES, 8192);
       int inWindow = w.add();
       AuthCoreServer.LOGGER.debug(
           false,
@@ -141,6 +166,11 @@ public final class AuthIntelligence {
     SprayEntry entry =
         PASSWORD_SPRAY.computeIfAbsent(
             digest, k -> new SprayEntry(spray.windowMin * 60_000L));
+    if (PASSWORD_SPRAY.size() > 8192) {
+      long nowMs = System.currentTimeMillis();
+      PASSWORD_SPRAY.entrySet().removeIf(e -> e.getValue().window.isEmptyAt(nowMs));
+      if (PASSWORD_SPRAY.size() > 8192) PASSWORD_SPRAY.clear();
+    }
     if (entry.window.add() <= 1) entry.accounts.clear();
     entry.accounts.add(username);
     if (entry.accounts.size() >= spray.maxAccounts) {
@@ -176,6 +206,7 @@ public final class AuthIntelligence {
     if (!totp.enabled) return;
     Window w =
         ACCOUNT_2FA_FAILURES.computeIfAbsent(accountUuid, k -> new Window(totp.windowMin * 60_000L));
+      boundWindows(ACCOUNT_2FA_FAILURES, 8192);
     int inWindow = w.add();
     AuthCoreServer.LOGGER.debug(
         false,
@@ -217,6 +248,7 @@ public final class AuthIntelligence {
     if (!farm.enabled) return;
     Window w =
         IP_REGISTRATIONS.computeIfAbsent(ip, k -> new Window(farm.windowMin * 60_000L));
+      boundWindows(IP_REGISTRATIONS, 8192);
     int inWindow = w.add();
     AuthCoreServer.LOGGER.debug(
         false,

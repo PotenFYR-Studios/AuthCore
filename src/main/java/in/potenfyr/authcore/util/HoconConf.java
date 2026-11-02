@@ -123,10 +123,49 @@ public class HoconConf {
     }
   }
 
+  /**
+   * True when a section/settings file failed to parse during the last load. The merged config
+   * falls back to defaults in that case, so SAVING would destroy the (recoverable) broken file
+   * and silently replace the admin's hardening with defaults - the save is skipped and the file
+   * is backed up instead.
+   */
+  private static volatile boolean configFilesBroken = false;
+
+  /** True when the messages file failed to parse during the last load (save skipped). */
+  private static volatile boolean messagesFileBroken = false;
+
+  /**
+   * True when runtime Redis config overrides were applied. They must NEVER be persisted into the
+   * local files: anyone with write access to the shared Redis could otherwise permanently rewrite
+   * the server's security configuration (and it would survive a Redis wipe).
+   */
+  private static volatile boolean redisOverridesActive = false;
+
+  /** Copies a config file that failed to parse next to the original, before any save. */
+  private static void backupBrokenFile(Path file) {
+    try {
+      if (file == null || !Files.exists(file)) return;
+      Path backup =
+          file.resolveSibling(file.getFileName() + ".broken-" + System.currentTimeMillis());
+      Files.copy(file, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      AuthCoreServer.LOGGER.warn(
+          false,
+          "Config file '{}' failed to parse - backup written to '{}' and the file will NOT be overwritten.",
+          file.getFileName(),
+          backup.getFileName());
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.error(false, "Failed to back up the broken config file:", err);
+    }
+  }
+
   /** Initialize the database manager! */
   public static void initialize() {
     try {
       if (!CONFIG_DIR.toFile().exists()) Files.createDirectories(CONFIG_DIR);
+
+      // Reset per-load diagnostics so a reload after fixing a broken file can save again.
+      configFilesBroken = false;
+      messagesFileBroken = false;
 
       loadConfig();
 
@@ -148,8 +187,17 @@ public class HoconConf {
       // this applies structural transforms between config versions and bumps the version).
       in.potenfyr.authcore.util.ConfigMigrator.migrate();
 
-      saveConfig();
-      saveMessages();
+      // Never persist a config tree that fell back to defaults because a file was unparseable,
+      // and never persist runtime Redis overrides into the admin's local files.
+      if (configFilesBroken)
+        AuthCoreServer.LOGGER.warn(
+            false,
+            "One or more config files failed to parse - NOT overwriting them (fix the files and restart/reload).");
+      else saveConfig();
+      if (messagesFileBroken)
+        AuthCoreServer.LOGGER.warn(
+            false, "The messages file failed to parse - NOT overwriting it.");
+      else saveMessages();
 
       AuthCoreServer.LOGGER.info(
           true, "Configuration from .conf files has been successfully loaded.");
@@ -175,6 +223,8 @@ public class HoconConf {
     try {
       root.mergeFrom(loader("settings.conf").load());
     } catch (ConfigurateException err) {
+      configFilesBroken = true;
+      backupBrokenFile(CONFIG_DIR.resolve("settings.conf"));
       AuthCoreServer.LOGGER.error(
           false, "Facing error while loading configuration file 'settings.conf': ", err);
     }
@@ -204,6 +254,8 @@ public class HoconConf {
         AuthCoreServer.LOGGER.debug(
             true, "Config override applied from '{}' (block '{}').", entry.getValue(), entry.getKey());
       } catch (ConfigurateException err) {
+        configFilesBroken = true;
+        backupBrokenFile(file);
         AuthCoreServer.LOGGER.error(
             false, "Facing error while loading configuration file '{}': ", entry.getValue(), err);
       }
@@ -263,6 +315,7 @@ public class HoconConf {
       AuthCoreServer.LOGGER.info(
           true, "Messages loaded successfully (language: '{}').", language);
     } catch (ConfigurateException err) {
+      messagesFileBroken = true;
       AuthCoreServer.LOGGER.error(false, "Facing error while loading messages file: ", err);
       if (AuthCoreServer.messages == null) AuthCoreServer.messages = new Messages();
     }
@@ -304,6 +357,7 @@ public class HoconConf {
    * networks). The override is a HOCON snippet stored under {@code authcore:config:overrides}.
    */
   private static void applyRedisConfigOverrides() {
+    redisOverridesActive = false;
     if (AuthCoreServer.config == null
         || !AuthCoreServer.config.database.redis.enabled) return;
 
@@ -333,6 +387,7 @@ public class HoconConf {
       }
 
       AuthCoreServer.config = mapper.load(node);
+      redisOverridesActive = true;
 
       AuthCoreServer.LOGGER.info(
           true, "Applied {} Redis config override(s) from authcore:config:overrides", applied);
@@ -349,6 +404,14 @@ public class HoconConf {
    */
   public static void saveConfig() {
     if (AuthCoreServer.config == null) return;
+    if (redisOverridesActive) {
+      // The in-memory config contains runtime Redis overrides - writing it would persist values
+      // the admin never set locally (and let anyone with Redis write access own the config).
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "Redis config overrides are active - local config files are not overwritten.");
+      return;
+    }
     try {
       ObjectMapper<Config> mapper = ObjectMapper.factory().get(Config.class);
 

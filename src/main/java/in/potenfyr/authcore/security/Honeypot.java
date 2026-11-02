@@ -19,6 +19,10 @@ public final class Honeypot {
 
   private static volatile ServerSocket server;
 
+  /** IPs already banned this boot (dedupe: a scanner must not grow the rules file per hit). */
+  private static final java.util.Set<String> BANNED =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
+
   private Honeypot() {}
 
   /** Starts the honeypot listener (no-op when disabled). */
@@ -29,7 +33,10 @@ public final class Honeypot {
 
     try {
       server = new ServerSocket();
-      server.bind(new InetSocketAddress("0.0.0.0", cfg.port));
+      // Bind address is configurable (default 0.0.0.0 - a honeypot is meant to be reachable);
+      // operators who do not want it exposed on every interface can pin it to one address.
+      String host = cfg.host == null || cfg.host.isBlank() ? "0.0.0.0" : cfg.host.trim();
+      server.bind(new InetSocketAddress(host, cfg.port));
 
       Thread thread =
           new Thread(
@@ -72,6 +79,14 @@ public final class Honeypot {
 
   /** Logs the attack and appends a permanent deny rule for the IP. */
   private static void ban(String ip) {
+    // Dedupe per boot: a port scanner can hit the honeypot thousands of times per second, and
+    // every hit used to append another identical rule line + reload the whole rules file.
+    if (ip == null) return;
+    // Bounded dedupe set: a botnet with millions of source IPs must never grow memory forever.
+    // The ip-rules file already persists the bans, so a coarse reset only costs a duplicate line.
+    if (BANNED.size() > 4096) BANNED.clear();
+    if (!BANNED.add(ip)) return;
+
     AuthCoreServer.LOGGER.warn(
         true, "Honeypot: connection from {} - IP banned automatically.", ip);
     SecurityLog.log("HONEYPOT_HIT", ip + " connected to the honeypot - banned");
@@ -86,6 +101,8 @@ public final class Honeypot {
           "deny " + ip + System.lineSeparator(),
           StandardOpenOption.CREATE,
           StandardOpenOption.APPEND);
+      // IpRules.load() is a lock-free copy-on-write reload, so this honeypot thread never blocks
+      // the server thread's per-join isDenied() check.
       IpRules.load();
     } catch (IOException err) {
       AuthCoreServer.LOGGER.error(false, "Failed to write honeypot ban rule:", err);

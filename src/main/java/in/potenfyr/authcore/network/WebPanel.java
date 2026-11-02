@@ -479,10 +479,44 @@ public final class WebPanel {
     String uuidStr = request.has("uuid") ? request.get("uuid").getAsString() : null;
 
     if ("reload".equals(action)) {
-      HoconConf.initialize();
-      stop();
-      start();
-      return ok("Configuration reloaded");
+      // Config reload mutates global state the server thread reads every tick - schedule it.
+      onServerThread(
+          () -> {
+            HoconConf.initialize();
+            stop();
+            start();
+          });
+      return ok("Configuration reload scheduled");
+    }
+
+    // Discord link codes are completed by the Discord bot, which knows the CODE and the Discord
+    // user id - but not the Minecraft UUID (the code resolves to the username server-side).
+    // Handle the code branch BEFORE the UUID requirement so the documented bot flow works.
+    if ("link".equals(action)) {
+      String linkValue = request.has("value") ? request.get("value").getAsString() : null;
+      if (linkValue != null && linkValue.length() == 6 && linkValue.matches("[A-Z2-9]+")) {
+        String discordId = request.has("discordId") ? request.get("discordId").getAsString() : null;
+        if (discordId == null || discordId.isBlank())
+          return error(
+              "Missing 'discordId' - the Discord bot must send the real Discord user ID together with the link code");
+        if (!in.potenfyr.authcore.util.Sanitizer.isSafeDiscordId(discordId))
+          return error("Invalid 'discordId' - expected a numeric Discord snowflake");
+        String resolved = RedisManager.consumeDiscordLinkCode(linkValue);
+        if (resolved == null) return error("Link code expired or invalid");
+        User byName = User.getUserByUsername(resolved);
+        if (byName == null) return error("Player not found for link code");
+        // The user object is read/mutated by the server thread: schedule the mutation there so a
+        // panel request can never race the tick (the old code also wrote the DB on the HTTP thread).
+        onServerThread(
+            () -> {
+              byName.discordId = discordId;
+              byName.update("Discord linked via code");
+              RedisManager.publishDiscordLink(discordId, byName.username);
+            });
+        SecurityLog.log("DISCORD_LINK", byName.username + " linked Discord " + discordId);
+        Webhook.send(":white_check_mark: **" + byName.username + "** linked their Discord account.");
+        return ok("Link scheduled for " + byName.username);
+      }
     }
 
     if (uuidStr == null) return error("Missing 'uuid'");
@@ -500,25 +534,29 @@ public final class WebPanel {
     switch (action) {
       case "kick" -> {
         if (user.isActive) {
-          user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
+          onServerThread(() -> user.kick(AuthCoreServer.messages.promptUserKickedByAdmin));
           SecurityLog.log("WEB_KICK", user.username + " kicked from the web panel");
           return ok("Kicked " + user.username);
         }
         return error("User is not online");
       }
       case "logout" -> {
-        user.logout(AuthCoreServer.messages.promptUserLogoutComplete);
+        onServerThread(() -> user.logout(AuthCoreServer.messages.promptUserLogoutComplete));
         SecurityLog.log("WEB_LOGOUT", user.username + " logged out from the web panel");
         return ok("Logged out " + user.username);
       }
       case "unlock" -> {
-        user.unlock();
+        // unlock() restores the live player entity (teleport, inventory, game mode, effects).
+        onServerThread(user::unlock);
         SecurityLog.log("WEB_UNLOCK", user.username + " unlocked from the web panel");
         return ok("Unlocked " + user.username);
       }
       case "delete" -> {
-        user.kick(AuthCoreServer.messages.promptUserDataDeleted, "Web Panel");
-        user.delete("Deleted from the web panel", true);
+        onServerThread(
+            () -> {
+              user.kick(AuthCoreServer.messages.promptUserDataDeleted, "Web Panel");
+              user.delete("Deleted from the web panel", true);
+            });
         SecurityLog.log("WEB_DELETE", user.username + " deleted from the web panel");
         return ok("Deleted " + user.username);
       }
@@ -526,46 +564,78 @@ public final class WebPanel {
         if (!request.has("value")) return error("Missing 'value'");
         String password = request.get("value").getAsString();
         if (password == null || password.isBlank()) return error("Password cannot be empty");
-        user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
-        user.password = Encrypter.hash(user.passwordEncryption, password);
-        if (user.password == null) {
-          // Never leave the account unregistered because hashing failed
-          user.passwordEncryption = null;
-          return error("Password hashing failed - password not changed");
-        }
-        user.update("Password set from the web panel");
+        // The configured password policy applies to panel resets too - the panel used to accept
+        // any 1-character password (docs suggest Discord-bot use, i.e. a wide audience).
+        in.potenfyr.authcore.security.Security.Password.PolicyViolation violation =
+            in.potenfyr.authcore.security.Security.Password.validate(password);
+        if (violation != in.potenfyr.authcore.security.Security.Password.PolicyViolation.NONE)
+          return error(
+              "Password rejected by the server policy: "
+                  + in.potenfyr.authcore.security.Security.Password.violationText(violation));
+        // Hashing + field mutation + DB write all happen on the SERVER thread: the HTTP worker
+        // thread must never touch a live User (the old code mutated password fields and wrote the
+        // database from the panel thread, racing the server tick and the shared JDBC connection).
+        final boolean[] hashed = {true};
+        final String newPassword = password;
+        onServerThread(
+            () -> {
+              try {
+                user.recordPasswordHistory();
+                user.passwordEncryption =
+                    in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
+                        AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
+                user.password = Encrypter.hash(user.passwordEncryption, newPassword);
+                if (user.password == null) {
+                  user.passwordEncryption = null;
+                  hashed[0] = false;
+                  return;
+                }
+                user.update("Password set from the web panel");
+              } catch (RuntimeException err) {
+                hashed[0] = false;
+                AuthCoreServer.LOGGER.debug(false, "Web panel password reset failed:", err);
+              }
+            });
         SecurityLog.log("WEB_PASSWORD", user.username + " password reset from the web panel");
-        return ok("Password updated for " + user.username);
+        return hashed[0]
+            ? ok("Password update scheduled for " + user.username)
+            : error("Password hashing failed - password not changed");
       }
       case "link" -> {
-        // Discord account linking (used by Discord bots). value = discordId or a 6-char link code
+        // Direct-ID link path (uuid required). Link-code completion is handled before the uuid
+        // requirement above, because the Discord bot knows the code - not the Minecraft uuid.
         String discordValue = request.has("value") ? request.get("value").getAsString() : null;
-        if (discordValue == null || discordValue.isBlank()) return error("Missing 'value' (discordId)");
+        if (discordValue == null || discordValue.isBlank())
+          return error("Missing 'value' (Discord ID)");
+        // The id is embedded in outbound Discord API URLs - only a numeric snowflake is valid.
+        if (!in.potenfyr.authcore.util.Sanitizer.isSafeDiscordId(discordValue))
+          return error("Invalid Discord ID - expected a numeric Discord snowflake");
 
-        if (discordValue.length() == 6 && discordValue.matches("[A-Z2-9]+")) {
-          String resolved = RedisManager.consumeDiscordLinkCode(discordValue);
-          if (resolved == null) return error("Link code expired or invalid");
-          in.potenfyr.authcore.models.User byName = in.potenfyr.authcore.models.User.getUserByUsername(resolved);
-          if (byName == null) return error("Player not found for link code");
-          byName.discordId = discordValue;
-          byName.update("Discord linked via code");
-          RedisManager.publishDiscordLink(discordValue, byName.username);
-          SecurityLog.log("DISCORD_LINK", byName.username + " linked Discord " + discordValue);
-          Webhook.send(":white_check_mark: **" + byName.username + "** linked their Discord account.");
-          return ok("Linked " + byName.username);
-        }
-
-        user.discordId = discordValue;
-        user.update("Discord linked");
-        RedisManager.publishDiscordLink(discordValue, user.username);
+        onServerThread(
+            () -> {
+              user.discordId = discordValue;
+              user.update("Discord linked");
+              RedisManager.publishDiscordLink(discordValue, user.username);
+            });
         SecurityLog.log("DISCORD_LINK", user.username + " linked Discord " + discordValue);
         Webhook.send(":white_check_mark: **" + user.username + "** linked their Discord account.");
-        return ok("Linked " + user.username);
+        return ok("Link scheduled for " + user.username);
       }
       default -> {
         return error("Unknown action: " + action);
       }
     }
+  }
+
+  /**
+   * Runs a player-state mutation on the SERVER thread. Web requests arrive on an HTTP worker
+   * thread, but unlocking/kicking/deleting touches the live player entity (teleport, inventory,
+   * game mode, player-list removal) which vanilla only allows on the server thread - running it
+   * here used to race the server tick and could corrupt the player's state.
+   */
+  private static void onServerThread(Runnable action) {
+    if (action == null) return;
+    in.potenfyr.authcore.util.TaskScheduler.getInstance().setTimeout(action, 0);
   }
 
   private static JsonObject ok(String message) {
@@ -584,12 +654,13 @@ public final class WebPanel {
 
   private static String param(HttpExchange exchange, String name) {
     String query = exchange.getRequestURI().getQuery();
-    if (query == null) return null;
+    if (query == null || query.length() > 1_024) return null; // bounded: queries are tiny
     for (String pair : query.split("&")) {
       int eq = pair.indexOf('=');
       if (eq > 0 && pair.substring(0, eq).equals(name)) {
         try {
-          return java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+          String value = java.net.URLDecoder.decode(pair.substring(eq + 1), StandardCharsets.UTF_8);
+          return value.length() > 256 ? value.substring(0, 256) : value;
         } catch (Exception err) {
           return null;
         }
@@ -601,10 +672,48 @@ public final class WebPanel {
   /** Sets CORS headers on the response (used for preflight + actual requests). */
   private static void setCorsHeaders(HttpExchange exchange) {
     var h = exchange.getResponseHeaders();
-    h.set("Access-Control-Allow-Origin", "*");
+    // Same-origin only: the dashboard is served from this very origin, so a browser never needs a
+    // wildcard grant. The old wildcard let any web page (or a DNS-rebinding attack pointing a
+    // domain at 127.0.0.1) read the admin API - including player IPs - once the token leaked,
+    // and burn the admin's login-attempt lockout from the admin's own browser.
+    String origin = exchange.getRequestHeaders().getFirst("Origin");
+    String host = exchange.getRequestHeaders().getFirst("Host");
+    if (origin == null || host == null || !originMatchesHost(origin, host)) return;
+    h.set("Access-Control-Allow-Origin", origin);
+    h.set("Vary", "Origin");
     h.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     h.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
     h.set("Access-Control-Max-Age", "86400");
+  }
+
+  /** True when an {@code Origin} header points at the same host:port as the request's Host. */
+  private static boolean originMatchesHost(String origin, String host) {
+    try {
+      java.net.URI uri = java.net.URI.create(origin);
+      String originHost = uri.getHost();
+      if (originHost == null) return false;
+      int originPort =
+          uri.getPort() >= 0
+              ? uri.getPort()
+              : ("https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80);
+      String hostName = host;
+      int hostPort = 80;
+      int colon = host.lastIndexOf(':');
+      if (host.startsWith("[")) { // [ipv6]:port
+        int close = host.lastIndexOf(']');
+        if (close > 0) {
+          hostName = host.substring(0, close + 1);
+          if (colon > close) hostPort = Integer.parseInt(host.substring(colon + 1));
+        }
+      } else if (colon >= 0) {
+        hostName = host.substring(0, colon);
+        hostPort = Integer.parseInt(host.substring(colon + 1));
+      }
+      String normalizedHost = hostName.replace("[", "").replace("]", "");
+      return normalizedHost.equalsIgnoreCase(originHost) && originPort == hostPort;
+    } catch (RuntimeException err) {
+      return false;
+    }
   }
 
   private static void respond(HttpExchange exchange, int code, JsonObject json) throws java.io.IOException {

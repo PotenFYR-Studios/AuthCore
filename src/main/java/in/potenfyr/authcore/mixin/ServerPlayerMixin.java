@@ -49,12 +49,25 @@ abstract class ServerPlayerMixin {
       boolean retainOwnership,
       CallbackInfoReturnable<ItemEntity> cir) {
 
-    ServerPlayer player = self();
+    if (blockLobbyDrop()) {
+      cir.setReturnValue(null);
+      cir.cancel();
+    }
+  }
 
+  // NOTE: 26.3 changed drop()'s ownership boolean to a Prediction enum. No version-specific
+  // descriptor is used here on purpose: a mixin descriptor naming net.minecraft.util.Prediction
+  // would fail to apply on 26.1/26.2 if that class is absent there (it would take the whole mixin
+  // down). The player-initiated drop is instead blocked at the stable packet level in
+  // ServerPlayNetworkHandlerMixin#handlePlayerAction (DROP_ITEM / DROP_ALL_ITEMS), which covers
+  // every version; InventoryMixin#removeItem remains the second backstop.
+
+  /** Shared lobby item-drop restriction; returns true when the drop must be blocked. */
+  @Unique
+  private boolean blockLobbyDrop() {    ServerPlayer player = self();
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemDrop) {
-
       AuthCoreServer.LOGGER.violation(
           false,
           user,
@@ -62,10 +75,26 @@ abstract class ServerPlayerMixin {
 
       // Sync inventory
       player.containerMenu.broadcastChanges();
-
-      cir.setReturnValue(null);
-      cir.cancel();
+      return true;
     }
+    return false;
+  }
+
+  /**
+   * Melee-attack guard on ServerPlayer (it overrides Player#attack on most versions). The 26.3
+   * path where ServerPlayer does NOT override attack() is covered by PlayerAttackMixin.
+   */
+  @Inject(
+      method = "attack(Lnet/minecraft/world/entity/Entity;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onAttack(net.minecraft.world.entity.Entity target, CallbackInfo ci) {
+    ServerPlayer player = self();
+    User user = User.getUser(player);
+    if (user == null || !user.isInLobby.get()) return;
+    if (target == null
+        || in.potenfyr.authcore.events.EntityEvents.guardLobbyAttack(user, target)) ci.cancel();
   }
 
   /** Prevent game mode changes for jailed/lobby users (boolean return on 1.16 through 26.x). */

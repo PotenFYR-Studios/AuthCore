@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 
 import java.util.UUID;
 
@@ -200,7 +202,7 @@ abstract class ServerLoginNetworkHandlerMixin {
   /** Reads the GameProfile from the hello packet (getProfile() on 1.16). */
   private static Object readProfile(ServerboundHelloPacket packet) {
     try {
-      return packet.getClass().getMethod("getProfile").invoke(packet);
+      return in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
     } catch (ReflectiveOperationException e) {
       return null;
     }
@@ -213,7 +215,7 @@ abstract class ServerLoginNetworkHandlerMixin {
 
   private static Object invoke(Object target, String method) {
     try {
-      return target.getClass().getMethod(method).invoke(target);
+      return in.potenfyr.authcore.util.ReflectCache.method(target.getClass(), method).invoke(target);
     } catch (ReflectiveOperationException e) {
       return null;
     }

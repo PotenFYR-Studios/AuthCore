@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import com.mojang.authlib.GameProfile;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.Lobby;
@@ -80,7 +82,7 @@ abstract class PlayerListOpMixin {
   private static java.util.UUID invokeUuid(Object profile) {
     for (String m : new String[] {"getId", "id"}) {
       try {
-        Object value = profile.getClass().getMethod(m).invoke(profile);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
         if (value instanceof java.util.UUID u) return u;
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next accessor
@@ -93,7 +95,7 @@ abstract class PlayerListOpMixin {
   private static String invokeString(Object profile) {
     for (String m : new String[] {"getName", "name"}) {
       try {
-        Object value = profile.getClass().getMethod(m).invoke(profile);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
         if (value instanceof String s) return s;
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next accessor

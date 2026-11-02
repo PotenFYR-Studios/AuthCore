@@ -32,7 +32,8 @@ abstract class MobEntityMixin {
 
     if (target instanceof ServerPlayer player) {
 
-      User user = User.getUser(player);
+      if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
+    User user = User.getUser(player);
 
       // Respect the allow-mob-damage config: only stop mobs from targeting lobby
       // players when the config forbids mob damage against them.

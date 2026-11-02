@@ -58,7 +58,10 @@ public final class RedisManager {
         jedis.ping();
       }
       AuthCoreServer.LOGGER.info(true, "Redis connected at {}:{}", cfg.host, cfg.port);
-    } catch (Exception err) {
+    } catch (Throwable err) {
+      // Throwable (not Exception): on runtimes without slf4j (Fabric 1.16.5/1.17.1) Jedis'
+      // logger linkage can throw NoClassDefFoundError - Redis is optional and must never take
+      // the whole mod (or server startup) down with it.
       pool = null;
       AuthCoreServer.LOGGER.error(
           false,

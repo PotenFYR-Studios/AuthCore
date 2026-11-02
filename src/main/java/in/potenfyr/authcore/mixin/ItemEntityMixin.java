@@ -31,6 +31,7 @@ public class ItemEntityMixin {
       require = 0)
   private void authCore$onPlayerPickup(Player player, CallbackInfo ci) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemPickup) {

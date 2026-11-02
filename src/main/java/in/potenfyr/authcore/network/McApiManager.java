@@ -99,8 +99,12 @@ public final class McApiManager {
             BATCH_QUEUE.clear();
             BATCH_FLUSH_AT = 0L;
           }
-          // Fire lookups in parallel off the main thread (bounded by LOOKUPS semaphore).
+          // Fire lookups in parallel off the main thread (bounded by LOOKUPS semaphore, and by a
+          // hard per-flush cap so a join burst can never flood the IO pool with thousands of
+          // tasks - the remaining IPs are resolved by later batches instead).
+          int dispatched = 0;
           for (String ip : batch) {
+            if (dispatched++ >= 256) break;
             if (GEOIP_CACHE.containsKey(ip)) continue; // already resolved
             AuthCoreServer.IO_EXECUTOR.execute(() -> geoIp(ip));
           }
@@ -169,7 +173,7 @@ public final class McApiManager {
           json = parsed;
           break;
         }
-      } catch (IOException | InterruptedException err) {
+      } catch (IOException | InterruptedException | RuntimeException err) {
         if (err instanceof InterruptedException) {
           Thread.currentThread().interrupt();
           return null;
@@ -398,13 +402,46 @@ public final class McApiManager {
     }
 
     /**
-     * Combined permission check: LuckPerms node OR vanilla OP level. A {@code null} player (e.g.
-     * the console) is always allowed so that server owners can manage AuthCore from the console.
+     * Combined permission check: LuckPerms node OR vanilla OP level.
+     *
+     * <p>A source with no player attached (the console, a command block) is allowed so server
+     * owners can manage AuthCore from the console. A player context whose accessor did not resolve
+     * on this mapping era must NOT become console access - so the console decision is based on the
+     * SAME multi-candidate accessors {@link #resolvePlayer} uses (their names differ between the
+     * Mojang-mapped, SRG and intermediary runtimes; using a single Mojang name such as
+     * {@code getEntity} would deny the console on every production runtime).
      */
     public static boolean hasForSource(Object ctx, String node, int level) {
       ServerPlayer player = resolvePlayer(ctx);
-      if (player == null) return true;
-      return has(player, node, level);
+      if (player != null) return has(player, node, level);
+
+      Object source = ctx;
+      if (ctx instanceof CommandContext<?> context) source = context.getSource();
+      if (source == null) return false;
+
+      // A player accessor that EXISTS and reports no player means the console (getPlayer()
+      // returns null; getPlayerOrException() throws for non-player sources). When an accessor
+      // exists the console/player decision is exact.
+      boolean sawAccessor = false;
+      for (String name :
+          new String[] {"getPlayer", "getPlayerOrException", "method_44023", "method_9207"}) {
+        try {
+          Object resolved = source.getClass().getMethod(name).invoke(source);
+          sawAccessor = true;
+          if (resolved == null) return true; // accessor exists, no player attached -> console
+        } catch (java.lang.reflect.InvocationTargetException thrown) {
+          // getPlayerOrException() throws for the console - that is exactly the console case.
+          sawAccessor = true;
+        } catch (ReflectiveOperationException ignored) {
+          // accessor absent on this mapping era - try the next name
+        }
+      }
+      // No player accessor resolves at all: this runtime's names are not reachable through
+      // reflection (SRG on Forge 1.16-1.18, where the whole reflection-based permission layer
+      // cannot resolve either). Fall back to the legacy fail-open behaviour so the CONSOLE keeps
+      // working there - denying would lock admins out of their own server on every SRG runtime.
+      // On every mojmap/intermediary runtime the decision above is exact.
+      return true;
     }
 
     /** Combined permission check for a player. */

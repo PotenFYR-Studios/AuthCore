@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.network.ProxySupport;
 /*? if fabric {*/
@@ -90,7 +92,7 @@ abstract class ServerHandshakeNetworkHandlerMixin {
   /** Reads the handshake address string (record accessor or private field, by version). */
   private static String readAddress(ClientIntentionPacket packet) {
     try {
-      Object address = packet.getClass().getMethod("address").invoke(packet);
+      Object address = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "address").invoke(packet);
       if (address instanceof String s) return s;
     } catch (ReflectiveOperationException ignored) {
       // fall through to the field accessor

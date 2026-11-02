@@ -66,6 +66,75 @@ public class Admin {
                                 AuthCoreServer.config.commands.admin.reload.permissionsLevel))
                     .executes(ctx -> reloadCommand(ctx.getSource())))
             .then(
+                literal("simulate")
+                    .requires(
+                        ctx ->
+                            AuthCoreServer.config.commands.admin.simulate.enabled
+                                && McApiManager.PermissionUtil.hasForSource(
+                                    ctx,
+                                    AuthCoreServer.config.commands.admin.simulate.luckPermsNode,
+                                    AuthCoreServer.config
+                                        .commands
+                                        .admin
+                                        .simulate
+                                        .permissionsLevel))
+                    .executes(ctx -> simulateCommand(ctx.getSource())))
+            .then(
+                literal("map-image")
+                    .then(
+                        literal("show")
+                            .then(
+                                argument("player", EntityArgument.player())
+                                    .executes(
+                                        ctx ->
+                                            mapImageShowCommand(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player")))))
+                    .then(
+                        literal("clear")
+                            .then(
+                                argument("player", EntityArgument.player())
+                                    .executes(
+                                        ctx ->
+                                            mapImageClearCommand(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player")))))
+                    .then(
+                        literal("qr")
+                            .then(
+                                argument("player", EntityArgument.player())
+                                    .then(
+                                        argument("text", StringArgumentType.greedyString())
+                                            .executes(
+                                                ctx ->
+                                                    mapImageQrCommand(
+                                                        ctx.getSource(),
+                                                        EntityArgument.getPlayer(ctx, "player"),
+                                                        StringArgumentType.getString(
+                                                            ctx, "text"))))))
+                    .then(
+                        literal("captcha")
+                            .then(
+                                argument("player", EntityArgument.player())
+                                    .executes(
+                                        ctx ->
+                                            mapImageCaptchaCommand(
+                                                ctx.getSource(),
+                                                EntityArgument.getPlayer(ctx, "player")))))
+                    .then(
+                        literal("captcha-verify")
+                            .then(
+                                argument("player", EntityArgument.player())
+                                    .then(
+                                        argument("code", StringArgumentType.word())
+                                            .executes(
+                                                ctx ->
+                                                    mapImageCaptchaVerifyCommand(
+                                                        ctx.getSource(),
+                                                        EntityArgument.getPlayer(ctx, "player"),
+                                                        StringArgumentType.getString(
+                                                            ctx, "code")))))))
+            .then(
                 literal("list")
                     .then(
                         literal("players")
@@ -837,6 +906,122 @@ public class Admin {
   }
 
   /**
+   * Handles the {@code /authcore simulate} self-test command.
+   *
+   * <p>Owner-only and disabled by default (see {@code commands.admin.simulate}). Runs the built-in
+   * simulation suite on the live server and logs a PASS/FAIL report; returns 1 only when every
+   * check passed.
+   */
+  private static int simulateCommand(CommandSourceStack source) {
+    try {
+      java.util.List<in.potenfyr.authcore.util.SelfTest.Check> checks =
+          in.potenfyr.authcore.util.SelfTest.run(source.getServer());
+      int passed = 0;
+      for (in.potenfyr.authcore.util.SelfTest.Check check : checks) if (check.ok()) passed++;
+      AuthCoreServer.LOGGER.info(
+          false, "AuthCore self-test: {}/{} checks passed", passed, checks.size());
+      for (in.potenfyr.authcore.util.SelfTest.Check check : checks) {
+        if (check.ok())
+          AuthCoreServer.LOGGER.info(false, "  [PASS] {} ({})", check.name(), check.detail());
+        else AuthCoreServer.LOGGER.warn(false, "  [FAIL] {} - {}", check.name(), check.detail());
+      }
+      return passed == checks.size() ? 1 : 0;
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.error(false, "Self-test could not run: ", err);
+      return 0;
+    }
+  }
+
+  /**
+   * Handles {@code /authcore map-image show <player>}: renders a test image on a map in the
+   * player's hand. The service also removes the map again on logout, crash recovery or when a new
+   * image replaces it.
+   */
+  private static int mapImageShowCommand(CommandSourceStack source, ServerPlayer target) {
+    boolean shown =
+        in.potenfyr.authcore.util.MapImageService.show(
+            target, in.potenfyr.authcore.util.MapImageRenderer.testPattern());
+    if (shown) {
+      AuthCoreServer.LOGGER.info(true, "Map image shown to {}.", target.getName().getString());
+      return 1;
+    }
+    AuthCoreServer.LOGGER.warn(
+        false,
+        "Could not show a map image to {} - feature disabled/unsupported on this version, "
+            + "rate-limited, or the map could not be created.",
+        target.getName().getString());
+    return 0;
+  }
+
+  /** Handles {@code /authcore map-image clear <player>}: takes the map image back. */
+  private static int mapImageClearCommand(CommandSourceStack source, ServerPlayer target) {
+    boolean cleared = in.potenfyr.authcore.util.MapImageService.clear(target);
+    if (cleared) {
+      AuthCoreServer.LOGGER.info(true, "Map image cleared for {}.", target.getName().getString());
+      return 1;
+    }
+    AuthCoreServer.LOGGER.warn(false, "{} has no active map image.", target.getName().getString());
+    return 0;
+  }
+
+  /**
+   * Handles {@code /authcore map-image qr <player> <text>}: renders a QR code on a map.
+   *
+   * <p>The payload is never echoed into chat or the log (it may be a 2FA enrolment secret); only the
+   * outcome and the payload length are reported.
+   */
+  private static int mapImageQrCommand(
+      CommandSourceStack source, ServerPlayer target, String text) {
+    boolean shown = in.potenfyr.authcore.util.MapImageService.showQr(target, text);
+    if (shown) {
+      AuthCoreServer.LOGGER.info(
+          true,
+          "Map QR code ({} chars) shown to {}.",
+          text.length(),
+          target.getName().getString());
+      return 1;
+    }
+    AuthCoreServer.LOGGER.warn(
+        false,
+        "Could not show a map QR code to {} - payload too long for a 128x128 map, feature "
+            + "disabled/unsupported, rate-limited, or the map could not be created.",
+        target.getName().getString());
+    return 0;
+  }
+
+  /** Handles {@code /authcore map-image captcha <player>}: shows a fresh map captcha. */
+  private static int mapImageCaptchaCommand(CommandSourceStack source, ServerPlayer target) {
+    boolean shown = in.potenfyr.authcore.util.MapImageService.showCaptcha(target);
+    if (shown) {
+      // The code itself is only ever visible on the map image.
+      AuthCoreServer.LOGGER.info(
+          true,
+          "Map captcha sent to {} (single use, expires in 2 minutes).",
+          target.getName().getString());
+      return 1;
+    }
+    AuthCoreServer.LOGGER.warn(
+        false,
+        "Could not send a map captcha to {} - feature disabled/unsupported or rate-limited.",
+        target.getName().getString());
+    return 0;
+  }
+
+  /** Handles {@code /authcore map-image captcha-verify <player> <code>}: verifies an answer. */
+  private static int mapImageCaptchaVerifyCommand(
+      CommandSourceStack source, ServerPlayer target, String code) {
+    boolean ok = in.potenfyr.authcore.util.MapImageService.verifyCaptcha(target, code);
+    if (ok) {
+      AuthCoreServer.LOGGER.info(true, "Map captcha verified for {}.", target.getName().getString());
+      return 1;
+    }
+    AuthCoreServer.LOGGER.warn(
+        false, "Map captcha failed for {} (wrong, expired or no pending challenge).",
+        target.getName().getString());
+    return 0;
+  }
+
+  /**
    * Handles the {@code /authcore delete player <player>} command.
    *
    * <p>Permanently removes a player's authentication data from the database and kicks them if
@@ -1132,6 +1317,20 @@ public class Admin {
             0, sourcePlayer.connection, AuthCoreServer.messages.promptUserNotFoundData);
       else if (user == null)
         return AuthCoreServer.LOGGER.info(0, "User '{}' not Found in the database!", username);
+
+      // The configured password policy applies to admin resets too (the rules cover every
+      // password change); the previous password is kept in history so it cannot be reused.
+      Security.Password.PolicyViolation violation = Security.Password.validate(password);
+      if (violation != Security.Password.PolicyViolation.NONE) {
+        if (sourcePlayer != null) Security.Password.reportViolation(sourcePlayer.connection, violation);
+        AuthCoreServer.LOGGER.info(
+            0,
+            "Password for '{}' rejected by the password policy: {}",
+            username,
+            Security.Password.violationText(violation));
+        return 0;
+      }
+      user.recordPasswordHistory();
 
       user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
       user.password =

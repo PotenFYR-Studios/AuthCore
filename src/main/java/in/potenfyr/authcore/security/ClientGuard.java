@@ -322,9 +322,12 @@ public final class ClientGuard {
   /** Minimum distinct usernames from the same IP to flag a farm. */
   private static final int FARM_THRESHOLD = 3;
 
-  /** Normalized-name index for O(1) confusable-name lookups. */
+  /** Normalized-name index for O(1) confusable-name lookups (capped: see MAX_CONFUSABLE_NAMES). */
   private static final java.util.Map<String, java.util.Set<String>> CONFUSABLE_INDEX = new ConcurrentHashMap<>();
   private static volatile long CONFUSABLE_INDEX_AT = 0L;
+
+  /** Upper bound for the lookalike-name index (bounds memory on very large networks). */
+  private static final int MAX_CONFUSABLE_NAMES = 200_000;
 
   // ------------------------------------------------------------------ lifecycle
 
@@ -649,7 +652,21 @@ public final class ClientGuard {
         remoteTrusted = true;
       } else if (AuthCoreServer.config.session.sso.trustVanilla
           && in.potenfyr.authcore.network.RedisManager.hasSso(p.uuid)) {
-        remoteTrusted = true;
+        // trustVanilla skips the companion token, so the session must be bound to the joining
+        // network address: otherwise anyone claiming the victim's UUID while an SSO ticket
+        // exists authenticates without a password. The stored last-login IP is the address the
+        // session was created from (updated by User.login on the server that authenticated).
+        String joinedIp = player.getIpAddress();
+        if (joinedIp != null && joinedIp.equals(user.ipAddress)) {
+          remoteTrusted = true;
+        } else {
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "{} | SSO trustVanilla rejected - join IP {} differs from the session IP {}",
+              p.username,
+              joinedIp,
+              user.ipAddress);
+        }
       }
       if (remoteTrusted && !user.isAuthenticated.get()) {
         AuthCoreServer.LOGGER.info(
@@ -840,8 +857,13 @@ public final class ClientGuard {
     if (registeredNormalized.isEmpty() || CONFUSABLE_INDEX_AT + 5 * 60_000L < System.currentTimeMillis()) {
       long now = System.currentTimeMillis();
       java.util.Set<String> fresh = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+      // Cap the index: a network with millions of registered names must not turn this detection
+      // aid into a multi-hundred-megabyte cache. The first MAX_CONFUSABLE_NAMES names are enough
+      // for lookalike detection; newer accounts simply are not covered by the index.
+      int added = 0;
       for (String registered : in.potenfyr.authcore.util.Database.getRegisteredNames()) {
         if (registered == null) continue;
+        if (added++ >= MAX_CONFUSABLE_NAMES) break;
         fresh.add(normalizeName(registered));
       }
       registeredNormalized.clear();

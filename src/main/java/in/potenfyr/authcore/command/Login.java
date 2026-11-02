@@ -309,6 +309,15 @@ public class Login {
       AuthCoreServer.LOGGER.debug(
           1, "{} have authenticated in the Server!", player.getName().getString());
       upgradeHashIfNeeded(user, password);
+
+      // The password just proved ownership: this account uses offline-mode auth, so the
+      // downgrade may be persisted NOW (the join path only downgrades in memory - a pre-auth
+      // join claiming a premium name must never be able to rewrite that account's stored mode).
+      if (user.isPremium) {
+        user.isPremium = false;
+        user.update("Online-mode flag cleared after password login");
+      }
+
       user.login(player); // broadcasts the auth state to other mods / the proxy
 
       // Login-timing distribution analysis (bot-farm synchronized timers)

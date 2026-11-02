@@ -1,5 +1,7 @@
 package in.potenfyr.authcore.mixin;
 
+import in.potenfyr.authcore.util.ReflectCache;
+
 import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.models.Messages;
@@ -22,6 +24,7 @@ import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
 import net.minecraft.network.protocol.common.ServerboundClientInformationPacket;
 /*?}*/
 import net.minecraft.network.protocol.game.ServerboundCommandSuggestionPacket;
+import net.minecraft.network.protocol.game.ServerboundContainerClickPacket;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.server.level.ServerPlayer;
@@ -48,6 +51,7 @@ abstract class ServerPlayNetworkHandlerMixin {
       require = 0)
   private void authCore$onPlayerMove(ServerboundMovePlayerPacket packet, CallbackInfo ci) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     // ClientGuard: movement-rate accounting (flood detection) + look-rotation tracking
@@ -140,6 +144,7 @@ abstract class ServerPlayNetworkHandlerMixin {
   private void authCore$onMoveVehicle(
       net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket packet, CallbackInfo ci) {
     if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
     if (!AuthCoreServer.config.lobby.allowMovement) {
@@ -152,6 +157,65 @@ abstract class ServerPlayNetworkHandlerMixin {
       ci.cancel();
       user.lobby.teleportBack();
     }
+  }
+
+  /**
+   * Inventory-click guard. The lobby config promises "EVERY inventory click is blocked" while
+   * unauthenticated, but the only enforcement used to be {@code Inventory.removeItem} (keyed on
+   * allow-item-drop) - with allow-item-drop enabled (and default hide-inventory=false) an
+   * unauthenticated player could move/equip items and hand-craft in the 2x2 grid. Cancel the raw
+   * container click instead and resync the client.
+   */
+  @Inject(
+      method =
+          "handleContainerClick(Lnet/minecraft/network/protocol/game/ServerboundContainerClickPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onContainerClick(
+      ServerboundContainerClickPacket packet, CallbackInfo ci) {
+
+    if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
+    User user = User.getUser(player);
+    if (user == null || !user.isInLobby.get()) return;
+
+    boolean block = !AuthCoreServer.config.lobby.allowItemMoving;
+    if (!block && !AuthCoreServer.config.lobby.allowCrafting)
+      block = isPlayerCraftingClick(packet);
+    if (!block) return;
+
+    ci.cancel();
+    try {
+      // Keep the client in sync after the cancelled click (otherwise the ghost items the
+      // click would have created desync the inventory UI).
+      player.containerMenu.broadcastChanges();
+    } catch (RuntimeException ignored) {
+      // resync is best-effort
+    }
+  }
+
+  /** True for a click on the player's own 2x2 crafting grid or its result slot. */
+  private boolean isPlayerCraftingClick(Object packet) {
+    if (player == null || player.containerMenu == null) return false;
+    // Version-agnostic: the player inventory menu's simple class name is stable ("InventoryMenu").
+    if (!player.containerMenu.getClass().getSimpleName().contains("InventoryMenu")) return false;
+    int slot = readClickSlot(packet);
+    return slot >= 0 && slot <= 4; // 0 = result slot, 1..4 = the 2x2 grid
+  }
+
+  /** Reads the clicked slot index across mapping eras ({@code slotNum()} / {@code getSlot()}). */
+  private static int readClickSlot(Object packet) {
+    for (String m : new String[] {"slotNum", "getSlot"}) {
+      try {
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
+        if (value instanceof Integer i) return i;
+        if (value instanceof Short s) return s;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // try the next accessor
+      }
+    }
+    return -1;
   }
 
   /**
@@ -171,6 +235,7 @@ abstract class ServerPlayNetworkHandlerMixin {
       CallbackInfo ci) {
 
     if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user != null && user.isInLobby.get()) ci.cancel();
   }
@@ -193,6 +258,7 @@ abstract class ServerPlayNetworkHandlerMixin {
       net.minecraft.network.protocol.game.ServerboundChatCommandPacket packet, CallbackInfo ci) {
 
     if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
@@ -210,12 +276,46 @@ abstract class ServerPlayNetworkHandlerMixin {
   }
 /*?}*/
 
+  /**
+   * Packet-level gate for SIGNED chat commands (1.19.1+). Same second layer as the unsigned
+   * handler above: the dispatcher mixins block commands too, but a version whose dispatcher
+   * injection silently misses must not also lose the packet-level defense.
+   */
+  /*? if >= 1.19.1 {*/
+  @Inject(
+      method =
+          "handleSignedChatCommand(Lnet/minecraft/network/protocol/game/ServerboundChatCommandSignedPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$onSignedCommandPacket(
+      net.minecraft.network.protocol.game.ServerboundChatCommandSignedPacket packet,
+      CallbackInfo ci) {
+
+    if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
+    User user = User.getUser(player);
+    if (user == null || !user.isInLobby.get()) return;
+
+    String command = readCommandString(packet);
+    if (!in.potenfyr.authcore.security.Security.isCommandAllowedInLobby(user, command)) {
+      in.potenfyr.authcore.AuthCoreServer.LOGGER.violation(
+          false,
+          user,
+          player.connection,
+          AuthCoreServer.messages.promptUserCommandExecutionNotAllowed,
+          command == null ? "?" : command.split(" ")[0].toLowerCase());
+      ci.cancel();
+    }
+  }
+  /*?}*/
+
   /** Reads the raw command string from a ServerboundCommandPacket across eras. */
   private static String readCommandString(Object packet) {
     if (packet == null) return "";
     for (String m : new String[] {"command", "getCommand"}) {
       try {
-        Object value = packet.getClass().getMethod(m).invoke(packet);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
         if (value instanceof String s) return s;
       } catch (Throwable ignored) {
         // try the next accessor
@@ -258,6 +358,7 @@ abstract class ServerPlayNetworkHandlerMixin {
   private void authCore$onPlaceRecipe(
       net.minecraft.network.protocol.game.ServerboundPlaceRecipePacket packet, CallbackInfo ci) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null
@@ -349,6 +450,7 @@ abstract class ServerPlayNetworkHandlerMixin {
   private void authCore$onCommandSuggestions(
       ServerboundCommandSuggestionPacket packet, CallbackInfo ci) {
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user != null && user.isInLobby.get())
       in.potenfyr.authcore.security.ClientGuard.recordTabProbe(player);
@@ -364,20 +466,42 @@ abstract class ServerPlayNetworkHandlerMixin {
   private void authCore$onPlayerAction(
       ServerboundPlayerActionPacket packet, CallbackInfo ci) {
 
-    if (packet.getAction() != ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND)
-      return;
-
+    if (player == null) return;
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
+    if (user == null || !user.isInLobby.get()) return;
 
-    if (user != null
-        && user.isInLobby.get()
-        && !AuthCoreServer.config.lobby.allowItemSwapping) {
+    ServerboundPlayerActionPacket.Action action = packet.getAction();
 
+    // Offhand swap restriction.
+    if (action == ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND) {
+      if (!AuthCoreServer.config.lobby.allowItemSwapping) {
+        AuthCoreServer.LOGGER.violation(
+            false,
+            user,
+            user.connection, AuthCoreServer.messages.promptUserShiftItemNotAllowed);
+        ci.cancel();
+      }
+      return;
+    }
+
+    // Drop key (Q / Ctrl+Q). Blocking the raw packet covers every version - including 26.3,
+    // where ServerPlayer.drop()'s descriptor changed - so no version-specific mixin descriptor is
+    // needed for the drop restriction.
+    if ((action == ServerboundPlayerActionPacket.Action.DROP_ITEM
+            || action == ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS)
+        && !AuthCoreServer.config.lobby.allowItemDrop) {
       AuthCoreServer.LOGGER.violation(
           false,
           user,
-          user.connection, AuthCoreServer.messages.promptUserShiftItemNotAllowed);
+          user.connection, AuthCoreServer.messages.promptUserDropItemNotAllowed);
       ci.cancel();
+      try {
+        // The client predicted the drop; resync so the item reappears in the inventory UI.
+        player.containerMenu.broadcastChanges();
+      } catch (RuntimeException ignored) {
+        // resync is best-effort
+      }
     }
   }
 
@@ -388,7 +512,7 @@ abstract class ServerPlayNetworkHandlerMixin {
   private static String readChannel(Object packet) {
     for (String m : new String[] {"getName", "getIdentifier"}) {
       try {
-        Object value = packet.getClass().getMethod(m).invoke(packet);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
         if (value != null) return value.toString();
       } catch (ReflectiveOperationException ignored) {
         // try the next name

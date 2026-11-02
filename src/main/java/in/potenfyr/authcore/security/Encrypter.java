@@ -40,8 +40,18 @@ public final class Encrypter {
   /** SHA-512 message digest (fast - only for legacy compatibility, not for new passwords). */
   private static final MessageDigestFunction SHA512 = MessageDigestFunction.getInstance("SHA-512");
 
+  /**
+   * MD5 message digest - ONLY for verifying legacy/imported 32-hex hashes (AuthMe-style imports).
+   * It is never used for new passwords ({@link #newCredentialAlgorithm} replaces it with Argon2).
+   * Previously this mapped to SHA-256, so imported MD5 hashes could never authenticate.
+   */
+  private static final MessageDigestFunction MD5 = MessageDigestFunction.getInstance("MD5");
+
   /** PBKDF2 with HMAC-SHA256, 100_000 iterations, 32-byte key (self-contained format). */
   private static final int PBKDF2_ITERATIONS = 100_000;
+
+  /** Cryptographically-random salt source (no logging/third-party dependency). */
+  private static final java.security.SecureRandom SALT_RANDOM = new java.security.SecureRandom();
 
   /**
    * Hashes a plain-text password using the given algorithm. A random per-user salt is generated
@@ -69,7 +79,7 @@ public final class Encrypter {
             case "scrypt" -> SCRYPT.hash(password).getResult();
             case "sha-256" -> SHA256.hash(password).getResult();
             case "sha-512" -> SHA512.hash(password).getResult();
-            case "md5" -> SHA256.hash(password).getResult();
+            case "md5" -> MD5.hash(password).getResult();
             default -> null;
           };
 
@@ -93,10 +103,20 @@ public final class Encrypter {
     }
   }
 
-  /** Fresh cryptographically-random 16-byte salt for Argon2 (base64 - embedded in the hash). */
+  /**
+   * Fresh cryptographically-random 16-byte salt for Argon2 (base64 - embedded in the hash).
+   *
+   * <p>Deliberately does NOT use password4j's {@code SaltGenerator}: its static initializer loads
+   * {@code AlgorithmFinder}, which references {@code org.slf4j.LoggerFactory}. Some supported
+   * runtimes (Fabric 1.16.5/1.17.1 - their vanilla server bundle does not ship slf4j) have no
+   * slf4j at all, so that path throws {@code NoClassDefFoundError} and EVERY password hash fails.
+   * A plain {@link java.security.SecureRandom} salt is byte-for-byte equivalent and has no logging
+   * dependency.
+   */
   private static String argon2Salt() {
-    return java.util.Base64.getEncoder().encodeToString(
-        com.password4j.SaltGenerator.generate(16));
+    byte[] salt = new byte[16];
+    SALT_RANDOM.nextBytes(salt);
+    return java.util.Base64.getEncoder().encodeToString(salt);
   }
 
   /**
@@ -146,7 +166,7 @@ public final class Encrypter {
         case "scrypt" -> SCRYPT.check(password, storedHash);
         case "sha-256" -> SHA256.check(password, storedHash);
         case "sha-512" -> SHA512.check(password, storedHash);
-        case "md5" -> SHA256.check(password, storedHash);
+        case "md5" -> MD5.check(password, storedHash);
         default -> false;
       };
     } catch (Exception err) {

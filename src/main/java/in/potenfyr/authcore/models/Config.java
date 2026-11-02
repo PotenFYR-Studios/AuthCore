@@ -309,6 +309,39 @@ public class Config {
             permissionsLevel = 3;
           }
         };
+
+    @Comment(
+        """
+                Built-in self-test / simulation command (/authcore simulate).
+                • Runs the mod's simulation suite inside the live server (real hashing, live
+                  database, landing/support geometry with dummy objects) and prints a PASS/FAIL
+                  report. Useful after an upgrade or a config change.
+                • DISABLED by default and owner-level only - it is a diagnostic, not a player
+                  feature. Enable it deliberately, run it, then disable it again.""")
+    public Simulate simulate = new Simulate();
+
+    /** Settings for the owner-only self-test command. */
+    @ConfigSerializable
+    public static class Simulate {
+
+      @Comment(
+          """
+                  Enable /authcore simulate. Default: false
+                  • Keep this disabled unless you are actively diagnosing the server.""")
+      public boolean enabled = false;
+
+      @Comment(
+          """
+                  LuckPerms permission node required for /authcore simulate.
+                  • Ignored if LuckPerms is not present.""")
+      public String luckPermsNode = "authcore.admin.simulate";
+
+      @Comment(
+          """
+                  Vanilla/OP permission level required (0-4).
+                  • Default: 4 (owners only) - never lower this on a public server.""")
+      public int permissionsLevel = 4;
+    }
   }
 
   @ConfigSerializable
@@ -668,6 +701,13 @@ public class Config {
 
     @Comment("Enable the honeypot listener. Default: false")
     public boolean enabled = false;
+
+    @Comment(
+        """
+                Interface/address the honeypot binds to.
+                • Default: 0.0.0.0 (all interfaces - a honeypot is meant to be reachable).
+                • Set e.g. 127.0.0.1 to keep it local, or a specific interface address.""")
+    public String host = "0.0.0.0";
 
     @Comment(
         """
@@ -1639,6 +1679,30 @@ public class Config {
                 • Helps prevent server overload from many unauthentic connections.
                 • Default: 50""")
     public int maxLobbyUsers = 50;
+
+    @Comment(
+        """
+                In-game map image rendering (128x128 art: QR codes, captcha/2FA hints, ...).
+                • Enabled by default.
+                • The map is given in the player's selected slot and removed again on logout,
+                  crash recovery or when a new image replaces it.
+                • The 1.19-1.21 jar needs 1.21.2+ for the data-component map API; 1.19.4-1.21.1
+                  keep the feature disabled gracefully.""")
+    public MapImage mapImage = new MapImage();
+
+    /** Settings for rendering images on in-game maps. */
+    @ConfigSerializable
+    public static class MapImage {
+
+      @Comment("Enable map image rendering. Default: true")
+      public boolean enabled = true;
+
+      @Comment(
+          """
+                  Maximum map-image displays per player per minute (anti-spam).
+                  • Default: 4""")
+      public int maxPerMinute = 4;
+    }
 
     @Comment(
         """

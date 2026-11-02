@@ -49,8 +49,16 @@ public final class EmailSender {
   /** Sends an email synchronously. Returns {@code true} on success. */
   public static boolean send(String to, String subject, String body) {
     if (!isEnabled() || to == null || to.isBlank()) return false;
-
+    // SMTP command/header injection: a CR/LF (or any control character) in an address or header
+    // value would let a crafted registration address append extra SMTP commands/headers. The
+    // recipient and sender must be syntactically valid addresses (the validator rejects control
+    // characters); the remaining fields are sanitised below.
+    if (!in.potenfyr.authcore.security.Security.EmailRecovery.isValidEmail(to)) return false;
     var cfg = AuthCoreServer.config.session.email;
+    if (cfg.from == null
+        || !in.potenfyr.authcore.security.Security.EmailRecovery.isValidEmail(cfg.from)) {
+      return false;
+    }
 
     try {
       InetSocketAddress address = new InetSocketAddress(cfg.host, cfg.port);
@@ -115,14 +123,17 @@ public final class EmailSender {
         writer.newLine();
         writer.write("To: <" + to + ">");
         writer.newLine();
-        writer.write("Subject: " + subject);
+        // Header values must stay single-line: strip anything control-character-like.
+        writer.write("Subject: " + in.potenfyr.authcore.util.Sanitizer.sanitize(subject, 200));
         writer.newLine();
         writer.write("MIME-Version: 1.0");
         writer.newLine();
         writer.write("Content-Type: text/plain; charset=UTF-8");
         writer.newLine();
         writer.newLine();
-        writer.write(body);
+        // SMTP dot-stuffing: a body line consisting of "." would terminate DATA early and let the
+        // rest of the body be interpreted as SMTP commands.
+        writer.write(dotStuff(body));
         writer.newLine();
         writer.write(".");
         writer.newLine();
@@ -151,6 +162,24 @@ public final class EmailSender {
     writer.write(line);
     writer.newLine();
     writer.flush();
+  }
+
+  /**
+   * SMTP data dot-stuffing (RFC 5321 §4.5.2): any line that starts with "." is prefixed with an
+   * extra ".", so a body line of "." can never terminate the DATA section early.
+   */
+  static String dotStuff(String body) {
+    if (body == null) return "";
+    String normalized = body.replace("\r\n", "\n").replace('\r', '\n');
+    StringBuilder out = new StringBuilder(normalized.length() + 16);
+    boolean lineStart = true;
+    for (int i = 0; i < normalized.length(); i++) {
+      char character = normalized.charAt(i);
+      if (lineStart && character == '.') out.append('.');
+      out.append(character);
+      lineStart = character == '\n';
+    }
+    return out.toString();
   }
 
   /** Reads server responses until a line starting with the expected code is found. */

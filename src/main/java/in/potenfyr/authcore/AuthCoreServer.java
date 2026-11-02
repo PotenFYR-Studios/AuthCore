@@ -29,7 +29,7 @@ import net.minecraft.server.MinecraftServer;
  */
 public class AuthCoreServer {
   public static final String MOD_ID = "authcore";
-  public static final String MOD_VERSION = "1.0.1";
+  public static final String MOD_VERSION = "1.0.2";
   public static final Logger LOGGER = new Logger(MOD_ID);
   public static final Path configPath =
       in.potenfyr.authcore.compat.Compat.getConfigDir().resolve("authcore");
@@ -127,7 +127,12 @@ public class AuthCoreServer {
 
   /** Records that the server's Mojang session authentication verified this profile. */
   public static void markPremiumVerified(java.util.UUID uuid) {
-    if (uuid != null) PREMIUM_VERIFIED.add(uuid);
+    if (uuid != null) {
+      // Bounded: the marker is consumed on login, but a flood of join handshakes must not
+      // accumulate markers for connections that never complete.
+      if (PREMIUM_VERIFIED.size() > 4096) PREMIUM_VERIFIED.clear();
+      PREMIUM_VERIFIED.add(uuid);
+    }
   }
 
   /**

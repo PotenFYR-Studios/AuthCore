@@ -611,29 +611,42 @@ public final class Compat {
   }
 
   /**
-   * Runs a command for the player through the server dispatcher on every era:
-   * {@code performPrefixedCommand(CommandSourceStack, String)} (1.19.3+) with a reflective
-   * fallback to {@code performCommand(CommandSourceStack, String)} (1.16-1.19.2) - the G2 jar
-   * is compiled against 1.21.11 and must run on 1.19.0-1.19.2 too. Never throws.
+   * Runs a command for the player through the server dispatcher on every era.
+   *
+   * <p>Stonecutter-gated DIRECT calls ({@code performCommand} on 1.16-1.18, {@code
+   * performPrefixedCommand} on 1.19.3+) - Loom remaps them for the runtime, which is what makes
+   * this work on Fabric/intermediary and Forge/SRG. Reflecting on the Mojang method names (the
+   * previous implementation) silently did nothing on those runtimes. Never throws.
    */
   public static void runCommand(ServerPlayer player, String command) {
     if (player == null || command == null || command.isBlank()) return;
     try {
       MinecraftServer server = getServer(player);
       if (server == null) return;
-      Object dispatcher = server.getCommands();
-      Object source = player.createCommandSourceStack();
-      try {
-        dispatcher.getClass()
-            .getMethod("performPrefixedCommand", net.minecraft.commands.CommandSourceStack.class, String.class)
-            .invoke(dispatcher, source, command);
-        return;
-      } catch (ReflectiveOperationException ignored) {
-        // 1.16-1.19.2: performCommand(CommandSourceStack, String)
-      }
-      dispatcher.getClass()
-          .getMethod("performCommand", net.minecraft.commands.CommandSourceStack.class, String.class)
-          .invoke(dispatcher, source, command);
+      net.minecraft.commands.CommandSourceStack source = player.createCommandSourceStack();
+      /*? if < 1.19 {*/
+      /*server.getCommands().performCommand(source, command);
+      *//*?} else {*/
+      server.getCommands().performPrefixedCommand(source, command);
+      /*?}*/
+    } catch (Throwable ignored) {
+      // command execution is best-effort
+    }
+  }
+
+  /**
+   * Runs a command as the server console through the dispatcher on every era (same Stonecutter-
+   * gated direct dispatch as the player overload). Never throws.
+   */
+  public static void runConsoleCommand(MinecraftServer server, String command) {
+    if (server == null || command == null || command.isBlank()) return;
+    try {
+      net.minecraft.commands.CommandSourceStack source = server.createCommandSourceStack();
+      /*? if < 1.19 {*/
+      /*server.getCommands().performCommand(source, command);
+      *//*?} else {*/
+      server.getCommands().performPrefixedCommand(source, command);
+      /*?}*/
     } catch (Throwable ignored) {
       // command execution is best-effort
     }

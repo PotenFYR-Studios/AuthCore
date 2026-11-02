@@ -184,6 +184,28 @@ public class ServerEvents {
 
     ServerPlayer player = connection.player;
 
+    // Protocol-level username validation. A vanilla client can only produce [A-Za-z0-9_.-]{1,16},
+    // but a hacked client controls the hello name: a name with control characters, a newline or
+    // lookalike Unicode is a log-injection / staff-impersonation vector once it reaches the
+    // database, chat and staff tooling. Reject it before any state is created for the session.
+    String joinName = player == null ? null : player.getName().getString();
+    if (joinName != null && !in.potenfyr.authcore.util.Sanitizer.isSafeUsername(joinName)) {
+      AuthCoreServer.LOGGER.warn(
+          false,
+          "Rejected a join with an invalid username: {}",
+          in.potenfyr.authcore.util.Sanitizer.logDetail(joinName));
+      try {
+        connection.disconnect(in.potenfyr.authcore.compat.Compat.text("Invalid username"));
+      } catch (RuntimeException ignored) {
+        // the connection is going away anyway
+      }
+      return;
+    }
+
+    // Map-image crash recovery: remove temporary maps left behind by a crash or a mid-display
+    // disconnect (their ids are persisted to config/authcore/map-images.txt).
+    in.potenfyr.authcore.util.MapImageService.onPlayerJoin(player);
+
     AuthCoreServer.LOGGER.debug(
         false,
         "{} | join started (online-mode server: {})",
@@ -260,7 +282,18 @@ public class ServerEvents {
             "AuthCore - Concurrent Login",
             "**" + username + "** logged in from a second connection - old connection kicked.",
             0xF1C40F);
-        user.kick(AuthCoreServer.messages.promptUserAnotherAccountSession);
+
+        // Release the OLD session's limbo state FIRST: the per-user Lobby instance is reused, so
+        // a stale lobby entry would make the NEW session's lock() a no-op and the old snapshot
+        // (position/inventory/game mode) would be restored onto the new session at login.
+        if (user.isInLobby.get()) user.lobby.unlock();
+
+        // Disconnect the old connection DIRECTLY instead of user.kick(): kick() arms the account
+        // kick cooldown (cooldownAfterKickMs, 2 min by default) and the progressive-punishment
+        // counter - the NEW join below would then be kicked by the cooldown check, so "kick-old"
+        // would kick BOTH connections.
+        AuthCoreServer.LOGGER.toKick(
+            false, user.connection, AuthCoreServer.messages.promptUserAnotherAccountSession);
         user.isActive = false;
       }
 
@@ -517,33 +550,32 @@ public class ServerEvents {
       return;
     }
 
-    // Stale premium flag: the account claims premium but THIS session was not verified as
-    // premium (offline server without session verification, or premium auto-login disabled) -
-    // downgrade to standard so it cannot bypass register/login. When only the auto-login
-    // config is OFF the account stays premium (the flag is preserved) - the player is just
-    // asked to register/login because their stored password is null.
+    // Premium name ownership on an ONLINE server: the server verifies every genuine premium
+    // profile, so a session that was NOT verified as premium can never use a stored premium
+    // account's name. Without this check an offline client (hybrid mode) claiming a premium
+    // player's name reached the limbo and could /register a password onto that account.
+    if (onlineServer && user.isPremium && !verifiedPremium && !user.uuid.equals(uuid)) {
+      SecurityLog.log(
+          "PREMIUM_NAME_COLLISION",
+          username + " joined with a different uuid while the account is premium - rejected");
+      user.kick(AuthCoreServer.messages.promptUserPremiumDifferentUUID);
+      return;
+    }
+
+    // Stale premium flag: the account claims online-mode but THIS session was not verified as
+    // premium. Only the IN-MEMORY flag is downgraded here so the player is asked to
+    // register/login; the DB row is NOT written before authentication - otherwise any client
+    // claiming a premium player's name (hybrid mode, name collision) could permanently clear
+    // that account's online-mode flag. The downgrade is persisted after a successful password
+    // login (Login#finishLogin), where ownership is proven.
     if (user.isPremium && !verifiedPremium) {
+      user.isPremium = false;
       AuthCoreServer.LOGGER.info(
           true,
           "{} was registered as an online-mode account but this session was not verified as "
-              + "online-mode - moved to offline-mode authentication (register/login required).",
+              + "online-mode - using offline-mode authentication for this session "
+              + "(register/login required).",
           user.username);
-      user.isPremium = false;
-      user.update("Online-mode flag cleared (offline-mode auth server)");
-    }
-
-    // Premium UUID mismatch. Only applies on online-mode servers (where the server itself
-    // verified the connecting profile): a REAL premium UUID that does not match the stored
-    // one means an impostor. Offline-mode servers derive offline UUIDs for everyone, so the
-    // check never applies there.
-    if (!user.uuid.equals(uuid)
-        && user.isPremium
-        && AuthCoreServer.config.session.authentication.premiumAutoLogin
-        && onlineServer
-        && !in.potenfyr.authcore.compat.Compat.isOfflineUuid(username, uuid)) {
-
-      user.kick(AuthCoreServer.messages.promptUserPremiumDifferentUUID);
-      return;
     }
 
     // Login intelligence: risk score + new IP/country detection (only for returning users)
@@ -700,9 +732,17 @@ public class ServerEvents {
   /** Player leave handler */
   public static void onPlayerLeave(ServerGamePacketListenerImpl connection) {
     if (connection == null || !LEFT_CONNECTIONS.add(connection)) return;
+    // The dedupe marker and any packet-sequence state must never outlive the connection:
+    // these sets are keyed by the connection object (a strong reference to the player/level),
+    // so a missed removal leaks one entry per join for the whole server uptime.
+    try {
 
     JOINED_CONNECTIONS.remove(connection);
     ServerPlayer player = connection.player;
+
+    // Give back / remove any map image the player still holds BEFORE the player data is saved,
+    // so a normal disconnect can never persist the temporary map.
+    in.potenfyr.authcore.util.MapImageService.onPlayerLeave(player);
 
     // Drop any pending action captcha (the single human verification).
     in.potenfyr.authcore.security.ActionCaptcha.onLeave(player);
@@ -724,6 +764,10 @@ public class ServerEvents {
     User user = User.getUser(username, uuid);
 
     if (user != null) {
+
+      // Drop the join-time uuid alias (see User.connect): the account must remain reachable only
+      // through its canonical stored uuid once this session is gone.
+      user.releaseJoinUuid(uuid);
 
       // Connection-identity guard: only the leave of the connection that OWNS the current
       // session may tear it down. Under "kick-old" duplicate logins (and any window where
@@ -778,6 +822,10 @@ public class ServerEvents {
       }
 
       user.update("Player Leave Cache");
+    }
+    } finally {
+      LEFT_CONNECTIONS.remove(connection);
+      PACKET_SEQUENCES.remove(connection);
     }
   }
 

@@ -114,6 +114,151 @@ public class Security {
       return shuffle(sb.toString());
     }
 
+    /** Password-policy violation kinds (non-player callers such as the web panel can report). */
+    public enum PolicyViolation {
+      NONE,
+      BLANK,
+      UPPERCASE,
+      LOWERCASE,
+      DIGITS,
+      LENGTH
+    }
+
+    /**
+     * Player-independent password-policy validation (complexity rules only).
+     *
+     * @param password the candidate password
+     * @return the first violated rule, or {@link PolicyViolation#NONE}
+     */
+    public static PolicyViolation validate(String password) {
+      // Blank and empty passwords keep their dedicated violation (the pre-refactor check treated
+      // isBlank() as BLANK; without this an empty password reported UPPERCASE instead).
+      if (password == null || password.isBlank()) return PolicyViolation.BLANK;
+
+      int uppercaseCount = (int) password.chars().filter(c -> c >= 'A' && c <= 'Z').count();
+      int lowercaseCount = (int) password.chars().filter(c -> c >= 'a' && c <= 'z').count();
+      int digitsCount = (int) password.chars().filter(Character::isDigit).count();
+      int lengthCount = password.length();
+
+      if (AuthCoreServer.config.passwordRules.upperCase.enabled
+          && (uppercaseCount < AuthCoreServer.config.passwordRules.upperCase.min
+              || uppercaseCount > AuthCoreServer.config.passwordRules.upperCase.max))
+        return PolicyViolation.UPPERCASE;
+
+      if (AuthCoreServer.config.passwordRules.lowerCase.enabled
+          && (lowercaseCount < AuthCoreServer.config.passwordRules.lowerCase.min
+              || lowercaseCount > AuthCoreServer.config.passwordRules.lowerCase.max))
+        return PolicyViolation.LOWERCASE;
+
+      if (AuthCoreServer.config.passwordRules.digits.enabled
+          && (digitsCount < AuthCoreServer.config.passwordRules.digits.min
+              || digitsCount > AuthCoreServer.config.passwordRules.digits.max))
+        return PolicyViolation.DIGITS;
+
+      if (AuthCoreServer.config.passwordRules.length.enabled
+          && (lengthCount < AuthCoreServer.config.passwordRules.length.min
+              || lengthCount > AuthCoreServer.config.passwordRules.length.max))
+        return PolicyViolation.LENGTH;
+
+      return PolicyViolation.NONE;
+    }
+
+    /** Sends the configured violation message to a player connection (null is a safe no-op). */
+    public static void reportViolation(
+        net.minecraft.server.network.ServerGamePacketListenerImpl connection,
+        PolicyViolation violation) {
+      if (connection == null || violation == null || violation == PolicyViolation.NONE) return;
+      switch (violation) {
+        case BLANK ->
+            AuthCoreServer.LOGGER.toUser(
+                false, connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+        case UPPERCASE ->
+            AuthCoreServer.LOGGER.toUser(
+                false,
+                connection,
+                AuthCoreServer.messages.promptUserUpperCaseNotPresent,
+                AuthCoreServer.config.passwordRules.upperCase.min,
+                AuthCoreServer.config.passwordRules.upperCase.max);
+        case LOWERCASE ->
+            AuthCoreServer.LOGGER.toUser(
+                false,
+                connection,
+                AuthCoreServer.messages.promptUserLowerCaseNotPresent,
+                AuthCoreServer.config.passwordRules.lowerCase.min,
+                AuthCoreServer.config.passwordRules.lowerCase.max);
+        case DIGITS ->
+            AuthCoreServer.LOGGER.toUser(
+                false,
+                connection,
+                AuthCoreServer.messages.promptUserDigitNotPresent,
+                AuthCoreServer.config.passwordRules.digits.min,
+                AuthCoreServer.config.passwordRules.digits.max);
+        case LENGTH ->
+            AuthCoreServer.LOGGER.toUser(
+                false,
+                connection,
+                AuthCoreServer.messages.promptUserPasswordLengthIssue,
+                AuthCoreServer.config.passwordRules.length.min,
+                AuthCoreServer.config.passwordRules.length.max);
+        default -> {
+          // NONE - nothing to report
+        }
+      }
+    }
+
+    /** Human-readable text for a violation, formatted from the configured message templates. */
+    public static String violationText(PolicyViolation violation) {
+      if (violation == null || violation == PolicyViolation.NONE) return "";
+      return switch (violation) {
+        case BLANK -> templateText(AuthCoreServer.messages.promptUserPasswordIsBlank);
+        case UPPERCASE ->
+            templateText(
+                AuthCoreServer.messages.promptUserUpperCaseNotPresent,
+                AuthCoreServer.config.passwordRules.upperCase.min,
+                AuthCoreServer.config.passwordRules.upperCase.max);
+        case LOWERCASE ->
+            templateText(
+                AuthCoreServer.messages.promptUserLowerCaseNotPresent,
+                AuthCoreServer.config.passwordRules.lowerCase.min,
+                AuthCoreServer.config.passwordRules.lowerCase.max);
+        case DIGITS ->
+            templateText(
+                AuthCoreServer.messages.promptUserDigitNotPresent,
+                AuthCoreServer.config.passwordRules.digits.min,
+                AuthCoreServer.config.passwordRules.digits.max);
+        case LENGTH ->
+            templateText(
+                AuthCoreServer.messages.promptUserPasswordLengthIssue,
+                AuthCoreServer.config.passwordRules.length.min,
+                AuthCoreServer.config.passwordRules.length.max);
+        default -> "";
+      };
+    }
+
+    /** Extracts the first non-blank text of a message template and formats its placeholders. */
+    private static String templateText(Messages.ColTemplate template, Object... args) {
+      if (template == null) return "";
+      String text = "";
+      if (template.message != null
+          && template.message.text != null
+          && !template.message.text.isBlank()) text = template.message.text;
+      else if (template.title != null
+          && template.title.subtitle != null
+          && template.title.subtitle.text != null
+          && !template.title.subtitle.text.isBlank()) text = template.title.subtitle.text;
+      else if (template.title != null
+          && template.title.text != null
+          && !template.title.text.isBlank()) text = template.title.text;
+      else if (template.actionBar != null
+          && template.actionBar.text != null
+          && !template.actionBar.text.isBlank()) text = template.actionBar.text;
+      try {
+        return String.format(text, args);
+      } catch (RuntimeException ignored) {
+        return text;
+      }
+    }
+
     /**
      * Validates a password against the server's configured complexity rules.
      *
@@ -123,73 +268,13 @@ public class Security {
      *
      * @param player the player attempting to load or change their password
      * @param password the password string to validate
-     * @return {@code true} if the password satisfies all enabled complexity rules, {@code false}
-     *     otherwise
+     * @return {@code true} if the password satisfies all enabled complexity rules
      */
     public static boolean check(ServerPlayer player, String password) {
-      if (password == null) {
-        return AuthCoreServer.LOGGER.toUser(
-            false, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
-      }
-
-      // Count uppercase letters
-      int uppercaseCount = (int) password.chars().filter(c -> c >= 'A' && c <= 'Z').count();
-
-      // Count lowercase letters
-      int lowercaseCount = (int) password.chars().filter(c -> c >= 'a' && c <= 'z').count();
-
-      // Count digits
-      int digitsCount = (int) password.chars().filter(Character::isDigit).count();
-
-      // Total length of the password
-      int lengthCount = password.length();
-
-      // Check uppercase letter requirements if the rule is enabled
-      if (AuthCoreServer.config.passwordRules.upperCase.enabled
-          && (uppercaseCount < AuthCoreServer.config.passwordRules.upperCase.min
-              || uppercaseCount > AuthCoreServer.config.passwordRules.upperCase.max))
-        return AuthCoreServer.LOGGER.toUser(
-            false,
-            player.connection,
-            AuthCoreServer.messages.promptUserUpperCaseNotPresent,
-            AuthCoreServer.config.passwordRules.upperCase.min,
-            AuthCoreServer.config.passwordRules.upperCase.max);
-
-      // Check lowercase letter requirements if the rule is enabled
-      if (AuthCoreServer.config.passwordRules.lowerCase.enabled
-          && (lowercaseCount < AuthCoreServer.config.passwordRules.lowerCase.min
-              || lowercaseCount > AuthCoreServer.config.passwordRules.lowerCase.max))
-        return AuthCoreServer.LOGGER.toUser(
-            false,
-            player.connection,
-            AuthCoreServer.messages.promptUserLowerCaseNotPresent,
-            AuthCoreServer.config.passwordRules.lowerCase.min,
-            AuthCoreServer.config.passwordRules.lowerCase.max);
-
-      // Check digit requirements if the rule is enabled
-      if (AuthCoreServer.config.passwordRules.digits.enabled
-          && (digitsCount < AuthCoreServer.config.passwordRules.digits.min
-              || digitsCount > AuthCoreServer.config.passwordRules.digits.max))
-        return AuthCoreServer.LOGGER.toUser(
-            false,
-            player.connection,
-            AuthCoreServer.messages.promptUserDigitNotPresent,
-            AuthCoreServer.config.passwordRules.digits.min,
-            AuthCoreServer.config.passwordRules.digits.max);
-
-      // Check overall password length requirements if the rule is enabled
-      if (AuthCoreServer.config.passwordRules.length.enabled
-          && (lengthCount < AuthCoreServer.config.passwordRules.length.min
-              || lengthCount > AuthCoreServer.config.passwordRules.length.max))
-        return AuthCoreServer.LOGGER.toUser(
-            false,
-            player.connection,
-            AuthCoreServer.messages.promptUserPasswordLengthIssue,
-            AuthCoreServer.config.passwordRules.length.min,
-            AuthCoreServer.config.passwordRules.length.max);
-
-      // All checks passed
-      return true;
+      PolicyViolation violation = validate(password);
+      if (violation == PolicyViolation.NONE) return true;
+      if (player != null) reportViolation(player.connection, violation);
+      return false;
     }
 
     // Fisher-Yates shuffle for string
@@ -369,7 +454,13 @@ public class Security {
     public static String issue(java.util.UUID uuid) {
       String code = String.format("%06d", new java.security.SecureRandom().nextInt(1_000_000));
       long hash = Long.parseLong(sha256(code).substring(0, 15), 16);
-      STORE.put(uuid, new long[] {System.currentTimeMillis() + TTL_MS, hash, 0});
+      if (STORE.size() >= 4096) {
+      long now = System.currentTimeMillis();
+      STORE.entrySet().removeIf(e -> e.getValue()[0] < now);
+      // Fail closed under a code-request flood instead of growing without bound.
+      if (STORE.size() >= 4096) STORE.clear();
+    }
+    STORE.put(uuid, new long[] {System.currentTimeMillis() + TTL_MS, hash, 0});
       return code;
     }
 
@@ -532,7 +623,18 @@ public class Security {
       if (email == null) return null;
 
       purgeExpired();
-      if (pending.size() >= MAX_PENDING) pending.clear();
+      if (pending.size() >= MAX_PENDING) {
+        // Evict the OLDEST pending codes instead of wiping the whole map: a flood of requests for
+        // many addresses must not invalidate every legitimate user's in-flight recovery code.
+        java.util.List<java.util.Map.Entry<String, CodeEntry>> entries =
+            new java.util.ArrayList<>(pending.entrySet());
+        entries.sort(java.util.Comparator.comparingLong(e -> e.getValue().createdAtMs));
+        int drop = pending.size() - MAX_PENDING / 2;
+        for (java.util.Map.Entry<String, CodeEntry> entry : entries) {
+          if (drop-- <= 0) break;
+          pending.remove(entry.getKey(), entry.getValue());
+        }
+      }
 
       // Anti-spam: at most one code per email per cooldown window
       String key = normalize(email);

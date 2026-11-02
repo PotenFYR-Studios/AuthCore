@@ -43,6 +43,7 @@ abstract class InventoryMixin {
 
     if (player == null) return;
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
 
     if (user != null && user.isInLobby.get() && !AuthCoreServer.config.lobby.allowItemDrop) {

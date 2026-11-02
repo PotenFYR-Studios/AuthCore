@@ -683,6 +683,13 @@ public class Account {
           "{} used '/account set-password <new-password>' command in the Server!",
           player.getName().getString());
 
+      // The policy + reuse + history verification run several memory-hard hashes on the server
+      // thread; throttle the command so an authenticated player cannot spam it into a stall.
+      if (!in.potenfyr.authcore.security.RateLimiter.tryAcquire(
+          "cmd:setpassword:" + player.getUUID(), 1, 5000L))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+
       UUID uuid = player.getUUID();
       String username = player.getName().getString();
       User user = User.getUser(username, uuid);
@@ -706,33 +713,53 @@ public class Account {
             1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
       }
 
-      String tempPassword = Encrypter.hash(user.passwordEncryption, password);
+      // Validate the RAW password, never a hash: Security.Password.check inspects the characters
+      // the player actually typed. Hashing first (the old flow) ran the complexity policy against
+      // the hash string, so almost any weak password passed.
+      if (!Security.Password.check(player, password)) return 0;
 
-      if (checkNewPassword(player, tempPassword, user.password)) {
-        user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
-        user.password =
-            Encrypter.hash(user.passwordEncryption, password);
-
-        if (user.password == null) {
-          // Never leave the account unregistered because hashing failed
-          user.passwordEncryption = null;
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
-        }
-
-        user.update("Password Change");
-
-        // Auth intelligence: post-login account-takeover pattern.
-        in.potenfyr.authcore.security.AuthIntelligence.recordPasswordChange(user, player.getIpAddress());
-
-        AuthCoreServer.LOGGER.debug(
-            1, "{} password has been updated in the database!", user.username);
+      // Reuse guard: compare the RAW candidate against the CURRENT password hash. The old code
+      // compared two independently salted hashes, which can never be equal - so password reuse
+      // was always allowed even with allow-reuse=false.
+      if (!AuthCoreServer.config.passwordRules.allowReuse
+          && user.password != null
+          && Encrypter.verify(password, user.password, user.passwordEncryption)) {
         return AuthCoreServer.LOGGER.toUser(
-            1,
-            player.connection,
-            AuthCoreServer.messages.promptUserPasswordChangedSuccessfully);
+            0, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
+      }
 
-      } else return 0;
+      // Password history (password-rules.history-size): the last N passwords must not be reused.
+      if (user.isPasswordInHistory(password)) {
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
+      }
+
+      // Keep the current password in the history before replacing it.
+      user.recordPasswordHistory();
+
+      user.passwordEncryption =
+          in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
+              AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
+      user.password = Encrypter.hash(user.passwordEncryption, password);
+
+      if (user.password == null) {
+        // Never leave the account unregistered because hashing failed
+        user.passwordEncryption = null;
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+      }
+
+      user.update("Password Change");
+
+      // Auth intelligence: post-login account-takeover pattern.
+      in.potenfyr.authcore.security.AuthIntelligence.recordPasswordChange(user, player.getIpAddress());
+
+      AuthCoreServer.LOGGER.debug(
+          1, "{} password has been updated in the database!", user.username);
+      return AuthCoreServer.LOGGER.toUser(
+          1,
+          player.connection,
+          AuthCoreServer.messages.promptUserPasswordChangedSuccessfully);
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(
           0, "Faced Error in '/account set-password <new-password>' Command: ", err);
@@ -784,30 +811,5 @@ public class Account {
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/account unregister' Command: ", err);
     }
-  }
-
-  /**
-   * Validates a proposed new password against the server-defined policy.
-   *
-   * <p>Checks that the password is not blank, is not a reuse of the current one when
-   * {@code allowReuse} is disabled, and meets the configured complexity requirements.
-   * Failure feedback is sent to the player.
-   *
-   * @param player the player attempting the password change
-   * @param newPassword the hashed candidate password
-   * @param oldPassword the current hashed password (for reuse checking)
-   * @return {@code true} if the new password passes all checks, {@code false} otherwise
-   */
-  private static boolean checkNewPassword(
-      @NotNull ServerPlayer player,
-      @NotNull String newPassword,
-      @NotNull String oldPassword) {
-    if (StringUtils.isBlank(newPassword))
-      return AuthCoreServer.LOGGER.toUser(
-          false, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
-    else if (!AuthCoreServer.config.passwordRules.allowReuse && newPassword.equals(oldPassword))
-      return AuthCoreServer.LOGGER.toUser(
-          false, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
-    else return (Security.Password.check(player, newPassword));
   }
 }

@@ -218,6 +218,8 @@ AuthCore deploys a **7-layer defense-in-depth security stack** designed to make 
 | `/authcore set-spawn` | `/authcore set-spawn limbo <x> <y> <z>` | Set exact world coordinates for the unauthenticated limbo lobby |
 | `/authcore backup` | `/authcore backup` · `export` | Trigger immediate database snapshot backup or export full JSON dump |
 | `/authcore maintenance` | `/authcore maintenance on\|off` | Toggle maintenance mode to restrict server access to administrators |
+| `/authcore map-image` | `map-image show\|clear <player>` · `map-image qr <player> <text>` · `map-image captcha <player>` · `map-image captcha-verify <player> <code>` | Give a player a map showing a rendered 128x128 image (test pattern, a generated QR code, or a captcha code) and take it back; cleanup is automatic on logout/crash. Enabled by default (`lobby.map-image`) |
+| `/authcore simulate` | `/authcore simulate` | Run the built-in self-test / simulation suite inside the live server (18 checks: hashing, live DB, landing geometry, session flow, proxy gate, SRG runtime, bounded caches, map rendering, map give/take lifecycle, map content/QR/captcha). **Owner-only and disabled by default** (`commands.admin.simulate`) |
 
 ---
 
@@ -412,19 +414,19 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 ./gradlew build
 
 # Build a specific loader and version target
-./gradlew :1.18.2-fabric:build      # -> dist/authcore-1.16-1.18-fabric-1.0.1.jar
-./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.1.jar
-./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.1.jar
-./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.1.jar
-./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.1.jar
-./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.1.jar
+./gradlew :1.18.2-fabric:build      # -> dist/authcore-1.16-1.18-fabric-1.0.2.jar
+./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.2.jar
+./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.2.jar
+./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.2.jar
+./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.2.jar
+./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.2.jar
 ```
 
 ---
 
 ## 🧪 Security Testing
 
-AuthCore features an autonomous security testing harness located in [`test/`](test/) with **180+ automated unit and cryptographic checks**:
+AuthCore features an autonomous security testing harness located in [`test/`](test/) with **229 automated unit and cryptographic checks** plus an 18-check in-mod simulation suite:
 
 ```bash
 # Compile and execute the full security test suite
@@ -441,6 +443,7 @@ Audited components include:
 - **Exploit & Abuse Defenses**: Captcha state machine lifecycle, SMTP token expiry, camera look-pattern variance, and bot farm concurrency detection.
 - **Proxy Security**: Trusted-proxy source validation, spoofed-forwarding rejection, and Velocity HMAC verification.
 - **Migration Engine**: Automated checks validating legacy single-file to split-configuration migrations.
+- **Map images (new)**: palette discovery, map-data round-trip, locked-map behaviour, the give/take lifecycle (death, offhand, crash recovery, rate limits), an in-mod QR encoder verified against two independent decoders, captcha single-use/expiry/attempt limits, and the input bounds of every entry point. The map-content path is pure computation over bounded inputs - no file, network, process or reflection access and no client-controlled input - so it adds no RCE or bypass surface; QR payloads are never logged.
 
 ---
 
@@ -466,6 +469,9 @@ Each automated test validates:
 2. Banner accuracy (compiled version string, target loader, and Java runtime).
 3. Admin console command execution (`/authcore validate`, `/authcore reload`, `/authcore backup`).
 4. Configuration generation, SQLite database initialization, and network port binding.
+5. The in-mod simulation suite (**18/18 checks**): hashing, live database, landing geometry, session flow, proxy gate, SRG runtime, bounded caches, map rendering, the map give/take lifecycle and map content/QR/captcha.
+
+The matrix covers **17 (version, loader) combinations**: Fabric 1.16.5/1.17.1/1.18.2/1.19.4/1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3, Forge 1.18.2 and NeoForge 1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3. Two SKIPs are genuine platform limits (Forge 1.16.5/1.17.1 cannot run a Java-17 jar; NeoForge does not exist for 1.19.4), not harness gaps.
 
 ---
 
@@ -532,7 +538,7 @@ No. AuthCore operates 100% server-side. Players connect using vanilla Minecraft 
 - [x] **Enterprise Storage**: High-performance SQLite (WAL), MySQL, PostgreSQL, and Redis SSO event buses.
 - [x] **Browser Web Panel**: Token-authenticated REST administration interface with live metrics.
 - [x] **Proxy Parity**: Modern Velocity HMAC forwarding, legacy BungeeCord detection, and fail-closed security.
-- [x] **Automated Test Rigor**: 180+ automated cryptographic and security checks with parallel Docker host tests.
+- [x] **Automated Test Rigor**: 229 automated cryptographic and security checks, an 18-check in-mod simulation suite, and a 17-endpoint parallel Docker matrix.
 - [x] **Split Configuration Architecture**: Separate domain configs (`lobby.conf`, `session.conf`, `database.conf`) with automatic legacy migration.
 
 ---

@@ -17,20 +17,32 @@ import in.potenfyr.authcore.AuthCoreServer;
  */
 public final class IpRules {
 
-  private static final List<String[]> RULES = new ArrayList<>();
+  /**
+   * Immutable rule snapshot (copy-on-write). {@code isDenied} runs on the server thread for EVERY
+   * join, while {@link #load()} does file I/O - sharing one monitor between them meant a honeypot
+   * hit (which reloads the rules) or an admin reload could stall the server thread and freeze
+   * joins. Readers now only touch this volatile reference.
+   */
+  private static volatile List<String[]> rules = List.of();
 
   private IpRules() {}
 
-  /** (Re)loads the rule file from disk. */
-  public static synchronized void load() {
-    RULES.clear();
+  /** (Re)loads the rule file from disk. Builds a new snapshot and swaps it in atomically. */
+  public static void load() {
+    List<String[]> parsed = new ArrayList<>();
 
     if (AuthCoreServer.config == null
         || AuthCoreServer.config.session.security.ipRulesFile == null
-        || AuthCoreServer.config.session.security.ipRulesFile.isBlank()) return;
+        || AuthCoreServer.config.session.security.ipRulesFile.isBlank()) {
+      rules = List.of();
+      return;
+    }
 
     Path path = AuthCoreServer.configPath.resolve(AuthCoreServer.config.session.security.ipRulesFile);
-    if (!Files.exists(path)) return;
+    if (!Files.exists(path)) {
+      rules = List.of();
+      return;
+    }
 
     try {
       for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
@@ -40,10 +52,12 @@ public final class IpRules {
         String[] parts = trimmed.split("\\s+");
         if (parts.length == 2
             && (parts[0].equalsIgnoreCase("allow") || parts[0].equalsIgnoreCase("deny")))
-          RULES.add(new String[] {parts[0].toLowerCase(), parts[1]});
+          parsed.add(new String[] {parts[0].toLowerCase(), parts[1]});
       }
-      AuthCoreServer.LOGGER.info(true, "Loaded {} IP rule(s) from {}", RULES.size(), path.getFileName());
+      rules = List.copyOf(parsed);
+      AuthCoreServer.LOGGER.info(true, "Loaded {} IP rule(s) from {}", rules.size(), path.getFileName());
     } catch (IOException err) {
+      // Keep the previous snapshot on a failed reload instead of silently unbanning everyone.
       AuthCoreServer.LOGGER.error(false, "Failed to load IP rules file:", err);
     }
   }
@@ -60,11 +74,12 @@ public final class IpRules {
    * @param ip the player IP
    * @return {@code true} if the IP is not allowed to join
    */
-  public static synchronized boolean isDenied(String ip) {
+  public static boolean isDenied(String ip) {
     if (ip == null) return false;
 
+    List<String[]> snapshot = rules;
     boolean hasAllowRule = false;
-    for (String[] rule : RULES) {
+    for (String[] rule : snapshot) {
       if (rule[0].equals("allow")) hasAllowRule = true;
       if (ruleMatches(rule[1], ip)) return rule[0].equals("deny");
     }

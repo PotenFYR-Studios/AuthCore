@@ -183,15 +183,24 @@ XMX="${DEF_XMX/\{memory\}/$MEMORY}"
 # jar resolution: one jar per (range, loader)
 # ---------------------------------------------------------------------------
 resolve_jar() { # <range> <loader> <build>
-  local range="$1" loader="$2" build="$3" f
+  # Picks the HIGHEST version when several jars are present: a stale jar left in dist/ after a
+  # version bump must never be the one under test (it silently tests the old build).
+  local range="$1" loader="$2" build="$3" f best="" bestver=""
   local pat="authcore-$range-$loader-*.jar"
   for d in "$REPO/dist" "$REPO/versions/$build-$loader/build/libs"; do
     for f in "$d"/$pat; do
       [ -f "$f" ] || continue
       case "$f" in *sources*) continue ;; esac
-      echo "$f"; return 0
+      local base ver
+      base=$(basename "$f" .jar)
+      ver=${base#"authcore-$range-$loader-"}
+      if [ -z "$best" ] || [ "$(printf '%s\n%s\n' "$ver" "$bestver" | sort -V | tail -1)" = "$ver" ]; then
+        best="$f"
+        bestver="$ver"
+      fi
     done
   done
+  [ -n "$best" ] && { echo "$best"; return 0; }
   return 1
 }
 
@@ -279,8 +288,8 @@ for ((gi=0; gi<NGROUPS; gi++)); do
       # known Forge-1.16-1.18 module-layer issue - skip with a clear note instead of
       # failing the whole matrix.
       case "$MC" in
-        1.16.5|1.17.1|1.18.2)
-          [ "$LOADER" = "forge" ] && { SKIPS+=("$MC|$RANGE|$LOADER|known issue: Forge 1.16-1.18 mod not constructed in the harness JDK-17 module layer (jar + source pass everywhere else)"); continue; }
+        1.16.5|1.17.1)
+          [ "$LOADER" = "forge" ] && { SKIPS+=("$MC|$RANGE|$LOADER|Forge 1.16.5/1.17.1 cannot run on the Java-17 runtime this jar requires (Forge itself does not support Java 17 before 1.18); jar + source pass everywhere else"); continue; }
           ;;
       esac
       DESCS+=("$MC|$RANGE|$LOADER|$JMAJOR|$PIN|$JARPATH")
@@ -383,6 +392,7 @@ run_one() { # <mc>|<range>|<loader>|<javaMajor>|<pin>|<jarPath>  <index>
     "${cacheargs[@]}" \
     -e "MC_VERSION=$mc" -e "LOADER=$loader" -e "LOADER_PIN=$pin" \
     -e "EXPECTED_VERSION=$version" \
+    -e "FUNCTIONAL=${AUTHCORE_FUNCTIONAL:-1}" \
     -e "TEST_TIMEOUT=$TIMEOUT" -e "JVM_ARGS=$XMX" \
     -e "SERVER_PORT=$((25565 + idx))" \
     -e "JAVA_LABEL=temurin-$jmajor" \

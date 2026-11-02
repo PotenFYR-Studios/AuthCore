@@ -42,6 +42,7 @@ public abstract class CommandManagerSourceMixin {
     // ClientGuard: command-rate accounting (lobby command flood detection).
     in.potenfyr.authcore.security.ClientGuard.recordChat(player, true);
 
+    if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
 
