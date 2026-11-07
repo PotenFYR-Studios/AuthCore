@@ -122,30 +122,55 @@ public class AuthCoreServer {
    * API calls for premium detection - this marker is the single source of truth, and it is
    * only ever set on online-mode servers where vanilla authenticated the profile.
    */
-  private static final java.util.Set<java.util.UUID> PREMIUM_VERIFIED =
-      java.util.concurrent.ConcurrentHashMap.newKeySet();
+  /**
+   * Premium-verification markers: profile uuid -> the network Connection the verification belongs
+   * to. A marker is CONNECTION-BOUND: on an offline server every client claiming a name gets the
+   * same offline uuid, so a uuid-only marker set by a genuine premium player's handshake could be
+   * consumed by a DIFFERENT (cracked) connection racing the same name to the join - a premium
+   * auto-login account takeover. {@link #UNBOUND} marks the vanilla online-mode path, where the
+   * join itself is already session-verified by the server.
+   */
+  private static final java.util.Map<java.util.UUID, java.lang.ref.WeakReference<Object>>
+      PREMIUM_VERIFIED = new java.util.concurrent.ConcurrentHashMap<>();
 
-  /** Records that the server's Mojang session authentication verified this profile. */
+  private static final Object UNBOUND = new Object();
+
+  /** Records that the server's own (online-mode) session authentication verified this profile. */
   public static void markPremiumVerified(java.util.UUID uuid) {
-    if (uuid != null) {
-      // Bounded: the marker is consumed on login, but a flood of join handshakes must not
-      // accumulate markers for connections that never complete.
-      if (PREMIUM_VERIFIED.size() > 4096) PREMIUM_VERIFIED.clear();
-      PREMIUM_VERIFIED.add(uuid);
-    }
+    markPremiumVerifiedBound(uuid, UNBOUND);
+  }
+
+  /** Records a verification that belongs to exactly this network connection. */
+  public static void markPremiumVerified(java.util.UUID uuid, Object connection) {
+    if (connection == null) return; // unbound offline verification: never trusted (fail safe)
+    markPremiumVerifiedBound(uuid, connection);
+  }
+
+  private static void markPremiumVerifiedBound(java.util.UUID uuid, Object binding) {
+    if (uuid == null) return;
+    // Bounded: the marker is consumed on login, but a flood of join handshakes must not
+    // accumulate markers for connections that never complete.
+    if (PREMIUM_VERIFIED.size() > 4096) PREMIUM_VERIFIED.clear();
+    PREMIUM_VERIFIED.put(uuid, new java.lang.ref.WeakReference<>(binding));
+  }
+
+  /** Legacy form: consumes an UNBOUND (vanilla online-mode) marker only. */
+  public static boolean consumePremiumVerified(java.util.UUID uuid) {
+    return consumePremiumVerified(uuid, null);
   }
 
   /**
-   * Atomically CONSUMES the per-boot verification marker for this profile: returns whether
-   * THIS connection's login handshake was verified and removes the marker in one step.
-   *
-   * <p>Consuming (instead of merely reading) is what makes the marker spoof-proof: a
-   * verification belongs to exactly ONE join. A second client joining with the same name
-   * while the verified player is still online can never inherit the flag, so premium
-   * auto-login cannot be triggered by a name collision.
+   * Atomically CONSUMES the verification marker for this profile: true only when it was set for
+   * THIS connection (or by the vanilla online-mode path). Consuming makes it single-use, so a second
+   * client joining with the same name can never inherit it.
    */
-  public static boolean consumePremiumVerified(java.util.UUID uuid) {
-    return uuid != null && PREMIUM_VERIFIED.remove(uuid);
+  public static boolean consumePremiumVerified(java.util.UUID uuid, Object connection) {
+    if (uuid == null) return false;
+    java.lang.ref.WeakReference<Object> ref = PREMIUM_VERIFIED.remove(uuid);
+    if (ref == null) return false;
+    Object bound = ref.get();
+    if (bound == UNBOUND) return true;
+    return bound != null && connection != null && bound == connection;
   }
 
   /** Drops the per-join verification marker (called on player leave). */

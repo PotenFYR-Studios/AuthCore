@@ -174,29 +174,19 @@ abstract class ServerLoginNetworkHandlerMixin {
   }
 /*?}*/
 
-  /** Reads the profile name from the hello packet (version-agnostic). */
+  /** Reads the profile name from the hello packet (direct, remapped accessors per era). */
   private static String readName(ServerboundHelloPacket packet) {
-    Object profile = readProfile(packet);
-    if (profile != null) {
-      for (String m : new String[] {"name", "getName"}) {
-        String value = invokeString(profile, m);
-        if (value != null) return value;
-      }
-    }
-    return invokeString(packet, "name");
+    return in.potenfyr.authcore.compat.Compat.helloName(packet);
   }
 
-  /** Reads the profile id from the hello packet (version-agnostic). */
+  /**
+   * The UUID the client claims (null on 1.16-1.18, whose hello carries none - every check below is
+   * then skipped, exactly as before: without a claimed UUID an offline client cannot be told apart
+   * from a premium one, and guessing would let cracked clients bypass the online-mode check). The
+   * name-based lookups that used to run here never resolved on Fabric/Forge at all.
+   */
   private static UUID readProfileId(ServerboundHelloPacket packet) {
-    Object profile = readProfile(packet);
-    if (profile != null) {
-      for (String m : new String[] {"id", "getId"}) {
-        Object value = invoke(profile, m);
-        if (value instanceof UUID u) return u;
-      }
-    }
-    Object value = invoke(packet, "profileId");
-    return value instanceof UUID u ? u : null;
+    return in.potenfyr.authcore.compat.Compat.helloId(packet);
   }
 
   /** Reads the GameProfile from the hello packet (getProfile() on 1.16). */

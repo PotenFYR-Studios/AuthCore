@@ -185,6 +185,27 @@ abstract class ServerPlayNetworkHandlerLobbyGuardMixin {
     }
   }
 
+  /**
+   * After a (dead-on-join) limbo player respawned, {@code player} is the NEW entity, standing at the
+   * vanilla respawn point: record it for the unlock and re-shield the new entity (issue #11).
+   */
+  @Inject(
+      method =
+          "handleClientCommand(Lnet/minecraft/network/protocol/game/ServerboundClientCommandPacket;)V",
+      at = @At("RETURN"),
+      require = 0)
+  private void authCore$afterClientCommand(
+      net.minecraft.network.protocol.game.ServerboundClientCommandPacket packet, CallbackInfo ci) {
+    try {
+      if (player == null || in.potenfyr.authcore.models.Lobby.users.isEmpty()) return;
+      User user = User.getUser(player);
+      if (user != null && user.isInLobby.get() && user.lobby != null)
+        user.lobby.onRespawnInLimbo(player);
+    } catch (Throwable ignored) {
+      // bookkeeping only - the tick fallback records the respawn as well
+    }
+  }
+
   @Inject(
       method =
           "handleTeleportToEntityPacket(Lnet/minecraft/network/protocol/game/ServerboundTeleportToEntityPacket;)V",
@@ -288,12 +309,17 @@ abstract class ServerPlayNetworkHandlerLobbyGuardMixin {
   }
 
   /** Reads the {@code Action} name of a player-command packet without a compile-time enum name. */
-  private static String readActionName(Object packet) {
+  private static String readActionName(
+      net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket packet) {
+    // Direct, build-remapped call. The previous reflective lookup used the Mojang name
+    // "getAction", which does not exist on the intermediary (Fabric) or SRG (Forge) runtimes: every
+    // player-command packet there read as UNKNOWN and was cancelled - sneaking and sprinting (which
+    // the human-verification captcha measures) were blocked for every limbo player on those
+    // loaders. Enum constant names survive obfuscation, so name() is stable in every era.
     try {
-      Object action = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getAction")
-          .invoke(packet);
-      return action == null ? null : action.toString();
-    } catch (ReflectiveOperationException | RuntimeException unreadable) {
+      Enum<?> action = packet.getAction();
+      return action == null ? null : action.name();
+    } catch (RuntimeException | LinkageError unreadable) {
       return null; // unknown action -> fail closed in the lobby
     }
   }

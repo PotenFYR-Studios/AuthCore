@@ -1092,6 +1092,37 @@ public class AuthCoreSecurityTests {
     check("normal snapshot health is kept", Lobby.Snapshot.clampRestoredHealth(7.5F, 20.0F) == 7.5F);
     check("sub-heart health is clamped up", Lobby.Snapshot.clampRestoredHealth(0.25F, 20.0F) == 1.0F);
     check("above-max health is capped", Lobby.Snapshot.clampRestoredHealth(40.0F, 20.0F) == 20.0F);
+
+    // Issue #11 (1.0.3 second pass): a player captured at 0 HP is DEAD - never healed by the limbo, never
+    // revived by the restore.
+    check("0 HP snapshot is dead", Lobby.Snapshot.isDeadState(0.0F));
+    check("negative HP snapshot is dead", Lobby.Snapshot.isDeadState(-1.0F));
+    check("NaN HP snapshot is dead", Lobby.Snapshot.isDeadState(Float.NaN));
+    check("sub-heart HP snapshot is alive", !Lobby.Snapshot.isDeadState(0.5F));
+    check("full HP snapshot is alive", !Lobby.Snapshot.isDeadState(20.0F));
+
+    // ReflectCache: the key includes the parameter TYPES (arity-only keys returned the wrong
+    // overload), and a cached miss is still reported as a miss.
+    try {
+      java.lang.reflect.Method byInt =
+          in.potenfyr.authcore.util.ReflectCache.method(StringBuilder.class, "append", int.class);
+      java.lang.reflect.Method byString =
+          in.potenfyr.authcore.util.ReflectCache.method(StringBuilder.class, "append", String.class);
+      check("reflect cache keeps overloads apart",
+          byInt.getParameterTypes()[0] == int.class && byString.getParameterTypes()[0] == String.class);
+    } catch (ReflectiveOperationException err) {
+      check("reflect cache keeps overloads apart", false);
+    }
+    boolean missTwice = true;
+    for (int i = 0; i < 2; i++) {
+      try {
+        in.potenfyr.authcore.util.ReflectCache.method(String.class, "authCoreNoSuchMethod");
+        missTwice = false;
+      } catch (NoSuchMethodException expected) {
+        // expected on both the uncached and the cached lookup
+      }
+    }
+    check("reflect cache reports a cached miss", missTwice);
   }
 
   /** Invokes a resolved boolean setter, swallowing failures (checks below observe state). */

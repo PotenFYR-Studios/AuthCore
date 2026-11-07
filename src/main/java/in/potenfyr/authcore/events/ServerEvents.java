@@ -250,7 +250,9 @@ public class ServerEvents {
     // AuthCoreServer.consumePremiumVerified): the marker is set by the login handshake
     // mixin for this join alone and must never leak to a second connection with the
     // same name/uuid.
-    final boolean premiumVerifiedThisJoin = AuthCoreServer.consumePremiumVerified(uuid);
+    final boolean premiumVerifiedThisJoin =
+        AuthCoreServer.consumePremiumVerified(
+            uuid, in.potenfyr.authcore.compat.Compat.networkConnection(connection));
 
     // Duplicate login handling
     if (user != null && user.isActive) {
@@ -374,6 +376,10 @@ public class ServerEvents {
     // sticks in playerdata, and a later join that DOES reach the recovery reloads stale items over
     // the live inventory (1.0.3 audit: soft-lock + item duplication).
     recoverLimboSnapshot(player, username, uuid);
+
+    // Killed by the combat-log punishment on the last logout: say so (otherwise the player only
+    // sees a cause-less death screen and blames the login - issue #11).
+    notifyCombatLogDeath(user);
 
     // Per-IP allow/deny rules (ip-rules.conf)
     if (in.potenfyr.authcore.security.IpRules.isDenied(player.getIpAddress())) {
@@ -743,6 +749,56 @@ public class ServerEvents {
     }
   }
 
+  /**
+   * Connections the SERVER disconnected (AuthCore kicks, kick-old duplicates, timeouts). Weak keys:
+   * an entry can never outlive its connection even if the leave event never fires.
+   */
+  private static final java.util.Set<Object> SERVER_INITIATED_DISCONNECTS =
+      java.util.Collections.synchronizedSet(
+          java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+
+  /** Players killed by the combat-log punishment, told why on their next join (bounded). */
+  private static final java.util.Set<UUID> COMBAT_LOG_KILLED =
+      java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+  /** Marks a connection as disconnected by the server (never a combat-log escape). */
+  public static void markServerInitiatedDisconnect(Object connection) {
+    if (connection != null) SERVER_INITIATED_DISCONNECTS.add(connection);
+  }
+
+  /**
+   * Why a combat-tagged disconnect must NOT be punished, or null when it is a real combat log.
+   *
+   * <p>Killing a player is irreversible and costs them every item, so only a disconnect the player
+   * chose is punished: never one the server caused (AuthCore kick, duplicate-login kick, shutdown /
+   * restart), never a player who was still unauthenticated in the limbo, and never one already
+   * dead (a second death on the death screen).
+   */
+  private static String combatLogExemption(
+      ServerGamePacketListenerImpl connection, ServerPlayer player, boolean leftFromLimbo) {
+    if (leftFromLimbo) return "still unauthenticated in the limbo";
+    if (SERVER_INITIATED_DISCONNECTS.contains(connection)) return "disconnected by the server";
+    try {
+      MinecraftServer server = in.potenfyr.authcore.compat.Compat.getServer(player);
+      if (server != null && !server.isRunning()) return "server shutting down";
+    } catch (RuntimeException | LinkageError ignored) {
+      // unknown server state - fall through
+    }
+    if (player == null || !(player.getHealth() > 0.0F)) return "already dead";
+    return null;
+  }
+
+  /** Tells a returning player that the combat-log punishment killed them (once). */
+  public static void notifyCombatLogDeath(User user) {
+    if (user == null || user.uuid == null || !COMBAT_LOG_KILLED.remove(user.uuid)) return;
+    try {
+      AuthCoreServer.LOGGER.toUser(
+          false, user.connection, AuthCoreServer.messages.promptUserKilledForCombatLog);
+    } catch (RuntimeException ignored) {
+      // the notice is best-effort
+    }
+  }
+
   /** Player leave handler */
   public static void onPlayerLeave(ServerGamePacketListenerImpl connection) {
     if (connection == null || !LEFT_CONNECTIONS.add(connection)) return;
@@ -794,6 +850,10 @@ public class ServerEvents {
       // a stale connection sharing the drifted uuid would drop the NEW session's alias.
       if (!staleTeardown) user.releaseJoinUuid(uuid);
 
+      // Captured BEFORE the unlock below: a player who was still unauthenticated never took part in
+      // this session's gameplay and can never be a combat logger.
+      final boolean leftFromLimbo = user.isInLobby.get();
+
       if (user.isInLobby.get()) {
         if (staleTeardown) {
           AuthCoreServer.LOGGER.debug(
@@ -808,33 +868,58 @@ public class ServerEvents {
       if (staleTeardown) return;
 
       user.isActive = false;
+      // The password proof belongs to this connection only (and must not pin it in memory).
+      user.passwordProvenOn = null;
 
       // Tell other mods / the proxy that this player is no longer authenticated
       in.potenfyr.authcore.network.AuthInterop.broadcast(player, false);
 
+      final long lastCombat = user.lastCombatDetectMs;
       user.isInCombatPenalty =
           user.lastCombatDetectMs > 0
               && AuthCoreServer.config.session.combatTimeout > 0
               && ((System.currentTimeMillis() - user.lastCombatDetectMs)
                   < AuthCoreServer.config.session.combatTimeout);
+      // The combat window belongs to THIS session only - it must never carry over into the next one
+      // (a quick rejoin + leave used to punish the player a second time for the same fight).
+      user.lastCombatDetectMs = 0;
 
-      // Combat-log punishment: kill players who disconnect while still in combat
+      // Combat-log punishment: kill players who CHOSE to disconnect while still in combat.
       if (user.isInCombatPenalty && AuthCoreServer.config.session.combatLog.enabled) {
-        AuthCoreServer.LOGGER.debug(
-            true, "{} attempted to skip death penalty!", user.username);
-        SecurityLog.log("COMBAT_LOGOUT", user.username + " disconnected during combat");
-
-        if (AuthCoreServer.config.session.combatLog.killOnDisconnect) {
-          try {
-            in.potenfyr.authcore.compat.Compat.kill(player);
-            AuthCoreServer.LOGGER.info(
-                true,
-                "{} was killed for combat-logging (disconnect during combat).",
-                user.username);
-            Webhook.send(
-                ":skull: **" + user.username + "** was killed for combat-logging.");
-          } catch (Exception err) {
-            AuthCoreServer.LOGGER.debug(false, "Failed to kill combat-logger:", err);
+        String exemption = combatLogExemption(connection, player, leftFromLimbo);
+        if (exemption != null) {
+          AuthCoreServer.LOGGER.info(
+              true,
+              "{} left during combat but was not punished ({}).",
+              user.username,
+              exemption);
+        } else {
+          SecurityLog.log("COMBAT_LOGOUT", user.username + " disconnected during combat");
+          if (AuthCoreServer.config.session.combatLog.killOnDisconnect) {
+            boolean killed = false;
+            try {
+              killed = in.potenfyr.authcore.compat.Compat.kill(player);
+            } catch (RuntimeException | LinkageError err) {
+              AuthCoreServer.LOGGER.debug(false, "Failed to kill combat-logger:", err);
+            }
+            if (killed) {
+              // INFO on purpose (issue #11): the death happens while the player is disconnecting,
+              // so on the next join they only see a death screen without a cause. This line and
+              // the join notice are the only trace of WHY.
+              AuthCoreServer.LOGGER.info(
+                  true,
+                  "{} was killed for combat-logging (disconnected {} ms after combat).",
+                  user.username,
+                  String.valueOf(System.currentTimeMillis() - lastCombat));
+              COMBAT_LOG_KILLED.add(uuid);
+              if (COMBAT_LOG_KILLED.size() > 10_000) COMBAT_LOG_KILLED.clear();
+              Webhook.send(":skull: **" + user.username + "** was killed for combat-logging.");
+            } else {
+              AuthCoreServer.LOGGER.warn(
+                  false,
+                  "{} combat-logged, but this runtime offers no safe kill path - not punished.",
+                  user.username);
+            }
           }
         }
       }
@@ -844,6 +929,7 @@ public class ServerEvents {
     } finally {
       LEFT_CONNECTIONS.remove(connection);
       PACKET_SEQUENCES.remove(connection);
+      SERVER_INITIATED_DISCONNECTS.remove(connection);
     }
   }
 
@@ -896,6 +982,10 @@ public class ServerEvents {
         User u = lobby.user;
         if (u == null || !u.isActive || u.player.get() == null) continue;
         ServerPlayer p = u.player.get();
+
+        // Dead-on-join players who respawned inside the limbo (fallback for the packet hook):
+        // record the respawn point before the anchor guard below moves the new entity.
+        lobby.onRespawnInLimbo(p);
 
         // Fly/elytra bypass guards - apply to EVERY lobby player, even when basic movement
         // is allowed: flight is never part of the lobby's allowed movement. Hack clients

@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.mixin;
 
-import in.potenfyr.authcore.util.ReflectCache;
 
 import in.potenfyr.authcore.events.EntityEvents;
 import in.potenfyr.authcore.models.User;
@@ -84,34 +83,14 @@ abstract class ServerInteractPacketMixin {
   // class were absent there, and mixin descriptors must only reference classes present across the
   // whole supported range.
 
-  /** Reads the enum name of the packet's action ("ATTACK" / "INTERACT" / "INTERACT_AT"). */
-  private static String readActionKind(Object packet) {
-    try {
-      Object action = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getAction").invoke(packet);
-      if (action == null) return null;
-      Object type = in.potenfyr.authcore.util.ReflectCache.method(action.getClass(), "getType").invoke(action);
-      if (type instanceof Enum<?> enumType) {
-        String name = enumType.name();
-        if ("INTERACT_AT".equals(name)) return "INTERACT"; // same rules, hit-position variant
-        return name;
-      }
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // fall through - unknown packet shape
-    }
-    return null;
+  /** The packet's action kind - see {@link in.potenfyr.authcore.compat.InteractPackets}. */
+  private static String readActionKind(
+      net.minecraft.network.protocol.game.ServerboundInteractPacket packet) {
+    return in.potenfyr.authcore.compat.InteractPackets.actionKind(packet);
   }
 
-  /** Resolves the targeted entity from the packet id against the player's world. */
-  private Object readTargetEntity(Object packet) {
-    try {
-      Object result =
-          ReflectCache.method(
-                  packet.getClass(), "getEntity", net.minecraft.world.level.Level.class)
-              .invoke(packet, in.potenfyr.authcore.compat.Compat.playerLevel(player));
-      if (result instanceof net.minecraft.world.entity.Entity entity) return entity;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // fall through
-    }
-    return null;
+  /** The targeted entity (null when unresolvable - treated as blocked). */
+  private Object readTargetEntity(net.minecraft.network.protocol.game.ServerboundInteractPacket packet) {
+    return in.potenfyr.authcore.compat.InteractPackets.target(packet, player);
   }
 }

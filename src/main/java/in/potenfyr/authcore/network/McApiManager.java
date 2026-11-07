@@ -426,9 +426,43 @@ public final class McApiManager {
                     new net.minecraft.server.permissions.Permission.HasCommandLevel(
                         net.minecraft.server.permissions.PermissionLevel.byId(level))));
       } catch (RuntimeException | LinkageError missingApi) {
-        return null; // older runtime inside this jar's range - caller falls back
+        // Older runtime inside this jar's range (1.19-1.21.10 under the 1.21.11 build): the int
+        // level API is located by SHAPE - CommandSourceStack's only public (int) -> boolean method
+        // is hasPermission(int) there - so no mapping name is needed on intermediary/SRG/Mojang.
+        return legacySourceHasLevel(stack, level);
       }
       /*?}*/
+    }
+
+    private static volatile java.lang.reflect.Method legacySourceLevelCheck;
+    private static volatile boolean legacySourceLevelResolved;
+
+    private static Boolean legacySourceHasLevel(Object stack, int level) {
+      if (!legacySourceLevelResolved) {
+        java.lang.reflect.Method found = null;
+        for (java.lang.reflect.Method m :
+            net.minecraft.commands.CommandSourceStack.class.getMethods()) {
+          if (m.getParameterCount() == 1
+              && m.getParameterTypes()[0] == int.class
+              && m.getReturnType() == boolean.class
+              && !java.lang.reflect.Modifier.isStatic(m.getModifiers())) {
+            if (found != null) {
+              found = null; // ambiguous shape - never guess a permission check
+              break;
+            }
+            found = m;
+          }
+        }
+        legacySourceLevelCheck = found;
+        legacySourceLevelResolved = true;
+      }
+      java.lang.reflect.Method m = legacySourceLevelCheck;
+      if (m == null) return null;
+      try {
+        return (Boolean) m.invoke(stack, level);
+      } catch (ReflectiveOperationException | RuntimeException err) {
+        return null;
+      }
     }
 
     /**
@@ -480,6 +514,16 @@ public final class McApiManager {
       if (player == null) return false;
       // OP level 0 means "all players" (see the command permission config docs)
       if (level <= 0) return true;
+
+      // Era-exact, build-remapped check through the player's own command source. The name-based
+      // lookups below only resolve on Mojang-named runtimes (NeoForge / 26.x) - on Fabric
+      // (intermediary) and Forge (SRG) every player-level check used to read "no permission".
+      try {
+        Boolean viaSource = sourceHasLevel(player.createCommandSourceStack(), level);
+        if (viaSource != null) return viaSource.booleanValue();
+      } catch (RuntimeException | LinkageError ignored) {
+        // fall through to the name-based shapes
+      }
 
       // 1.21.11+/26.x: net.minecraft.server.permissions.PermissionSet
       try {

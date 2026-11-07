@@ -20,6 +20,7 @@
     "ServerPlayerRestrictionsMixin",
     "ServerEventsFallbackJoinMixin",
     "ServerEventsFallbackLeaveMixin",
+    "ServerDisconnectTrackMixin",
     "ServerEventsFallbackTickMixin",
     "ServerPlayNetworkHandlerChatMixin",
     "ServerPlayNetworkHandlerLobbyGuardMixin",

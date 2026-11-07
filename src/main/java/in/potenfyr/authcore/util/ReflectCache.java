@@ -24,7 +24,11 @@ public final class ReflectCache {
   public static Method method(Class<?> type, String name, Class<?>... parameterTypes)
       throws NoSuchMethodException {
     if (type == null || name == null) throw new NoSuchMethodException("null type/name");
-    String key = type.getName() + '#' + name + '/' + parameterTypes.length;
+    // The key must include the parameter TYPES: with only the arity, method(X, "f", int.class) and
+    // method(X, "f", String.class) shared one cache slot and the second caller got the wrong method.
+    StringBuilder keyBuilder = new StringBuilder(64).append(type.getName()).append('#').append(name);
+    for (Class<?> p : parameterTypes) keyBuilder.append('/').append(p == null ? "?" : p.getName());
+    String key = keyBuilder.toString();
     Optional<Method> cached = METHODS.get(key);
     if (cached == null) {
       Method found = null;
@@ -36,7 +40,7 @@ public final class ReflectCache {
       cached = Optional.ofNullable(found);
       METHODS.put(key, cached);
     }
-    if (cached.isEmpty()) throw new NoSuchMethodException(type.getName() + '#' + name);
+    if (cached.isEmpty()) throw MISSING;
     return cached.get();
   }
 
@@ -47,6 +51,19 @@ public final class ReflectCache {
   }
 
   /** Number of cached lookups (diagnostics/self-test). */
+  /**
+   * Shared, stackless "absent" signal. Negative lookups are cached, but every miss still built a
+   * fresh NoSuchMethodException (stack walk + allocation) - on the per-packet guard paths that is
+   * one exception per packet for every name a runtime does not have.
+   */
+  private static final NoSuchMethodException MISSING =
+      new NoSuchMethodException("absent (cached)") {
+        @Override
+        public synchronized Throwable fillInStackTrace() {
+          return this;
+        }
+      };
+
   public static int size() {
     return METHODS.size();
   }

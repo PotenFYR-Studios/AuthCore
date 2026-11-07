@@ -918,6 +918,48 @@ public class Messages {
 
   @Comment(
       """
+             Shown when a credential-changing command (/account set-password, /account unregister)
+             is used in a session that was RESUMED (session resume / SSO) instead of unlocked with
+             the password on this connection.
+             • Default display: Chat message in RED""")
+  public ColTemplate promptUserReauthRequired =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text =
+                      "For your security, log in with your password first: /account logout, "
+                          + "rejoin and /login <password>, then run this command again.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+             Shown after the next join to a player who was killed by the combat-log punishment
+             (they disconnected while still in combat). Without it the player only sees a death
+             screen with no cause and assumes the authentication killed them.
+             • Default display: Chat message in RED""")
+  public ColTemplate promptUserKilledForCombatLog =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text =
+                      "You were killed because you disconnected during combat (combat-log "
+                          + "punishment). Your items were dropped where you logged out.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
              Shown when a command is used too quickly again (command cooldown).
              • Placeholders:
                • %1$s - Remaining wait time

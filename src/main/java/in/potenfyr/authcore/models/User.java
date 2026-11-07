@@ -313,9 +313,22 @@ public class User {
     }
   }
 
+  /** Last full prune (ms) - the O(n) prune runs at most once per {@link #PRUNE_MIN_INTERVAL_MS}. */
+  private static final java.util.concurrent.atomic.AtomicLong lastPruneMs =
+      new java.util.concurrent.atomic.AtomicLong();
+
+  private static final long PRUNE_MIN_INTERVAL_MS = 30_000L;
+
   /** Evicts offline users that have not been touched for 30 minutes (bounds memory). */
   private static void pruneCache() {
-    long cutoff = System.currentTimeMillis() - 30 * 60 * 1000L;
+    // Rate-limited and single-flight: while the cache sits above the limit with nothing evictable
+    // (many online/recent users), EVERY touch used to trigger a full scan of the whole cache plus
+    // an identity-set rebuild of the name index - O(n) per lookup on a busy server.
+    long nowMs = System.currentTimeMillis();
+    long lastRun = lastPruneMs.get();
+    if (nowMs - lastRun < PRUNE_MIN_INTERVAL_MS || !lastPruneMs.compareAndSet(lastRun, nowMs))
+      return;
+    long cutoff = nowMs - 30 * 60 * 1000L;
     users.entrySet().removeIf(
         e -> {
           User u = e.getValue();
@@ -594,7 +607,7 @@ public class User {
           added ? "added" : "NOT added (API unavailable)");
     }
 
-    db.insert(this);
+    this.update("Registered");
 
     if (AuthCoreServer.config.session.authentication.allowLoginAfterRegistration
         || (this.isPremium && AuthCoreServer.config.session.authentication.premiumAutoLogin))
@@ -698,7 +711,7 @@ public class User {
       in.potenfyr.authcore.network.RedisManager.publishSso(
           this.uuid, freshToken, AuthCoreServer.config.session.sso.sessionTtlMin);
 
-    db.insert(this);
+    this.update("Logged in");
 
     // Network-wide session publication + cross-server event (no-op when Redis is disabled)
     in.potenfyr.authcore.network.RedisManager.publishEvent(
@@ -762,6 +775,7 @@ public class User {
     // would let the next (unauthenticated) session inherit MFA step-up privileges or
     // token-based resume without any proof of identity.
     this.mfaVerified = false;
+    this.passwordProvenOn = null;
     this.sessionTokenHash = null;
     this.loginAttempts = 0;
 
@@ -796,6 +810,22 @@ public class User {
 
   /** True when the current session satisfied a second factor (MFA step-up). */
   public transient volatile boolean mfaVerified = false;
+
+  /**
+   * The connection on which the player PROVED the password (/login with the password, /register,
+   * password recovery). A resumed session (same-IP session resume, SSO, companion token) or a
+   * premium auto-login never sets it. Credential-destroying actions (/account set-password,
+   * /account unregister) require it: otherwise anyone who merely RESUMED a session - e.g. a
+   * second person behind the same IP within the session window - could replace the password or
+   * delete the account and register their own (account takeover without knowing the password).
+   */
+  public transient volatile Object passwordProvenOn = null;
+
+  /** Whether the password was proven on this exact connection. */
+  public boolean passwordProvenOn(Object connection) {
+    Object proven = this.passwordProvenOn;
+    return proven != null && proven == connection;
+  }
 
   /**
    * Wrong-second-factor attempts since the last success (per session, transient). A small
@@ -866,9 +896,128 @@ public class User {
    * @param reason description of the update reason
    */
   public void update(String reason) {
-    db.insert(this);
+    if (AuthCoreServer.server != null && !DB_WRITER_DISABLED) {
+      enqueueWrite(this);
+    } else {
+      // No running server (host tests, early boot, tooling): synchronous, read-your-write.
+      db.insert(this);
+    }
     AuthCoreServer.LOGGER.debug(
         true, "{} has been updated in the database for '{}'", this.username, reason);
+  }
+
+  // ------------------------------------------------------------------
+  // Write-behind for user rows.
+  //
+  // Every update() used to run JDBC on the calling thread - the SERVER thread on join, leave,
+  // login, IP refresh and every security event - and, because the shared connection is
+  // serialised, it also waited for whatever the IO pool was doing on it. On MySQL/PostgreSQL that
+  // is a network round-trip (plus a transaction) per call inside the tick.
+  //
+  // Rows are now CAPTURED on the calling thread (an immutable copy - no torn reads of a User that
+  // keeps changing) and written by ONE ordered daemon writer, coalesced per account (a burst of
+  // updates for one user becomes a single upsert of the latest state). Deletes and backups
+  // flush first, and a JVM shutdown hook drains the queue.
+  // ------------------------------------------------------------------
+
+  /** Emergency switch (system property authcore.syncWrites=true) - restores synchronous writes. */
+  private static final boolean DB_WRITER_DISABLED = Boolean.getBoolean("authcore.syncWrites");
+
+  /** Latest captured row per account still waiting for the writer. */
+  private static final Map<UUID, Row> PENDING_ROWS = new ConcurrentHashMap<>();
+
+  private static final java.util.concurrent.ExecutorService DB_WRITER =
+      java.util.concurrent.Executors.newSingleThreadExecutor(
+          runnable -> {
+            Thread thread = new Thread(runnable, "AuthCore-DB-Writer");
+            thread.setDaemon(true);
+            return thread;
+          });
+
+  static {
+    try {
+      Runtime.getRuntime()
+          .addShutdownHook(new Thread(() -> flushWrites(10_000L), "AuthCore-DB-Flush"));
+    } catch (RuntimeException ignored) {
+      // shutdown already in progress / restricted runtime - writes stay best-effort
+    }
+  }
+
+  private static void enqueueWrite(User user) {
+    Row row = Row.capture(user);
+    if (row == null) return;
+    if (PENDING_ROWS.put(row.uuid, row) != null) return; // a scheduled task picks up the latest
+    try {
+      DB_WRITER.execute(
+          () -> {
+            Row latest = PENDING_ROWS.remove(row.uuid);
+            if (latest != null) db.insertRow(latest);
+          });
+    } catch (java.util.concurrent.RejectedExecutionException shuttingDown) {
+      Row latest = PENDING_ROWS.remove(row.uuid);
+      if (latest != null) db.insertRow(latest);
+    }
+  }
+
+  /**
+   * Blocks until every queued user write is in the database (bounded). Safe from any thread; a
+   * call from the writer thread itself returns immediately.
+   */
+  public static void flushWrites(long timeoutMs) {
+    if (Thread.currentThread().getName().equals("AuthCore-DB-Writer")) return;
+    if (PENDING_ROWS.isEmpty()) return;
+    try {
+      DB_WRITER.submit(() -> {}).get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    } catch (Exception timedOutOrShutdown) {
+      // last resort: write what is left on this thread
+      for (UUID id : new java.util.ArrayList<>(PENDING_ROWS.keySet())) {
+        Row latest = PENDING_ROWS.remove(id);
+        if (latest != null) db.insertRow(latest);
+      }
+    }
+  }
+
+  /** Immutable copy of every persisted column of a user (captured on the calling thread). */
+  static final class Row {
+    final UUID uuid;
+    final String username;
+    final String password;
+    final String authSecret;
+    final boolean premium;
+    final String ipAddress;
+    final String passwordEncryption;
+    final long userCreatedMs;
+    final long registeredAtMs;
+    final String recoveryCodes;
+    final long lockUntilMs;
+    final String email;
+    final String nickname;
+    final String deviceFingerprint;
+    final long trustedUntilMs;
+    final String discordId;
+
+    private Row(User u) {
+      this.uuid = u.uuid;
+      this.username = u.username;
+      this.password = u.password;
+      this.authSecret = u.authSecret;
+      this.premium = u.isPremium;
+      this.ipAddress = u.ipAddress;
+      this.passwordEncryption = u.passwordEncryption;
+      this.userCreatedMs = u.userCreatedMs;
+      this.registeredAtMs = u.registeredAtMs;
+      this.recoveryCodes = u.recoveryCodes;
+      this.lockUntilMs = u.lockUntilMs;
+      this.email = u.email;
+      this.nickname = u.nickname;
+      this.deviceFingerprint = u.deviceFingerprint;
+      this.trustedUntilMs = u.trustedUntilMs;
+      this.discordId = u.discordId;
+    }
+
+    static Row capture(User u) {
+      return u == null || u.uuid == null ? null : new Row(u);
+    }
   }
 
   /**
@@ -900,6 +1049,10 @@ public class User {
    */
   public void delete(String reason, boolean delFromServer) {
     if (this.isInLobby.get()) this.lobby.unlock();
+
+    // A queued write must never land AFTER the delete and resurrect the account.
+    PENDING_ROWS.remove(this.uuid);
+    flushWrites(5_000L);
 
     // Remove every cache key pointing at this user - the canonical uuid plus any join-time uuid
     // alias created by connect() for a drifted (offline-mode) joining uuid. Leaving an alias
@@ -1084,7 +1237,13 @@ public class User {
      *
      * @param user the user to insert
      */
-    public static synchronized void insert(User user) {
+    public static void insert(User user) {
+      insertRow(Row.capture(user));
+    }
+
+    /** Writes one captured row (the write-behind entry point). */
+    static synchronized void insertRow(Row user) {
+      if (user == null) return;
       // Hold the JDBC monitor for the whole transaction: auto-commit is toggled on the shared
       // connection, so another thread's statements must never interleave with (or join) it.
       synchronized (Database.monitor()) {
@@ -1092,7 +1251,7 @@ public class User {
       }
     }
 
-    private static void insertLocked(User user) {
+    private static void insertLocked(Row user) {
       java.sql.Connection conn = null;
       boolean previousAutoCommit = true;
       boolean transactional = false;
@@ -1113,7 +1272,7 @@ public class User {
           statement.setString(2, user.username);
           statement.setString(3, user.password);
           statement.setString(4, user.authSecret);
-          statement.setString(5, user.isPremium ? "online-mode" : "offline-mode");
+          statement.setString(5, user.premium ? "online-mode" : "offline-mode");
           statement.setString(6, user.ipAddress);
           statement.setString(7, user.passwordEncryption);
           statement.setLong(8, user.userCreatedMs);
@@ -1526,6 +1685,15 @@ public class User {
   /** Records a login attempt in the login history (public wrapper). */
   public static void logLogin(
       User user, String ip, String country, String result, int riskScore) {
+    // Audit insert: off the server thread (ordered after the account's own writes).
+    if (AuthCoreServer.server != null && !DB_WRITER_DISABLED && user != null) {
+      try {
+        DB_WRITER.execute(() -> db.logLogin(user, ip, country, result, riskScore));
+        return;
+      } catch (java.util.concurrent.RejectedExecutionException shuttingDown) {
+        // fall through - synchronous
+      }
+    }
     db.logLogin(user, ip, country, result, riskScore);
   }
 

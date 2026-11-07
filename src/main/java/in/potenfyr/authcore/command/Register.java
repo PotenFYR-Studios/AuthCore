@@ -196,6 +196,7 @@ public class Register {
             player.getIpAddress(),
             AuthCoreServer.config.session.authentication.allowTOTPSupport);
 
+        user.passwordProvenOn = player.connection;
         user.register(player, password); // broadcasts the auth state on login
 
         in.potenfyr.authcore.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIpAddress());

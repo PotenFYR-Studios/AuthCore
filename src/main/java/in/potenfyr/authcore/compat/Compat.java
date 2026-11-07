@@ -39,27 +39,56 @@ public final class Compat {
     return server.getPlayerList().getPlayer(uuid);
   }
 
-  /** Resolves the underlying network Connection instance from a listener/handler. */
+  /** Per-listener-class Connection field, found by TYPE (field names differ in every mapping era). */
+  private static final java.util.Map<Class<?>, java.util.Optional<java.lang.reflect.Field>>
+      CONNECTION_FIELDS = new java.util.concurrent.ConcurrentHashMap<>();
+
+  /**
+   * Resolves the underlying network {@link net.minecraft.network.Connection} of a packet listener
+   * (login, configuration or play), or returns the argument itself when none is found.
+   *
+   * <p>Type-based and hierarchy-aware: the field is called {@code connection} only in Mojang names
+   * (intermediary/SRG rename it), and since 1.20.2 it lives in the {@code
+   * ServerCommonPacketListenerImpl} SUPERCLASS - the old name-then-declared-fields lookup missed it
+   * on every play listener and silently returned the listener instead. The Connection object is the
+   * one identity that survives the whole login -> configuration -> play sequence, which is what the
+   * premium-verification binding relies on.
+   */
   public static Object getConnection(Object handler) {
     if (handler == null) return null;
     if (handler instanceof net.minecraft.network.Connection) return handler;
-    try {
-      java.lang.reflect.Field field = handler.getClass().getDeclaredField("connection");
-      field.setAccessible(true);
-      Object conn = field.get(handler);
-      if (conn != null) return conn;
-    } catch (Throwable ignored) {
-      for (java.lang.reflect.Field f : handler.getClass().getDeclaredFields()) {
-        if (net.minecraft.network.Connection.class.isAssignableFrom(f.getType())) {
-          try {
-            f.setAccessible(true);
-            Object conn = f.get(handler);
-            if (conn != null) return conn;
-          } catch (Throwable ignored2) {}
-        }
+    java.util.Optional<java.lang.reflect.Field> field =
+        CONNECTION_FIELDS.computeIfAbsent(handler.getClass(), Compat::findConnectionField);
+    if (field.isPresent()) {
+      try {
+        Object conn = field.get().get(handler);
+        if (conn != null) return conn;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // fall through
       }
     }
     return handler;
+  }
+
+  /** The network Connection of a listener, or null when it cannot be resolved. */
+  public static net.minecraft.network.Connection networkConnection(Object handler) {
+    Object conn = getConnection(handler);
+    return conn instanceof net.minecraft.network.Connection c ? c : null;
+  }
+
+  private static java.util.Optional<java.lang.reflect.Field> findConnectionField(Class<?> type) {
+    for (Class<?> c = type; c != null && c != Object.class; c = c.getSuperclass())
+      for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+        if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+        if (!net.minecraft.network.Connection.class.isAssignableFrom(f.getType())) continue;
+        try {
+          f.setAccessible(true);
+          return java.util.Optional.of(f);
+        } catch (RuntimeException inaccessible) {
+          // keep looking
+        }
+      }
+    return java.util.Optional.empty();
   }
 
   /** Resolves the username associated with a packet listener or connection (best-effort). */
@@ -97,6 +126,17 @@ public final class Compat {
       source = context.getSource();
     }
     if (source == null) return null;
+    // Direct, build-remapped call: getEntity() is the same method in every era and resolves on
+    // every runtime (Mojang names, intermediary AND SRG - the name list below has no SRG ids, so
+    // on Forge it never found the player and every player command read as "console").
+    if (source instanceof net.minecraft.commands.CommandSourceStack stack) {
+      try {
+        if (stack.getEntity() instanceof ServerPlayer serverPlayer) return serverPlayer;
+        return null;
+      } catch (RuntimeException | LinkageError ignored) {
+        // fall back to the name candidates
+      }
+    }
     for (String name : new String[] {"getPlayer", "getPlayerOrException", "method_44023", "method_9207"}) {
       try {
         Object player = source.getClass().getMethod(name).invoke(source);
@@ -140,23 +180,46 @@ public final class Compat {
     }
   }
 
-  /** Kills an entity (kill() on 1.16-1.18, kill(ServerLevel) on 1.19+ - candidate reflection). */
-  public static void kill(LivingEntity entity) {
-    try {
-      Method m = LivingEntity.class.getMethod("kill", ServerLevel.class);
-      /*? if < 1.20.2 {*/
-      /*m.invoke(entity, entity.getLevel());
-      *//*?} else {*/
-      m.invoke(entity, entity.level());
-      /*?}*/
-    } catch (Throwable e) {
-      try {
-        Method m = LivingEntity.class.getMethod("kill");
-        m.invoke(entity);
-      } catch (Throwable ignored) {
-        // could not kill
-      }
+  /**
+   * Kills an entity through the vanilla death path (loot drops, death message, statistics).
+   *
+   * <p>Build-remapped direct calls: {@code kill()} on 1.16-1.18, {@code kill(ServerLevel)} on
+   * 1.21.2+/26.x. The previous Mojang-name reflection only resolved on Mojang-named runtimes
+   * (NeoForge, 26.x) and silently did nothing on Fabric (intermediary) and Forge (SRG) - the same
+   * config killed players on one loader and not on another. The 1.19-1.21.1 runtimes inside the
+   * 1.21.11 range jar use {@code setHealth(0) + die(genericKill)}, whose descriptors are stable.
+   *
+   * @return true when the entity was killed through a real death path; false when this runtime
+   *     offers none (the caller then leaves the entity alone - a half-dead player without loot drops
+   *     would lose the items entirely on respawn)
+   */
+  public static boolean kill(LivingEntity entity) {
+    if (entity == null) return false;
+    /*? if < 1.19 {*/
+    /*try {
+      entity.kill();
+      return true;
+    } catch (RuntimeException | LinkageError err) {
+      return false;
     }
+    *//*?} else {*/
+    try {
+      if (entityLevel(entity) instanceof ServerLevel level) {
+        entity.kill(level);
+        return true;
+      }
+    } catch (RuntimeException | LinkageError olderRuntime) {
+      // 1.19-1.21.1 inside the range jar: no kill(ServerLevel) - fall through
+    }
+    try {
+      net.minecraft.world.damagesource.DamageSource source = entity.damageSources().genericKill();
+      entity.setHealth(0.0F);
+      entity.die(source);
+      return true;
+    } catch (RuntimeException | LinkageError unsupported) {
+      return false;
+    }
+    /*?}*/
   }
 
   /**
@@ -299,20 +362,20 @@ public final class Compat {
 
   /** Reads the frozen ticks (1.17+; 0 on older versions). */
   public static int getFrozenTicks(ServerPlayer player) {
+    if (player == null) return 0;
     try {
-      Method m = LivingEntity.class.getMethod("getFrozenTicks");
-      return (Integer) m.invoke(player);
-    } catch (ReflectiveOperationException e) {
+      return player.getTicksFrozen(); // 1.17+ (powder snow); remapped per runtime
+    } catch (RuntimeException | LinkageError legacy) {
       return 0;
     }
   }
 
   /** Sets the frozen ticks (no-op on versions without the API). */
   public static void setFrozenTicks(ServerPlayer player, int ticks) {
+    if (player == null) return;
     try {
-      Method m = LivingEntity.class.getMethod("setFrozenTicks", int.class);
-      m.invoke(player, ticks);
-    } catch (ReflectiveOperationException ignored) {
+      player.setTicksFrozen(ticks);
+    } catch (RuntimeException | LinkageError legacy) {
       // not available on this version
     }
   }
@@ -325,7 +388,20 @@ public final class Compat {
    * reflectively (mojmap / SRG / intermediary names) and written with the runtime's own type.
    */
   public static void setFallDistance(net.minecraft.server.level.ServerPlayer player, double value) {
-    java.lang.reflect.Field field = entityField(player.getClass(), "fallDistance", "f_19789_", "field_23362");
+    if (player == null) return;
+    // The common case (reset to 0) is a direct, remapped call in every era from 1.17 on.
+    if (value == 0.0) {
+      try {
+        player.resetFallDistance();
+        return;
+      } catch (RuntimeException | LinkageError legacy) {
+        // 1.16 - field write below
+      }
+    }
+    // Field names: Mojang / SRG / intermediary. The intermediary id used to be wrong
+    // (field_23362 instead of field_6017), so on every Fabric 1.16-1.21 runtime the restore never
+    // cleared the fall distance at all (issue #11).
+    java.lang.reflect.Field field = entityField(player.getClass(), "fallDistance", "f_19789_", "field_6017");
     if (field == null) return;
     try {
       Class<?> type = field.getType();
@@ -347,7 +423,7 @@ public final class Compat {
   public static double getFallDistance(net.minecraft.server.level.ServerPlayer player) {
     if (player == null) return 0.0;
     java.lang.reflect.Field field =
-        entityField(player.getClass(), "fallDistance", "f_19789_", "field_23362");
+        entityField(player.getClass(), "fallDistance", "f_19789_", "field_6017");
     if (field == null) return 0.0;
     try {
       Class<?> type = field.getType();
@@ -550,87 +626,274 @@ public final class Compat {
     return name.endsWith(".BigDripleafBlock") || name.endsWith(".SmallDripleafBlock");
   }
 
-  /** Removes the player from the operator list (GameProfile-based on old versions). */
-  public static void removeFromOperators(MinecraftServer server, ServerPlayer player) {
-    if (server == null || player == null) return;
+  /**
+   * Operator-list access for the limbo's {@code safe-operators} feature.
+   *
+   * <p>The previous implementation looked the API up by YARN names ({@code
+   * PlayerManager$PlayerConfigEntry}, {@code isOperator}, {@code addToOperators}...). Those names
+   * exist only in a Yarn development environment - never at runtime (intermediary on Fabric, SRG on
+   * Forge, Mojang names on NeoForge/26.x) - so every call silently failed: operators were NEVER
+   * deopped while unauthenticated, on any loader or version. These are now direct, build-remapped
+   * calls for the build target, with a signature-shape fallback (authlib {@code GameProfile} is
+   * never remapped) for the older runtimes a range jar also covers (1.19-1.21.8 inside the 1.21.11
+   * build, where the PlayerList API still takes a GameProfile instead of NameAndId).
+   *
+   * <p>Removal and restore edit the ops list directly and re-send the permission level, exactly as
+   * vanilla's op/deop do, so AuthCore's own temporary strip is never mistaken for an admin deop by
+   * {@code PlayerListOpMixin}.
+   */
+  public static boolean isOperator(MinecraftServer server, ServerPlayer player) {
+    if (server == null || player == null) return false;
     try {
-      Class<?> configEntry = Class.forName("net.minecraft.server.PlayerManager$PlayerConfigEntry");
-      Method m = server.getPlayerList().getClass().getMethod("removeFromOperators", configEntry);
-      Object entry = player.getClass().getMethod("getPlayerConfigEntry").invoke(player);
-      m.invoke(server.getPlayerList(), entry);
-    } catch (ReflectiveOperationException e) {
-      try {
-        Method m =
-            server.getPlayerList().getClass().getMethod(
-                "removeFromOperators", com.mojang.authlib.GameProfile.class);
-        m.invoke(server.getPlayerList(), player.getGameProfile());
-      } catch (ReflectiveOperationException ignored) {
-        // could not remove operator status
-      }
+      /*? if >= 1.21.9 {*/
+      return server.getPlayerList().isOp(
+          new net.minecraft.server.players.NameAndId(player.getGameProfile()));
+      /*?} else {*/
+      /*return server.getPlayerList().isOp(player.getGameProfile());
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      return LegacyOps.entry(server, player) != null;
     }
   }
 
-  /** Adds the player back to the operator list with the stored level. */
-  public static void addToOperators(MinecraftServer server, ServerPlayer player, int level) {
-    if (server == null || player == null) return;
+  /** The operator permission level (0 when not an operator or unreadable). */
+  public static int getOperatorLevel(MinecraftServer server, ServerPlayer player) {
+    if (server == null || player == null) return 0;
     try {
-      Class<?> configEntry = Class.forName("net.minecraft.server.PlayerManager$PlayerConfigEntry");
-      Method m =
-          server.getPlayerList().getClass().getMethod(
-              "addToOperators", configEntry, Optional.class, Optional.class);
-      Object entry = player.getClass().getMethod("getPlayerConfigEntry").invoke(player);
-      Class<?> leveledPredicate =
-          Class.forName("net.minecraft.command.permission.LeveledPermissionPredicate");
-      Object predicate = leveledPredicate.getConstructor(int.class).newInstance(level);
-      m.invoke(server.getPlayerList(), entry, Optional.of(predicate), Optional.of(true));
-    } catch (ReflectiveOperationException e) {
-      try {
-        Method m =
-            server.getPlayerList().getClass().getMethod(
-                "addToOperators", com.mojang.authlib.GameProfile.class, int.class);
-        m.invoke(server.getPlayerList(), player.getGameProfile(), level);
-      } catch (ReflectiveOperationException e2) {
-        try {
-          Method m =
-              server.getPlayerList().getClass().getMethod(
-                  "addToOperators", com.mojang.authlib.GameProfile.class);
-          m.invoke(server.getPlayerList(), player.getGameProfile());
-        } catch (ReflectiveOperationException ignored) {
-          // could not restore operator status
-        }
-      }
+      /*? if >= 1.21.9 {*/
+      net.minecraft.server.players.ServerOpListEntry entry =
+          server.getPlayerList().getOps().get(
+              new net.minecraft.server.players.NameAndId(player.getGameProfile()));
+      return entry == null ? 0 : entry.permissions().level().id();
+      /*?} else {*/
+      /*net.minecraft.server.players.ServerOpListEntry entry =
+          server.getPlayerList().getOps().get(player.getGameProfile());
+      return entry == null ? 0 : entry.getLevel();
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      return LegacyOps.level(LegacyOps.entry(server, player));
     }
   }
 
-  /** Whether the player is currently gliding with an elytra (name differs by version). */
-  public static boolean isGliding(ServerPlayer player) {
+  /** Whether the operator entry bypasses the player limit (false when unreadable). */
+  public static boolean getOperatorBypass(MinecraftServer server, ServerPlayer player) {
+    if (server == null || player == null) return false;
     try {
-      Method m = Entity.class.getMethod("isGliding");
-      return (Boolean) m.invoke(player);
-    } catch (ReflectiveOperationException e) {
+      /*? if >= 1.21.9 {*/
+      net.minecraft.server.players.ServerOpListEntry entry =
+          server.getPlayerList().getOps().get(
+              new net.minecraft.server.players.NameAndId(player.getGameProfile()));
+      /*?} else {*/
+      /*net.minecraft.server.players.ServerOpListEntry entry =
+          server.getPlayerList().getOps().get(player.getGameProfile());
+      *//*?}*/
+      return entry != null && entry.getBypassesPlayerLimit();
+    } catch (RuntimeException | LinkageError otherEra) {
+      Object entry = LegacyOps.entry(server, player);
       try {
-        Method m = Entity.class.getMethod("isFallFlying");
-        return (Boolean) m.invoke(player);
-      } catch (ReflectiveOperationException ignored) {
+        return entry instanceof net.minecraft.server.players.ServerOpListEntry e
+            && e.getBypassesPlayerLimit();
+      } catch (RuntimeException | LinkageError ignored) {
         return false;
       }
     }
   }
 
-  /** Reads the player's connection latency in milliseconds. */
-  public static int getLatency(ServerPlayer player) {    try {
-      Method m =
-          net.minecraft.server.network.ServerGamePacketListenerImpl.class.getMethod("getLatency");
-      Object handler = player.getClass().getMethod("networkHandler").invoke(player);
-      if (handler != null) return (Integer) m.invoke(handler);
-    } catch (ReflectiveOperationException e) {
+  /** Temporarily removes the player from the operator list (limbo safe-operators). */
+  public static void removeFromOperators(MinecraftServer server, ServerPlayer player) {
+    if (server == null || player == null) return;
+    try {
+      /*? if >= 1.21.9 {*/
+      server.getPlayerList().getOps().remove(
+          new net.minecraft.server.players.NameAndId(player.getGameProfile()));
+      /*?} else {*/
+      /*server.getPlayerList().getOps().remove(player.getGameProfile());
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      LegacyOps.remove(server, player);
+    }
+    resendPermissionLevel(server, player);
+  }
+
+  /** Restores the operator entry with the default bypass flag. */
+  public static void addToOperators(MinecraftServer server, ServerPlayer player, int level) {
+    addToOperators(server, player, level, false);
+  }
+
+  /** Restores the operator entry with the EXACT captured level and bypass flag. */
+  public static void addToOperators(
+      MinecraftServer server, ServerPlayer player, int level, boolean bypass) {
+    if (server == null || player == null) return;
+    int lvl = Math.max(1, Math.min(4, level <= 0 ? 4 : level));
+    try {
+      /*? if >= 1.21.9 {*/
+      server.getPlayerList().getOps().add(
+          new net.minecraft.server.players.ServerOpListEntry(
+              new net.minecraft.server.players.NameAndId(player.getGameProfile()),
+              net.minecraft.server.permissions.LevelBasedPermissionSet.forLevel(
+                  net.minecraft.server.permissions.PermissionLevel.byId(lvl)),
+              bypass));
+      /*?} else {*/
+      /*server.getPlayerList().getOps().add(
+          new net.minecraft.server.players.ServerOpListEntry(player.getGameProfile(), lvl, bypass));
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      LegacyOps.add(server, player, lvl, bypass);
+    }
+    resendPermissionLevel(server, player);
+  }
+
+  /** Re-sends the permission level + command tree (what vanilla op/deop do after editing the list). */
+  private static void resendPermissionLevel(MinecraftServer server, ServerPlayer player) {
+    try {
+      server.getPlayerList().sendPlayerPermissionLevel(player);
+    } catch (RuntimeException | LinkageError ignored) {
+      // the list edit is what matters; the client refreshes on the next permission change
+    }
+  }
+
+  /**
+   * Signature-shape operator access for the runtimes a range jar covers but was not compiled
+   * against (GameProfile-keyed PlayerList API). Only authlib/JDK types are named - every Minecraft
+   * member is located by its parameter and return types, so no mapping name is ever needed.
+   */
+  private static final class LegacyOps {
+    private LegacyOps() {}
+
+    private static Object ops(MinecraftServer server) {
       try {
-        return player.getClass().getField("pingMilliseconds").getInt(player);
-      } catch (ReflectiveOperationException ignored) {
-        // latency unavailable
+        return server.getPlayerList().getOps();
+      } catch (RuntimeException | LinkageError err) {
+        return null;
       }
     }
-    return 0;
+
+    private static java.lang.reflect.Method find(
+        Class<?> owner, Class<?> param, java.util.function.Predicate<java.lang.reflect.Method> extra) {
+      for (Class<?> c = owner; c != null && c != Object.class; c = c.getSuperclass())
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+          if (!java.lang.reflect.Modifier.isPublic(m.getModifiers())
+              || java.lang.reflect.Modifier.isStatic(m.getModifiers())
+              || m.getParameterCount() != 1
+              || m.getParameterTypes()[0] != param) continue;
+          if (extra.test(m)) return m;
+        }
+      return null;
+    }
+
+    /** The player's ops-list entry (null when not an operator or unresolvable). */
+    static Object entry(MinecraftServer server, ServerPlayer player) {
+      Object ops = ops(server);
+      if (ops == null) return null;
+      // StoredUserList#get(K) - erasure (Object) -> StoredUserEntry
+      java.lang.reflect.Method get =
+          find(ops.getClass(), Object.class,
+              m -> net.minecraft.server.players.StoredUserEntry.class.isAssignableFrom(m.getReturnType()));
+      if (get == null) return null;
+      try {
+        get.setAccessible(true);
+        return get.invoke(ops, player.getGameProfile());
+      } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
+        return null;
+      }
+    }
+
+    /** ServerOpListEntry#getLevel() located by shape (the only public no-arg int getter). */
+    static int level(Object entry) {
+      if (entry == null) return 0;
+      for (Class<?> c = entry.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+        for (java.lang.reflect.Method m : c.getDeclaredMethods())
+          if (m.getParameterCount() == 0
+              && m.getReturnType() == int.class
+              && java.lang.reflect.Modifier.isPublic(m.getModifiers())
+              && !java.lang.reflect.Modifier.isStatic(m.getModifiers())
+              && !"hashCode".equals(m.getName())) {
+            try {
+              return (Integer) m.invoke(entry);
+            } catch (ReflectiveOperationException | RuntimeException err) {
+              return 0;
+            }
+          }
+      return 0;
+    }
+
+    static void remove(MinecraftServer server, ServerPlayer player) {
+      Object ops = ops(server);
+      if (ops == null) return;
+      // StoredUserList#remove(K) - erasure (Object), returns void (or boolean on newer eras)
+      java.lang.reflect.Method remove =
+          find(ops.getClass(), Object.class,
+              m -> m.getReturnType() == void.class || m.getReturnType() == boolean.class);
+      if (remove == null) return;
+      try {
+        remove.setAccessible(true);
+        remove.invoke(ops, player.getGameProfile());
+      } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        // operator status could not be removed - the command guards remain in place
+      }
+    }
+
+    static void add(MinecraftServer server, ServerPlayer player, int level, boolean bypass) {
+      Object ops = ops(server);
+      if (ops == null) return;
+      Object newEntry;
+      try {
+        newEntry =
+            net.minecraft.server.players.ServerOpListEntry.class
+                .getConstructor(com.mojang.authlib.GameProfile.class, int.class, boolean.class)
+                .newInstance(player.getGameProfile(), level, bypass);
+      } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
+        return;
+      }
+      // StoredUserList#add(V) and #remove(StoredUserEntry) share the erased shape: add's parameter
+      // is the type VARIABLE V, remove's is the parameterized StoredUserEntry<K>. Verified after the
+      // call either way, so a wrong pick can never leave the account without its entry silently.
+      for (Class<?> c = ops.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+          if (m.getParameterCount() != 1
+              || m.getParameterTypes()[0] != net.minecraft.server.players.StoredUserEntry.class
+              || !(m.getGenericParameterTypes()[0] instanceof java.lang.reflect.TypeVariable))
+            continue;
+          try {
+            m.setAccessible(true);
+            m.invoke(ops, newEntry);
+            if (entry(server, player) != null) return;
+          } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+            // try the next candidate
+          }
+        }
+    }
+  }
+
+
+  
+
+  /** Whether the player is currently gliding with an elytra (name differs by version). */
+  public static boolean isGliding(ServerPlayer player) {
+    if (player == null) return false;
+    // isFallFlying() is the Mojang name in every era (Yarn's "isGliding" never exists at runtime);
+    // the direct call is remapped for intermediary/SRG.
+    try {
+      return player.isFallFlying();
+    } catch (RuntimeException | LinkageError ignored) {
+      return false;
+    }
+  }
+
+  /** Reads the player's connection latency in milliseconds. */
+  public static int getLatency(ServerPlayer player) {
+    if (player == null) return 0;
+    // The previous lookup used Yarn names ("networkHandler", "pingMilliseconds") that exist on no
+    // runtime, so the latency-based login timeouts never applied anywhere.
+    try {
+      /*? if >= 1.20.2 {*/
+      return player.connection.latency();
+      /*?} else {*/
+      /*return player.latency;
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      return 0;
+    }
   }
 
   /**
@@ -741,12 +1004,11 @@ public final class Compat {
 
   /** Resolves a block position from floored doubles (API changed across versions). */
   public static BlockPos blockPosFloored(double x, double y, double z) {
-    try {
-      Method m = BlockPos.class.getMethod("ofFloored", double.class, double.class, double.class);
-      return (BlockPos) m.invoke(null, x, y, z);
-    } catch (ReflectiveOperationException e) {
-      return new BlockPos((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
-    }
+    // The (int, int, int) constructor exists unchanged in every supported era, so no reflection
+    // is needed. The old reflective "ofFloored" lookup is a Yarn name that never resolves on the
+    // Mojang-named / intermediary / SRG runtimes: it threw (and allocated) a
+    // NoSuchMethodException on EVERY call, including per-tick limbo paths.
+    return new BlockPos((int) Math.floor(x), (int) Math.floor(y), (int) Math.floor(z));
   }
 
   /**
@@ -761,10 +1023,21 @@ public final class Compat {
    * (mining/caving below Y=0) therefore had no landing at all (issue #11 follow-up).
    */
   public static int getBottomY(Level world) {
-    for (String name : new String[] {"getMinY", "getBottomY", "getMinBuildHeight"}) {
+    if (world == null) return 0;
+    // Direct, build-remapped call first: intermediary names survive Mojang's renames
+    // (getMinBuildHeight -> getMinY), so this resolves on every Fabric runtime of the range jar.
+    try {
+      /*? if >= 1.21.2 {*/
+      return world.getMinY();
+      /*?} else {*/
+      /*return world.getMinBuildHeight();
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherName) {
+      // a Mojang-named runtime (NeoForge) on the other side of the rename - by name below
+    }
+    for (String name : new String[] {"getMinY", "getMinBuildHeight", "getBottomY"}) {
       try {
-        Method m = Level.class.getMethod(name);
-        Object value = m.invoke(world);
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(Level.class, name).invoke(world);
         if (value instanceof Integer y) return y;
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next name
@@ -783,15 +1056,24 @@ public final class Compat {
   public static BlockPos sharedSpawnPos(Level world) {
     if (world == null) return null;
     try {
-      Method m = Level.class.getMethod("getSharedSpawnPos");
-      Object value = m.invoke(world);
-      if (value instanceof BlockPos pos) return pos;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // 26.x/26.3 shape below
+      /*? if >= 1.21.9 {*/
+      return world.getRespawnData().pos();
+      /*?} else {*/
+      /*if (world instanceof ServerLevel serverLevel) return serverLevel.getSharedSpawnPos();
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      // the other side of the 1.21.9 spawn-data change - by name below
+    }
+    for (Class<?> owner : new Class<?>[] {world.getClass(), Level.class}) {
+      try {
+        Object value = owner.getMethod("getSharedSpawnPos").invoke(world);
+        if (value instanceof BlockPos pos) return pos;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // next shape
+      }
     }
     try {
-      Method m = Level.class.getMethod("getRespawnData");
-      Object data = m.invoke(world);
+      Object data = Level.class.getMethod("getRespawnData").invoke(world);
       if (data != null) {
         Object pos = data.getClass().getMethod("pos").invoke(data);
         if (pos instanceof BlockPos p) return p;
@@ -835,17 +1117,17 @@ public final class Compat {
    * harmless in the overworld but wrong for tall/custom dimensions.
    */
   public static int getMaxBuildHeight(Level world) {
-    for (String name : new String[] {"getMaxY", "getMaxBuildHeight", "getHeight"}) {
+    if (world == null) return 256;
+    // Exclusive top = bottom + height; getHeight() is the same method in every era.
+    try {
+      return getBottomY(world) + world.getHeight();
+    } catch (RuntimeException | LinkageError unavailable) {
+      // 1.16 (no LevelHeightAccessor) - by name below
+    }
+    for (String name : new String[] {"getMaxBuildHeight", "getHeight"}) {
       try {
-        Method m = Level.class.getMethod(name);
-        Object value = m.invoke(world);
-        if (value instanceof Integer y) {
-          // getHeight() is a LENGTH (e.g. 384), not an absolute Y - convert it to the exclusive
-          // top. The old branch returned the raw length whenever it exceeded the minimum Y (which
-          // it always does), i.e. it was off by |minY| on every world with a non-zero floor.
-          if (name.equals("getHeight")) return getBottomY(world) + y;
-          return y;
-        }
+        Object value = in.potenfyr.authcore.util.ReflectCache.method(Level.class, name).invoke(world);
+        if (value instanceof Integer y) return name.equals("getHeight") ? getBottomY(world) + y : y;
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next name
       }
@@ -1174,15 +1456,9 @@ public final class Compat {
    */
   public static MinecraftServer loginServer(Object handler) {
     if (handler == null) return null;
-    try {
-      java.lang.reflect.Field field = handler.getClass().getDeclaredField("server");
-      field.setAccessible(true);
-      Object server = field.get(handler);
-      if (server instanceof MinecraftServer ms) return ms;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // no server field on this version
-    }
-    return null;
+    // By TYPE: the field is only called "server" in Mojang names.
+    Object server = loginValue(handler, MinecraftServer.class);
+    return server instanceof MinecraftServer ms ? ms : null;
   }
 
   /** Resolves the MinecraftServer from a command source stack or execution context. */
@@ -1206,6 +1482,60 @@ public final class Compat {
    * premium clients joining them) present these UUIDs; they must never be mistaken for a
    * real (premium) profile UUID mismatch.
    */
+  /** The offline-mode UUID vanilla assigns to a name ("OfflinePlayer:" + name, v3). */
+  public static java.util.UUID offlineUuid(String username) {
+    if (username == null) return null;
+    return java.util.UUID.nameUUIDFromBytes(
+        ("OfflinePlayer:" + username).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+  }
+
+  /** The requested name of a login hello packet (direct, remapped accessors per era). */
+  public static String helloName(Object packet) {
+    if (!(packet instanceof net.minecraft.network.protocol.login.ServerboundHelloPacket hello))
+      return null;
+    try {
+      /*? if >= 1.19 {*/
+      return hello.name();
+      /*?} else {*/
+      /*com.mojang.authlib.GameProfile profile = hello.getGameProfile();
+      return profile == null ? null : profile.getName();
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      return null;
+    }
+  }
+
+  /**
+   * The account UUID the client CLAIMS in its hello (1.20.2+: always present; 1.19-1.20.1: an
+   * Optional; 1.16-1.18: absent). Null when the runtime's hello carries none.
+   */
+  public static java.util.UUID helloId(Object packet) {
+    if (!(packet instanceof net.minecraft.network.protocol.login.ServerboundHelloPacket hello))
+      return null;
+    try {
+      /*? if >= 1.20.2 {*/
+      return hello.profileId();
+      /*?} else {*/
+      /*return null;
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      // 1.19-1.20.1 inside the range jar: profileId() returns Optional<UUID> - by shape
+      try {
+        for (java.lang.reflect.Method m : hello.getClass().getMethods()) {
+          if (m.getParameterCount() != 0) continue;
+          if (m.getReturnType() == java.util.UUID.class) return (java.util.UUID) m.invoke(hello);
+          if (m.getReturnType() == java.util.Optional.class) {
+            Object value = ((java.util.Optional<?>) m.invoke(hello)).orElse(null);
+            if (value instanceof java.util.UUID u) return u;
+          }
+        }
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // unreadable
+      }
+      return null;
+    }
+  }
+
   public static boolean isOfflineUuid(String username, java.util.UUID uuid) {
     if (username == null || uuid == null) return false;
     return java.util.UUID.nameUUIDFromBytes(("OfflinePlayer:" + username).getBytes(java.nio.charset.StandardCharsets.UTF_8))
@@ -1240,53 +1570,122 @@ public final class Compat {
   }
 
   /**
+   * Login-listener field by TYPE (first non-static field assignable to {@code type}, walking the
+   * hierarchy). The names differ in every era ({@code challenge} vs {@code nonce}) and in every
+   * mapping (intermediary/SRG), so the old name lookups never resolved on Fabric or Forge and the
+   * offline-server premium verification silently never ran there.
+   */
+  private static java.lang.reflect.Field loginField(Object handler, Class<?> type) {
+    for (Class<?> c = handler.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+      for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+        if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+        if (!type.isAssignableFrom(f.getType())) continue;
+        try {
+          f.setAccessible(true);
+          return f;
+        } catch (RuntimeException inaccessible) {
+          // keep looking
+        }
+      }
+    return null;
+  }
+
+  private static Object loginValue(Object handler, Class<?> type) {
+    java.lang.reflect.Field f = loginField(handler, type);
+    if (f == null) return null;
+    try {
+      return f.get(handler);
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      return null;
+    }
+  }
+
+  /** The login listener's nested State enum field (located by shape: an enum nested in it). */
+  private static java.lang.reflect.Field loginStateField(Object handler) {
+    for (Class<?> c = handler.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+      for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+        if (java.lang.reflect.Modifier.isStatic(f.getModifiers()) || !f.getType().isEnum()) continue;
+        if (f.getType().getEnclosingClass() != c) continue;
+        try {
+          f.setAccessible(true);
+          return f;
+        } catch (RuntimeException inaccessible) {
+          // keep looking
+        }
+      }
+    return null;
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static boolean setLoginState(Object handler, String constant) {
+    java.lang.reflect.Field stateField = loginStateField(handler);
+    if (stateField == null) return false;
+    try {
+      // Enum constant NAMES survive obfuscation (the name string is kept), so valueOf is era-safe.
+      stateField.set(handler, Enum.valueOf((Class<? extends Enum>) stateField.getType(), constant));
+      return true;
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      return false;
+    }
+  }
+
+  /**
    * Starts the vanilla encryption handshake on a login handler: state → KEY and a
    * {@code ClientboundHelloPacket(serverId="", publicKey, challenge)} is sent. The client
    * then answers with the key packet, which {@link #loginFinishHandshake} decrypts.
    *
-   * @param handler a {@code ServerLoginPacketListenerImpl}
-   * @return {@code true} when the handshake was started, {@code false} on failure (caller
-   *     must let the vanilla offline flow continue)
+   * @return {@code true} when the handshake was started, {@code false} on failure (caller must
+   *     let the vanilla offline flow continue)
    */
   public static boolean loginStartHandshake(Object handler) {
+    if (handler == null) return false;
     try {
-      Object server = getLoginField(handler, "server");
-      Object connection = getLoginField(handler, "connection");
-      if (server == null || connection == null) return false;
-
-      Object keyPair = server.getClass().getMethod("getKeyPair").invoke(server);
+      MinecraftServer server = (MinecraftServer) loginValue(handler, MinecraftServer.class);
+      net.minecraft.network.Connection connection =
+          (net.minecraft.network.Connection) loginValue(handler, net.minecraft.network.Connection.class);
+      byte[] challenge = (byte[]) loginValue(handler, byte[].class);
+      if (server == null || connection == null || challenge == null) return false;
+      java.security.KeyPair keyPair = server.getKeyPair();
       if (keyPair == null) return false;
-      Object publicKey = keyPair.getClass().getMethod("getPublic").invoke(keyPair);
-      byte[] encoded = (byte[]) publicKey.getClass().getMethod("getEncoded").invoke(publicKey);
+      byte[] encoded = keyPair.getPublic().getEncoded();
 
-      byte[] challenge = (byte[]) getLoginField(handler, "challenge", "nonce");
-      if (challenge == null) return false;
-
-      // state = KEY (enum constant)
-      java.lang.reflect.Field stateField = handler.getClass().getDeclaredField("state");
-      stateField.setAccessible(true);
-      Object keyState = Enum.valueOf((Class<? extends Enum>) stateField.getType(), "KEY");
-      stateField.set(handler, keyState);
-
-      // ClientboundHelloPacket("", publicKeyEncoded, challenge [, true on 26.x])
-      Class<?> helloClass =
-          Class.forName("net.minecraft.network.protocol.login.ClientboundHelloPacket");
-      Object packet;
+      net.minecraft.network.protocol.login.ClientboundHelloPacket packet = null;
       try {
+        /*? if >= 1.20.5 {*/
         packet =
-            helloClass
-                .getConstructor(String.class, byte[].class, byte[].class, boolean.class)
-                .newInstance("", encoded, challenge, true);
-      } catch (NoSuchMethodException err) {
-        packet =
-            helloClass
-                .getConstructor(String.class, byte[].class, byte[].class)
-                .newInstance("", encoded, challenge);
+            new net.minecraft.network.protocol.login.ClientboundHelloPacket(
+                "", encoded, challenge, true);
+        /*?} else {*/
+        /*packet = new net.minecraft.network.protocol.login.ClientboundHelloPacket("", encoded, challenge);
+        *//*?}*/
+      } catch (LinkageError otherEra) {
+        // the other side of the 1.20.5 constructor change inside a range jar - by shape
+        for (java.lang.reflect.Constructor<?> ctor :
+            net.minecraft.network.protocol.login.ClientboundHelloPacket.class.getConstructors()) {
+          Class<?>[] p = ctor.getParameterTypes();
+          try {
+            if (p.length == 3 && p[0] == String.class && p[1] == byte[].class && p[2] == byte[].class)
+              packet =
+                  (net.minecraft.network.protocol.login.ClientboundHelloPacket)
+                      ctor.newInstance("", encoded, challenge);
+            else if (p.length == 4 && p[0] == String.class && p[1] == byte[].class
+                && p[2] == byte[].class && p[3] == boolean.class)
+              packet =
+                  (net.minecraft.network.protocol.login.ClientboundHelloPacket)
+                      ctor.newInstance("", encoded, challenge, true);
+          } catch (ReflectiveOperationException ignored) {
+            // next constructor
+          }
+          if (packet != null) break;
+        }
       }
+      if (packet == null) return false;
 
-      connection.getClass().getMethod("send", packet.getClass()).invoke(connection, packet);
+      // Only switch the state once the packet exists - a failure above leaves vanilla untouched.
+      if (!setLoginState(handler, "KEY")) return false;
+      connection.send(packet);
       return true;
-    } catch (ReflectiveOperationException | RuntimeException err) {
+    } catch (RuntimeException | LinkageError err) {
       return false;
     }
   }
@@ -1296,66 +1695,41 @@ public final class Compat {
    * challenge, decrypts the shared secret, activates connection encryption and computes the
    * session digest used for {@code hasJoinedServer}.
    *
-   * @param handler a {@code ServerLoginPacketListenerImpl}
-   * @param keyPacket a {@code ServerboundKeyPacket}
    * @return the session digest (hex), or {@code null} on failure
    */
   public static String loginFinishHandshake(Object handler, Object keyPacket) {
+    if (handler == null
+        || !(keyPacket instanceof net.minecraft.network.protocol.login.ServerboundKeyPacket key))
+      return null;
     try {
-      Object server = getLoginField(handler, "server");
-      Object connection = getLoginField(handler, "connection");
-      Object keyPair = server.getClass().getMethod("getKeyPair").invoke(server);
-      Object privateKey = keyPair.getClass().getMethod("getPrivate").invoke(keyPair);
-      Object publicKey = keyPair.getClass().getMethod("getPublic").invoke(keyPair);
+      MinecraftServer server = (MinecraftServer) loginValue(handler, MinecraftServer.class);
+      net.minecraft.network.Connection connection =
+          (net.minecraft.network.Connection) loginValue(handler, net.minecraft.network.Connection.class);
+      byte[] challenge = (byte[]) loginValue(handler, byte[].class);
+      if (server == null || connection == null || challenge == null) return null;
+      java.security.KeyPair keyPair = server.getKeyPair();
+      java.security.PrivateKey privateKey = keyPair.getPrivate();
 
-      byte[] challenge = (byte[]) getLoginField(handler, "challenge", "nonce");
-      if (challenge != null) {
-        try {
-          Object valid =
-              keyPacket
-                  .getClass()
-                  .getMethod("isChallengeValid", byte[].class, java.security.PrivateKey.class)
-                  .invoke(keyPacket, challenge, privateKey);
-          if (!Boolean.TRUE.equals(valid)) return null;
-        } catch (NoSuchMethodException ignored) {
-          // 1.16-1.19.2: getNonce(PrivateKey) comparison
-          byte[] sent =
-              (byte[])
-                  keyPacket
-                      .getClass()
-                      .getMethod("getNonce", java.security.PrivateKey.class)
-                      .invoke(keyPacket, privateKey);
-          if (sent == null || !java.util.Arrays.equals(sent, challenge)) return null;
-        }
+      // The challenge MUST verify - a key packet that does not echo it is rejected (never skipped).
+      boolean challengeOk;
+      try {
+        /*? if >= 1.19 {*/
+        challengeOk = key.isChallengeValid(challenge, privateKey);
+        /*?} else {*/
+        /*challengeOk = java.util.Arrays.equals(key.getNonce(privateKey), challenge);
+        *//*?}*/
+      } catch (LinkageError otherEra) {
+        challengeOk = false;
       }
+      if (!challengeOk) return null;
 
-      javax.crypto.SecretKey secret =
-          (javax.crypto.SecretKey)
-              keyPacket
-                  .getClass()
-                  .getMethod("getSecretKey", java.security.PrivateKey.class)
-                  .invoke(keyPacket, privateKey);
-
-      Class<?> crypt = Class.forName("net.minecraft.util.Crypt");
-      javax.crypto.Cipher decrypt =
-          (javax.crypto.Cipher) crypt.getMethod("getCipher", int.class, java.security.Key.class).invoke(null, 2, secret);
-      javax.crypto.Cipher encrypt =
-          (javax.crypto.Cipher) crypt.getMethod("getCipher", int.class, java.security.Key.class).invoke(null, 1, secret);
-      connection
-          .getClass()
-          .getMethod("setEncryptionKey", javax.crypto.Cipher.class, javax.crypto.Cipher.class)
-          .invoke(connection, decrypt, encrypt);
-
-      byte[] digestBytes =
-          (byte[])
-              crypt.getMethod(
-                      "digestData",
-                      String.class,
-                      java.security.PublicKey.class,
-                      javax.crypto.SecretKey.class)
-                  .invoke(null, "", publicKey, secret);
-      return new java.math.BigInteger(digestBytes).toString(16);
-    } catch (ReflectiveOperationException | RuntimeException err) {
+      javax.crypto.SecretKey secret = key.getSecretKey(privateKey);
+      javax.crypto.Cipher decrypt = net.minecraft.util.Crypt.getCipher(2, secret);
+      javax.crypto.Cipher encrypt = net.minecraft.util.Crypt.getCipher(1, secret);
+      connection.setEncryptionKey(decrypt, encrypt);
+      byte[] digest = net.minecraft.util.Crypt.digestData("", keyPair.getPublic(), secret);
+      return new java.math.BigInteger(digest).toString(16);
+    } catch (Exception | LinkageError err) {
       return null;
     }
   }
@@ -1364,41 +1738,92 @@ public final class Compat {
    * Verifies a session with the server's OWN Minecraft session service
    * ({@code hasJoinedServer}) - the same call vanilla makes on online-mode servers.
    *
-   * @param server a {@code MinecraftServer}
-   * @param username the requested username
-   * @param digest the session digest from the handshake
-   * @param address the client IP
    * @return the verified profile, or {@code null} when Mojang does not confirm the session
    */
   public static com.mojang.authlib.GameProfile loginVerifyProfile(
       Object server, String username, String digest, java.net.InetAddress address) {
+    if (!(server instanceof MinecraftServer mc)) return null;
     try {
       Object sessionService = null;
       try {
-        sessionService = server.getClass().getMethod("getSessionService").invoke(server);
-      } catch (NoSuchMethodException ignored) {
-        Object services = server.getClass().getMethod("services").invoke(server);
-        if (services != null)
-          sessionService = services.getClass().getMethod("sessionService").invoke(services);
+        /*? if >= 1.19.3 {*/
+        sessionService = mc.services().sessionService();
+        /*?} else {*/
+        /*sessionService = mc.getSessionService();
+        *//*?}*/
+      } catch (LinkageError otherEra) {
+        // older runtime inside the range jar: the session service is the only field/getter of
+        // that authlib type - authlib is never remapped, so locate it by type
+        for (java.lang.reflect.Method m : MinecraftServer.class.getMethods())
+          if (m.getParameterCount() == 0
+              && m.getReturnType().getName().startsWith("com.mojang.authlib.minecraft.")
+              && m.getReturnType().getSimpleName().endsWith("SessionService")) {
+            sessionService = m.invoke(mc);
+            break;
+          }
       }
       if (sessionService == null) return null;
 
-      Object result =
-          sessionService
-              .getClass()
-              .getMethod("hasJoinedServer", String.class, String.class, java.net.InetAddress.class)
-              .invoke(sessionService, username, digest, address);
+      // authlib API (real, never-remapped names): hasJoinedServer(GameProfile|String, String, InetAddress)
+      Object result = null;
+      for (java.lang.reflect.Method m : sessionService.getClass().getMethods()) {
+        if (!m.getName().equals("hasJoinedServer") || m.getParameterCount() != 3) continue;
+        Class<?> first = m.getParameterTypes()[0];
+        if (first == String.class) result = m.invoke(sessionService, username, digest, address);
+        else if (first == com.mojang.authlib.GameProfile.class)
+          result =
+              m.invoke(sessionService, new com.mojang.authlib.GameProfile(null, username), digest, address);
+        else continue;
+        break;
+      }
       if (result instanceof com.mojang.authlib.GameProfile profile) return profile;
       if (result != null) {
-        // 26.x: ProfileResult wrapper
+        // ProfileResult wrapper (authlib 5+)
         Object profile = result.getClass().getMethod("profile").invoke(result);
         if (profile instanceof com.mojang.authlib.GameProfile gp) return gp;
       }
       return null;
-    } catch (ReflectiveOperationException | RuntimeException err) {
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
       return null;
     }
   }
+
+  /**
+   * Resumes the vanilla join after a verification: state → HELLO and the original hello packet is
+   * handled again, on the connection's event loop. Direct, remapped calls - the old name lookups
+   * ("state", "handleHello", "channel") only resolved on Mojang-named runtimes.
+   */
+  public static void loginReplayHello(Object handler, Object helloPacket) {
+    if (!(handler instanceof net.minecraft.server.network.ServerLoginPacketListenerImpl login)
+        || !(helloPacket instanceof net.minecraft.network.protocol.login.ServerboundHelloPacket hello))
+      return;
+    Runnable replay =
+        () -> {
+          try {
+            if (setLoginState(login, "HELLO")) login.handleHello(hello);
+          } catch (RuntimeException | LinkageError ignored) {
+            // join flow could not be resumed - the vanilla login timeout disconnects safely
+          }
+        };
+    try {
+      net.minecraft.network.Connection connection =
+          (net.minecraft.network.Connection) loginValue(login, net.minecraft.network.Connection.class);
+      Object channel =
+          connection == null ? null : loginValue(connection, io.netty.channel.Channel.class);
+      if (channel instanceof io.netty.channel.Channel ch) {
+        ch.eventLoop().execute(replay);
+        return;
+      }
+    } catch (RuntimeException | LinkageError ignored) {
+      // fall through - replay inline
+    }
+    replay.run();
+  }
+
+
+  
+
+  
 
   /**
    * Accepts a client as an OFFLINE-mode player on an ONLINE-mode server (hybrid mode):
@@ -1481,78 +1906,29 @@ public final class Compat {
     return false;
   }
 
-  /**
-   * Re-runs the original hello packet through the login handler on the connection's event
-   * loop (state is reset to HELLO first) - used to continue the join as a normal offline
-   * player after premium verification succeeded or failed.
-   *
-   * @param handler a {@code ServerLoginPacketListenerImpl}
-   * @param helloPacket the original {@code ServerboundHelloPacket}
-   */
-  public static void loginReplayHello(Object handler, Object helloPacket) {
-    if (handler == null || helloPacket == null) return;
-    try {
-      Object connection = getLoginField(handler, "connection");
-      java.lang.reflect.Field stateField = handler.getClass().getDeclaredField("state");
-      stateField.setAccessible(true);
-      java.lang.reflect.Method handleHello =
-          handler.getClass().getMethod("handleHello", helloPacket.getClass());
-
-      Runnable replay =
-          () -> {
-            try {
-              Object helloState =
-                  Enum.valueOf((Class<? extends Enum>) stateField.getType(), "HELLO");
-              stateField.set(handler, helloState);
-              handleHello.invoke(handler, helloPacket);
-            } catch (ReflectiveOperationException | RuntimeException ignored) {
-              // join flow could not be resumed - vanilla disconnect handling takes over
-            }
-          };
-
-      // Dispatch on the connection's event loop when possible (thread-safe join resume)
-      if (connection != null) {
-        java.lang.reflect.Field channelField =
-            connection.getClass().getDeclaredField("channel");
-        channelField.setAccessible(true);
-        Object channel = channelField.get(connection);
-        Object eventLoop = channel.getClass().getMethod("eventLoop").invoke(channel);
-        eventLoop.getClass().getMethod("execute", Runnable.class).invoke(eventLoop, replay);
-        return;
-      }
-      replay.run();
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // fallback: nothing - the vanilla login timeout will disconnect the client safely
-    }
-  }
+  
 
   /** Reads the player yaw (tickDelta parameter on older versions). */
   public static float getYaw(ServerPlayer player) {
+    if (player == null) return 0f;
+    // Direct getYRot() (1.17+, remapped per runtime). The previous Yarn-name reflection never resolved,
+    // so every limbo/restore teleport snapped the player's view to 0/0.
     try {
-      Method m = Entity.class.getMethod("getYaw");
-      return (Float) m.invoke(player);
-    } catch (ReflectiveOperationException e) {
-      try {
-        Method m = Entity.class.getMethod("getYaw", float.class);
-        return (Float) m.invoke(player, 1.0f);
-      } catch (ReflectiveOperationException ignored) {
-        return 0f;
-      }
+      return player.getYRot();
+    } catch (RuntimeException | LinkageError legacy) {
+      return 0f;
     }
   }
 
   /** Reads the player pitch (tickDelta parameter on older versions). */
   public static float getPitch(ServerPlayer player) {
+    if (player == null) return 0f;
+    // Direct getXRot() (1.17+, remapped per runtime). The previous Yarn-name reflection never resolved,
+    // so every limbo/restore teleport snapped the player's view to 0/0.
     try {
-      Method m = Entity.class.getMethod("getPitch");
-      return (Float) m.invoke(player);
-    } catch (ReflectiveOperationException e) {
-      try {
-        Method m = Entity.class.getMethod("getPitch", float.class);
-        return (Float) m.invoke(player, 1.0f);
-      } catch (ReflectiveOperationException ignored) {
-        return 0f;
-      }
+      return player.getXRot();
+    } catch (RuntimeException | LinkageError legacy) {
+      return 0f;
     }
   }
 
@@ -1915,17 +2291,31 @@ public final class Compat {
    * @return {@code true} when the flag could be cleared
    */
   public static boolean stopFallFlying(net.minecraft.world.entity.LivingEntity entity) {
+    if (entity == null) return false;
+    try {
+      if (entity instanceof net.minecraft.world.entity.player.Player player) {
+        player.stopFallFlying();
+        return true;
+      }
+    } catch (RuntimeException | LinkageError ignored) {
+      // fall back to the shared flag below
+    }
     try {
       Class<?> entityClass = net.minecraft.world.entity.Entity.class;
-      try {
-        entityClass.getMethod("setSharedFlag", int.class, boolean.class).invoke(entity, 7, false);
-      } catch (ReflectiveOperationException e) {
-        entityClass.getMethod("setFlag", int.class, boolean.class).invoke(entity, 7, false);
+      for (String name : new String[] {"setSharedFlag", "m_20115_", "method_5729"}) {
+        try {
+          java.lang.reflect.Method m = entityClass.getDeclaredMethod(name, int.class, boolean.class);
+          m.setAccessible(true);
+          m.invoke(entity, 7, false);
+          return true;
+        } catch (ReflectiveOperationException next) {
+          // try the next name
+        }
       }
-      return true;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      return false;
+    } catch (RuntimeException ignored) {
+      // give up
     }
+    return false;
   }
 
   /** Changes the player game mode (direct call - {@code ServerPlayer.setGameMode} in every era). */
@@ -1937,40 +2327,9 @@ public final class Compat {
     }
   }
 
-  /** Whether the player is currently an operator. Null-safe: a mid-join player has no
-   *  resolvable server yet - treat them as non-operator instead of crashing the join. */
-  public static boolean isOperator(MinecraftServer server, ServerPlayer player) {
-    if (server == null || player == null) return false;
-    try {
-      Class<?> configEntry = Class.forName("net.minecraft.server.PlayerManager$PlayerConfigEntry");
-      Method m = server.getPlayerList().getClass().getMethod("isOperator", configEntry);
-      Object entry = player.getClass().getMethod("getPlayerConfigEntry").invoke(player);
-      return (Boolean) m.invoke(server.getPlayerList(), entry);
-    } catch (ReflectiveOperationException e) {
-      try {
-        Method m =
-            server.getPlayerList().getClass().getMethod(
-                "isOperator", com.mojang.authlib.GameProfile.class);
-        return (Boolean) m.invoke(server.getPlayerList(), player.getGameProfile());
-      } catch (ReflectiveOperationException ignored) {
-        return false;
-      }
-    }
-  }
+  
 
-  /** Reads the configured operator permission level for the player. Null-safe: returns 0
-   *  when the server is not resolvable (mid-join). */
-  public static int getOperatorLevel(MinecraftServer server, ServerPlayer player) {
-    if (server == null || player == null) return 0;
-    try {
-      Class<?> configEntry = Class.forName("net.minecraft.server.PlayerManager$PlayerConfigEntry");
-      Method m = server.getPlayerList().getClass().getMethod("getPermissionLevel", configEntry);
-      Object entry = player.getClass().getMethod("getPlayerConfigEntry").invoke(player);
-      return (Integer) m.invoke(server.getPlayerList(), entry);
-    } catch (ReflectiveOperationException e) {
-      return 0;
-    }
-  }
+  
 
   /**
    * The loader platform + version ("Fabric Loader x.y.z" / "NeoForge x" / "Forge x").

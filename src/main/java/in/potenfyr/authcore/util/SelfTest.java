@@ -60,7 +60,7 @@ public final class SelfTest {
     checks.add(checkConfigLoaded());
     checks.add(checkSessionFlowSimulation(server));
     checks.add(checkProxyGateSimulation());
-    checks.add(checkSrgRuntimeSimulation());
+    checks.add(checkSrgRuntimeSimulation(server));
     checks.add(checkBoundedCachesSimulation());
     checks.add(checkMapRenderSimulation(server));
     checks.add(checkMapLifecycleSimulation(server));
@@ -510,26 +510,30 @@ public final class SelfTest {
   }
 
   /**
-   * Simulates the Forge 1.16-1.18 (SRG) runtime shape: there the Mojang mapping names are not
-   * reachable through reflection, so the permission resolver must fall back to allowing the
-   * console (otherwise admins cannot run any admin command). Dummy command sources reproduce the
-   * three shapes the resolver handles.
+   * Permission resolution on runtimes where Mojang names are not reachable by reflection (SRG /
+   * intermediary). Since 1.0.3 the resolver FAILS CLOSED: only a real {@code CommandSourceStack}
+   * without an entity (the console, a command block) is console access - an arbitrary object
+   * whose accessors cannot be resolved must be DENIED, never treated as the console (that was the
+   * privilege-escalation path). The old version of this check still expected the fail-open
+   * behaviour and therefore failed on every host-test group after the 1.0.3 hardening.
    */
-  private static Check checkSrgRuntimeSimulation() {
+  private static Check checkSrgRuntimeSimulation(MinecraftServer server) {
     try {
       String node = "authcore.admin.simulate";
-      boolean srgConsoleAllowed =
-          McApiManager.PermissionUtil.hasForSource(new Object(), node, 4);
-      boolean nullConsoleAllowed =
-          McApiManager.PermissionUtil.hasForSource(new NullPlayerSource(), node, 4);
-      boolean throwingConsoleAllowed =
-          McApiManager.PermissionUtil.hasForSource(new ThrowingPlayerSource(), node, 4);
-      boolean ok = srgConsoleAllowed && nullConsoleAllowed && throwingConsoleAllowed;
+      boolean unknownDenied = !McApiManager.PermissionUtil.hasForSource(new Object(), node, 4);
+      boolean nullShapeDenied =
+          !McApiManager.PermissionUtil.hasForSource(new NullPlayerSource(), node, 4);
+      boolean throwingShapeDenied =
+          !McApiManager.PermissionUtil.hasForSource(new ThrowingPlayerSource(), node, 4);
+      boolean consoleAllowed =
+          server == null
+              || McApiManager.PermissionUtil.hasForSource(server.createCommandSourceStack(), node, 4);
+      boolean ok = unknownDenied && nullShapeDenied && throwingShapeDenied && consoleAllowed;
       return new Check(
           "srg-runtime-simulation",
           ok,
-          "no-accessor=" + srgConsoleAllowed + " null-player=" + nullConsoleAllowed
-              + " throwing-accessor=" + throwingConsoleAllowed);
+          "unknown-denied=" + unknownDenied + " null-shape-denied=" + nullShapeDenied
+              + " throwing-shape-denied=" + throwingShapeDenied + " console=" + consoleAllowed);
     } catch (Throwable err) {
       return new Check("srg-runtime-simulation", false, describe(err));
     }

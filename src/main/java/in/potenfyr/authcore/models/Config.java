@@ -1096,8 +1096,10 @@ public class Config {
         """
                 Enable combat-log punishment: players who disconnect while still inside the
                 combat window (combat-timeout) are treated as combat loggers.
-                • Detection runs on the vanilla damage path on every loader/version (mobs
-                  and players by default).
+                • Detection runs on the vanilla damage path on every loader/version (damage
+                  from other players by default - see detect-from-mobs).
+                • Never applied to a disconnect the server caused (kick, duplicate login,
+                  shutdown/restart) or to a player still unauthenticated in the limbo.
                 • Default: true""")
     public boolean enabled = true;
 
@@ -1117,8 +1119,10 @@ public class Config {
     @Comment(
         """
                 Count damage dealt by MOBS as combat.
-                • Default: true""")
-    public boolean detectFromMobs = true;
+                • With kill-on-disconnect, a single zombie hit followed by a disconnect costs the
+                  player every item - enable only if that is intended on your server.
+                • Default: false (PvP-only combat logging)""")
+    public boolean detectFromMobs = false;
 
     @Comment(
         """

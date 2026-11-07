@@ -18,6 +18,8 @@ public final class Backups {
 
   /** Copies the SQLite database to the backups folder (works for SQLite only). */
   public static Path backupSqlite() throws Exception {
+    // Queued (write-behind) user rows must be in the database before it is copied/exported.
+    in.potenfyr.authcore.models.User.flushWrites(10_000L);
     Path dbFile =
         AuthCoreServer.configPath.resolve("database").resolve(AuthCoreServer.config.database.sqlite);
     Path backupDir = AuthCoreServer.configPath.resolve("backups");
@@ -33,6 +35,8 @@ public final class Backups {
 
   /** Exports all users to a JSON file (works with every database backend). */
   public static Path exportUsersJson() throws Exception {
+    // Queued (write-behind) user rows must be in the database before it is copied/exported.
+    in.potenfyr.authcore.models.User.flushWrites(10_000L);
     java.util.ArrayList<in.potenfyr.authcore.models.User> users =
         in.potenfyr.authcore.models.User.fetchPlayersPublic(1000, null);
     com.google.gson.JsonArray list = new com.google.gson.JsonArray();

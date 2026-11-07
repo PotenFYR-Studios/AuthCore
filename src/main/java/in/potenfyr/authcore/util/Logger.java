@@ -269,6 +269,8 @@ public class Logger {
       // client's own close) triggers vanilla's "handleDisconnection() called twice"
       // warning and can leave the connection in a broken state.
       if (connection.player != null && connection.player.hasDisconnected()) return;
+      // Server-initiated: never treated as a player choosing to leave (combat-log punishment).
+      in.potenfyr.authcore.events.ServerEvents.markServerInitiatedDisconnect(connection);
       connection.disconnect(reason);
     } catch (Exception err) {
       this.debug(false, "Failed to disconnect a player gracefully:", err);

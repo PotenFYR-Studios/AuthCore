@@ -28,6 +28,9 @@ name: CI
 # between runs (setup-java cache + org.gradle.caching), so re-pushing a tag or
 # rebuilding after a small change reuses most of the work. Note: a rare "Set up job"
 # failure is GitHub runner infrastructure, NOT this repo - simply re-run the failed job.
+#
+# Runner image: pinned to ubuntu-24.04 (not ubuntu-latest, which GitHub migrates to Ubuntu 26
+# from 2026-10-19) so a runner-image change can never turn the Docker harness red on its own.
 
 on:
   push:
@@ -52,7 +55,7 @@ defaults:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
@@ -189,7 +192,7 @@ jobs:
   # host-test harness, the stable release and the dev release consume.
   # ------------------------------------------------------------------
   merge:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: build
     permissions:
@@ -227,7 +230,7 @@ jobs:
   # Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
   host-tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     needs: merge
     strategy:
@@ -277,6 +280,30 @@ jobs:
         run: |
           bash test/docker/run-tests.sh --groups ${{ matrix.group }} --java ${{ matrix.java }} --all
 
+      # Make a red host-test diagnosable from the run page alone: the per-version result table
+      # plus every failing in-server self-test line ("[FAIL] <check>: <detail>") go to the job
+      # summary and the log (the artifact download needs repo access).
+      - name: Summarise harness results for group ${{ matrix.group }}
+        if: always()
+        run: |
+          REPORT=test/docker/report/latest.md
+          if [ -f "$REPORT" ]; then
+            cat "$REPORT" >> "$GITHUB_STEP_SUMMARY"
+            cat "$REPORT"
+          fi
+          FAILS=$(grep -rahE "\[FAIL\]|AuthCore self-test:" test/docker 2>/dev/null \
+            --include='*.log' --include='*.out' --include='*.txt' | sort -u | head -100 || true)
+          if [ -n "$FAILS" ]; then
+            {
+              echo
+              echo "### In-server self-test lines"
+              echo '```'
+              echo "$FAILS"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "$FAILS"
+          fi
+
       - name: Upload harness report for group ${{ matrix.group }}
         if: always()
         uses: actions/upload-artifact@v7
@@ -291,7 +318,7 @@ jobs:
   # Releases are only created after the full test suite passes.
   # ------------------------------------------------------------------
   release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [merge, host-tests]
     if: startsWith(github.ref, 'refs/tags/v')
@@ -366,7 +393,7 @@ jobs:
   # and looks green. This job fails the run in exactly that case.
   # ------------------------------------------------------------------
   version-tag-guard:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:

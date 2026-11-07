@@ -217,56 +217,76 @@ public class Lobby {
   }
 
   /**
-   * Persists the player's pre-limbo state (game mode, inventory, effects, health/food/xp,
-   * position, invulnerability) to the crash-safe snapshot file. Restored on the next join if
-   * the limbo session ended uncleanly (server crash).
+   * Persists the player's PRE-LIMBO state to the crash-safe snapshot file. Restored on the next
+   * join if the limbo session ended uncleanly (server crash).
    *
-   * <p>The pre-limbo invulnerability flag must be passed in explicitly: this runs AFTER the
-   * limbo shield was applied, so the live flag already reads {@code true} and the original
-   * value is only known to the {@link Snapshot}.
+   * <p>Every value is taken from the {@link Snapshot}, never from the live player: this runs AFTER
+   * the snapshot constructor applied the limbo (inventory emptied, effects replaced by the infinite
+   * invisibility, Adventure forced, health topped up, operator removed). Serialising the live player
+   * - as earlier builds did - persisted exactly that limbo state, so a crash during the limbo made
+   * the recovery wipe the inventory, re-apply Adventure as the "original" game mode, grant a
+   * permanent invisibility effect after login and drop the operator status for good.
    */
   public static boolean saveCrashSnapshot(
-      ServerPlayer player, java.nio.file.Path file, boolean preLobbyInvulnerable) {
+      ServerPlayer player, java.nio.file.Path file, Snapshot snap) {
+    if (snap == null) return false;
     try {
       java.nio.file.Files.createDirectories(file.getParent());
       com.google.gson.JsonObject o = new com.google.gson.JsonObject();
-      o.addProperty("gameMode", player.gameMode.getGameModeForPlayer().getName());
-      o.addProperty("invulnerable", preLobbyInvulnerable);
-      o.addProperty("health", player.getHealth());
-      o.addProperty("food", player.getFoodData().getFoodLevel());
-      o.addProperty("saturation", player.getFoodData().getSaturationLevel());
-      o.addProperty("xpLevel", player.experienceLevel);
-      o.addProperty("xpProgress", player.experienceProgress);
-      o.addProperty("totalXp", player.totalExperience);
-      o.addProperty("x", player.getX());
-      o.addProperty("y", player.getY());
-      o.addProperty("z", player.getZ());
-      Object dimKey =
-          in.potenfyr.authcore.compat.Compat.worldRegistryKey(
-              in.potenfyr.authcore.compat.Compat.playerLevel(player));
-      if (dimKey != null) {
+      o.addProperty("format", 2);
+      if (snap.gameMode != null) o.addProperty("gameMode", snap.gameMode.getName());
+      o.addProperty("invulnerable", snap.invulnerable);
+      o.addProperty("health", snap.health);
+      o.addProperty("dead", snap.dead);
+      o.addProperty("food", snap.foodLevel);
+      o.addProperty("saturation", snap.saturation);
+      o.addProperty("xpLevel", snap.xpLevel);
+      o.addProperty("xpProgress", snap.xpProgress);
+      o.addProperty("totalXp", snap.totalXp);
+      o.addProperty("x", snap.x);
+      o.addProperty("y", snap.y);
+      o.addProperty("z", snap.z);
+      o.addProperty("operator", snap.operator);
+      o.addProperty("opLevel", snap.opPermissionLevel);
+      o.addProperty("opBypass", snap.opBypassesPlayerLimit);
+      if (snap.dimensionKey != null) {
         // ResourceKey.toString() = "ResourceKey[minecraft:dimension / minecraft:overworld]"
         // (identical format in every era) - extract the value location for the file.
-        String s = String.valueOf(dimKey);
+        String s = String.valueOf(snap.dimensionKey);
         int sep = s.indexOf("/ ");
         int end = s.lastIndexOf(']');
         if (sep >= 0 && end > sep) o.addProperty("dimension", s.substring(sep + 2, end));
       }
 
-      com.google.gson.JsonArray inv = new com.google.gson.JsonArray();
-      net.minecraft.world.entity.player.Inventory liveInv =
-          in.potenfyr.authcore.compat.Compat.getInventory(player);
-      if (liveInv != null)
-        for (int i = 0; i < liveInv.getContainerSize(); i++)
-          inv.add(in.potenfyr.authcore.compat.Compat.itemStackToBase64(liveInv.getItem(i)));
-      o.add("inventory", inv);
+      // Only the snapshot OWNS the items when the limbo hid the inventory. Without hide-inventory
+      // the live inventory was never touched and vanilla's own player data is authoritative, so it
+      // is not duplicated into the file (a recovery would otherwise roll it back).
+      if (AuthCoreServer.config.lobby.hideInventory && snap.inventory != null) {
+        com.google.gson.JsonArray inv = new com.google.gson.JsonArray();
+        for (ItemStack stack : snap.inventory)
+          inv.add(in.potenfyr.authcore.compat.Compat.itemStackToBase64(stack));
+        o.add("inventory", inv);
+      }
 
       com.google.gson.JsonArray fx = new com.google.gson.JsonArray();
-      for (net.minecraft.world.effect.MobEffectInstance e : player.getActiveEffects())
-        fx.add(in.potenfyr.authcore.compat.Compat.effectToBase64(e));
+      if (snap.effects != null)
+        for (MobEffectInstance e : snap.effects)
+          fx.add(in.potenfyr.authcore.compat.Compat.effectToBase64(e));
       o.add("effects", fx);
 
-      java.nio.file.Files.writeString(file, new com.google.gson.Gson().toJson(o));
+      // Atomic replace: a crash DURING the write must never leave a truncated file that the next
+      // join cannot parse (the recovery would then be skipped and the limbo state would stick).
+      java.nio.file.Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+      java.nio.file.Files.writeString(tmp, new com.google.gson.Gson().toJson(o));
+      try {
+        java.nio.file.Files.move(
+            tmp,
+            file,
+            java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+            java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+      } catch (java.nio.file.AtomicMoveNotSupportedException notAtomic) {
+        java.nio.file.Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+      }
       return true;
     } catch (Exception err) {
       return false;
@@ -284,10 +304,23 @@ public class Lobby {
           com.google.gson.JsonParser.parseString(java.nio.file.Files.readString(file))
               .getAsJsonObject();
 
+      // Files written before format 2 serialised the LIVE player after the limbo was applied (see
+      // saveCrashSnapshot): their game mode, inventory and effects are the LIMBO's, not the
+      // player's. Only the safe parts of such a file are applied - the forced Adventure mode is
+      // replaced by the server default, the empty inventory and the infinite limbo effects are
+      // never re-applied over the player data.
+      boolean legacy = !o.has("format");
       if (o.has("gameMode")) {
         net.minecraft.world.level.GameType mode =
             net.minecraft.world.level.GameType.byName(
                 o.get("gameMode").getAsString(), net.minecraft.world.level.GameType.SURVIVAL);
+        if (legacy
+            && mode == net.minecraft.world.level.GameType.ADVENTURE
+            && AuthCoreServer.config.lobby.forceAdventureMode) {
+          MinecraftServer srv = in.potenfyr.authcore.compat.Compat.getServer(player);
+          mode =
+              srv != null ? srv.getDefaultGameType() : net.minecraft.world.level.GameType.SURVIVAL;
+        }
         in.potenfyr.authcore.compat.Compat.changeGameMode(player, mode);
       }
 
@@ -306,7 +339,7 @@ public class Lobby {
 
       net.minecraft.world.entity.player.Inventory liveInv =
           in.potenfyr.authcore.compat.Compat.getInventory(player);
-      if (o.has("inventory") && liveInv != null) {
+      if (!legacy && o.has("inventory") && liveInv != null) {
         liveInv.clearContent();
         com.google.gson.JsonArray arr = o.getAsJsonArray("inventory");
         for (int i = 0; i < arr.size() && i < liveInv.getContainerSize(); i++)
@@ -314,19 +347,20 @@ public class Lobby {
       }
 
       player.removeAllEffects();
-      if (o.has("effects"))
+      if (!legacy && o.has("effects"))
         for (com.google.gson.JsonElement e : o.getAsJsonArray("effects")) {
           net.minecraft.world.effect.MobEffectInstance fx =
               in.potenfyr.authcore.compat.Compat.effectFromBase64(e.getAsString());
           if (fx != null) player.addEffect(fx);
         }
 
-      if (o.has("health")) {
+      boolean wasDead = o.has("dead") && o.get("dead").getAsBoolean();
+      if (o.has("health") && !wasDead && !legacy) {
         float hp = o.get("health").getAsFloat();
-        // Clamp: a tampered/corrupt snapshot must not restore NaN, negative or absurd
-        // health (instant-death or god-mode on rejoin).
-        if (!Float.isFinite(hp) || hp <= 0.0f) hp = player.getMaxHealth();
-        player.setHealth(Math.min(hp, player.getMaxHealth()));
+        // A dead (0 HP) snapshot is never "restored" to life (issue #11 - that is a free revive),
+        // and a tampered/corrupt value must not restore NaN, negative or absurd health: those
+        // keep the player's current health; everything else is capped at the max health.
+        if (Float.isFinite(hp) && hp > 0.0f) player.setHealth(Math.min(hp, player.getMaxHealth()));
       }
       if (o.has("food")) player.getFoodData().setFoodLevel(o.get("food").getAsInt());
       if (o.has("saturation")) player.getFoodData().setSaturation(o.get("saturation").getAsFloat());
@@ -352,6 +386,18 @@ public class Lobby {
                 in.potenfyr.authcore.compat.Compat.getYaw(player),
                 in.potenfyr.authcore.compat.Compat.getPitch(player));
         }
+      }
+
+      // Operator status removed by safe-operators at lock time (ops.json was edited) - give it back,
+      // or a crash during the limbo would have deopped the account permanently.
+      if (o.has("operator") && o.get("operator").getAsBoolean()) {
+        MinecraftServer srv = in.potenfyr.authcore.compat.Compat.getServer(player);
+        if (srv != null && !in.potenfyr.authcore.compat.Compat.isOperator(srv, player))
+          in.potenfyr.authcore.compat.Compat.addToOperators(
+              srv,
+              player,
+              o.has("opLevel") ? o.get("opLevel").getAsInt() : 4,
+              o.has("opBypass") && o.get("opBypass").getAsBoolean());
       }
 
       player.containerMenu.broadcastChanges();
@@ -518,7 +564,7 @@ public class Lobby {
     // Deleted on unlock; restored on the next join if it still exists. The snapshot's
     // captured PRE-LOBBY invulnerability flag is persisted alongside, so a crash mid-limbo
     // cannot leave the forced shield in the player data after the recovery.
-    if (!saveCrashSnapshot(player, snapshotFile(user.uuid), this.snapshot.invulnerable))
+    if (!saveCrashSnapshot(player, snapshotFile(user.uuid), this.snapshot))
       AuthCoreServer.LOGGER.debug(
           false, "Failed to persist limbo snapshot for {}", user.username);
 
@@ -1082,6 +1128,30 @@ public class Lobby {
     this.cancel();
   }
 
+  /**
+   * A player that joined DEAD respawned while still locked (the vanilla death screen has no chat,
+   * so respawning is the only way they can reach /login). Records the vanilla respawn point for
+   * the unlock and re-applies the limbo shield to the NEW entity - vanilla does not copy the
+   * invulnerability flag across a respawn, so the respawned, unauthenticated player was otherwise
+   * left damageable inside the limbo. Idempotent; never throws.
+   */
+  public void onRespawnInLimbo(ServerPlayer respawned) {
+    if (respawned == null || this.snapshot == null || !this.snapshot.wasDead()) return;
+    if (!(respawned.getHealth() > 0.0F)) return;
+    try {
+      this.snapshot.noteRespawn(respawned);
+      if (AuthCoreServer.config.lobby.preventDamage) {
+        /*? if < 26.1 {*/
+        respawned.setInvulnerable(true);
+        /*?} else {*/
+        /*in.potenfyr.authcore.compat.Compat.setInvulnerable(respawned, true);
+        *//*?}*/
+      }
+    } catch (RuntimeException | LinkageError err) {
+      AuthCoreServer.LOGGER.debug(false, "limbo respawn bookkeeping failed: {}", String.valueOf(err));
+    }
+  }
+
   /** Cancels any active scheduled tasks (timeout or reminders) for this lobby session. */
   public void cancel() {
 
@@ -1308,6 +1378,16 @@ public class Lobby {
 
     private final float health;
 
+    /**
+     * Whether the player was DEAD when the limbo captured them (health 0 - they disconnected on the
+     * death screen, or were killed on logout by the combat-log punishment). A dead player is never
+     * healed by the limbo and never "restored" back to life at their death position: that was the
+     * remaining issue #11 path (1.0.2 restored health 0 after /login = instant death with no death
+     * message; 1.0.3 clamped it to 1 HP = a free revive at the death spot, a death/combat-log
+     * bypass). They keep the vanilla death screen and respawn normally instead.
+     */
+    private final boolean dead;
+
     private final Object dimensionKey;
 
     private final int fireTicks;
@@ -1317,6 +1397,7 @@ public class Lobby {
 
     private final boolean operator;
     private int opPermissionLevel = 0;
+    private boolean opBypassesPlayerLimit = false;
 
     /**
      * The player's invulnerability flag BEFORE the limbo (captured even when
@@ -1367,6 +1448,7 @@ public class Lobby {
 
       // --- HEALTH & FOOD ---
       this.health = player.getHealth();
+      this.dead = isDeadState(this.health);
       this.foodLevel = player.getFoodData().getFoodLevel();
       this.saturation = player.getFoodData().getSaturationLevel();
 
@@ -1388,8 +1470,11 @@ public class Lobby {
       // --- OPERATOR STATUS ---
       this.operator = in.potenfyr.authcore.compat.Compat.isOperator(server, player);
 
-      if (this.operator)
+      if (this.operator) {
         this.opPermissionLevel = in.potenfyr.authcore.compat.Compat.getOperatorLevel(server, player);
+        this.opBypassesPlayerLimit =
+            in.potenfyr.authcore.compat.Compat.getOperatorBypass(server, player);
+      }
 
       // --- INVULNERABILITY (pre-lobby value, before the shield is applied below) ---
       /*? if < 26.1 {*/
@@ -1442,7 +1527,10 @@ public class Lobby {
         // NoSuchMethodError during the join-time lock (issue #10) - dispatch at runtime.
         in.potenfyr.authcore.compat.Compat.setInvulnerable(player, true);
         *//*?}*/
-        player.setHealth(player.getMaxHealth());
+        // NEVER heal a dead player: the heal revived players who joined dead (death screen /
+        // combat-log kill), and the unlock then either killed them again at 0 HP or left them alive
+        // at their death position (issue #11).
+        if (!this.dead) player.setHealth(player.getMaxHealth());
       }
 
       // --- SAFE OPERATORS ---
@@ -1496,6 +1584,15 @@ public class Lobby {
         } catch (RuntimeException ignored) {
           // inventory restore is best-effort
         }
+      }
+
+      // --- DEAD-ON-JOIN (issue #11) ---
+      // The player was captured on the death screen. Vanilla semantics win: never bring them back
+      // to life at the death position with the snapshot's 0 HP (instant death after /login, no
+      // death message) or a clamped 1 HP (a free revive - a death/combat-log bypass).
+      if (this.dead) {
+        resetDead(player, server);
+        return;
       }
 
       // --- RESTORE EFFECTS ---
@@ -1572,11 +1669,90 @@ public class Lobby {
       // limbo (tracked by PlayerListOpMixin): the snapshot was captured at LOCK time, so
       // blindly restoring it would resurrect operator powers over a concurrent deop.
       if (this.operator && !ADMIN_DEOPS_DURING_LIMBO.remove(player.getUUID()))
-        in.potenfyr.authcore.compat.Compat.addToOperators(server, player, this.opPermissionLevel);
+        in.potenfyr.authcore.compat.Compat.addToOperators(
+            server, player, this.opPermissionLevel, this.opBypassesPlayerLimit);
 
       // --- POST-RESTORE SAFETY WINDOW ---
       // Whatever the geometry did, the restore itself must never be lethal: pin the fall distance
       // for a few seconds and re-land the player if the landing was not resolvable (issue #11).
+      armRestoreGuard(player);
+    }
+
+    /** Pure dead-state decision for a captured health value (NaN and non-positive are dead). */
+    public static boolean isDeadState(float health) {
+      return !(health > 0.0F);
+    }
+
+    /** Whether the player was dead when the limbo captured them. */
+    public boolean wasDead() {
+      return this.dead;
+    }
+
+    /** Respawn point recorded while a dead-on-join player respawned inside the limbo. */
+    private volatile boolean respawnKnown;
+
+    private volatile double respawnX;
+    private volatile double respawnY;
+    private volatile double respawnZ;
+    private volatile Object respawnDimension;
+
+    /**
+     * Records where vanilla respawned a dead-on-join player (called right after the respawn and
+     * before the limbo anchor moves the new entity), so the unlock can send them to their REAL
+     * respawn point instead of leaving them at the limbo anchor or sending them back to the place
+     * they died. Only the first respawn of the session is recorded.
+     */
+    void noteRespawn(ServerPlayer player) {
+      if (!this.dead || this.respawnKnown || player == null) return;
+      if (!(player.getHealth() > 0.0F)) return;
+      this.respawnX = player.getX();
+      this.respawnY = player.getY();
+      this.respawnZ = player.getZ();
+      this.respawnDimension =
+          in.potenfyr.authcore.compat.Compat.worldRegistryKey(
+              in.potenfyr.authcore.compat.Compat.playerLevel(player));
+      this.respawnKnown = true;
+    }
+
+    /** Restore for a player that was captured dead (see {@link #dead}). Never revives them. */
+    private void resetDead(ServerPlayer player, MinecraftServer server) {
+      // Operator status is identity, not life state - restore it exactly like the normal path.
+      if (this.operator && !ADMIN_DEOPS_DURING_LIMBO.remove(player.getUUID()))
+        in.potenfyr.authcore.compat.Compat.addToOperators(
+            server, player, this.opPermissionLevel, this.opBypassesPlayerLimit);
+
+      if (!(player.getHealth() > 0.0F)) {
+        // Still on the death screen: leave them dead. The vanilla respawn puts them at their
+        // bed/anchor/world spawn exactly as if AuthCore was not installed. No health, position,
+        // xp or effect is touched (restoring the xp would duplicate the orbs dropped on death).
+        AuthCoreServer.LOGGER.info(
+            true,
+            "{} joined dead (death screen) - authenticated without a revive; they respawn normally",
+            player.getName().getString());
+        return;
+      }
+
+      // They respawned while in the limbo: health/food/xp already belong to the NEW life. Only put
+      // them back at the respawn point vanilla chose (the limbo anchor moved them away from it).
+      ServerLevel world =
+          this.respawnKnown
+              ? in.potenfyr.authcore.compat.Compat.getWorld(server, this.respawnDimension)
+              : null;
+      if (world != null) {
+        teleportExact(player, world, this.respawnX, this.respawnY, this.respawnZ,
+            in.potenfyr.authcore.compat.Compat.blockPosFloored(
+                this.respawnX, this.respawnY, this.respawnZ));
+        safeLandIfNeeded(player, world);
+      } else {
+        ServerLevel current = in.potenfyr.authcore.compat.Compat.playerLevel(player);
+        if (current != null) safeLandIfNeeded(player, current);
+      }
+      in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
+      AuthCoreServer.LOGGER.info(
+          true,
+          "{} respawned during the limbo - restored to their respawn point ({})",
+          player.getName().getString(),
+          world != null ? "recorded" : "unknown - kept in place");
       armRestoreGuard(player);
     }
 

@@ -464,11 +464,21 @@ public class Account {
       // Validate against the password policy (message shown to the player on failure)
       if (!in.potenfyr.authcore.security.Security.Password.check(player, newPassword)) return 0;
 
+      // Same password-history rules as /account set-password: the recovery flow must not be a way
+      // around history-size (reusing a previous password).
+      if (user.isPasswordInHistory(newPassword))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
+      user.recordPasswordHistory();
+      String previousHash = user.password;
+      String previousAlgo = user.passwordEncryption;
       user.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
       user.password = in.potenfyr.authcore.security.Encrypter.hash(user.passwordEncryption, newPassword);
       if (user.password == null) {
-        // Never leave the account unregistered because hashing failed
-        user.passwordEncryption = null;
+        // Never leave the account without its credentials because hashing failed: the old code
+        // nulled the algorithm and left password=null - i.e. silently UNREGISTERED the account.
+        user.password = previousHash;
+        user.passwordEncryption = previousAlgo;
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
       }
@@ -713,53 +723,94 @@ public class Account {
             1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
       }
 
+      // Step-up: a resumed session must prove the password on THIS connection first.
+      if (!user.passwordProvenOn(player.connection)) {
+        in.potenfyr.authcore.security.SecurityLog.log(
+            "REAUTH_REQUIRED", username + " tried /account set-password in a resumed session");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserReauthRequired);
+      }
+
       // Validate the RAW password, never a hash: Security.Password.check inspects the characters
       // the player actually typed. Hashing first (the old flow) ran the complexity policy against
       // the hash string, so almost any weak password passed.
       if (!Security.Password.check(player, password)) return 0;
 
-      // Reuse guard: compare the RAW candidate against the CURRENT password hash. The old code
-      // compared two independently salted hashes, which can never be equal - so password reuse
-      // was always allowed even with allow-reuse=false.
-      if (!AuthCoreServer.config.passwordRules.allowReuse
-          && user.password != null
-          && Encrypter.verify(password, user.password, user.passwordEncryption)) {
+      // Everything below runs memory-hard hashes: the reuse check, up to history-size history
+      // verifications and the new hash - hundreds of ms of server-thread stall per command before.
+      // They run on the IO pool; the swap is applied on the server thread, and only when the
+      // stored hash is still the one the checks ran against (a concurrent change always wins).
+      if (!user.passwordCheckInFlight.compareAndSet(false, true))
         return AuthCoreServer.LOGGER.toUser(
-            0, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
-      }
-
-      // Password history (password-rules.history-size): the last N passwords must not be reused.
-      if (user.isPasswordInHistory(password)) {
-        return AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
-      }
-
-      // Keep the current password in the history before replacing it.
-      user.recordPasswordHistory();
-
-      user.passwordEncryption =
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+      final String currentHash = user.password;
+      final String currentAlgo = user.passwordEncryption;
+      final String newAlgo =
           in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
               AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
-      user.password = Encrypter.hash(user.passwordEncryption, password);
-
-      if (user.password == null) {
-        // Never leave the account unregistered because hashing failed
-        user.passwordEncryption = null;
+      final net.minecraft.server.MinecraftServer server = AuthCoreServer.server;
+      final ServerPlayer target = player;
+      Runnable work =
+          () -> {
+            int verdict; // 0 = ok, 1 = reuse/history, 2 = hash failure
+            String fresh = null;
+            try {
+              if (!AuthCoreServer.config.passwordRules.allowReuse
+                  && currentHash != null
+                  && Encrypter.verify(password, currentHash, currentAlgo)) verdict = 1;
+              else if (user.isPasswordInHistory(password)) verdict = 1;
+              else {
+                fresh = Encrypter.hash(newAlgo, password);
+                verdict = fresh == null ? 2 : 0;
+              }
+            } catch (Throwable err) {
+              verdict = 2;
+            }
+            final int result = verdict;
+            final String newHash = fresh;
+            Runnable apply =
+                () -> {
+                  try {
+                    if (result == 1) {
+                      AuthCoreServer.LOGGER.toUser(
+                          1, target.connection, AuthCoreServer.messages.promptUserDuplicatePassword);
+                      return;
+                    }
+                    if (result == 2 || !java.util.Objects.equals(user.password, currentHash)) {
+                      // hashing failed, or the password changed meanwhile - never half-apply
+                      AuthCoreServer.LOGGER.toUser(
+                          1, target.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+                      return;
+                    }
+                    // Keep the current password in the history before replacing it.
+                    user.recordPasswordHistory();
+                    user.passwordEncryption = newAlgo;
+                    user.password = newHash;
+                    user.update("Password Change");
+                    in.potenfyr.authcore.security.AuthIntelligence.recordPasswordChange(
+                        user, target.getIpAddress());
+                    AuthCoreServer.LOGGER.debug(
+                        1, "{} password has been updated in the database!", user.username);
+                    AuthCoreServer.LOGGER.toUser(
+                        1,
+                        target.connection,
+                        AuthCoreServer.messages.promptUserPasswordChangedSuccessfully);
+                  } finally {
+                    user.passwordCheckInFlight.set(false);
+                  }
+                };
+            if (server != null) server.execute(apply);
+            else apply.run();
+          };
+      try {
+        if (server != null) AuthCoreServer.IO_EXECUTOR.execute(work);
+        else work.run();
+      } catch (java.util.concurrent.RejectedExecutionException busy) {
+        user.passwordCheckInFlight.set(false);
         return AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
       }
-
-      user.update("Password Change");
-
-      // Auth intelligence: post-login account-takeover pattern.
-      in.potenfyr.authcore.security.AuthIntelligence.recordPasswordChange(user, player.getIpAddress());
-
-      AuthCoreServer.LOGGER.debug(
-          1, "{} password has been updated in the database!", user.username);
-      return AuthCoreServer.LOGGER.toUser(
-          1,
-          player.connection,
-          AuthCoreServer.messages.promptUserPasswordChangedSuccessfully);
+      return 1;
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(
           0, "Faced Error in '/account set-password <new-password>' Command: ", err);
@@ -797,6 +848,28 @@ public class Account {
       else if (!user.isRegistered.get())
         return AuthCoreServer.LOGGER.toUser(
             0, player.connection, AuthCoreServer.messages.promptUserNotRegistered);
+
+      // Deleting the account is the most destructive credential action: it needs the password
+      // proven on THIS connection (a resumed session could otherwise delete the account and
+      // register a password of its own) and the same MFA step-up as a password change.
+      if (!user.passwordProvenOn(player.connection)) {
+        in.potenfyr.authcore.security.SecurityLog.log(
+            "REAUTH_REQUIRED", username + " tried /account unregister in a resumed session");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserReauthRequired);
+      }
+      boolean unregisterMfa =
+          AuthCoreServer.config.session.authentication.allowTOTPSupport
+              && user.authSecret != null
+              && !user.authSecret.isBlank();
+      if (AuthCoreServer.config.session.authentication.requireMfaForSensitive
+          && unregisterMfa
+          && !user.mfaVerified) {
+        in.potenfyr.authcore.security.SecurityLog.log(
+            "MFA_STEPUP_BLOCKED", username + " attempted /account unregister without a verified second factor");
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
+      }
 
       // Kick the player BEFORE deleting their data: toKick resolves the user from the
       // cache, so deleting first would make the lookup return null and silently skip the

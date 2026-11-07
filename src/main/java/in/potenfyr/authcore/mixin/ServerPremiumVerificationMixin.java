@@ -70,7 +70,7 @@ abstract class ServerPremiumVerificationMixin {
 
   /**
    * When premium verification is wanted (offline server + premium auto-login) and the
-   * client sent an offline-UUID hello: start the encryption handshake and hold the vanilla
+   * client claims a real (non-offline) account UUID: start the encryption handshake and hold the vanilla
    * offline flow until the verification completes (or times out). Only the FIRST hello of a
    * connection is intercepted - a replayed hello (after verification succeeded/failed) lets
    * the vanilla offline accept flow run untouched.
@@ -86,9 +86,14 @@ abstract class ServerPremiumVerificationMixin {
       if (HANDLED.contains(this)) return; // already verified (or fell back) - never re-verify
 
       String username = readHelloName(packet);
-      UUID uuid = readHelloId(packet);
-      if (username == null || uuid == null) return;
-      if (!in.potenfyr.authcore.compat.Compat.isOfflineUuid(username, uuid)) return;
+      UUID claimed = readHelloId(packet);
+      if (username == null || claimed == null) return;
+      // Only a client claiming a REAL (non-offline) account UUID is challenged. The old check was
+      // inverted: it challenged clients sending the OFFLINE uuid (cracked clients - the forced
+      // handshake can only fail for them, and a vanilla client disconnects on a failed session
+      // join) and skipped every genuine premium client, so premium auto-login on offline servers
+      // never triggered for real accounts.
+      if (in.potenfyr.authcore.compat.Compat.isOfflineUuid(username, claimed)) return;
 
       // Start the handshake FIRST - only cancel vanilla's offline flow when it succeeded,
       // so a failure can never strand the player.
@@ -128,7 +133,10 @@ abstract class ServerPremiumVerificationMixin {
       final Object handler = this;
       final Object helloPacket = hello;
       final String username = readHelloName((ServerboundHelloPacket) hello);
-      final UUID offlineUuid = readHelloId((ServerboundHelloPacket) hello);
+      // The join uuid on an offline server is always the OFFLINE uuid vanilla assigns to the name;
+      // the verified profile must match the account the client claimed.
+      final UUID offlineUuid = in.potenfyr.authcore.compat.Compat.offlineUuid(username);
+      final UUID claimedUuid = readHelloId((ServerboundHelloPacket) hello);
       final java.net.InetAddress address = loginAddress();
 
       if (digest == null) {
@@ -149,8 +157,17 @@ abstract class ServerPremiumVerificationMixin {
                   in.potenfyr.authcore.compat.Compat.loginVerifyProfile(
                       server, username, digest, address);
 
-              if (verified != null && offlineUuid != null) {
-                AuthCoreServer.markPremiumVerified(offlineUuid);
+              boolean matches =
+                  verified != null
+                      && offlineUuid != null
+                      && username != null
+                      && username.equalsIgnoreCase(profileName(verified))
+                      && (claimedUuid == null || claimedUuid.equals(profileId(verified)));
+              if (matches) {
+                // Bound to THIS login's network connection: the offline uuid is shared by every
+                // client claiming the name, so only this connection may consume the marker.
+                AuthCoreServer.markPremiumVerified(
+                    offlineUuid, in.potenfyr.authcore.compat.Compat.networkConnection(handler));
                 AuthCoreServer.LOGGER.info(
                     true,
                     "{} online-mode session verified via the server's Mojang session service.",
@@ -201,92 +218,65 @@ abstract class ServerPremiumVerificationMixin {
 
   // ------------------------------------------------------------------ helpers
 
+  /** The login listener's MinecraftServer, found by field TYPE (the name differs per era). */
   private static Object loginServer(Object handler) {
-    try {
-      java.lang.reflect.Field f = handler.getClass().getDeclaredField("server");
-      f.setAccessible(true);
-      return f.get(handler);
-    } catch (ReflectiveOperationException | RuntimeException err) {
-      return null;
-    }
+    for (Class<?> c = handler.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+      for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+        if (java.lang.reflect.Modifier.isStatic(f.getModifiers())
+            || !net.minecraft.server.MinecraftServer.class.isAssignableFrom(f.getType())) continue;
+        try {
+          f.setAccessible(true);
+          Object server = f.get(handler);
+          if (server != null) return server;
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+          // keep looking
+        }
+      }
+    return null;
   }
 
   private java.net.InetAddress loginAddress() {
     try {
-      Object connection = connection();
+      net.minecraft.network.Connection connection =
+          in.potenfyr.authcore.compat.Compat.networkConnection(this);
       if (connection == null) return null;
-      Object address =
-          in.potenfyr.authcore.util.ReflectCache.method(connection.getClass(), "getRemoteAddress").invoke(connection);
-      return address instanceof java.net.InetSocketAddress isa
-          ? isa.getAddress()
-          : null;
-    } catch (ReflectiveOperationException | RuntimeException err) {
-      return null;
-    }
-  }
-
-  private Object connection() {
-    try {
-      java.lang.reflect.Field f =
-          ServerLoginPacketListenerImpl.class.getDeclaredField("connection");
-      f.setAccessible(true);
-      return f.get(this);
-    } catch (ReflectiveOperationException | RuntimeException err) {
+      java.net.SocketAddress address = connection.getRemoteAddress();
+      return address instanceof java.net.InetSocketAddress isa ? isa.getAddress() : null;
+    } catch (RuntimeException | LinkageError err) {
       return null;
     }
   }
 
   private static String readHelloName(ServerboundHelloPacket packet) {
-    try {
-      Object profile = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
-      if (profile != null) {
-        for (String m : new String[] {"name", "getName"}) {
-          try {
-            Object v = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
-            if (v instanceof String s) return s;
-          } catch (ReflectiveOperationException ignored) {
-            // next name
-          }
-        }
-      }
-      for (String m : new String[] {"name", "getName"}) {
-        try {
-          Object v = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
-          if (v instanceof String s) return s;
-        } catch (ReflectiveOperationException ignored) {
-          // next name
-        }
-      }
-      return null;
-    } catch (ReflectiveOperationException | RuntimeException err) {
-      return null;
-    }
+    return in.potenfyr.authcore.compat.Compat.helloName(packet);
   }
 
   private static UUID readHelloId(ServerboundHelloPacket packet) {
-    try {
-      Object profile = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
-      if (profile != null) {
-        for (String m : new String[] {"id", "getId"}) {
-          try {
-            Object v = in.potenfyr.authcore.util.ReflectCache.method(profile.getClass(), m).invoke(profile);
-            if (v instanceof UUID u) return u;
-          } catch (ReflectiveOperationException ignored) {
-            // next name
-          }
-        }
+    return in.potenfyr.authcore.compat.Compat.helloId(packet);
+  }
+
+  /** authlib GameProfile name/id across authlib eras (getName()/name(), getId()/id()). */
+  private static String profileName(com.mojang.authlib.GameProfile profile) {
+    for (String m : new String[] {"getName", "name"}) {
+      try {
+        Object v = profile.getClass().getMethod(m).invoke(profile);
+        if (v instanceof String s) return s;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // next accessor
       }
-      for (String m : new String[] {"profileId", "getProfileId"}) {
-        try {
-          Object v = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
-          if (v instanceof UUID u) return u;
-        } catch (ReflectiveOperationException ignored) {
-          // next name
-        }
-      }
-      return null;
-    } catch (ReflectiveOperationException | RuntimeException err) {
-      return null;
     }
+    return null;
+  }
+
+  private static UUID profileId(com.mojang.authlib.GameProfile profile) {
+    for (String m : new String[] {"getId", "id"}) {
+      try {
+        Object v = profile.getClass().getMethod(m).invoke(profile);
+        if (v instanceof UUID u) return u;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // next accessor
+      }
+    }
+    return null;
   }
 }

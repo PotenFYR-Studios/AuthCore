@@ -20,6 +20,8 @@ public final class AuthCoreServer {
         return t;
       });
   public static Config config = new Config();
+  /** No running server in the host suite: user writes stay synchronous (read-your-write). */
+  public static volatile net.minecraft.server.MinecraftServer server = null;
   public static Messages messages = new Messages();
 
   /** Mirrors the real boot-time version check (see AuthCoreServer.isTestedMinecraftVersion). */

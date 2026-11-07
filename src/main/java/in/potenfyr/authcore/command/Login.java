@@ -318,6 +318,7 @@ public class Login {
         user.update("Online-mode flag cleared after password login");
       }
 
+      user.passwordProvenOn = player.connection;
       user.login(player); // broadcasts the auth state to other mods / the proxy
 
       // Login-timing distribution analysis (bot-farm synchronized timers)
@@ -375,15 +376,34 @@ public class Login {
       boolean outdated = storedAlgo == null || !storedAlgo.equalsIgnoreCase(configured);
       if (!weak && !outdated) return;
 
-      String fresh = in.potenfyr.authcore.security.Encrypter.hash(configured, password);
-      if (fresh == null || fresh.equals(user.password)) return;
-
-      user.passwordEncryption = configured;
-      user.password = fresh;
-      user.update("Password hash upgraded on login");
-      SecurityLog.log(
-          "PASSWORD_HASH_UPGRADED",
-          user.username + " hash upgraded from '" + storedAlgo + "' to '" + configured + "'");
+      // The re-hash (argon2/bcrypt/scrypt: tens to hundreds of ms) runs on the IO pool - it used to
+      // run on the server thread inside /login and stalled the whole tick for every legacy-hash
+      // login. The swap is applied back on the server thread, and only if the stored hash is still
+      // the one that was just verified (a concurrent password change always wins).
+      final String verifiedHash = user.password;
+      final net.minecraft.server.MinecraftServer server = AuthCoreServer.server;
+      Runnable upgrade =
+          () -> {
+            String fresh = in.potenfyr.authcore.security.Encrypter.hash(configured, password);
+            if (fresh == null || fresh.equals(verifiedHash)) return;
+            Runnable apply =
+                () -> {
+                  if (!java.util.Objects.equals(user.password, verifiedHash)) return;
+                  user.passwordEncryption = configured;
+                  user.password = fresh;
+                  user.update("Password hash upgraded on login");
+                  SecurityLog.log(
+                      "PASSWORD_HASH_UPGRADED",
+                      user.username + " hash upgraded from '" + storedAlgo + "' to '" + configured + "'");
+                };
+            if (server != null) server.execute(apply);
+            else apply.run();
+          };
+      try {
+        AuthCoreServer.IO_EXECUTOR.execute(upgrade);
+      } catch (java.util.concurrent.RejectedExecutionException busy) {
+        // pool shutting down - the upgrade is retried on the next login
+      }
     } catch (Exception err) {
       AuthCoreServer.LOGGER.debug(
           false, "Password hash upgrade failed for {}:", user != null ? user.username : "?", err);

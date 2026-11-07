@@ -206,7 +206,21 @@ abstract class ServerPlayNetworkHandlerMixin {
 
   /** Reads the clicked slot index across mapping eras ({@code slotNum()} / {@code getSlot()}). */
   private static int readClickSlot(Object packet) {
-    for (String m : new String[] {"slotNum", "getSlot"}) {
+    // Direct, build-remapped accessor first (intermediary survives the getSlotNum -> slotNum record
+    // rename). The name-only lookup below never resolved on Fabric/Forge, so the player's own 2x2
+    // crafting grid was never recognised there and lobby.allow-crafting had no effect.
+    if (packet instanceof net.minecraft.network.protocol.game.ServerboundContainerClickPacket click) {
+      try {
+        /*? if >= 1.21.5 {*/
+        return click.slotNum();
+        /*?} else {*/
+        /*return click.getSlotNum();
+        *//*?}*/
+      } catch (RuntimeException | LinkageError otherName) {
+        // Mojang-named runtime on the other side of the rename - by name below
+      }
+    }
+    for (String m : new String[] {"slotNum", "getSlotNum", "getSlot"}) {
       try {
         Object value = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), m).invoke(packet);
         if (value instanceof Integer i) return i;

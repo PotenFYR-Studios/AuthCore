@@ -10,12 +10,153 @@ All notable changes to AuthCore, from the first alpha to the current release.
 
 ---
 
-## [1.0.3] - 2026-11-07
+## [1.0.3] - 2026-11-08
 
 > Follow-up to the issue #11 reopen ("I used the new version and it happened again - there
 > wasn't any death message"). Root-cause analysis of what the 1.0.2 safe-landing fix still
 > missed, the remaining restore-death holes, the limbo anchor fall/snap loop, and the
 > diagnostics that make the next report actionable.
+>
+> **Second pass (2026-11-08)** - the reporter's "it happened again, there wasn't any death message"
+> traced to two causes the first pass did not cover (the combat-log kill on logout and the limbo
+> healing a player who joined dead), plus an audit of every reflective call, the crash-recovery
+> snapshot, credential commands, offline-server premium verification, the database write path and
+> the red CI host-tests. The first-pass notes follow the second-pass sections below.
+
+### Issue #11 (second pass) - the remaining "killed on login, no death message, everything lost" causes
+
+- **The limbo no longer heals (and the restore no longer revives) a player who joined DEAD.**
+  `prevent-damage` topped every limbo player up to max health - including a player whose saved
+  data was already dead (they quit on the death screen, or the combat-log punishment killed them
+  on logout). On 1.0.2 the unlock then restored the snapshot's 0 HP: the player "died" the moment
+  they logged in, with no death message (no damage event ever happened) and no item drops. 1.0.3's
+  health clamp turned that into a free revive at 1 HP at the death position (a death/combat-log
+  bypass). A dead snapshot now keeps vanilla semantics: the death screen stays, the player
+  respawns normally, and if they respawn while still in the limbo they are released at the
+  respawn point vanilla chose (recorded on respawn, the new entity is re-shielded). XP is not
+  restored for a dead snapshot (it would duplicate the dropped orbs).
+- **Combat-log punishment only punishes a disconnect the player chose.** It used to kill on ANY
+  disconnect inside the combat window: AuthCore's own kicks, duplicate-login kicks, vanilla
+  kicks/timeouts, a server stop/restart, and players still unauthenticated in the limbo. All of
+  these are now exempt (logged at INFO with the reason), the combat window is reset after every
+  leave (a quick rejoin + leave was punished twice), and an already-dead player is never killed
+  again.
+- **Combat logging is PvP-only by default.** `detect-from-mobs` now defaults to `false`: one
+  zombie hit followed by a disconnect cost the player every item. Existing configs keep their
+  value - set `session.combat-log.detect-from-mobs=false` (or `kill-on-disconnect=false`) to opt
+  out on an existing server.
+- **The kill is visible.** The kill is logged at INFO (it happens while the player disconnects, so
+  on the next join they only see a cause-less death screen), and the player is told why on the next
+  join (new message `promptUserKilledForCombatLog`).
+- **`Compat.kill` works on every loader.** It used Mojang-name reflection, so the same config killed
+  combat loggers on NeoForge/26.x and silently did nothing on Fabric (intermediary) and Forge (SRG).
+  Direct, build-remapped calls now (`kill()` / `kill(ServerLevel)`, `setHealth(0)+die(genericKill)`
+  on the 1.19-1.21.1 runtimes inside the range jar); when a runtime has no safe kill path the
+  player is not punished instead of being left half-dead without drops.
+- **Fall distance is actually reset on Fabric 1.16-1.21.** The reflective fall-distance write used a
+  wrong intermediary id (`field_23362`; the real one is `field_6017`), so every earlier "pin the
+  fall distance" step was a no-op on Fabric. `resetFallDistance()` is now called directly.
+
+### Crash-recovery snapshot (item loss / stuck in Adventure)
+
+- **The crash snapshot stores the PRE-limbo state.** It was serialised from the live player AFTER the
+  limbo had emptied the inventory, replaced the effects with infinite invisibility, forced Adventure
+  and topped up health. A server crash during the limbo therefore wiped the inventory on recovery,
+  restored Adventure as the "original" game mode and granted permanent invisibility after login. The
+  file is now built from the snapshot, written atomically, and carries the operator status (see
+  below) so a crash can no longer deop an admin for good. Old-format files are applied safely
+  (position only; a forced Adventure mode falls back to the server default).
+
+### Never-working reflection (Yarn names that exist on no runtime)
+
+Production runtimes use intermediary (Fabric), SRG (Forge) or Mojang names (NeoForge, 26.x) - never
+Yarn. These lookups therefore failed everywhere and silently fell back:
+
+- **`lobby.safe-operators` never deopped anyone** (`PlayerManager$PlayerConfigEntry`,
+  `isOperator`, `addToOperators`...). Rewritten with build-remapped calls (GameProfile API on
+  1.16-1.21.8, NameAndId API on 1.21.9+/26.x) plus a signature-shape fallback for the older runtimes
+  inside the 1.21.11 range jar. The exact level and bypass flag are restored, and AuthCore's own
+  temporary removal is never mistaken for an admin deop.
+- **Yaw/pitch** (`getYaw`/`getPitch`): every limbo/restore teleport snapped the view to 0/0.
+- **Latency** (`networkHandler`/`pingMilliseconds`): the ping-based login timeouts never applied.
+- **Gliding/elytra stop, frozen ticks, world bottom/top, world spawn**: now direct calls with
+  name fallbacks for Mojang-named runtimes across renames.
+- **Player-level permission checks** (`hasLevel`): read "no permission" on Fabric/Forge; now
+  checked through the player's own command source with the era's API.
+- **`Compat.sourcePlayer`** had no SRG candidate: on Forge every player command could read as
+  "console". Uses `CommandSourceStack#getEntity()` directly now.
+- **Limbo sneak/sprint blocked on Fabric/Forge**: the player-command guard read the action by the
+  Mojang name `getAction`, failed, treated it as UNKNOWN and cancelled it - which also made the
+  sneak task of the human-verification captcha impossible there.
+- **`allow-entity-interact-with` and `allow-crafting` never took effect**: the interact packet and
+  container-click slot were read by names that do not exist; both use the packets' own API now.
+
+### Security
+
+- **Credential changes need the password on THIS connection.** `/account set-password` and
+  `/account unregister` were allowed in any authenticated session - including a RESUMED one
+  (same-IP session resume, SSO, companion token). A second person behind the same IP within the
+  session window could replace the password or delete the account and register their own (account
+  takeover without knowing the password). Both now require that the password was proven on the
+  current connection (`/login`, `/register`); otherwise the player is asked to log in again
+  (new message `promptUserReauthRequired`). `/account unregister` also gets the same MFA step-up as
+  a password change.
+- **Offline-server premium verification challenged the wrong clients.** It only started the
+  handshake for clients claiming the OFFLINE uuid (cracked clients, which can only fail it) and
+  skipped every genuine premium client (which sends its real account uuid), so premium auto-login on
+  offline servers never triggered for real accounts. It now challenges only clients claiming a real
+  account uuid, keys the marker by the offline uuid the join actually uses, and requires the
+  verified profile's name and uuid to match the claim. The whole handshake (fields, packets, crypto,
+  session service, hello replay) now uses build-remapped calls and type-based field lookups, so it
+  also works on Fabric (intermediary) and Forge (SRG) instead of silently falling back to offline.
+- **Premium-verification markers are bound to the network connection.** On an offline server every
+  client claiming a name shares the same offline UUID; a marker set by a genuine premium player's
+  handshake could be consumed by a different (cracked) connection racing the same name to the join
+  (premium auto-login takeover). Markers are now single-use AND connection-bound; an offline
+  verification whose connection cannot be resolved is never trusted.
+- **Password recovery** honours the password history and can no longer leave an account without
+  credentials when hashing fails (it used to null the password = silently unregister).
+
+### Performance
+
+- **User rows are written behind the tick.** Every `User#update` (join, leave, login, IP refresh,
+  security events) ran JDBC on the server thread and also waited on the serialised shared
+  connection - a network round-trip + transaction per call on MySQL/PostgreSQL. Rows are now
+  captured on the calling thread (immutable copy) and written by one ordered writer thread,
+  coalesced per account; deletes and backups flush first and a JVM shutdown hook drains the queue.
+  Failed-login audit rows use the same writer. Emergency switch: `-Dauthcore.syncWrites=true`.
+- `/account set-password`: the reuse check, the history verification (up to `history-size`
+  memory-hard hashes) and the new hash run on the IO pool instead of stalling the tick; the change
+  is applied on the server thread only if the password did not change meanwhile, and a hashing
+  failure no longer leaves the account without a password.
+- Legacy-hash upgrade on /login (argon2/bcrypt re-hash) moved off the server thread.
+- `ReflectCache`: cache key includes parameter types (overloads collided), cached misses no longer
+  allocate a new exception with a stack trace on every packet.
+- User-cache pruning is rate-limited (it ran a full O(n) scan + index rebuild on every lookup while
+  the cache sat above its limit with nothing evictable).
+- `blockPosFloored` no longer throws/catches a `NoSuchMethodException` on every call.
+- Listener -> `Connection` resolution is type-based, hierarchy-aware and cached (it silently returned
+  the listener itself on every 1.20.2+ play listener).
+
+### CI
+
+- **Host-tests were red on every group since this release.** The in-server `/authcore simulate`
+  check `srg-runtime-simulation` still asserted the OLD fail-open behaviour (an unresolvable
+  command source treated as the console). The admin-permission hardening above correctly made that
+  fail closed, so the self-test reported a FAIL on 1.16-1.18, 1.19-1.21 and 26.1-26.3. The check now
+  asserts the secure behaviour: unknown source shapes are denied, the real console source is allowed.
+- The new disconnect-tracking mixin is `@Pseudo`, so the 1.19-1.20.1 endpoints of the full matrix
+  (no `ServerCommonPacketListenerImpl` yet) do not log a missing-target WARN that the harness would
+  count as a failure.
+
+### Tests (second pass)
+
+- Host suite: 255 checks (adds the dead-state decision and `ReflectCache` overload keys / cached
+  misses).
+- All changed code type-checked against 1.18.2 (Fabric + Forge), 1.21.11 (Fabric) and 26.3
+  (Fabric).
+
+### First pass (2026-11-07)
 
 ### The limbo restore can no longer kill the player
 
