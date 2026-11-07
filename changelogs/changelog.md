@@ -149,6 +149,27 @@ Yarn. These lookups therefore failed everywhere and silently fell back:
   (no `ServerCommonPacketListenerImpl` yet) do not log a missing-target WARN that the harness would
   count as a failure.
 
+### Repository & dead-code cleanup
+
+- Removed the retired per-repo docs site (`index.html`, `404.html`, `CNAME`, `favicon.png`,
+  `og.png`, `robots.txt`, `sitemap.xml`, `llms.txt`, `scripts/og/`). The documentation lives in the
+  unified hub at docs.potenfyr.in/repo/authcore; issue templates, the PR template and
+  CONTRIBUTING.md now point there.
+- Removed code nothing called: the never-used batched GeoIP resolver (its scheduler thread woke
+  up every 250 ms for nothing), the unused network-ban / config-override Redis helpers, the rank
+  helper, three unused user-row queries, and assorted unused helpers and ~90 unused imports.
+- Wired up two features that were defined but never connected: `cache-max-users` was never
+  applied (the cache always used 20000), and the lobby click-flood detector
+  (`lobby-click-rate-per-sec`) was never fed. The client companion now actually receives the
+  `IN_LOBBY` / `OUT_OF_LOBBY` markers that open and close its login GUI.
+
+### Releases
+
+- One GitHub release per version: every green master build creates the release for
+  `mod.version` the first time and afterwards replaces its jars and notes in place (and moves the
+  tag) - never a second release for the same version. Nothing is published unless every build and
+  host-test group passed.
+
 ### Tests (second pass)
 
 - Host suite: 255 checks (adds the dead-state decision and `ReflectCache` overload keys / cached

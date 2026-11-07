@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.util;
 
-import in.potenfyr.authcore.events.ServerEvents;
 import in.potenfyr.authcore.models.User;
 import in.potenfyr.authcore.security.IpRules;
 

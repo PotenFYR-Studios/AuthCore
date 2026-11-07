@@ -36,7 +36,7 @@ bash test/docker/run-tests.sh --groups ... --smoke   # result (if Docker availab
 ## Docs & config impact
 
 - [ ] No player-facing behavior or config change (skip this section)
-- [ ] `docs/app/content/*.html` updated for behavior/config changes
+- [ ] Documentation hub (PotenFYR-Studios/docs) updated for behavior/config changes
 - [ ] Locale keys (`messages-*.conf`) updated if user-facing strings changed
 - [ ] `changelogs/changelog.md` entry added under the target version
 

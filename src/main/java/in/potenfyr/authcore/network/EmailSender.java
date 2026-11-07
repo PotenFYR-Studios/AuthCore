@@ -1,7 +1,5 @@
 package in.potenfyr.authcore.network;
 
-import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.util.Logger;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -9,7 +7,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Base64;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;

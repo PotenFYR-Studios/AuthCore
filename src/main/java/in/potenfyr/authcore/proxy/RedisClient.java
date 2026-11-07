@@ -70,16 +70,6 @@ public final class RedisClient implements AutoCloseable {
     return !unavailable;
   }
 
-  public void setEx(String key, long ttlSeconds, String value) {
-    try {
-      if (ttlSeconds <= 0) throw new IOException("invalid TTL");
-      send("SET", key, value, "EX", String.valueOf(ttlSeconds));
-      expectOk();
-    } catch (IOException err) {
-      fail();
-    }
-  }
-
   public void del(String key) {
     try {
       send("DEL", key);

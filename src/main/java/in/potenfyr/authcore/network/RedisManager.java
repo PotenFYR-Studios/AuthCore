@@ -1,8 +1,5 @@
 package in.potenfyr.authcore.network;
 
-import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.util.Database;
-import in.potenfyr.authcore.util.Logger;
 
 import java.util.UUID;
 import in.potenfyr.authcore.AuthCoreServer;
@@ -21,7 +18,6 @@ import redis.clients.jedis.JedisPoolConfig;
 public final class RedisManager {
 
   private static final String SESSION_PREFIX = "authcore:session:";
-  private static final String BAN_PREFIX = "authcore:ban:";
   private static final long SESSION_TTL_MS = 30 * 60 * 1000L;
 
   /** Unique id of this server instance (used to distinguish own sessions in a network). */
@@ -170,39 +166,6 @@ public final class RedisManager {
     }
   }
 
-  /** Checks whether the username is banned across the network (shared ban list). */
-  public static boolean isBannedRemotely(String username) {
-    ensureConnected();
-    if (!isEnabled() || username == null) return false;
-
-    try (Jedis jedis = pool.getResource()) {
-      return jedis.exists(BAN_PREFIX + username.toLowerCase());
-    } catch (Exception err) {
-      return false;
-    }
-  }
-
-  /** Bans the username network-wide with a TTL (0 = permanent). */
-  public static void banRemotely(String username, long ttlMs) {
-    if (!isEnabled() || username == null) return;
-    try (Jedis jedis = pool.getResource()) {
-      if (ttlMs > 0) jedis.setex(BAN_PREFIX + username.toLowerCase(), (int) (ttlMs / 1000), "1");
-      else jedis.set(BAN_PREFIX + username.toLowerCase(), "1");
-    } catch (Exception err) {
-      AuthCoreServer.LOGGER.debug(null, "Redis banRemotely failed:", err);
-    }
-  }
-
-  /** Unbans the username network-wide. */
-  public static void unbanRemotely(String username) {
-    if (!isEnabled() || username == null) return;
-    try (Jedis jedis = pool.getResource()) {
-      jedis.del(BAN_PREFIX + username.toLowerCase());
-    } catch (Exception err) {
-      AuthCoreServer.LOGGER.debug(null, "Redis unbanRemotely failed:", err);
-    }
-  }
-
   /** Reads the distributed config overrides (HOCON snippet) if any. */
   public static String getConfigOverrides() {
     ensureConnected();
@@ -211,18 +174,6 @@ public final class RedisManager {
       return jedis.get("authcore:config:overrides");
     } catch (Exception err) {
       return null;
-    }
-  }
-
-  /** Stores distributed config overrides (for network administrators). */
-  public static void setConfigOverrides(String hocon) {
-    ensureConnected();
-    if (!isEnabled()) return;
-    try (Jedis jedis = pool.getResource()) {
-      if (hocon == null || hocon.isBlank()) jedis.del("authcore:config:overrides");
-      else jedis.set("authcore:config:overrides", hocon);
-    } catch (Exception err) {
-      AuthCoreServer.LOGGER.debug(null, "Redis config override failed:", err);
     }
   }
 

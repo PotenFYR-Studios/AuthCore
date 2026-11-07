@@ -1,7 +1,5 @@
 package in.potenfyr.authcore.security;
 
-import in.potenfyr.authcore.models.User;
-import in.potenfyr.authcore.util.Logger;
 
 import com.password4j.Argon2Function;
 import com.password4j.BcryptFunction;
@@ -9,7 +7,6 @@ import com.password4j.MessageDigestFunction;
 import com.password4j.ScryptFunction;
 import com.password4j.types.Argon2;
 import com.password4j.types.Bcrypt;
-import com.password4j.types.Hmac;
 
 import java.util.Locale;
 import in.potenfyr.authcore.AuthCoreServer;

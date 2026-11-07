@@ -1,11 +1,8 @@
 package in.potenfyr.authcore.mixin;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Logger;
 
-import java.util.UUID;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
 /*? if fabric {*/

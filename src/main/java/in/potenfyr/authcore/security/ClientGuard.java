@@ -1,7 +1,6 @@
 package in.potenfyr.authcore.security;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
@@ -13,7 +12,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.models.Messages;
 import in.potenfyr.authcore.models.User;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -34,13 +32,6 @@ import net.minecraft.server.level.ServerPlayer;
 public final class ClientGuard {
 
   private ClientGuard() {}
-
-  /**
-   * Companion attestation key (loaded from disk per-server, not hardcoded).
-   * See {@link in.potenfyr.authcore.security.AttestationKeyManager}.
-   */
-  public static final String ATTESTATION_KEY =
-      "attestation-key-managed-by-AttestationKeyManager";
 
   /** Companion protocol version - bump when the payloads change. */
   public static final int PROTOCOL_VERSION = 1;
@@ -922,23 +913,6 @@ public final class ClientGuard {
         out.add(s.substring(0, i) + r + s.substring(i));
     }
     return out;
-  }
-
-  private static int levenshtein(String a, String b) {
-    int[] prev = new int[b.length() + 1];
-    int[] curr = new int[b.length() + 1];
-    for (int j = 0; j <= b.length(); j++) prev[j] = j;
-    for (int i = 1; i <= a.length(); i++) {
-      curr[0] = i;
-      for (int j = 1; j <= b.length(); j++) {
-        int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
-        curr[j] = Math.min(Math.min(curr[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
-      }
-      int[] tmp = prev;
-      prev = curr;
-      curr = tmp;
-    }
-    return prev[b.length()];
   }
 
   // ------------------------------------------------------------------ helpers

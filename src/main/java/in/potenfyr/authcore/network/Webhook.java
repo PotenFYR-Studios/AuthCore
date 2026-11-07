@@ -1,8 +1,6 @@
 package in.potenfyr.authcore.network;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.security.Security;
-import in.potenfyr.authcore.util.Logger;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;

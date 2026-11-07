@@ -1,5 +1,5 @@
 name: 📚 Documentation
-description: Report an issue with the docs at authcore.docs.potenfyr.in or in the README.
+description: Report an issue with the docs at docs.potenfyr.in/repo/authcore or in the README.
 title: "[Docs]: "
 labels: ["documentation", "triage"]
 body:
@@ -7,25 +7,25 @@ body:
     attributes:
       value: |
         Found a typo, an outdated step, or a missing topic? Tell us where and what to change.
-        Docs live in `docs/app/content/*.html` - PRs are very welcome (see CONTRIBUTING.md).
+        The docs live in the unified PotenFYR documentation hub (docs.potenfyr.in/repo/authcore).
 
   - type: dropdown
     id: page
     attributes:
       label: Where is the problem?
       options:
-        - Documentation hub (https://authcore.docs.potenfyr.in/docs/1.0.0/index.html)
-        - Admin guide (guide.html)
-        - Authentication flows (flows.html)
-        - Configuration reference (config.html)
-        - Proxy support (proxy.html)
-        - Web admin panel (webpanel.html)
-        - Security model (security.html)
-        - 26.x builds & migration (26x.html)
-        - Developer API (api.html)
-        - Development & architecture (development.html)
-        - Changelog (changelog.html)
-        - License (license.html)
+        - Documentation hub (https://docs.potenfyr.in/repo/authcore)
+        - Admin guide (https://docs.potenfyr.in/repo/authcore/guide)
+        - Authentication flows (https://docs.potenfyr.in/repo/authcore/flows)
+        - Configuration reference (https://docs.potenfyr.in/repo/authcore/config)
+        - Proxy support (https://docs.potenfyr.in/repo/authcore/proxy)
+        - Web admin panel (https://docs.potenfyr.in/repo/authcore/webpanel)
+        - Security model (https://docs.potenfyr.in/repo/authcore/security)
+        - 26.x builds & migration (https://docs.potenfyr.in/repo/authcore/26x)
+        - Developer API (https://docs.potenfyr.in/repo/authcore/api)
+        - Development & architecture (https://docs.potenfyr.in/repo/authcore/development)
+        - Changelog (https://docs.potenfyr.in/repo/authcore/changelog)
+        - License (https://docs.potenfyr.in/repo/authcore/license)
         - README.md
         - Other / not listed
     validations:

@@ -18,7 +18,6 @@ Prerequisites:
 
 - **Any installed JDK** (17+) to launch Gradle - the toolchains auto-provision **JDK 17 / 21 / 25** for the build groups (G1: 1.16-1.18 → 17, G2: 1.19-1.21 → 21, G3: 26.1-26.3 → 25). The first build downloads toolchains automatically.
 - Optional: `bash test/install-java-and-provided-jars.sh` installs portable Adoptium JDKs and the vendored proxy/API jars under `java-jars/` (the test scripts run it automatically if missing).
-- **Bun** only if you work on the documentation app in `docs/app`.
 
 Workspace notes (matches `.gitignore`):
 
@@ -48,14 +47,6 @@ bash test/docker/run-tests.sh --all          # full range-endpoint matrix
 bash test/docker/run-tests.sh --groups 1.19-1.21 --java 21 --smoke
 ```
 
-Documentation app:
-
-```bash
-cd docs/app
-bun install --frozen-lockfile
-bun run build        # outputs docs/app/dist (do not commit)
-```
-
 There is no separate formatting/lint gate in CI - format Java consistently with the existing sources (google-java-format conventions: 2-space indent, 100-column lines) before opening a PR.
 
 ## Branches and pull requests
@@ -69,12 +60,12 @@ There is no separate formatting/lint gate in CI - format Java consistently with 
 
 1. One logical change per PR (refactors separate from fixes).
 2. All CI checks green (build matrix, security tests, host tests).
-3. Player-facing behavior or config changes come with matching updates in `docs/app/content/*` and, if needed, the bundled `messages-*.conf` locale keys.
+3. Player-facing behavior or config changes come with matching updates in the documentation hub (PotenFYR-Studios/docs) and, if needed, the bundled `messages-*.conf` locale keys.
 4. Follow the PR template so reviewers can reproduce your testing.
 
 ## Documentation contributions
 
-The docs site is generated from `docs/app/content/*` (per-page meta in each file feeds titles/descriptions/canonicals) plus the React shell in `docs/app/src/`. Versioned pages live under `/1.0.0/` on deploy. If you add or rename a page, also update the root `sitemap.xml` and `llms.txt`.
+The documentation lives in the unified PotenFYR documentation hub at [docs.potenfyr.in/repo/authcore](https://docs.potenfyr.in/repo/authcore) (repository: PotenFYR-Studios/docs). Documentation fixes go there; this repository only carries the README and the changelog.
 
 ## License
 

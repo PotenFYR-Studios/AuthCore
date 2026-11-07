@@ -1,8 +1,5 @@
 package in.potenfyr.authcore.models;
 
-import in.potenfyr.authcore.network.ProxySupport;
-import in.potenfyr.authcore.network.Webhook;
-import in.potenfyr.authcore.network.WebPanel;
 import in.potenfyr.authcore.security.Security;
 import in.potenfyr.authcore.util.Database;
 

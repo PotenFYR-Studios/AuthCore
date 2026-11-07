@@ -1,9 +1,5 @@
 package in.potenfyr.authcore.command;
 
-import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.models.Lobby;
-import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Logger;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.string;

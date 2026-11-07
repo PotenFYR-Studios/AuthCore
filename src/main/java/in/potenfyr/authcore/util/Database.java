@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.util;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.User;
 
 import java.io.IOException;

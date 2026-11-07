@@ -4,7 +4,6 @@ import static net.minecraft.commands.Commands.literal;
 
 import com.mojang.brigadier.CommandDispatcher;
 import java.security.SecureRandom;
-import java.util.UUID;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
 import in.potenfyr.authcore.network.McApiManager;

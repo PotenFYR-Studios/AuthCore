@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.mixin;
 
-import java.util.UUID;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
 /*? if fabric {*/

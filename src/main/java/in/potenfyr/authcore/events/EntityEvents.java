@@ -1,9 +1,6 @@
 package in.potenfyr.authcore.events;
 
 import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.models.Lobby;
-import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Logger;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;

@@ -104,11 +104,6 @@ public final class MapImageContent {
     return new int[] {scale, (MapImageRenderer.SIZE - width) / 2, (MapImageRenderer.SIZE - height) / 2};
   }
 
-  /** The label characters {@link #text(String)} can render. */
-  public static String supportedCharacters() {
-    return GLYPH_CHARS;
-  }
-
   // ------------------------------------------------------------------ drawing helpers
 
   private static int[] solid(int rgb) {

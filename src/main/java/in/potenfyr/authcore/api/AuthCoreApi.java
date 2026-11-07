@@ -1,16 +1,10 @@
 package in.potenfyr.authcore.api;
 
-import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.models.Lobby;
-import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Database;
 import net.minecraft.server.level.ServerPlayer;
 import java.util.UUID;
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
 import in.potenfyr.authcore.security.Encrypter;
-import in.potenfyr.authcore.network.McApiManager;
-import in.potenfyr.authcore.security.Security;
 import org.jetbrains.annotations.Nullable;
 
 /**

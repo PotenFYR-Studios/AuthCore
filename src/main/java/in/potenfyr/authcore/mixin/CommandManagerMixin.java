@@ -1,9 +1,6 @@
 package in.potenfyr.authcore.mixin;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Lobby;
-import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Logger;
 
 import com.mojang.brigadier.ParseResults;
 import in.potenfyr.authcore.AuthCoreServer;

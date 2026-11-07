@@ -1,8 +1,6 @@
 package in.potenfyr.authcore;
 
-import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.network.EmailSender;
-import in.potenfyr.authcore.network.ProxySupport;
 import in.potenfyr.authcore.network.WebPanel;
 import in.potenfyr.authcore.security.Security;
 import in.potenfyr.authcore.util.Database;
@@ -190,14 +188,6 @@ public class AuthCoreServer {
     if (!config.session.authentication.premiumAutoLogin) return false;
     if (config.session.proxySupport.enabled) return false;
     return true;
-  }
-
-  /**
-   * Applies fail-safe configuration invariants after every config load (boot and reload).
-   * Security-sensitive features must not remain enabled in an unsafe partial configuration.
-   */
-  public static void enforceSecurityConfiguration() {
-    in.potenfyr.authcore.security.SecurityConfiguration.enforce(config);
   }
 
   /** Boots the mod - called by every loader entrypoint. Idempotent for safety. */

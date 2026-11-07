@@ -4,7 +4,7 @@ contact_links:
     url: https://discord.com/invite/zUaN2FPBec
     about: Ask the AuthCore community on the PotenFYR Studios Discord.
   - name: Documentation
-    url: https://authcore.docs.potenfyr.in
+    url: https://docs.potenfyr.in/repo/authcore
     about: Setup guides, configuration reference, security model, and developer API.
   - name: Security vulnerability (private disclosure)
     url: https://github.com/PotenFYR-Studios/AuthCore/security

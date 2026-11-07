@@ -112,15 +112,6 @@ public final class QrCode {
     return modules;
   }
 
-  /** Largest UTF-8 payload (in bytes) that fits a given version/level, header included. */
-  public static int byteCapacity(int version, int eccLevel) {
-    checkEcc(eccLevel);
-    if (version < 1 || version > MAX_VERSION) throw new IllegalArgumentException("bad version");
-    int dataBits = dataCodewords(version, eccLevel) * 8;
-    int capacity = (dataBits - 4 - countBits(version)) / 8;
-    return Math.max(0, Math.min(capacity, MAX_BYTES));
-  }
-
   /** Module count (edge length) of a version, quiet zone excluded. */
   public static int size(int version) {
     return 17 + 4 * version;

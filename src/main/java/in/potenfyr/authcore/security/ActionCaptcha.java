@@ -10,7 +10,6 @@ import in.potenfyr.authcore.models.User;
 import in.potenfyr.authcore.util.TaskScheduler;
 import net.minecraft.ChatFormatting;
 import net.minecraft.server.level.ServerPlayer;
-import java.util.Objects;
 
 /**
  * THE single human-verification method (action captcha).

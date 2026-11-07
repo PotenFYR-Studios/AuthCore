@@ -2,12 +2,8 @@ package in.potenfyr.authcore.mixin;
 
 import in.potenfyr.authcore.util.ReflectCache;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Lobby;
-import in.potenfyr.authcore.models.Messages;
-import in.potenfyr.authcore.util.Logger;
 
-import java.util.UUID;
 
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
@@ -179,6 +175,14 @@ abstract class ServerPlayNetworkHandlerMixin {
     if (in.potenfyr.authcore.models.Lobby.users.isEmpty()) return; // fast path: nobody in limbo
     User user = User.getUser(player);
     if (user == null || !user.isInLobby.get()) return;
+
+    // ClientGuard click-flood accounting (lobby.click-rate): the detector existed but was never
+    // fed, so the CLICK_FLOOD signal could not fire.
+    try {
+      in.potenfyr.authcore.security.ClientGuard.recordClick(player);
+    } catch (RuntimeException ignored) {
+      // detection is advisory - never break the click guard
+    }
 
     boolean block = !AuthCoreServer.config.lobby.allowItemMoving;
     if (!block && !AuthCoreServer.config.lobby.allowCrafting)

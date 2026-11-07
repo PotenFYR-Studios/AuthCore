@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.network;
 
-import in.potenfyr.authcore.util.Logger;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -14,7 +13,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -74,56 +72,6 @@ public final class McApiManager {
 
   private static final java.util.Set<String> IN_FLIGHT = ConcurrentHashMap.newKeySet();
   private static final java.util.concurrent.Semaphore LOOKUPS = new java.util.concurrent.Semaphore(4);
-
-  /** Batch GeoIP: collects IPs over a window, deduplicates, resolves in parallel. */
-  private static final java.util.Set<String> BATCH_QUEUE = ConcurrentHashMap.newKeySet();
-  private static volatile long BATCH_FLUSH_AT = 0L;
-  private static final long BATCH_WINDOW_MS = 500L; // collect IPs for 500ms before flushing
-  private static final java.util.concurrent.ScheduledExecutorService BATCH_SCHEDULER =
-      java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
-          r -> {
-            Thread t = new Thread(r, "AuthCore-GeoIP-Batch");
-            t.setDaemon(true);
-            return t;
-          });
-
-  static {
-    BATCH_SCHEDULER.scheduleAtFixedRate(
-        () -> {
-          long now = System.currentTimeMillis();
-          if (now < BATCH_FLUSH_AT) return;
-          java.util.Set<String> batch = new java.util.concurrent.ConcurrentSkipListSet<>();
-          synchronized (BATCH_QUEUE) {
-            if (BATCH_QUEUE.isEmpty()) return;
-            batch.addAll(BATCH_QUEUE);
-            BATCH_QUEUE.clear();
-            BATCH_FLUSH_AT = 0L;
-          }
-          // Fire lookups in parallel off the main thread (bounded by LOOKUPS semaphore, and by a
-          // hard per-flush cap so a join burst can never flood the IO pool with thousands of
-          // tasks - the remaining IPs are resolved by later batches instead).
-          int dispatched = 0;
-          for (String ip : batch) {
-            if (dispatched++ >= 256) break;
-            if (GEOIP_CACHE.containsKey(ip)) continue; // already resolved
-            AuthCoreServer.IO_EXECUTOR.execute(() -> geoIp(ip));
-          }
-        },
-        250,
-        250,
-        java.util.concurrent.TimeUnit.MILLISECONDS);
-  }
-
-  /** Queues an IP for batched GeoIP resolution (non-blocking, safe on server thread). */
-  static void queueGeoIp(String ip) {
-    if (ip == null || ip.isBlank() || isPrivateAddress(ip)) return;
-    if (GEOIP_CACHE.containsKey(ip)) return; // already cached
-    if (IN_FLIGHT.contains(ip)) return; // already being resolved
-    synchronized (BATCH_QUEUE) {
-      if (BATCH_QUEUE.isEmpty()) BATCH_FLUSH_AT = System.currentTimeMillis() + BATCH_WINDOW_MS;
-      BATCH_QUEUE.add(ip);
-    }
-  }
 
   private static JsonObject copy(JsonObject value) {
     return value == null ? null : value.deepCopy();
@@ -584,50 +532,5 @@ public final class McApiManager {
       return user.getCachedData().getPermissionData(query).checkPermission(node).asBoolean();
     }
 
-    /** Custom rank system mapped to LuckPerms groups or OP levels. */
-    public enum Rank {
-      PLAYER(0),
-      GAME_MASTER(1),
-      ADMIN(2),
-      OWNER(3);
-
-      public final int level;
-
-      Rank(int level) {
-        this.level = level;
-      }
-    }
-
-    /** Checks if a player has at least the given custom rank (LuckPerms group or OP level). */
-    public static boolean hasRank(ServerPlayer player, Rank rank) {
-      if (player == null) return false;
-
-      if (isLuckPermsLoaded()) {
-        User user = lpApi.getUserManager().getUser(player.getUUID());
-        if (user != null) {
-          String group =
-              switch (rank) {
-                case GAME_MASTER -> "gamemaster";
-                case ADMIN -> "admin";
-                case OWNER -> "owner";
-                default -> "default";
-              };
-
-          QueryOptions query = lpApi.getContextManager().getQueryOptions(user).orElse(null);
-          if (query != null
-              && user.getCachedData()
-                  .getPermissionData(query)
-                  .checkPermission("group." + group)
-                  .asBoolean()) return true;
-        }
-      }
-
-      return switch (rank) {
-        case PLAYER -> true;
-        case GAME_MASTER -> hasLevel(player, 1);
-        case ADMIN -> hasLevel(player, 2);
-        case OWNER -> hasLevel(player, 4);
-      };
-    }
   }
 }

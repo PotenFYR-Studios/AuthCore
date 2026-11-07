@@ -1553,22 +1553,6 @@ public final class Compat {
   // vs GameProfile, 3-arg vs 4-arg hello packet constructor).
   // ------------------------------------------------------------------
 
-  /** Reads a private field by any of the given candidate names. */
-  private static Object getLoginField(Object target, String... names) {
-    if (target == null) return null;
-    for (String name : names) {
-      try {
-        java.lang.reflect.Field f = target.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        Object value = f.get(target);
-        if (value != null) return value;
-      } catch (ReflectiveOperationException | RuntimeException ignored) {
-        // try the next name
-      }
-    }
-    return null;
-  }
-
   /**
    * Login-listener field by TYPE (first non-static field assignable to {@code type}, walking the
    * hierarchy). The names differ in every era ({@code challenge} vs {@code nonce}) and in every

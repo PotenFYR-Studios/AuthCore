@@ -1,7 +1,6 @@
 package in.potenfyr.authcore.models;
 
 import in.potenfyr.authcore.network.RedisManager;
-import in.potenfyr.authcore.util.Logger;
 
 import com.google.gson.JsonObject;
 import java.sql.PreparedStatement;
@@ -237,13 +236,6 @@ public class User {
       () ->
           (this.geoIpData != null && this.geoIpData.get("CountryName") != null)
               ? this.geoIpData.get("CountryName").getAsString()
-              : null;
-
-  /** Supplier edition for the user joined from country's code! */
-  public Supplier<String> countryCode =
-      () ->
-          (this.geoIpData != null && this.geoIpData.get("continentCode") != null)
-              ? this.geoIpData.get("continentCode").getAsString()
               : null;
 
   /** Login attempts count on authentication! */
@@ -1416,67 +1408,6 @@ public class User {
         AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
         return 0;
       }
-    }
-
-    /**
-     * Fetch all the users from the database.
-     *
-     * @return list of all users
-     */
-    public static ArrayList<User> fetchAll() {
-      ArrayList<User> users = new ArrayList<>();
-
-      if (!Database.connect()) return null;
-
-      try (Statement statement = Database.connection.createStatement();
-          ResultSet rs = statement.executeQuery("SELECT * FROM USERS")) {
-
-        while (rs.next()) {
-          User user = parse(rs);
-          if (user != null) users.add(user);
-        }
-
-        return AuthCoreServer.LOGGER.debug(
-            users, "{} users has been fetched from the database!", users.size());
-      } catch (SQLException err) {
-        return AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
-      }
-    }
-
-    /** Fetches all registered usernames (used by admin list commands - memory friendly). */
-    public static ArrayList<String> fetchAllUsernames() {
-      ArrayList<String> names = new ArrayList<>();
-      if (!Database.connect()) return names;
-      try (Statement statement = Database.connection.createStatement();
-          ResultSet rs = statement.executeQuery("SELECT username FROM USERS ORDER BY username")) {
-        while (rs.next()) {
-          String name = rs.getString(1);
-          if (name != null) names.add(name);
-        }
-      } catch (SQLException err) {
-        AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
-      }
-      return names;
-    }
-
-    /** Fetches usernames filtered by mode ("online-mode" / "offline-mode"). */
-    public static ArrayList<String> fetchUsernamesByMode(String mode) {
-      ArrayList<String> names = new ArrayList<>();
-      if (!Database.connect()) return names;
-      try (PreparedStatement statement =
-          Database.connection.prepareStatement(
-              "SELECT username FROM USERS WHERE mode = ? ORDER BY username")) {
-        statement.setString(1, mode);
-        try (ResultSet rs = statement.executeQuery()) {
-          while (rs.next()) {
-            String name = rs.getString(1);
-            if (name != null) names.add(name);
-          }
-        }
-      } catch (SQLException err) {
-        AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
-      }
-      return names;
     }
 
     /**

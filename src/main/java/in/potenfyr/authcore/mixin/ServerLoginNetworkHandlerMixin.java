@@ -189,15 +189,6 @@ abstract class ServerLoginNetworkHandlerMixin {
     return in.potenfyr.authcore.compat.Compat.helloId(packet);
   }
 
-  /** Reads the GameProfile from the hello packet (getProfile() on 1.16). */
-  private static Object readProfile(ServerboundHelloPacket packet) {
-    try {
-      return in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "getProfile").invoke(packet);
-    } catch (ReflectiveOperationException e) {
-      return null;
-    }
-  }
-
   private static String invokeString(Object target, String method) {
     Object value = invoke(target, method);
     return value instanceof String s ? s : null;

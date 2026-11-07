@@ -288,6 +288,9 @@ public class HoconConf {
       AuthCoreServer.config = new Config();
     } finally {
       in.potenfyr.authcore.security.SecurityConfiguration.enforce(AuthCoreServer.config);
+      // cache-max-users was read from the config but never applied: the cache always used the
+      // built-in 20000 regardless of the setting (boot and /authcore reload).
+      in.potenfyr.authcore.models.User.applyCacheLimit();
     }
   }
 

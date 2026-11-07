@@ -1,10 +1,8 @@
 package in.potenfyr.authcore.command;
 
 import in.potenfyr.authcore.models.Config;
-import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.security.Security;
 import in.potenfyr.authcore.security.SecurityLog;
-import in.potenfyr.authcore.util.Logger;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.DoubleArgumentType;

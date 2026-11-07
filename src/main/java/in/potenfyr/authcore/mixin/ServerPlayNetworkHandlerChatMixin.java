@@ -2,7 +2,6 @@ package in.potenfyr.authcore.mixin;
 
 import in.potenfyr.authcore.util.ReflectCache;
 
-import java.util.UUID;
 
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;

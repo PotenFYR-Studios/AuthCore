@@ -6,10 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        Before asking: the [documentation](https://authcore.docs.potenfyr.in) covers setup
-        ([guide](https://authcore.docs.potenfyr.in/docs/1.0.0/guide.html)),
-        [configuration](https://authcore.docs.potenfyr.in/docs/1.0.0/config.html), and the
-        [security model](https://authcore.docs.potenfyr.in/docs/1.0.0/security.html) in depth.
+        Before asking: the [documentation](https://docs.potenfyr.in/repo/authcore) covers setup
+        ([guide](https://docs.potenfyr.in/repo/authcore/guide)),
+        [configuration](https://docs.potenfyr.in/repo/authcore/config), and the
+        [security model](https://docs.potenfyr.in/repo/authcore/security) in depth.
         Community help is also fast on [Discord](https://discord.com/invite/zUaN2FPBec).
 
   - type: textarea

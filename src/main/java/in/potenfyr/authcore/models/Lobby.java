@@ -1,7 +1,5 @@
 package in.potenfyr.authcore.models;
 
-import in.potenfyr.authcore.util.Logger;
-import in.potenfyr.authcore.util.Registry;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -9,7 +7,6 @@ import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.util.TimeManager;
 import in.potenfyr.authcore.security.Security;
 import in.potenfyr.authcore.util.TaskScheduler;
-import in.potenfyr.authcore.util.TpsManager;
 import net.minecraft.world.level.block.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
@@ -613,6 +610,15 @@ public class Lobby {
 
     if (AuthCoreServer.config.lobby.timeout.enabled) this.handleTimeout();
 
+    // Client companion: open its in-game login/register GUI. The protocol marker existed but was
+    // never sent, so the companion GUI never opened on its own.
+    try {
+      in.potenfyr.authcore.network.AuthInterop.sendCompanion(
+          player, in.potenfyr.authcore.security.ClientGuard.MSG_IN_LOBBY);
+    } catch (RuntimeException | LinkageError ignored) {
+      // companion signalling is best-effort
+    }
+
     // Handle 2FA: generate a TOTP secret and send the setup link on first join
     if (!user.isRegistered.get()
         && AuthCoreServer.config.session.authentication.allowTOTPSupport
@@ -1120,6 +1126,16 @@ public class Lobby {
       java.nio.file.Files.deleteIfExists(snapshotFile(this.user.uuid));
     } catch (java.io.IOException ignored) {
       // snapshot cleanup is best-effort
+    }
+
+    // Client companion: close its login GUI.
+    if (player != null) {
+      try {
+        in.potenfyr.authcore.network.AuthInterop.sendCompanion(
+            player, in.potenfyr.authcore.security.ClientGuard.MSG_OUT_OF_LOBBY);
+      } catch (RuntimeException | LinkageError ignored) {
+        // companion signalling is best-effort
+      }
     }
 
     AuthCoreServer.LOGGER.debug(

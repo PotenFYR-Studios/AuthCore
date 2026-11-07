@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.util;
 
-import in.potenfyr.authcore.models.Config;
 
 import java.util.IllegalFormatException;
 import java.util.UUID;

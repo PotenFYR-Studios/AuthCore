@@ -1,9 +1,7 @@
 package in.potenfyr.authcore.security;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Messages;
 import in.potenfyr.authcore.models.User;
-import in.potenfyr.authcore.util.Logger;
 import net.minecraft.server.level.ServerPlayer;
 import com.j256.twofactorauth.TimeBasedOneTimePasswordUtil;
 

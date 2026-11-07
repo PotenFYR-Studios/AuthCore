@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.events;
 
-import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Messages;
 import in.potenfyr.authcore.network.EmailSender;
 import in.potenfyr.authcore.network.McApiManager;
@@ -9,7 +8,6 @@ import in.potenfyr.authcore.network.Webhook;
 import in.potenfyr.authcore.security.RateLimiter;
 import in.potenfyr.authcore.security.Security;
 import in.potenfyr.authcore.security.SecurityLog;
-import in.potenfyr.authcore.util.Logger;
 import in.potenfyr.authcore.util.TaskScheduler;
 import in.potenfyr.authcore.util.TpsManager;
 

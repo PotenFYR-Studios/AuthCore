@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.mixin;
 
-import java.util.UUID;
 
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.models.User;
@@ -14,7 +13,6 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
@@ -28,7 +26,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * signature can never cause a remap warning or a descriptor-mismatch boot crash. The
  * {@code instanceof} guard keeps inherited targets safe for non-player entities.
  */
-import net.minecraft.world.entity.player.Player;
 /*? if fabric {*/
   @Environment(EnvType.SERVER)
   /*?}*/

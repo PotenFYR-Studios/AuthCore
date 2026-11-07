@@ -1,13 +1,11 @@
 package in.potenfyr.authcore.mixin;
 
-import in.potenfyr.authcore.util.ReflectCache;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import in.potenfyr.authcore.AuthCoreServer;
-import in.potenfyr.authcore.network.McApiManager;
 import net.minecraft.network.protocol.login.ServerboundHelloPacket;
 import net.minecraft.network.protocol.login.ServerboundKeyPacket;
 import net.minecraft.server.network.ServerLoginPacketListenerImpl;
