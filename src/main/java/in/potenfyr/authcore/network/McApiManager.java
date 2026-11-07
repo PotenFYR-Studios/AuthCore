@@ -17,10 +17,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import in.potenfyr.authcore.AuthCoreServer;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.LuckPermsProvider;
-import net.luckperms.api.model.user.User;
-import net.luckperms.api.query.QueryOptions;
 import net.minecraft.server.level.ServerPlayer;
 import org.jspecify.annotations.Nullable;
 
@@ -261,7 +257,6 @@ public final class McApiManager {
   public static final class PermissionUtil {
 
     private static Boolean lpLoaded = null;
-    private static LuckPerms lpApi = null;
 
     private static final java.lang.reflect.Method PERMISSION_LEVEL_FROM_LEVEL =
         resolveMethod("net.minecraft.command.permission.PermissionLevel", "fromLevel", int.class);
@@ -308,15 +303,13 @@ public final class McApiManager {
     private static synchronized boolean isLuckPermsLoaded() {
       if (lpLoaded != null) return lpLoaded;
 
-      lpLoaded = in.potenfyr.authcore.compat.Compat.isModLoaded("luckperms");
-
-      if (lpLoaded) {
-        try {
-          lpApi = LuckPermsProvider.get();
-        } catch (IllegalStateException e) {
-          lpLoaded = false;
-        }
-      }
+      // The LuckPermsBridge class is only classloaded when the mod is present - with the "&&"
+      // short-circuit, servers without LuckPerms never even initialise it (every reference to a
+      // LuckPerms API type inside PermissionUtil itself made whole-class verification fail on
+      // servers without the mod: net.luckperms.api.node.Node could not be loaded while verifying
+      // this class, and the very first command parse then crashed the server tick).
+      lpLoaded =
+          in.potenfyr.authcore.compat.Compat.isModLoaded("luckperms") && LuckPermsBridge.available();
       return lpLoaded;
     }
 
@@ -528,35 +521,86 @@ public final class McApiManager {
       if (uuid == null || group == null) return;
       String name = group.trim().toLowerCase(java.util.Locale.ROOT);
       if (!name.matches("[a-z0-9_\\-]{1,36}") || !isLuckPermsLoaded()) return;
-      try {
-        lpApi
-            .getUserManager()
-            .modifyUser(
-                uuid,
-                u -> u.data().add(net.luckperms.api.node.types.InheritanceNode.builder(name).build()))
-            .exceptionally(
-                err -> {
-                  AuthCoreServer.LOGGER.warn(
-                      false, "Could not add LuckPerms group '{}' to {}: {}", name, uuid, String.valueOf(err));
-                  return null;
-                });
-      } catch (RuntimeException | LinkageError err) {
-        AuthCoreServer.LOGGER.warn(
-            false, "Could not add LuckPerms group '{}' to {}: {}", name, uuid, String.valueOf(err));
-      }
+      LuckPermsBridge.addGroup(uuid, name);
     }
 
     /** LuckPerms permission node check. */
     public static boolean hasNode(ServerPlayer player, String node) {
       if (player == null || !isLuckPermsLoaded() || node == null || node.isBlank()) return false;
+      return LuckPermsBridge.hasNode(player.getUUID(), node);
+    }
 
-      User user = lpApi.getUserManager().getUser(player.getUUID());
-      if (user == null) return false;
+    /**
+     * The ONLY place in AuthCore that references LuckPerms API types. Kept in its own nested class
+     * so the JVM never has to resolve a LuckPerms class while verifying {@link PermissionUtil}:
+     * LuckPerms is a compile-only dependency, and verifying code that mentions its types on a
+     * server without the mod crashes the server (see {@link #isLuckPermsLoaded()}). The bridge is
+     * only classloaded from {@link #isLuckPermsLoaded()} AFTER the mod has been detected, so its
+     * API classes are guaranteed to be visible.
+     */
+    private static final class LuckPermsBridge {
 
-      QueryOptions query = lpApi.getContextManager().getQueryOptions(user).orElse(null);
-      if (query == null) return false;
+      private static final net.luckperms.api.LuckPerms API;
 
-      return user.getCachedData().getPermissionData(query).checkPermission(node).asBoolean();
+      static {
+        net.luckperms.api.LuckPerms api = null;
+        try {
+          api = net.luckperms.api.LuckPermsProvider.get();
+        } catch (IllegalStateException | LinkageError err) {
+          // Not registered yet (or the API vanished) - treated as "LuckPerms unavailable".
+        }
+        API = api;
+      }
+
+      private LuckPermsBridge() {}
+
+      static boolean available() {
+        return API != null;
+      }
+
+      static boolean hasNode(java.util.UUID uuid, String node) {
+        try {
+          net.luckperms.api.model.user.User user = API.getUserManager().getUser(uuid);
+          if (user == null) return false;
+
+          net.luckperms.api.query.QueryOptions query =
+              API.getContextManager().getQueryOptions(user).orElse(null);
+          if (query == null) return false;
+
+          return user.getCachedData().getPermissionData(query).checkPermission(node).asBoolean();
+        } catch (RuntimeException | LinkageError err) {
+          return false;
+        }
+      }
+
+      static void addGroup(java.util.UUID uuid, String group) {
+        try {
+          API.getUserManager()
+              .modifyUser(
+                  uuid,
+                  u ->
+                      u.data()
+                          .add(
+                              net.luckperms.api.node.types.InheritanceNode.builder(group).build()))
+              .exceptionally(
+                  err -> {
+                    AuthCoreServer.LOGGER.warn(
+                        false,
+                        "Could not add LuckPerms group '{}' to {}: {}",
+                        group,
+                        uuid,
+                        String.valueOf(err));
+                    return null;
+                  });
+        } catch (RuntimeException | LinkageError err) {
+          AuthCoreServer.LOGGER.warn(
+              false,
+              "Could not add LuckPerms group '{}' to {}: {}",
+              group,
+              uuid,
+              String.valueOf(err));
+        }
+      }
     }
 
   }
