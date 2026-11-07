@@ -1,33 +1,34 @@
 name: CI
 
-# ONE workflow, FIVE jobs - cross-connected so nothing builds twice:
-#   build             - builds the SIX variants (3 ranges x fabric/forge/neoforge) IN PARALLEL
-#                       via a matrix (one runner per variant), verifies each jar's role, runs
-#                       the security test suite once on the primary variant, uploads per-variant
-#                       jar artifacts
-#   merge             - needs build: collects all six jars, enforces the exact-count gate +
-#                       full role verification, publishes the shared "authcore-jars" artifact
-#   host-tests        - needs merge: downloads the jars (no rebuild) and runs the Docker
-#                       harness (smoke on push/PR, full range matrix on workflow_dispatch)
-#   release           - needs merge + host-tests, v* tags only: publishes/updates the stable
-#                       GitHub Release for the tag (jars + changelog section). Re-releasing
-#                       the same version replaces the jars and re-publishes the notes in
-#                       place - same tag = same release, never a second entry.
-#   version-tag-guard - master pushes only: fails the run when gradle.properties'
-#                       mod.version was bumped but no matching v* tag exists on the remote,
-#                       because the release job is tag-gated and would silently publish
-#                       nothing. Red here means: "git tag v<version> && git push origin
-#                       v<version>" was forgotten - the release does not exist until the
-#                       tag is pushed.
+# ONE workflow, FOUR jobs - cross-connected so nothing builds twice:
+#   build       - builds the SIX variants (3 ranges x fabric/forge/neoforge) IN PARALLEL via a
+#                 matrix (one runner per variant), verifies each jar's role, runs the security
+#                 test suite once on the primary variant, uploads per-variant jar artifacts
+#   merge       - needs build: collects all six jars, enforces the exact-count gate, publishes
+#                 the shared "authcore-jars" artifact
+#   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker harness
+#                 (smoke on push/PR, full range matrix on workflow_dispatch)
+#   release     - needs merge + host-tests, master pushes (and manual runs on master) only:
+#                 publishes the release for the version in gradle.properties.
 #
-# Release policy: stable v* tag releases ONLY. Master pushes build and test but
-# never publish - there is no dev/latest build and never will be.
+# Release policy - ONE release per version, driven by gradle.properties (mod.version):
+#   - The version has no release yet  -> the release "AuthCore v<version>" is created and the
+#                                        v<version> tag is created on the built commit.
+#   - The version already has a release -> the SAME release is updated in place: the jars are
+#                                        replaced with the new build (stale assets pruned), the
+#                                        notes are replaced with the current changelog section,
+#                                        and the v<version> tag is moved to the built commit.
+#                                        No second release, no new tag, no draft.
+#   - Bumping mod.version is the ONLY way to get a new release entry.
+# Nothing is published unless every build leg AND every host-test group passed, so a red run
+# never touches the existing release. Pull requests build and test but never publish, and
+# there are no dev/nightly releases. Tags are managed by this workflow - never push v* tags
+# by hand (a manual tag push does not trigger anything).
 #
 # Speed notes: the matrix cuts wall-clock build time roughly by the variant count
 # (each leg compiles one Stonecutter variant); Gradle deps + build cache are persisted
-# between runs (setup-java cache + org.gradle.caching), so re-pushing a tag or
-# rebuilding after a small change reuses most of the work. Note: a rare "Set up job"
-# failure is GitHub runner infrastructure, NOT this repo - simply re-run the failed job.
+# between runs (setup-java cache + org.gradle.caching). A rare "Set up job" failure is GitHub
+# runner infrastructure, NOT this repo - simply re-run the failed job.
 #
 # Runner image: pinned to ubuntu-24.04 (not ubuntu-latest, which GitHub migrates to Ubuntu 26
 # from 2026-10-19) so a runner-image change can never turn the Docker harness red on its own.
@@ -35,15 +36,15 @@ name: CI
 on:
   push:
     branches: [ master ]
-    tags: [ 'v*' ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  # Never cancel a tagged build mid-release; branch builds are safe to supersede.
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  # Master runs QUEUE instead of cancelling each other: a cancelled run could stop the release
+  # job half-way through replacing the assets. Superseded pull-request runs are safe to cancel.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Least privilege by default; jobs that need write access declare it explicitly.
 permissions:
@@ -188,8 +189,8 @@ jobs:
           if-no-files-found: ignore
 
   # ------------------------------------------------------------------
-  # Collect all seven variant jars into one verified artifact that the
-  # host-test harness, the stable release and the dev release consume.
+  # Collect all six variant jars into one verified artifact that the
+  # host-test harness and the release consume.
   # ------------------------------------------------------------------
   merge:
     runs-on: ubuntu-24.04
@@ -313,17 +314,25 @@ jobs:
             test/docker/report/
 
   # ------------------------------------------------------------------
-  # Stable release: waits for merge + host-tests (verified on real servers),
-  # then publishes/updates the release for the tag (jars + changelog section).
-  # Releases are only created after the full test suite passes.
+  # Release: one release per mod.version, created once and then updated in place (jars
+  # replaced, notes replaced, tag moved). Runs only after every build leg and every host-test
+  # group passed.
   # ------------------------------------------------------------------
   release:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: [merge, host-tests]
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: >-
+      github.ref == 'refs/heads/master'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: write
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -334,12 +343,40 @@ jobs:
           name: authcore-jars
           path: release
 
-      - name: Extract changelog section for this version
+      - name: Resolve version
+        id: version
         run: |
-          VER="${GITHUB_REF_NAME#v}"
-          # Match the EXACT version bracket: "[1.0.0]" must not match
-          # "[1.0.0-alpha.5]" (substring bug). Compare the heading's bracket
-          # field literally, so only sections for the tagged version are used.
+          VER=$(grep -E '^mod\.version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read mod.version from gradle.properties"
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VER" >> "$GITHUB_OUTPUT"
+          echo "Releasing AuthCore $VER from ${GITHUB_SHA}"
+
+      - name: Verify the jars belong to this version
+        env:
+          VER: ${{ steps.version.outputs.version }}
+        run: |
+          COUNT=0
+          for JAR in release/*.jar; do
+            COUNT=$((COUNT+1))
+            case "$(basename "$JAR")" in
+              authcore-*-"$VER".jar) echo "  OK $(basename "$JAR")" ;;
+              *) echo "::error::$(basename "$JAR") is not a $VER build"; exit 1 ;;
+            esac
+          done
+          if [ "$COUNT" -ne 6 ]; then
+            echo "::error::Expected 6 jars for $VER, found $COUNT"
+            exit 1
+          fi
+
+      - name: Extract changelog section for this version
+        env:
+          VER: ${{ steps.version.outputs.version }}
+        run: |
+          # Match the EXACT version bracket: "[1.0.0]" must not match "[1.0.0-alpha.5]".
           awk -v ver="$VER" '
             /^## / {
               field = $2
@@ -350,79 +387,89 @@ jobs:
             in_section { print }
           ' changelogs/changelog.md > release-notes.md
           if [ ! -s release-notes.md ]; then
+            echo "::warning::No '## [$VER]' section in changelogs/changelog.md - using a generic note"
             echo "Release of AuthCore $VER - see changelogs/changelog.md for details." > release-notes.md
           fi
-          ls -la release/
+          {
+            echo
+            echo "---"
+            echo "Build: \`${GITHUB_SHA::7}\` ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+          } >> release-notes.md
+          wc -l release-notes.md
 
-      - name: Publish or update the GitHub Release for this version
-        # Existing release for the same tag = same version: replace the notes and
-        # re-upload the jars with --clobber (old assets are overwritten, nothing
-        # lingers). A different tag creates a brand new release. Never deletes
-        # first, so a failed publish cannot leave the release missing.
+      - name: Create or update the release for this version
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VER: ${{ steps.version.outputs.version }}
         run: |
-          : "${TAG:?TAG is required}"
+          set -euo pipefail
+          TITLE="AuthCore $TAG"
+
+          # Point the version tag at the commit that was just built and tested. Moving it is
+          # what makes the release (and its "Source code" archives) match the replaced jars.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Moving tag $TAG -> $GITHUB_SHA"
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$TAG" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          else
+            echo "Creating tag $TAG -> $GITHUB_SHA"
+            gh api -X POST "repos/$GH_REPO/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          upload_with_retry() {
+            for attempt in 1 2 3; do
+              if gh release upload "$TAG" release/*.jar --clobber; then return 0; fi
+              echo "upload attempt $attempt failed - retrying"
+              sleep $((attempt * 10))
+            done
+            return 1
+          }
+
           if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "Release $TAG exists - updating notes and replacing assets."
-            # `gh release upload --clobber` only replaces same-named files, so an asset
-            # that is no longer part of the build (e.g. after a range rename like
-            # 26.1-26.2 -> 26.1-26.3) would linger forever. Prune anything not in release/.
+            echo "Release $TAG exists - replacing jars and notes in place (no new release)."
+            # Replace the jars first (same file names = same version), then prune anything that
+            # is no longer part of the build, so the release is never left without its jars.
+            upload_with_retry
             for ASSET in $(gh release view "$TAG" --json assets --jq '.assets[].name'); do
               if [ ! -f "release/$ASSET" ]; then
                 echo "  pruning stale asset: $ASSET"
                 gh release delete-asset "$TAG" "$ASSET" --yes
               fi
             done
-            gh release upload "$TAG" release/*.jar --clobber
-            gh release edit "$TAG" --notes-file release-notes.md --latest=true
+            gh release edit "$TAG" \
+              --title "$TITLE" \
+              --notes-file release-notes.md \
+              --draft=false \
+              --prerelease=false \
+              --latest
           else
             echo "Release $TAG does not exist - creating it."
-            gh release create "$TAG" \
-              release/*.jar \
-              --title "AuthCore $TAG" \
+            gh release create "$TAG" release/*.jar \
+              --verify-tag \
+              --title "$TITLE" \
               --notes-file release-notes.md \
-              --latest=true
+              --latest
           fi
+
+      - name: Verify the published release
         env:
-          TAG: ${{ github.ref_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-
-  # ------------------------------------------------------------------
-  # Release-consistency guard: the stable release job only fires on v* tags,
-  # so a version bump that lands on master without its tag publishes nothing
-  # and looks green. This job fails the run in exactly that case.
-  # ------------------------------------------------------------------
-  version-tag-guard:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 2
-
-      - name: Verify a version bump carries its v* tag
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
-          VER=$(grep -E '^mod\.version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
-          if [ -z "$VER" ]; then
-            echo "::error::Could not read mod.version from gradle.properties"
+          gh release view "$TAG" --json name,tagName,isDraft,assets \
+            --jq '"\(.name) (\(.tagName)) draft=\(.isDraft)", (.assets[] | "  \(.name)  \(.size) bytes  \(.updatedAt)")'
+          PUBLISHED=$(gh release view "$TAG" --json assets --jq '.assets | length')
+          if [ "$PUBLISHED" -ne 6 ]; then
+            echo "::error::Release $TAG has $PUBLISHED assets, expected 6"
             exit 1
           fi
-          PREV_VER=$(git show HEAD~1:gradle.properties 2>/dev/null \
-            | grep -E '^mod\.version=' | cut -d= -f2 | tr -d '[:space:]')
-          if [ "$VER" = "$PREV_VER" ]; then
-            echo "Version unchanged ($VER) - nothing to check."
-            exit 0
-          fi
-          echo "Version bumped on master: ${PREV_VER:-<none>} -> $VER"
-          if git ls-remote --exit-code origin "refs/tags/v$VER" >/dev/null 2>&1; then
-            echo "Tag v$VER exists on the remote - the release job will publish it."
-          else
-            echo "::error::Version bumped to $VER but tag v$VER is missing - no stable release will be published. Fix: git tag v$VER && git push origin v$VER, then re-run this job."
-            exit 1
-          fi
-
-
+          for JAR in release/*.jar; do
+            NAME=$(basename "$JAR")
+            LOCAL=$(stat -c %s "$JAR")
+            REMOTE=$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name==\"$NAME\") | .size")
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "::error::$NAME on the release ($REMOTE bytes) does not match this build ($LOCAL bytes)"
+              exit 1
+            fi
+          done
+          echo "Release $TAG carries exactly this build's 6 jars."
