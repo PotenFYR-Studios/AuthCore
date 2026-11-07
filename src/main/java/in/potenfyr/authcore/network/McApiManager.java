@@ -519,6 +519,33 @@ public final class McApiManager {
       }
     }
 
+    /**
+     * Adds a LuckPerms group to an account (authentication.auto-luck-perms-group). The setting was
+     * read nowhere before. Asynchronous (LuckPerms saves on its own executor); a no-op when
+     * LuckPerms is not installed or the group name is not a valid LuckPerms group name.
+     */
+    public static void addGroup(java.util.UUID uuid, String group) {
+      if (uuid == null || group == null) return;
+      String name = group.trim().toLowerCase(java.util.Locale.ROOT);
+      if (!name.matches("[a-z0-9_\\-]{1,36}") || !isLuckPermsLoaded()) return;
+      try {
+        lpApi
+            .getUserManager()
+            .modifyUser(
+                uuid,
+                u -> u.data().add(net.luckperms.api.node.types.InheritanceNode.builder(name).build()))
+            .exceptionally(
+                err -> {
+                  AuthCoreServer.LOGGER.warn(
+                      false, "Could not add LuckPerms group '{}' to {}: {}", name, uuid, String.valueOf(err));
+                  return null;
+                });
+      } catch (RuntimeException | LinkageError err) {
+        AuthCoreServer.LOGGER.warn(
+            false, "Could not add LuckPerms group '{}' to {}: {}", name, uuid, String.valueOf(err));
+      }
+    }
+
     /** LuckPerms permission node check. */
     public static boolean hasNode(ServerPlayer player, String node) {
       if (player == null || !isLuckPermsLoaded() || node == null || node.isBlank()) return false;

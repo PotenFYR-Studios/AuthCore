@@ -298,6 +298,17 @@ public final class AuthIntelligence {
     Config.Session.LoginTimingConfig timingCfg = cfg.loginTiming;
     if (timingCfg == null || !timingCfg.enabled) return;
 
+    // The thresholds come from session.intelligence.login-timing (they used to be hardcoded, so
+    // window-sec / min-samples / cv-threshold had no effect). Sanitised: a 0/negative value falls
+    // back to the built-in default instead of disabling the guard by accident.
+    final long windowMs =
+        timingCfg.windowSec > 0 ? timingCfg.windowSec * 1000L : TIMING_WINDOW_MS;
+    final int minSamples = timingCfg.minSamples >= 3 ? timingCfg.minSamples : TIMING_MIN_SAMPLES;
+    final double cvThreshold =
+        timingCfg.cvThreshold > 0 && timingCfg.cvThreshold < 1
+            ? timingCfg.cvThreshold
+            : TIMING_CV_THRESHOLD;
+
     long now = System.currentTimeMillis();
     java.util.List<Long> stamps =
         IP_LOGIN_TIMESTAMPS.computeIfAbsent(ip, k -> new java.util.ArrayList<>());
@@ -305,25 +316,25 @@ public final class AuthIntelligence {
     synchronized (stamps) {
       stamps.add(now);
       // Prune stale entries
-      long cutoff = now - TIMING_WINDOW_MS;
+      long cutoff = now - windowMs;
       int before = stamps.size();
       stamps.removeIf(t -> t < cutoff);
-      if (stamps.size() < TIMING_MIN_SAMPLES) return;
+      if (stamps.size() < minSamples) return;
 
       // Compute coefficient of variation of intervals between consecutive logins.
       // Bots use synchronized timers → near-zero variance. Humans have natural variation.
-      if (stamps.size() < TIMING_MIN_SAMPLES) return;
+      if (stamps.size() < minSamples) return;
       double[] intervals = new double[stamps.size() - 1];
       double sum = 0, sumSq = 0;
       int valid = 0;
       for (int i = 1; i < stamps.size(); i++) {
         double d = stamps.get(i) - stamps.get(i - 1);
-        if (d <= 0 || d > TIMING_WINDOW_MS) continue; // skip outliers
+        if (d <= 0 || d > windowMs) continue; // skip outliers
         intervals[valid++] = d;
         sum += d;
         sumSq += d * d;
       }
-      if (valid < TIMING_MIN_SAMPLES - 1) return;
+      if (valid < minSamples - 1) return;
       double mean = sum / valid;
       if (mean < 100) return; // too fast to measure
       double variance = (sumSq / valid) - (mean * mean);
@@ -331,7 +342,7 @@ public final class AuthIntelligence {
       double stddev = Math.sqrt(variance);
       double cv = stddev / mean;
 
-      if (cv < TIMING_CV_THRESHOLD) {
+      if (cv < cvThreshold) {
         alert(
             "LOGIN_TIMING_SYNC",
             "**" + username + "** from `" + ip + "` had "
@@ -339,14 +350,14 @@ public final class AuthIntelligence {
                 + " logins with CV="
                 + String.format("%.3f", cv)
                 + " in "
-                + (TIMING_WINDOW_MS / 1000)
+                + (windowMs / 1000)
                 + "s - bot-farm synchronized timers detected.");
       }
     }
 
     // Keep attacker-controlled IP cardinality bounded.
     if (IP_LOGIN_TIMESTAMPS.size() > 4096) {
-      long cutoff = now - TIMING_WINDOW_MS;
+      long cutoff = now - windowMs;
       IP_LOGIN_TIMESTAMPS.entrySet().removeIf(e -> {
         java.util.List<Long> l = e.getValue();
         synchronized (l) {

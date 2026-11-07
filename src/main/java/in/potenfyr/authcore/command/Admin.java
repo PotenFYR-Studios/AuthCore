@@ -229,6 +229,46 @@ public class Admin {
                                         ctx.getSource(),
                                         EntityArgument.getPlayer(ctx, "player")))))
             .then(
+                literal("network-ban")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.networkBan.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.networkBan.permissionsLevel))
+                    .then(
+                        argument("name", StringArgumentType.word())
+                            .executes(
+                                ctx ->
+                                    networkBanCommand(
+                                        ctx.getSource(), StringArgumentType.getString(ctx, "name"), 0))
+                            .then(
+                                argument(
+                                        "minutes",
+                                        com.mojang.brigadier.arguments.IntegerArgumentType.integer(
+                                            1, 5_256_000))
+                                    .executes(
+                                        ctx ->
+                                            networkBanCommand(
+                                                ctx.getSource(),
+                                                StringArgumentType.getString(ctx, "name"),
+                                                com.mojang.brigadier.arguments.IntegerArgumentType
+                                                    .getInteger(ctx, "minutes"))))))
+            .then(
+                literal("network-unban")
+                    .requires(
+                        ctx ->
+                            McApiManager.PermissionUtil.hasForSource(
+                                ctx,
+                                AuthCoreServer.config.commands.admin.networkBan.luckPermsNode,
+                                AuthCoreServer.config.commands.admin.networkBan.permissionsLevel))
+                    .then(
+                        argument("name", StringArgumentType.word())
+                            .executes(
+                                ctx ->
+                                    networkUnbanCommand(
+                                        ctx.getSource(), StringArgumentType.getString(ctx, "name")))))
+            .then(
                 literal("set-password")
                     .then(
                         argument("player", EntityArgument.player())
@@ -528,18 +568,9 @@ public class Admin {
         return sendPlainMessage(source, player, message);
       }
 
-      java.nio.file.Path dbFile =
-          AuthCoreServer.configPath.resolve("database").resolve(AuthCoreServer.config.database.sqlite);
-      java.nio.file.Path backupDir = AuthCoreServer.configPath.resolve("backups");
-      java.nio.file.Files.createDirectories(backupDir);
-
-      String stamp =
-          new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date());
-      java.nio.file.Path backup = backupDir.resolve("authcore-" + stamp + ".db");
-
-      java.nio.file.Files.copy(dbFile, backup, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-
-      in.potenfyr.authcore.security.SecurityLog.log("DB_BACKUP", "Created " + backup);
+      // One backup implementation (consistent WAL-safe snapshot + write-behind flush) for the
+      // command and the automatic backups - the command used to copy the raw .db file itself.
+      java.nio.file.Path backup = in.potenfyr.authcore.security.Backups.backupSqlite();
 
       if (player != null)
         return AuthCoreServer.LOGGER.toUser(
@@ -860,6 +891,48 @@ public class Admin {
   }
 
   /** Sends a plain red chat message to a player, or logs it to the console. */
+  /** /authcore network-ban &lt;name&gt; [minutes] - network-wide ban through Redis. */
+  private static int networkBanCommand(CommandSourceStack source, String name, int minutes) {
+    ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
+    if (!in.potenfyr.authcore.util.Sanitizer.isSafeUsername(name))
+      return sendPlainMessage(source, player, "Invalid username: " + name);
+    if (!AuthCoreServer.config.database.redis.enabled)
+      return sendPlainMessage(
+          source, player, "Network bans need Redis - enable database.redis in the config first.");
+    String by = player != null ? player.getName().getString() : "console";
+    long ttlMs = minutes > 0 ? minutes * 60_000L : 0L;
+    if (!in.potenfyr.authcore.network.RedisManager.banRemotely(name, ttlMs, "banned by " + by))
+      return sendPlainMessage(source, player, "Redis is unreachable - the ban was NOT stored.");
+
+    String duration = minutes > 0 ? TimeManager.toDuration(ttlMs) : "permanently";
+    in.potenfyr.authcore.security.SecurityLog.log(
+        "NETWORK_BAN", name + " banned " + duration + " by " + by);
+    in.potenfyr.authcore.network.Webhook.sendEmbed(
+        "Network Ban", "**" + name + "** was banned " + duration + " by **" + by + "**.", 0xE74C3C);
+    // Kick here, and on every other server through the event bus.
+    User target = User.getUserByUsername(name);
+    if (target != null && target.isActive)
+      AuthCoreServer.LOGGER.toKick(
+          false, target.connection, AuthCoreServer.messages.promptUserNetworkBanned);
+    in.potenfyr.authcore.network.RedisManager.publishEvent("ban", name, "banned " + duration + " by " + by);
+    return sendPlainMessage(source, player, name + " is now banned network-wide (" + duration + ").");
+  }
+
+  /** /authcore network-unban &lt;name&gt;. */
+  private static int networkUnbanCommand(CommandSourceStack source, String name) {
+    ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
+    if (!in.potenfyr.authcore.util.Sanitizer.isSafeUsername(name))
+      return sendPlainMessage(source, player, "Invalid username: " + name);
+    if (!AuthCoreServer.config.database.redis.enabled)
+      return sendPlainMessage(
+          source, player, "Network bans need Redis - enable database.redis in the config first.");
+    if (!in.potenfyr.authcore.network.RedisManager.unbanRemotely(name))
+      return sendPlainMessage(source, player, "Redis is unreachable - the ban was NOT removed.");
+    String by = player != null ? player.getName().getString() : "console";
+    in.potenfyr.authcore.security.SecurityLog.log("NETWORK_UNBAN", name + " unbanned by " + by);
+    return sendPlainMessage(source, player, name + " is no longer banned network-wide.");
+  }
+
   private static int sendPlainMessage(CommandSourceStack source, ServerPlayer player, String text) {    Messages.ColTemplate template = new Messages.ColTemplate();
     template.message.text = text;
     template.message.color = "RED";

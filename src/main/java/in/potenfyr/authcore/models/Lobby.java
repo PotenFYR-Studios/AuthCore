@@ -57,6 +57,27 @@ public class Lobby {
    */
   public static final Set<UUID> ADMIN_DEOPS_DURING_LIMBO = ConcurrentHashMap.newKeySet();
 
+  /**
+   * Set while AuthCore itself applies the limbo effects (invisibility / blindness): with
+   * {@code lobby.prevent-status-effect} every other effect is refused for a limbo player
+   * (LobbyEffectMixin), but the limbo's own effects must still go through.
+   */
+  public static final ThreadLocal<Boolean> APPLYING_LIMBO_EFFECTS =
+      ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+  /** Applies an effect on behalf of the limbo itself (bypasses prevent-status-effect). */
+  public static void applyLimboEffect(net.minecraft.world.entity.LivingEntity entity, MobEffectInstance effect) {
+    if (entity == null || effect == null) return;
+    APPLYING_LIMBO_EFFECTS.set(Boolean.TRUE);
+    try {
+      entity.addEffect(effect);
+    } catch (RuntimeException ignored) {
+      // could not apply effect
+    } finally {
+      APPLYING_LIMBO_EFFECTS.set(Boolean.FALSE);
+    }
+  }
+
   /** The saved state of the player before they were moved into the lobby. */
   public Snapshot snapshot;
 
@@ -1522,12 +1543,14 @@ public class Lobby {
 
       // --- APPLY LOBBY EFFECTS ---
       if (AuthCoreServer.config.lobby.invisibleUnauthorized)
-        player.addEffect(
+        applyLimboEffect(
+            player,
             new MobEffectInstance(
                 MobEffects.INVISIBILITY, Integer.MAX_VALUE, 1, false, false));
 
       if (AuthCoreServer.config.lobby.applyBlindnessEffect)
-        player.addEffect(
+        applyLimboEffect(
+            player,
             new MobEffectInstance(MobEffects.BLINDNESS, Integer.MAX_VALUE, 1, false, false));
 
       // --- DAMAGE PROTECTION ---

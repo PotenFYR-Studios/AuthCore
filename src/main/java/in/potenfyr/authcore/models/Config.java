@@ -189,6 +189,19 @@ public class Config {
 
     @Comment(
         """
+                Permissions for /authcore network-ban <name> [minutes] and
+                /authcore network-unban <name>.
+                • Network-wide ban list shared through Redis (database.redis must be enabled).""")
+    public CommandPermissions networkBan =
+        new CommandPermissions() {
+          {
+            luckPermsNode = "authcore.admin.networkban";
+            permissionsLevel = 3;
+          }
+        };
+
+    @Comment(
+        """
                 Permissions for /authcore delete player <player>.
                 • Permanently removes a player's account from the database.""")
     public CommandPermissions deletePlayer =
@@ -399,14 +412,6 @@ public class Config {
 
     @Comment(
         """
-                Skip combat detection for unauthorized players.
-                • If true, players can disconnect without being flagged.
-                • Default: false
-                """)
-    public boolean skipCombatDetection = false;
-
-    @Comment(
-        """
                 Combat detection timeout (milliseconds).
                 • Defines how long a player is considered in combat after damage.
                 • Default: 10000 ms (10 seconds)""")
@@ -566,12 +571,6 @@ public class Config {
                     • Example: "member""")
       public String autoLuckPermsGroup = "";
 
-    @Comment(
-        """
-                    Bind Bedrock (Geyser/Floodgate) accounts to their XUID.
-                    • On join, the player's XUID must match the stored one or they are kicked.
-                    • Default: false""")
-    public boolean bindBedrockXuid = false;
   }
 
   @Comment(
@@ -861,12 +860,6 @@ public class Config {
 
     @Comment(
         """
-                Risk score at which a player with 2FA enabled must complete TOTP before
-                leaving the lobby. Default: 50""")
-    public int risk2FAThreshold = 50;
-
-    @Comment(
-        """
                 Companion attestation: re-issue a random challenge every N seconds while the
                 player is in the lobby. 0 = challenge only once at join. Default: 30""")
     public int reChallengeIntervalSec = 30;
@@ -890,7 +883,8 @@ public class Config {
 
     @Comment(
         """
-                Username validation regex (applied to offline-mode names at join).
+                Username validation regex, applied when a NEW account registers (existing accounts
+                are never locked out; Bedrock/Floodgate names are exempt).
                 Empty = vanilla rules. Default: ASCII letters/digits/underscore, 3-16 chars""")
     public String allowedNameRegex = "^[A-Za-z0-9_]{3,16}$";
 
@@ -2041,7 +2035,7 @@ public class Config {
           """
                     Challenge when the player's ClientGuard risk score reaches this value during
                     the observation window. Lower = more challenges (fewer false negatives),
-                    higher = fewer challenges (fewer false positives).
+                    higher = fewer challenges (fewer false positives). 0 = disabled.
                     • Default: 60""")
       public int triggerRiskThreshold = 60;
 

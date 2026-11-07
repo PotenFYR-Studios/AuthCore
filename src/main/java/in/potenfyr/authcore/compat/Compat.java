@@ -10,7 +10,6 @@ import net.minecraft.network.chat.Style;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -151,33 +150,6 @@ public final class Compat {
   /** Sends a chat message, with or without the action-bar overlay parameter. */
   public static void sendMessage(ServerPlayer player, Component text, boolean overlay) {
     sendSystemMessage(player, text, overlay);
-  }
-
-  /** Adds a status effect (direct call - {@code LivingEntity.addEffect} in every era). */
-  public static void addStatusEffect(LivingEntity entity, MobEffectInstance effect) {
-    try {
-      entity.addEffect(effect);
-    } catch (RuntimeException ignored) {
-      // could not apply effect
-    }
-  }
-
-  /** Removes a status effect (RegistryEntry-based on 1.19.4+, StatusEffect on older versions). */
-  public static void removeStatusEffect(LivingEntity entity, MobEffect effect) {
-    try {
-      Class<?> statusEffect = Class.forName("net.minecraft.entity.effect.StatusEffect");
-      Method m = LivingEntity.class.getMethod("removeStatusEffect", statusEffect);
-      m.invoke(entity, effect);
-    } catch (ReflectiveOperationException e) {
-      try {
-        Class<?> registryEntry = Class.forName("net.minecraft.registry.entry.RegistryEntry");
-        Method m = LivingEntity.class.getMethod("removeStatusEffect", registryEntry);
-        Object entry = effect.getClass().getMethod("getRegistryEntry").invoke(effect);
-        m.invoke(entity, entry);
-      } catch (ReflectiveOperationException ignored) {
-        // could not remove effect
-      }
-    }
   }
 
   /**

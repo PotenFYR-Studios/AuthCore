@@ -350,6 +350,15 @@ public class ServerEvents {
       return;
     }
 
+    // Network-wide ban (/authcore network-ban, shared through Redis).
+    if (AuthCoreServer.config.database.redis.enabled
+        && in.potenfyr.authcore.network.RedisManager.isBannedRemotely(username)) {
+      SecurityLog.log("NETWORK_BAN_BLOCKED", username + " | " + player.getIpAddress());
+      AuthCoreServer.LOGGER.toKick(
+          false, connection, AuthCoreServer.messages.promptUserNetworkBanned);
+      return;
+    }
+
     // Persistent account lock check
     if (AuthCoreServer.config.session.accountLock.enabled && user.isLocked()) {
       long remainingMs = user.lockUntilMs - System.currentTimeMillis();
@@ -674,7 +683,10 @@ public class ServerEvents {
       user.deviceFingerprint = fingerprint;
 
       // Email login alert (SMTP) for new IP / new country logins
-      if ((newIp || newCountry) && EmailSender.isEnabled() && user.email != null) {
+      if ((newIp || newCountry)
+          && EmailSender.isEnabled()
+          && AuthCoreServer.config.session.email.alertOnNewLogin
+          && user.email != null) {
         EmailSender.sendAsync(
             user.email,
             "AuthCore - New login detected",
@@ -1015,7 +1027,7 @@ public class ServerEvents {
         }
 
         if (invisible && !p.isInvisible())
-          in.potenfyr.authcore.compat.Compat.addStatusEffect(
+          Lobby.applyLimboEffect(
               p,
               new net.minecraft.world.effect.MobEffectInstance(
                   net.minecraft.world.effect.MobEffects.INVISIBILITY,
@@ -1025,7 +1037,7 @@ public class ServerEvents {
                   false));
         if (blind && p.getActiveEffects().stream().noneMatch(
             e -> e.getEffect() == net.minecraft.world.effect.MobEffects.BLINDNESS))
-          in.potenfyr.authcore.compat.Compat.addStatusEffect(
+          Lobby.applyLimboEffect(
               p,
               new net.minecraft.world.effect.MobEffectInstance(
                   net.minecraft.world.effect.MobEffects.BLINDNESS,

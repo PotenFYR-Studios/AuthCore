@@ -283,7 +283,14 @@ public final class ActionCaptcha {
         cfg.botScoreThreshold,
         breakdown.toString().trim());
 
-    if (score >= cfg.botScoreThreshold) {
+    // trigger-risk-threshold (read nowhere before): the composite score caps the ClientGuard risk
+    // at 50, so a very high risk alone could never reach the bot threshold. A risk at/above this
+    // value challenges the player on its own. 0 = disabled.
+    boolean riskTrigger =
+        cfg.triggerRiskThreshold > 0 && p != null && p.risk >= cfg.triggerRiskThreshold;
+    if (riskTrigger) breakdown.append("riskTrigger(").append(p.risk).append(") ");
+
+    if (score >= cfg.botScoreThreshold || riskTrigger) {
       SecurityLog.log(
           "CAPTCHA_ACTION_TRIGGERED",
           user.username + " | score " + score + " (threshold " + cfg.botScoreThreshold
@@ -328,7 +335,14 @@ public final class ActionCaptcha {
     CHALLENGES.put(player.getUUID(), challenge);
 
     String task = taskText(type, target, cfg);
-    send(player, "Human verification required!", ChatFormatting.GOLD);
+    // The configurable / translatable notice (promptUserCaptchaActionRequired - defined but never
+    // shown before; the header was a hardcoded English line), then the concrete task in chat.
+    try {
+      AuthCoreServer.LOGGER.toUser(
+          true, player.connection, AuthCoreServer.messages.promptUserCaptchaActionRequired);
+    } catch (RuntimeException fallback) {
+      send(player, "Human verification required!", ChatFormatting.GOLD);
+    }
     send(player, task, ChatFormatting.YELLOW);
 
     SecurityLog.log(

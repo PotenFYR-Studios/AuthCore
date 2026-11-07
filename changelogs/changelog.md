@@ -156,12 +156,46 @@ Yarn. These lookups therefore failed everywhere and silently fell back:
   unified hub at docs.potenfyr.in/repo/authcore; issue templates, the PR template and
   CONTRIBUTING.md now point there.
 - Removed code nothing called: the never-used batched GeoIP resolver (its scheduler thread woke
-  up every 250 ms for nothing), the unused network-ban / config-override Redis helpers, the rank
-  helper, three unused user-row queries, and assorted unused helpers and ~90 unused imports.
-- Wired up two features that were defined but never connected: `cache-max-users` was never
-  applied (the cache always used 20000), and the lobby click-flood detector
-  (`lobby-click-rate-per-sec`) was never fed. The client companion now actually receives the
-  `IN_LOBBY` / `OUT_OF_LOBBY` markers that open and close its login GUI.
+  up every 250 ms for nothing), the unused Redis config-override setter, the rank helper, three
+  unused user-row queries, unused Yarn-name reflection helpers, assorted unused helpers and ~90
+  unused imports.
+
+### Settings that did nothing - now implemented
+
+- `lobby.prevent-status-effect`: no status effect can be applied to a limbo player any more
+  (potions, splash/lingering clouds, beacons, wither, `/effect`, other mods); the limbo's own
+  invisibility/blindness are exempt.
+- `client-guard.allowed-name-regex`: enforced when a NEW account registers (existing accounts are
+  never locked out, Bedrock/Floodgate names are exempt; new message `promptUserNameNotAllowed`).
+- `authentication.auto-luck-perms-group`: newly registered accounts get the LuckPerms group.
+- `security.role-sync-webhook-url`: registration announcements go to that webhook when set.
+- `email.alert-on-new-login`: the new-IP/new-country login email now honours the switch.
+- `intelligence.login-timing.window-sec` / `min-samples` / `cv-threshold`: used instead of the
+  hardcoded values.
+- `captcha.trigger-risk-threshold`: a ClientGuard risk at/above it now challenges on its own
+  (the composite score caps the risk part at 50, so it could never trigger alone before).
+- `cache-max-users` is applied on boot and reload; the lobby click-flood detector is fed; the
+  client companion receives the `IN_LOBBY` / `OUT_OF_LOBBY` markers that open/close its GUI; the
+  `promptUserCaptchaActionRequired` message is shown when the human verification starts.
+- Removed instead (no sensible behaviour): `skip-combat-detection` (limbo players are never
+  combat-tagged anyway), `bind-bedrock-xuid` (Floodgate UUIDs are already derived from the XUID),
+  `risk2fa-threshold` (2FA is always required when it is configured), and the unused messages
+  `promptUserDifferentIpLoginNotAllowed` / `promptUserModeUpdated`.
+
+### Network-wide bans (finished)
+
+- The Redis ban list existed but nothing could set a ban and nothing enforced it. New
+  `/authcore network-ban <name> [minutes]` and `/authcore network-unban <name>`
+  (`commands.admin.network-ban`, LuckPerms `authcore.admin.networkban`, op level 3): the ban is
+  stored in Redis, enforced at join on every server of the network, and online players are kicked
+  on every server through the event bus (new message `promptUserNetworkBanned`).
+
+### Backups
+
+- `/authcore backup` and the automatic backups now produce a consistent snapshot (`VACUUM INTO`,
+  WAL checkpoint fallback). Copying the raw `.db` file in WAL mode could miss committed data that
+  still lived in the `-wal` file. Queued user writes are flushed first.
+- New messages are translated in all bundled locales (de, es, fr, pt, ru, zh).
 
 ### Releases
 

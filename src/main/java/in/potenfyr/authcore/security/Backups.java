@@ -28,7 +28,28 @@ public final class Backups {
     String stamp =
         new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date());
     Path backup = backupDir.resolve("authcore-" + stamp + ".db");
-    Files.copy(dbFile, backup, StandardCopyOption.REPLACE_EXISTING);
+    // The database runs in WAL mode: committed pages can still live in the -wal file, so a plain
+    // copy of the .db file produced an incomplete (or inconsistent) backup. VACUUM INTO writes a
+    // consistent, self-contained snapshot through SQLite itself; if it is unavailable the WAL is
+    // checkpointed into the main file before the copy.
+    boolean snapshotted = false;
+    synchronized (in.potenfyr.authcore.util.Database.monitor()) {
+      if (in.potenfyr.authcore.util.Database.connect()) {
+        try (java.sql.Statement st = in.potenfyr.authcore.util.Database.connection.createStatement()) {
+          Files.deleteIfExists(backup);
+          st.execute("VACUUM INTO '" + backup.toAbsolutePath().toString().replace("'", "''") + "'");
+          snapshotted = Files.exists(backup);
+        } catch (Exception vacuumUnavailable) {
+          try (java.sql.Statement st =
+              in.potenfyr.authcore.util.Database.connection.createStatement()) {
+            st.execute("PRAGMA wal_checkpoint(TRUNCATE);");
+          } catch (Exception ignored) {
+            // copy below is still better than nothing
+          }
+        }
+      }
+    }
+    if (!snapshotted) Files.copy(dbFile, backup, StandardCopyOption.REPLACE_EXISTING);
     SecurityLog.log("DB_BACKUP", "Created " + backup);
     return backup;
   }

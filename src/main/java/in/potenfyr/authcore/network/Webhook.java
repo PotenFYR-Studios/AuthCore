@@ -59,6 +59,23 @@ public final class Webhook {
     post(payload.toString());
   }
 
+  /**
+   * Registration announcement for Discord bots (role sync). Goes to
+   * {@code security.role-sync-webhook-url} when set - that setting used to be read nowhere - and
+   * falls back to the regular security webhooks otherwise.
+   */
+  public static void sendRegistration(String content) {
+    String roleSync =
+        AuthCoreServer.config == null ? null : AuthCoreServer.config.session.security.roleSyncWebhookUrl;
+    if (roleSync == null || roleSync.isBlank()) {
+      send(content);
+      return;
+    }
+    JsonObject payload = new JsonObject();
+    payload.addProperty("content", content);
+    postTo(roleSync.trim(), payload.toString());
+  }
+
   /** Whether a webhook URL is configured. */
   public static boolean isEnabled() {
     return AuthCoreServer.config != null
@@ -73,8 +90,13 @@ public final class Webhook {
     if (AuthCoreServer.config.session.security.extraWebhookUrls != null)
       urls.addAll(AuthCoreServer.config.session.security.extraWebhookUrls);
 
-    for (String url : urls) {
-      if (url == null || url.isBlank()) continue;
+    for (String url : urls) postTo(url, json);
+  }
+
+  /** Posts the JSON payload to one webhook URL asynchronously. */
+  private static void postTo(String url, String json) {
+    {
+      if (url == null || url.isBlank()) return;
       AuthCoreServer.LOGGER.debug(
           false, "Webhook | posting alert to {}", url.length() > 40 ? url.substring(0, 40) + "..." : url);
       AuthCoreServer.IO_EXECUTOR.execute(

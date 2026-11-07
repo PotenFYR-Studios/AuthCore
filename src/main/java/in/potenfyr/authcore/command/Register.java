@@ -158,6 +158,13 @@ public class Register {
       }
 
       // Mass-registration penalty: this IP was flagged as a registration farm.
+      // client-guard.allowed-name-regex (read nowhere before): applied to NEW registrations only,
+      // so existing accounts with older/shorter names are never locked out. Bedrock (Floodgate)
+      // names carry their own prefix and are exempt.
+      if (!isNameAllowed(username, uuid))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserNameNotAllowed);
+
       if (in.potenfyr.authcore.security.AuthIntelligence.isRegistrationBlocked(player.getIpAddress()))
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
@@ -195,9 +202,14 @@ public class Register {
         user.passwordProvenOn = player.connection;
         user.register(player, password); // broadcasts the auth state on login
 
+        // authentication.auto-luck-perms-group: give newly registered accounts their group.
+        String autoGroup = AuthCoreServer.config.session.authentication.autoLuckPermsGroup;
+        if (user.isRegistered.get() && autoGroup != null && !autoGroup.isBlank())
+          McApiManager.PermissionUtil.addGroup(user.uuid, autoGroup);
+
         in.potenfyr.authcore.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIpAddress());
         in.potenfyr.authcore.security.AuthIntelligence.recordRegistration(username, player.getIpAddress());
-        in.potenfyr.authcore.network.Webhook.send(
+        in.potenfyr.authcore.network.Webhook.sendRegistration(
             ":white_check_mark: **" + username + "** registered on the server.");
         return 1;
       }
@@ -206,6 +218,30 @@ public class Register {
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/register' Command: ", err);
     }
+  }
+
+  private static volatile String cachedNameRegex;
+  private static volatile java.util.regex.Pattern cachedNamePattern;
+
+  /** Whether the name satisfies client-guard.allowed-name-regex (empty / invalid = allowed). */
+  static boolean isNameAllowed(String username, UUID uuid) {
+    if (username == null) return false;
+    String regex = AuthCoreServer.config.session.clientGuard.allowedNameRegex;
+    if (regex == null || regex.isBlank()) return true;
+    if (McApiManager.isBedrockPlayer(uuid)) return true;
+    java.util.regex.Pattern pattern = cachedNamePattern;
+    if (pattern == null || !regex.equals(cachedNameRegex)) {
+      try {
+        pattern = java.util.regex.Pattern.compile(regex);
+      } catch (java.util.regex.PatternSyntaxException invalid) {
+        AuthCoreServer.LOGGER.warn(
+            false, "client-guard.allowed-name-regex is not a valid regex - ignored: {}", regex);
+        return true;
+      }
+      cachedNamePattern = pattern;
+      cachedNameRegex = regex;
+    }
+    return pattern.matcher(username).matches();
   }
 
   /**

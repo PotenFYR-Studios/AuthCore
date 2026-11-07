@@ -918,6 +918,26 @@ public class Messages {
 
   @Comment(
       """
+             Shown when /register is used with a name that does not match
+             client-guard.allowed-name-regex.
+             • Default display: Chat message in RED""")
+  public ColTemplate promptUserNameNotAllowed =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text =
+                      "This username is not allowed on this server. Please join with a name of "
+                          + "3-16 letters, digits or underscores.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
              Shown when a credential-changing command (/account set-password, /account unregister)
              is used in a session that was RESUMED (session resume / SSO) instead of unlocked with
              the password on this connection.
@@ -1814,24 +1834,6 @@ public class Messages {
 
   @Comment(
       """
-            Kick reason: Player logged in from a different IP than their active session.
-            • Security protection against session hijacking.
-            • Delay: 0 seconds""")
-  public KickTemplate promptUserDifferentIpLoginNotAllowed =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "Login from a different IP address is not allowed!";
-                  color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
             Kick reason: Player logged in from a foreign country that differs from their
             previous login country.
             • Only used when session.intelligence.blockOnNewCountry is enabled.
@@ -2113,6 +2115,23 @@ public class Messages {
 
   @Comment(
       """
+            Kick reason: the account is banned network-wide (/authcore network-ban, Redis).
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserNetworkBanned =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "You are banned from this network.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
             Kick reason: Player was forcibly kicked by an administrator (session destroyed).
             • Delay: 0 seconds""")
   public KickTemplate promptUserKickedByAdmin =
@@ -2176,24 +2195,6 @@ public class Messages {
                 {
                   text = "User '%1$s' account has been deleted from the Database & Server!";
                   color = "RED";
-                }
-              };
-        }
-      };
-
-  @Comment(
-      """
-            Kick reason (shown to user as feedback): An admin updated the player's account settings.
-            • Tells the player to rejoin so the change takes effect.
-            • Delay: 0 seconds""")
-  public KickTemplate promptUserModeUpdated =
-      new KickTemplate() {
-        {
-          logout =
-              new LogoutTemplate() {
-                {
-                  text = "Your account was updated by an admin. Please rejoin to continue.";
-                  color = "YELLOW";
                 }
               };
         }

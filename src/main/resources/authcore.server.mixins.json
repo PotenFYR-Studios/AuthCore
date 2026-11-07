@@ -10,6 +10,7 @@
     "EntityMixin",
     "InventoryMixin",
     "ItemEntityMixin",
+    "LobbyEffectMixin",
     "MobEntityMixin",
     "PlayerAttackMixin",
     "PlayerListOpMixin",

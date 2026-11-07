@@ -178,6 +178,53 @@ public final class RedisManager {
   }
 
   // ------------------------------------------------------------------
+  // Network-wide bans (/authcore network-ban): one shared ban list for every server of the
+  // network, enforced at join and propagated to online players through the event bus.
+  // ------------------------------------------------------------------
+
+  private static final String BAN_PREFIX = "authcore:ban:";
+
+  /** Whether the username is banned network-wide (false when Redis is disabled/unreachable). */
+  public static boolean isBannedRemotely(String username) {
+    ensureConnected();
+    if (!isEnabled() || username == null) return false;
+    try (Jedis jedis = pool.getResource()) {
+      return jedis.exists(BAN_PREFIX + username.toLowerCase(java.util.Locale.ROOT));
+    } catch (Exception err) {
+      return false;
+    }
+  }
+
+  /** Bans the username network-wide (ttlMs 0 = permanent). Returns false when Redis is unavailable. */
+  public static boolean banRemotely(String username, long ttlMs, String reason) {
+    ensureConnected();
+    if (!isEnabled() || username == null) return false;
+    String key = BAN_PREFIX + username.toLowerCase(java.util.Locale.ROOT);
+    String value = reason == null || reason.isBlank() ? "banned" : reason;
+    try (Jedis jedis = pool.getResource()) {
+      if (ttlMs > 0) jedis.setex(key, Math.max(1L, ttlMs / 1000L), value);
+      else jedis.set(key, value);
+      return true;
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.warn(false, "Redis network ban failed: {}", String.valueOf(err));
+      return false;
+    }
+  }
+
+  /** Removes a network-wide ban. Returns false when Redis is unavailable. */
+  public static boolean unbanRemotely(String username) {
+    ensureConnected();
+    if (!isEnabled() || username == null) return false;
+    try (Jedis jedis = pool.getResource()) {
+      jedis.del(BAN_PREFIX + username.toLowerCase(java.util.Locale.ROOT));
+      return true;
+    } catch (Exception err) {
+      AuthCoreServer.LOGGER.warn(false, "Redis network unban failed: {}", String.valueOf(err));
+      return false;
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Cross-server security event bus (Redis pub/sub)
   // ------------------------------------------------------------------
 
@@ -277,6 +324,24 @@ public final class RedisManager {
                         in.potenfyr.authcore.models.User.getUserByUsername(target);
                     if (user != null && user.isActive)
                       user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
+                  } catch (RuntimeException ignored) {
+                    // best-effort - the event must never break the bus thread
+                  }
+                },
+                0L);
+      }
+      // A network ban issued on another server: drop the player here as well.
+      if ("ban".equals(type)) {
+        final String target = username;
+        in.potenfyr.authcore.util.TaskScheduler.getInstance()
+            .setTimeout(
+                () -> {
+                  try {
+                    in.potenfyr.authcore.models.User user =
+                        in.potenfyr.authcore.models.User.getUserByUsername(target);
+                    if (user != null && user.isActive)
+                      AuthCoreServer.LOGGER.toKick(
+                          false, user.connection, AuthCoreServer.messages.promptUserNetworkBanned);
                   } catch (RuntimeException ignored) {
                     // best-effort - the event must never break the bus thread
                   }
