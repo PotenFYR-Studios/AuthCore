@@ -7,6 +7,7 @@ import in.potenfyr.authcore.proxy.ProxyConfig;
 import in.potenfyr.authcore.proxy.InteropMessages;
 import in.potenfyr.authcore.proxy.SessionCache;
 import in.potenfyr.authcore.models.Config;
+import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.network.ProxySupport;
 import in.potenfyr.authcore.network.VelocitySupport;
 import in.potenfyr.authcore.util.TimeManager;
@@ -49,6 +50,7 @@ public class AuthCoreSecurityTests {
     testSecondFactorAtomicity();
     testSqliteLookupIndexAndTransaction();
     testSnapshotAndVersionSupport();
+    testRestoreLandingGeometry();
 
     System.out.println();
     System.out.println("==============================================");
@@ -1017,6 +1019,79 @@ public class AuthCoreSecurityTests {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Limbo restore landing geometry (issue #11 follow-up)
+  // ------------------------------------------------------------------
+
+  /**
+   * Pins the pure restore-landing rules:
+   *
+   * <ul>
+   *   <li>headroom is decided by COLLISION height (decorated/partial blocks are landable) - the
+   *       1.0.2 code required strict air, so every restore above grass/flowers was classified
+   *       "blocked", no landing was issued and the player was dropped from their logout height;
+   *   <li>the ground search must reach below Y=0 (the world-bottom helper reflected a method
+   *       renamed in the 26.x era and silently returned 0);
+   *   <li>dead/NaN snapshot health is clamped to max health instead of restoring 0 HP.
+   * </ul>
+   */
+  private static void testRestoreLandingGeometry() {
+    System.out.println("== Limbo restore landing geometry ==");
+
+    // --- decorated / partial blocks are usable headroom ---
+    check("empty block is landable headroom", Lobby.Snapshot.isClearanceHeight(0.0D));
+    check("snow layer is landable headroom", Lobby.Snapshot.isClearanceHeight(0.125D));
+    check("carpet is landable headroom", Lobby.Snapshot.isClearanceHeight(0.0625D));
+    check("slab is landable headroom", Lobby.Snapshot.isClearanceHeight(0.5D));
+    check("threshold height is landable headroom", Lobby.Snapshot.isClearanceHeight(0.6D));
+    check("full block is NOT landable headroom", !Lobby.Snapshot.isClearanceHeight(1.0D));
+    check("tall partial block is NOT landable headroom", !Lobby.Snapshot.isClearanceHeight(1.5D));
+
+    // --- the vertical search reaches the deep world (bottom Y < 0) ---
+    java.util.Map<Integer, Lobby.Snapshot.GroundType> deep = new java.util.HashMap<>();
+    deep.put(-59, Lobby.Snapshot.GroundType.LANDING);
+    Integer deepY =
+        Lobby.Snapshot.findGroundBelow(
+            -58, -64, y -> deep.getOrDefault(y, Lobby.Snapshot.GroundType.AIR));
+    check("landing below Y=0 is found", Integer.valueOf(-59).equals(deepY));
+    check(
+        "decorated (passable) blocks above the surface are skipped",
+        Integer.valueOf(63)
+            .equals(
+                Lobby.Snapshot.findGroundBelow(
+                    65,
+                    0,
+                    y -> {
+                      if (y == 63) return Lobby.Snapshot.GroundType.LANDING;
+                      if (y == 64) return Lobby.Snapshot.GroundType.PASSABLE;
+                      return Lobby.Snapshot.GroundType.AIR;
+                    })));
+    check(
+        "air-only column has no landing",
+        Lobby.Snapshot.findGroundBelow(64, 0, y -> Lobby.Snapshot.GroundType.AIR) == null);
+
+    // --- support geometry (footprint + one block lower tolerance) ---
+    check(
+        "support found under the footprint",
+        Lobby.Snapshot.hasSupportBelow(0.2, 0.8, 64.0, 0.2, 0.8, (x, y, z) -> y == 63));
+    check(
+        "no support in mid-air",
+        !Lobby.Snapshot.hasSupportBelow(0.2, 0.8, 64.0, 0.2, 0.8, (x, y, z) -> false));
+    check(
+        "one block lower still counts",
+        Lobby.Snapshot.hasSupportBelow(0.2, 0.8, 64.0, 0.2, 0.8, (x, y, z) -> y == 62));
+
+    // --- restored health is never a dead value ---
+    check("dead snapshot health -> max", Lobby.Snapshot.clampRestoredHealth(0.0F, 20.0F) == 20.0F);
+    check(
+        "negative snapshot health -> max",
+        Lobby.Snapshot.clampRestoredHealth(-4.0F, 20.0F) == 20.0F);
+    check("NaN snapshot health -> max", Lobby.Snapshot.clampRestoredHealth(Float.NaN, 20.0F) == 20.0F);
+    check("normal snapshot health is kept", Lobby.Snapshot.clampRestoredHealth(7.5F, 20.0F) == 7.5F);
+    check("sub-heart health is clamped up", Lobby.Snapshot.clampRestoredHealth(0.25F, 20.0F) == 1.0F);
+    check("above-max health is capped", Lobby.Snapshot.clampRestoredHealth(40.0F, 20.0F) == 20.0F);
   }
 
   /** Invokes a resolved boolean setter, swallowing failures (checks below observe state). */

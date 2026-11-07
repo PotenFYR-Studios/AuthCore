@@ -386,19 +386,49 @@ public final class McApiManager {
         if (ctx instanceof CommandContext<?> context) source = context.getSource();
         if (source == null) return null;
 
-        for (String name :
-            new String[] {"getPlayer", "getPlayerOrException", "method_44023", "method_9207"}) {
-          try {
-            Object player = source.getClass().getMethod(name).invoke(source);
-            if (player instanceof ServerPlayer serverPlayer) return serverPlayer;
-          } catch (ReflectiveOperationException | RuntimeException ignored) {
-            // try the next name
-          }
+        // DIRECT call: CommandSourceStack#getEntity() exists on every supported era and the build
+        // toolchain remaps it for the target runtime (intermediary on Fabric, SRG on old Forge).
+        // The old reflection only knew mojmap method names, so on every PRODUCTION runtime it
+        // returned null - and hasForSource() then fell through to its console fail-open, granting
+        // any lobby player every /authcore admin subcommand (1.0.3 audit, critical).
+        if (source instanceof net.minecraft.commands.CommandSourceStack stack) {
+          net.minecraft.world.entity.Entity entity = stack.getEntity();
+          if (entity instanceof ServerPlayer player) return player;
         }
         return null;
-      } catch (RuntimeException err) {
+      } catch (RuntimeException | LinkageError err) {
         return null;
       }
+    }
+
+    /**
+     * Era-exact permission-level check for a COMMAND SOURCE.
+     *
+     * <p>Direct, build-remapped calls are used where the era has them (1.16-1.20.4:
+     * {@code hasPermission(int)}; 1.21.11/26.x: the {@code PermissionSet} API). The few runtimes a
+     * single jar spans but does not target (Fabric 1.19/1.20 inside the G2 range) throw a
+     * {@link LinkageError} on the newer call - reported as "unknown" so the caller can fall back
+     * instead of silently denying or allowing.
+     *
+     * @return {@code Boolean.TRUE}/{@code FALSE} when the runtime can decide, {@code null} when not
+     */
+    private static Boolean sourceHasLevel(Object source, int level) {
+      if (!(source instanceof net.minecraft.commands.CommandSourceStack stack)) return null;
+      /*? if < 1.20.5 {*/
+      /*// 1.16-1.20.4: direct call (remapped to SRG/intermediary for the released jar).
+      return Boolean.valueOf(stack.hasPermission(level));
+      *//*?} else {*/
+      try {
+        return Boolean.valueOf(
+            stack
+                .permissions()
+                .hasPermission(
+                    new net.minecraft.server.permissions.Permission.HasCommandLevel(
+                        net.minecraft.server.permissions.PermissionLevel.byId(level))));
+      } catch (RuntimeException | LinkageError missingApi) {
+        return null; // older runtime inside this jar's range - caller falls back
+      }
+      /*?}*/
     }
 
     /**
@@ -412,36 +442,23 @@ public final class McApiManager {
      * {@code getEntity} would deny the console on every production runtime).
      */
     public static boolean hasForSource(Object ctx, String node, int level) {
-      ServerPlayer player = resolvePlayer(ctx);
-      if (player != null) return has(player, node, level);
-
       Object source = ctx;
       if (ctx instanceof CommandContext<?> context) source = context.getSource();
-      if (source == null) return false;
 
-      // A player accessor that EXISTS and reports no player means the console (getPlayer()
-      // returns null; getPlayerOrException() throws for non-player sources). When an accessor
-      // exists the console/player decision is exact.
-      boolean sawAccessor = false;
-      for (String name :
-          new String[] {"getPlayer", "getPlayerOrException", "method_44023", "method_9207"}) {
-        try {
-          Object resolved = source.getClass().getMethod(name).invoke(source);
-          sawAccessor = true;
-          if (resolved == null) return true; // accessor exists, no player attached -> console
-        } catch (java.lang.reflect.InvocationTargetException thrown) {
-          // getPlayerOrException() throws for the console - that is exactly the console case.
-          sawAccessor = true;
-        } catch (ReflectiveOperationException ignored) {
-          // accessor absent on this mapping era - try the next name
-        }
+      ServerPlayer player = resolvePlayer(ctx);
+      if (player != null) {
+        // LuckPerms node first, then the era-exact source-level OP check (preferred: direct,
+        // remapped call), then the legacy player-level reflection as a last resort.
+        if (hasNode(player, node)) return true;
+        Boolean fromSource = sourceHasLevel(source, level);
+        if (fromSource != null) return fromSource.booleanValue();
+        return hasLevel(player, level);
       }
-      // No player accessor resolves at all: this runtime's names are not reachable through
-      // reflection (SRG on Forge 1.16-1.18, where the whole reflection-based permission layer
-      // cannot resolve either). Fall back to the legacy fail-open behaviour so the CONSOLE keeps
-      // working there - denying would lock admins out of their own server on every SRG runtime.
-      // On every mojmap/intermediary runtime the decision above is exact.
-      return true;
+
+      // No entity attached: the console (or a command block / function). The console must keep
+      // working; the previous fail-open also fired for PLAYER sources when the reflection could
+      // not resolve them, which is exactly the escalation this replaces.
+      return source instanceof net.minecraft.commands.CommandSourceStack;
     }
 
     /** Combined permission check for a player. */

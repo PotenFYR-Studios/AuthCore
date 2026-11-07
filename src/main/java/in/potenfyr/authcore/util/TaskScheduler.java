@@ -45,7 +45,10 @@ public class TaskScheduler {
       if (tickCounter >= task.nextExecutionTick) {
         try {
           task.callback.run();
-        } catch (Exception err) {
+        } catch (Exception | LinkageError err) {
+          // LinkageError covers the era-mismatch failures (NoSuchMethodError/NoSuchFieldError/
+          // NoClassDefFoundError) that a cross-version task can hit - letting one escape here would
+          // kill the whole server tick.
           AuthCoreServer.LOGGER.error(false, "[Scheduler] Task " + task.id + " failed: ", err);
         }
 

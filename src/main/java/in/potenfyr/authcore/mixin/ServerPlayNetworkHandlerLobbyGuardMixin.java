@@ -94,6 +94,22 @@ abstract class ServerPlayNetworkHandlerLobbyGuardMixin {
     guard(LobbyPacketPolicy.Action.ITEM_USE, "USE_ITEM", ci, true);
   }
 
+  /**
+   * Block interaction/placement (right-click a block). The ServerPlayerGameMode inject covers the
+   * actual placement, but it is a single descriptor that can silently miss on a future signature
+   * change - this packet-level layer keeps the lobby closed even then. Descriptor-only (no packet
+   * type reference) so it compiles on every era and simply skips where the handler is absent.
+   */
+  @Inject(
+      method =
+          "handleUseItemOn(Lnet/minecraft/network/protocol/game/ServerboundUseItemOnPacket;)V",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$guardUseItemOn(CallbackInfo ci) {
+    guard(LobbyPacketPolicy.Action.ITEM_USE, "USE_ITEM_ON", ci, false);
+  }
+
   @Inject(
       method =
           "handleEditBook(Lnet/minecraft/network/protocol/game/ServerboundEditBookPacket;)V",

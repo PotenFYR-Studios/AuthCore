@@ -338,6 +338,29 @@ public final class Compat {
     }
   }
 
+  /**
+   * Reads the entity fall distance on every supported version (0 when the field is unreadable).
+   *
+   * <p>Used by the post-restore fall guard and by the death diagnostic: the fall distance at the
+   * moment of a death is the fastest way to tell a restore-caused fall from any other damage.
+   */
+  public static double getFallDistance(net.minecraft.server.level.ServerPlayer player) {
+    if (player == null) return 0.0;
+    java.lang.reflect.Field field =
+        entityField(player.getClass(), "fallDistance", "f_19789_", "field_23362");
+    if (field == null) return 0.0;
+    try {
+      Class<?> type = field.getType();
+      if (type == double.class) return field.getDouble(player);
+      if (type == float.class) return field.getFloat(player);
+      if (type == int.class) return field.getInt(player);
+      Object value = field.get(player);
+      return value instanceof Number number ? number.doubleValue() : 0.0;
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      return 0.0;
+    }
+  }
+
   // ------------------------------------------------------------------
   // Entity invulnerability flag (the limbo damage shield).
   //
@@ -726,24 +749,108 @@ public final class Compat {
     }
   }
 
-  /** The lowest Y coordinate of the world (1.17+ API; 0 on older versions). */
+  /**
+   * The lowest Y coordinate of the world.
+   *
+   * <p>The accessor moved AND was renamed across the supported range: 1.17+ expose {@code
+   * LevelHeightAccessor#getMinY()}, the unobfuscated 26.x era only has {@code getMinY()} (there is
+   * no {@code getBottomY} method anywhere in the 26.x {@code Level} hierarchy - verified on the
+   * 26.3 jar), and some older build targets still name it {@code getMinBuildHeight()}. Resolving
+   * only the oldest name silently returned {@code 0} on 26.x, which made every landing search stop
+   * at Y=0 and find NOTHING below it - a mid-air restore anywhere in the modern deep world
+   * (mining/caving below Y=0) therefore had no landing at all (issue #11 follow-up).
+   */
   public static int getBottomY(Level world) {
+    for (String name : new String[] {"getMinY", "getBottomY", "getMinBuildHeight"}) {
+      try {
+        Method m = Level.class.getMethod(name);
+        Object value = m.invoke(world);
+        if (value instanceof Integer y) return y;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // try the next name
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * The world's shared spawn position across eras.
+   *
+   * <p>26.x moved it out of {@code Level#getSharedSpawnPos()} into
+   * {@code LevelData.RespawnData#pos()}; both are resolved reflectively so one jar works on every
+   * supported version. Returns {@code null} when neither shape is readable.
+   */
+  public static BlockPos sharedSpawnPos(Level world) {
+    if (world == null) return null;
     try {
-      Method m = Level.class.getMethod("getBottomY");
-      return (Integer) m.invoke(world);
-    } catch (ReflectiveOperationException e) {
-      return 0;
+      Method m = Level.class.getMethod("getSharedSpawnPos");
+      Object value = m.invoke(world);
+      if (value instanceof BlockPos pos) return pos;
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // 26.x/26.3 shape below
+    }
+    try {
+      Method m = Level.class.getMethod("getRespawnData");
+      Object data = m.invoke(world);
+      if (data != null) {
+        Object pos = data.getClass().getMethod("pos").invoke(data);
+        if (pos instanceof BlockPos p) return p;
+      }
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // not available on this era
+    }
+    return null;
+  }
+
+  /**
+   * The dimension id of a level as a plain string, across every supported era.
+   *
+   * <p>{@code ResourceKey#location()} was renamed to {@code identifier()} in the 26.x era, so this
+   * is resolved reflectively (used for diagnostics only - the exact textual form is irrelevant).
+   */
+  public static String dimensionName(Level world) {
+    if (world == null) return "unknown";
+    try {
+      Object key = world.dimension();
+      if (key == null) return "unknown";
+      for (String name : new String[] {"location", "identifier"}) {
+        try {
+          Object id = key.getClass().getMethod(name).invoke(key);
+          if (id != null) return id.toString();
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+          // try the other name
+        }
+      }
+      return String.valueOf(key);
+    } catch (RuntimeException ignored) {
+      return "unknown";
     }
   }
 
-  /** The highest buildable Y coordinate of the world (1.17+ API; 256 on older versions). */
+  /**
+   * The highest buildable Y coordinate of the world (exclusive end of the build range).
+   *
+   * <p>Same rename story as {@link #getBottomY}: 26.x exposes {@code getMaxY()} /
+   * {@code getHeight()}, older eras {@code getMaxBuildHeight()}. The old fallback of 256 was
+   * harmless in the overworld but wrong for tall/custom dimensions.
+   */
   public static int getMaxBuildHeight(Level world) {
-    try {
-      Method m = Level.class.getMethod("getMaxBuildHeight");
-      return (Integer) m.invoke(world);
-    } catch (ReflectiveOperationException e) {
-      return 256;
+    for (String name : new String[] {"getMaxY", "getMaxBuildHeight", "getHeight"}) {
+      try {
+        Method m = Level.class.getMethod(name);
+        Object value = m.invoke(world);
+        if (value instanceof Integer y) {
+          // getHeight() is a LENGTH (e.g. 384), not an absolute Y - convert it to the exclusive
+          // top. The old branch returned the raw length whenever it exceeded the minimum Y (which
+          // it always does), i.e. it was off by |minY| on every world with a non-zero floor.
+          if (name.equals("getHeight")) return getBottomY(world) + y;
+          return y;
+        }
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // try the next name
+      }
     }
+    return 256;
   }
 
   /**
@@ -1772,6 +1879,14 @@ public final class Compat {
    * the screen is closed by sending a container-close packet instead).
    */
   public static void forceCloseInventory(net.minecraft.server.level.ServerPlayer player) {
+    // Close the SERVER-SIDE menu first: sending only the close packet left the menu object alive
+    // on the server, so another container (hopper/dispenser) could still feed it while the player
+    // sat unauthenticated in the lobby.
+    try {
+      player.closeContainer();
+    } catch (RuntimeException | LinkageError ignored) {
+      // best-effort - the click guards remain the second layer
+    }
     try {
       player.connection.send(
           new net.minecraft.network.protocol.game.ClientboundContainerClosePacket(

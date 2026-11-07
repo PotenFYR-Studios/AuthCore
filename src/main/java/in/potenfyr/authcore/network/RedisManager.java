@@ -313,11 +313,24 @@ public final class RedisManager {
           "**" + (username.isEmpty() ? "?" : username) + "** " + detail,
           0x55AAFF);
 
-      // Local actions for remote events
+      // Local actions for remote events. The event bus runs on its own daemon thread, while a kick
+      // mutates session/connection state owned by the server thread - schedule it there instead of
+      // mutating off-thread (kickAttempts++ was also an unsynchronised write).
       if ("kick".equals(type) || "logout".equals(type)) {
-        in.potenfyr.authcore.models.User user = in.potenfyr.authcore.models.User.getUserByUsername(username);
-        if (user != null && user.isActive)
-          user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
+        final String target = username;
+        in.potenfyr.authcore.util.TaskScheduler.getInstance()
+            .setTimeout(
+                () -> {
+                  try {
+                    in.potenfyr.authcore.models.User user =
+                        in.potenfyr.authcore.models.User.getUserByUsername(target);
+                    if (user != null && user.isActive)
+                      user.kick(AuthCoreServer.messages.promptUserKickedByAdmin);
+                  } catch (RuntimeException ignored) {
+                    // best-effort - the event must never break the bus thread
+                  }
+                },
+                0L);
       }
     } catch (Exception ignored) {
       // malformed event - ignore

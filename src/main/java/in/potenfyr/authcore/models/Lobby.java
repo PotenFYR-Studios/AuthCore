@@ -75,6 +75,21 @@ public class Lobby {
   /** The specific position within the lobby assigned to the player. */
   private BlockPos position;
 
+  /**
+   * Exact feet height of {@link #position} (NaN until computed). The block Y is only the feet
+   * BLOCK: a partial support (slab/carpet/snow/stair) is walked 0.5-0.94 above its block floor, and
+   * every anchor teleport / drift comparison must use the same exact height or the lobby guard
+   * re-teleports the player every tick.
+   */
+  private double positionFeetY = Double.NaN;
+
+  /**
+   * True when the limbo teleport was skipped and the anchor is the player's own (exact) position -
+   * a block-floor snap would embed a player standing on a partial support, so those anchors keep
+   * the exact coordinates and the guard compares against them.
+   */
+  private boolean anchorExact;
+
   /** Position of the temporary anti-float platform (null when not placed). */
   private transient BlockPos platformPos = null;
 
@@ -83,6 +98,63 @@ public class Lobby {
 
   /** The world the platform was placed in (restored there after auth). */
   private transient ServerLevel platformWorld = null;
+
+  /**
+   * Post-restore safety windows, keyed by player UUID.
+   *
+   * <p>The limbo restore must never be able to kill a player (issue #11). The collision-aware
+   * landing is the primary guard; this window is the safety net for everything it cannot see
+   * (a chunk that is still loading, a hazard column, a restore path that threw, a vanilla
+   * rubber-band). While a player is inside the window the fall distance is pinned to zero and an
+   * unsupported player is re-landed, so a restore can never accumulate lethal fall distance.
+   */
+  private static final java.util.Map<java.util.UUID, RestoreGuard> RESTORE_GUARDS =
+      new ConcurrentHashMap<>();
+
+  /** How long (ms) a restored player stays fall-protected while the landing settles. */
+  private static final long RESTORE_GUARD_WINDOW_MS = 4_000L;
+
+  /**
+   * Last limbo-restore timestamp per player, kept briefly so a death can still be attributed to
+   * the restore after the fall-protection window closed (a void fall that only becomes lethal
+   * later is exactly the issue #11 report that needs evidence). Bounded: pruned on every tick.
+   */
+  private static final java.util.Map<java.util.UUID, Long> RECENT_RESTORES =
+      new ConcurrentHashMap<>();
+
+  /** How long (ms) a restore stays attributable in the death log. */
+  private static final long RECENT_RESTORE_KEEP_MS = 120_000L;
+
+  /** Minimum spacing (ms) between landing retries inside the restore window. */
+  private static final long RESTORE_GUARD_RETRY_MS = 400L;
+
+  /**
+   * Upper bound on the anti-float platform restore retries while a player still stands on the
+   * temporary block. After this many seconds the platform is restored anyway (a permanently
+   * leaking barrier is worse than the one-block drop it causes).
+   */
+  private static final int PLATFORM_RESTORE_MAX_ATTEMPTS = 60;
+
+  /** One restored player's fall-safety window. */
+  private static final class RestoreGuard {
+    final java.lang.ref.WeakReference<ServerPlayer> player;
+    final long restoredAtMs;
+    final long expiresAtMs;
+
+    /** Dimension the restore target belongs to: a re-land must never use another level's geometry. */
+    final Object dimension;
+
+    long nextRetryMs;
+    boolean landed;
+
+    RestoreGuard(
+        ServerPlayer player, long restoredAtMs, long expiresAtMs, Object dimension) {
+      this.player = new java.lang.ref.WeakReference<>(player);
+      this.restoredAtMs = restoredAtMs;
+      this.expiresAtMs = expiresAtMs;
+      this.dimension = dimension;
+    }
+  }
 
   /** Timestamp of the lobby lock - opens the join-sync grace window for movement checks. */
   public volatile long lockedAtMs = 0;
@@ -368,6 +440,58 @@ public class Lobby {
     // or attack anything after login ("the limbo state saved as permanent").
     if (this.user.isInLobby.get()) return;
 
+    // A Lobby instance is REUSED for every session of the same account (User#lobby is created
+    // once), so the previous session's limbo anchor must never leak into this one: a stale anchor
+    // made the next lock teleport the player - and place the anti-float platform - at the PREVIOUS
+    // session's coordinates while the unlock compared the platform against the NEW snapshot, so the
+    // temporary barrier was never removed and could drop the player (issue #11 follow-up).
+    this.position = null;
+    this.positionFeetY = Double.NaN;
+    this.anchorExact = false;
+    this.platformPos = null;
+    this.platformOriginal = null;
+    this.platformWorld = null;
+
+    // Publish the limbo entry BEFORE touching the player. isInLobby is DEFINED as map membership
+    // (User#isInLobby), so an exception anywhere between the snapshot and the previously-late
+    // registration left an ACTIVE, unauthenticated player OUTSIDE the limbo - isAuthenticated then
+    // reads true and every limbo guard fast-paths out (free roam). Registering first and unwinding
+    // with a kick on failure makes that structurally impossible.
+    Lobby previous = Lobby.users.putIfAbsent(this.user.username, this);
+    if (previous != null && previous != this) {
+      // A previous session of this account leaked its entry (crash/stale leave): take it over.
+      // Otherwise every later session of the account would read as "already in the limbo" and
+      // never be restricted again.
+      Lobby.users.put(this.user.username, this);
+      AuthCoreServer.LOGGER.warn(
+          false,
+          "{} | replaced a stale limbo entry from a previous session",
+          this.user.username);
+    }
+
+    try {
+      lockSession(player, user);
+    } catch (RuntimeException | LinkageError err) {
+      // FAIL CLOSED: release the reservation, stop the armed tasks and kick. An unauthenticated
+      // player must never stay online outside the limbo (that was the bypass window).
+      Lobby.users.remove(this.user.username, this);
+      this.cancel();
+      AuthCoreServer.LOGGER.error(
+          false,
+          "{} | limbo lock failed - kicking to fail closed: {}",
+          this.user.username,
+          String.valueOf(err));
+      AuthCoreServer.LOGGER.toKick(
+          false,
+          this.user.connection,
+          AuthCoreServer.messages.promptUserAuthenticationExpiredTimeout,
+          "a moment");
+    }
+  }
+
+  /** The lock body (snapshot -> limbo teleport -> prompts/tasks), split out so a failure can be
+   *  unwound and the player kicked instead of being left unguarded. */
+  private void lockSession(ServerPlayer player, User user) {
     // Fresh violation budget per limbo session: a kicked player must start over with a
     // clean count - otherwise the FIRST violation after rejoining would trip the limit
     // that was already reached in the previous session.
@@ -443,16 +567,6 @@ public class Lobby {
 
     if (AuthCoreServer.config.lobby.timeout.enabled) this.handleTimeout();
 
-    // ATOMIC registration: putIfAbsent closes the theoretical double-lock window where two
-    // threads pass the isInLobby fast-path above simultaneously - the loser unwinds its
-    // armed tasks and leaves without corrupting the winner's snapshot state.
-    if (Lobby.users.putIfAbsent(this.user.username, this) != null) {
-      AuthCoreServer.LOGGER.debug(
-          false, "{} | duplicate limbo lock raced - keeping the first lock", this.user.username);
-      this.cancel();
-      return;
-    }
-
     // Handle 2FA: generate a TOTP secret and send the setup link on first join
     if (!user.isRegistered.get()
         && AuthCoreServer.config.session.authentication.allowTOTPSupport
@@ -524,12 +638,41 @@ public class Lobby {
     // returning-player "only-on-first-time" rule). Without an anchor, teleport-back and the
     // per-tick re-assert guard are no-ops and the client can run free on its own prediction
     // while the server entity stays frozen.
-    if (this.position == null) this.position = blockPos;
+    if (this.position == null) {
+      this.position = blockPos;
+      this.anchorExact = true;
+    }
 
     // Skip the actual teleport while the player's level is not resolvable yet (mid-join) -
     // the anchor is still stored, so the per-tick re-assert guard re-teleports as soon as
     // the level is available.
-    if (world != null) this.snapshot.teleport(player, blockPos, world);
+    if (world != null) {
+      if (this.anchorExact && player != null) {
+        // The limbo teleport was skipped (limbo disabled / only-on-first-time): keep the player's
+        // EXACT position. A block-floor snap would embed a player standing on a partial support
+        // (slab/carpet/stair) half a block - and the anchor/guard must use the same height.
+        this.positionFeetY = player.getY();
+        Snapshot.teleportExact(player, world, player.getX(), player.getY(), player.getZ(), blockPos);
+      } else {
+        // Exact feet height of the anchor (partial supports walk above their block floor); every
+        // guard comparison must use the same height the teleport used.
+        this.positionFeetY = Snapshot.exactFeetY(world, blockPos);
+        Snapshot.teleport(player, blockPos, world);
+      }
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | limbo anchor {} (feet block), exact feet y={}, solid ground below={}",
+          this.user.username,
+          blockPos,
+          this.positionFeetY,
+          isSolidGround(world, blockPos.below()));
+    }
+  }
+
+  /** The anchor feet height, falling back to the block Y when it was never computed. */
+  private double anchorFeetY() {
+    if (this.position == null) return 0.0;
+    return Double.isNaN(this.positionFeetY) ? this.position.getY() : this.positionFeetY;
   }
 
   /**
@@ -548,36 +691,52 @@ public class Lobby {
     BlockPos anchor = this.position != null ? this.position : player.blockPosition();
     BlockPos below = anchor.below();
 
+    // The limbo anchor is normally a safe standing position, so the block under it is REAL ground:
+    // there is nothing to protect against. Replacing that block with an invisible BARRIER made the
+    // player look like they floated over a hole (barriers have a collision shape but never occlude,
+    // so vanilla even logs "standing on air" and re-sends the blocks) while preventing nothing.
+    // Only build the platform when the player genuinely has nothing solid under them.
+    if (isSolidGround(world, below)) return;
+
     // Diving case: when the anchor is inside a liquid, stand the player on a platform at
     // the surface (scan up to the first non-liquid block) instead of leaving them
     // underwater in the limbo.
     if (isLiquidBlock(world, below)) {
       BlockPos surface = below;
-      while (surface.getY() < in.potenfyr.authcore.compat.Compat.getMaxBuildHeight(world)
-          && isLiquidBlock(world, surface)) {
+      int maxY = in.potenfyr.authcore.compat.Compat.getMaxBuildHeight(world);
+      while (surface.getY() < maxY && isLiquidBlock(world, surface)) {
         surface = surface.above();
       }
-      if (surface.getY() < in.potenfyr.authcore.compat.Compat.getMaxBuildHeight(world)) {
-        below = surface;
-        // Park the player on the platform, just above the surface.
-        in.potenfyr.authcore.compat.Compat.teleport(
-            player,
-            world,
-            anchor.getX() + 0.5,
-            below.getY() + 1.0,
-            anchor.getZ() + 0.5,
-            in.potenfyr.authcore.compat.Compat.getYaw(player),
-            in.potenfyr.authcore.compat.Compat.getPitch(player));
-      }
+      // Only an open surface may be stood on - never replace a solid roof (ice, cave ceiling).
+      if (surface.getY() >= maxY || !world.getBlockState(surface).isAir()) return;
+      below = surface;
+      // The player is parked ON TOP of the new platform: move the anchor with them, otherwise the
+      // per-tick re-assert would keep teleporting them back into the barrier block.
+      this.position = below.above();
+      this.positionFeetY = this.position.getY();
+      in.potenfyr.authcore.compat.Compat.teleport(
+          player,
+          world,
+          this.position.getX() + 0.5,
+          this.position.getY(),
+          this.position.getZ() + 0.5,
+          in.potenfyr.authcore.compat.Compat.getYaw(player),
+          in.potenfyr.authcore.compat.Compat.getPitch(player));
     }
 
     BlockState original = world.getBlockState(below);
     if (original.is(Blocks.BARRIER)) return; // another platform already occupies the spot
+    if (isSolidGround(world, below)) return; // never hide real ground under the platform
 
+    if (!world.setBlock(below, Blocks.BARRIER.defaultBlockState(), 3)) {
+      // The block never became a barrier (outside the build range / unloaded chunk): keep NO
+      // bookkeeping, otherwise the delayed restore would target a phantom platform.
+      AuthCoreServer.LOGGER.warn(false, "Anti-float platform could not be placed at {}", below);
+      return;
+    }
     this.platformPos = below;
     this.platformOriginal = original;
     this.platformWorld = world;
-    world.setBlock(below, Blocks.BARRIER.defaultBlockState(), 3);
     AuthCoreServer.LOGGER.debug(
         false,
         "{} | anti-float platform placed at {} (was {})",
@@ -586,19 +745,221 @@ public class Lobby {
         original);
   }
 
+  /** Whether the block is real solid ground (a collision shape and no fluid) - a true support. */
+  private static boolean isSolidGround(ServerLevel world, BlockPos pos) {
+    if (world == null || pos == null) return false;
+    BlockState state = world.getBlockState(pos);
+    if (!state.getFluidState().isEmpty()) return false;
+    // AuthCore's own temporary platform is NOT real ground: counting it as ground made the
+    // platform bookkeeping skip it and leak a permanent invisible barrier.
+    if (state.is(Blocks.BARRIER)) return false;
+    return !state.getCollisionShape(world, pos).isEmpty();
+  }
+
   /** Whether the block at the position is a liquid (water/lava). */
   private static boolean isLiquidBlock(ServerLevel world, BlockPos pos) {
     BlockState state = world.getBlockState(pos);
     return !state.isAir() && !state.getFluidState().isEmpty();
   }
 
-  /** Restores the original block at a platform position (only if our barrier is still there). */
-  private static void restorePlatformBlock(ServerLevel world, BlockPos pos, BlockState original) {
+  /**
+   * Restores the original block at a platform position (only if our barrier is still there).
+   *
+   * <p>With {@code guardOccupied} the restore is deferred while a player is still standing on the
+   * temporary platform: removing the block under a player is exactly the kind of mod-caused death
+   * issue #11 is about. The deferred restore is retried a bounded number of times, then forced (a
+   * permanently leaking barrier would be the worse bug).
+   */
+  private static void restorePlatformBlock(
+      ServerLevel world, BlockPos pos, BlockState original, int attempt, boolean guardOccupied) {
     if (world == null || pos == null) return;
     BlockState current = world.getBlockState(pos);
-    if (current.is(Blocks.BARRIER)) {
-      world.setBlock(pos, original, 3);
-      AuthCoreServer.LOGGER.debug(false, "Anti-float platform restored at {} (was {})", pos, original);
+    if (!current.is(Blocks.BARRIER)) return;
+
+    if (guardOccupied) {
+      ServerPlayer standing = playerStandingOn(world, pos);
+      if (standing != null && attempt < PLATFORM_RESTORE_MAX_ATTEMPTS) {
+        AuthCoreServer.LOGGER.debug(
+            false,
+            "Anti-float platform at {} kept - {} is still standing on it (retry {}).",
+            pos,
+            standing.getName().getString(),
+            attempt + 1);
+        TaskScheduler.getInstance()
+            .setTimeout(() -> restorePlatformBlock(world, pos, original, attempt + 1, true), 1_000L);
+        return;
+      }
+    }
+
+    world.setBlock(pos, original, 3);
+    AuthCoreServer.LOGGER.debug(false, "Anti-float platform restored at {} (was {})", pos, original);
+  }
+
+  /**
+   * Resolves a live player standing on top of the given block, or null.
+   *
+   * <p>Bounding-box based on purpose: an exact feet-block match misses a player standing on the
+   * platform edge, on a vehicle above it, or on a partial block resting on it - and removing the
+   * block under any of those is a mod-caused fall.
+   */
+  private static ServerPlayer playerStandingOn(ServerLevel world, BlockPos pos) {
+    if (world == null || pos == null) return null;
+    net.minecraft.world.phys.AABB standingBox =
+        new net.minecraft.world.phys.AABB(
+            pos.getX(),
+            pos.getY() + 1.0,
+            pos.getZ(),
+            pos.getX() + 1.0,
+            pos.getY() + 3.0,
+            pos.getZ() + 1.0);
+    for (ServerPlayer p : world.players()) {
+      if (p == null || p.isRemoved() || p.isSpectator()) continue;
+      if (p.getBoundingBox().intersects(standingBox)) return p;
+    }
+    return null;
+  }
+
+  /**
+   * Arms the post-restore fall-safety window for a just-restored player.
+   *
+   * <p>Idempotent and never throws: the window is only a safety net, so a failure here must never
+   * affect the restore itself.
+   */
+  public static void armRestoreGuard(ServerPlayer player) {
+    if (player == null) return;
+    try {
+      long now = System.currentTimeMillis();
+      Object dimension =
+          in.potenfyr.authcore.compat.Compat.worldRegistryKey(
+              in.potenfyr.authcore.compat.Compat.playerLevel(player));
+      RESTORE_GUARDS.put(
+          player.getUUID(),
+          new RestoreGuard(player, now, now + RESTORE_GUARD_WINDOW_MS, dimension));
+      RECENT_RESTORES.put(player.getUUID(), Long.valueOf(now));
+    } catch (RuntimeException | LinkageError ignored) {
+      // the landing pass remains the primary guard
+    }
+  }
+
+  /**
+   * Last-resort restore used when {@link Snapshot#reset} throws: land the player safely, zero the
+   * fall distance and arm the fall-safety window. Never throws.
+   */
+  private static void safeRestoreFallback(ServerPlayer player) {
+    if (player == null) return;
+    try {
+      ServerLevel world = in.potenfyr.authcore.compat.Compat.playerLevel(player);
+      if (world != null) Snapshot.safeLandIfNeeded(player, world);
+    } catch (RuntimeException | LinkageError ignored) {
+      // best-effort - the guard below is the safety net
+    }
+    try {
+      in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
+    } catch (RuntimeException | LinkageError ignored) {
+      // best-effort
+    }
+    armRestoreGuard(player);
+  }
+
+  /**
+   * Extra death diagnostic (called from the death mixin): states whether the death happened inside
+   * the post-restore safety window, i.e. whether the limbo restore is actually involved.
+   *
+   * <p>This is the line that makes issue #11 actionable on servers with
+   * {@code /gamerule showDeathMessages false}, where vanilla sends an EMPTY death message and
+   * nothing reaches the chat or the player's death screen.
+   */
+  public static void logDeathContext(ServerPlayer player, String cause) {
+    if (player == null) return;
+    try {
+      Long restored = RECENT_RESTORES.get(player.getUUID());
+      if (restored == null) return;
+      boolean armed = RESTORE_GUARDS.containsKey(player.getUUID());
+      AuthCoreServer.LOGGER.warn(
+          false,
+          "{} died {} ms after the limbo restore (cause={}, fall guard still armed={}) - if this "
+              + "is unexpected, report this line on issue #11",
+          player.getName().getString(),
+          String.valueOf(System.currentTimeMillis() - restored.longValue()),
+          cause,
+          armed);
+    } catch (RuntimeException ignored) {
+      // diagnostics are best-effort
+    }
+  }
+
+  /**
+   * Per-tick driver for {@link #RESTORE_GUARDS} (called from the server tick handler).
+   *
+   * <p>Keeps the fall distance pinned to zero for a few seconds after a limbo restore and re-lands
+   * a player the landing pass could not resolve. This is what makes "the restore killed me" an
+   * impossibility even when a geometry probe is wrong (chunk not loaded yet, hazard floor, vanilla
+   * rubber-band after the teleport) - issue #11.
+   */
+  public static void tickRestoreGuards(MinecraftServer server) {
+    if (server == null) return;
+    long now = System.currentTimeMillis();
+    // Attribution window for the death diagnostic (bounded - pruned here every tick).
+    if (!RECENT_RESTORES.isEmpty())
+      RECENT_RESTORES
+          .entrySet()
+          .removeIf(e -> e.getValue() == null || now - e.getValue().longValue() > RECENT_RESTORE_KEEP_MS);
+    if (RESTORE_GUARDS.isEmpty()) return;
+    java.util.Iterator<java.util.Map.Entry<java.util.UUID, RestoreGuard>> it =
+        RESTORE_GUARDS.entrySet().iterator();
+    while (it.hasNext()) {
+      java.util.Map.Entry<java.util.UUID, RestoreGuard> entry = it.next();
+      RestoreGuard guard = entry.getValue();
+      ServerPlayer player = guard.player.get();
+      if (player == null || guard.expiresAtMs <= now || player.isRemoved() || !player.isAlive()) {
+        it.remove();
+        continue;
+      }
+      try {
+        ServerLevel world = in.potenfyr.authcore.compat.Compat.playerLevel(player);
+        if (world == null) continue;
+        // Never re-land a player with another dimension's geometry (a teleport/portal while the
+        // window was open). Keep the guard armed until it expires instead.
+        if (guard.dimension != null) {
+          Object current = in.potenfyr.authcore.compat.Compat.worldRegistryKey(world);
+          if (current != null && !guard.dimension.equals(current)) continue;
+        }
+        // Whatever vanilla accumulated, it can no longer become lethal fall damage.
+        in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
+
+        net.minecraft.world.entity.player.Abilities abilities =
+            in.potenfyr.authcore.compat.Compat.getAbilities(player);
+        boolean safe =
+            player.isSpectator()
+                || (abilities != null && abilities.flying)
+                || player.isPassenger()
+                || player.isInWater()
+                || Snapshot.hasSupport(player, world);
+        if (safe) {
+          // The player is grounded (or flying/swimming/riding): the restore is done. Stop pinning
+          // the fall distance so normal movement is never affected after this point.
+          guard.landed = true;
+          it.remove();
+          continue;
+        }
+        if (now < guard.nextRetryMs) continue;
+        guard.nextRetryMs = now + RESTORE_GUARD_RETRY_MS;
+        BlockPos ground = Snapshot.getGroundBelow(world, player.blockPosition());
+        if (ground != null) {
+          Snapshot.teleport(player, ground.above(), world);
+          guard.landed = true;
+          it.remove();
+          continue;
+        }
+        BlockPos fallback = Snapshot.resolveRestoreFallback(world, player.blockPosition());
+        if (fallback != null) {
+          Snapshot.teleport(player, fallback, world);
+          guard.landed = true;
+          it.remove();
+        }
+      } catch (RuntimeException | LinkageError ignored) {
+        // the guard is best-effort - never break the server tick
+      }
     }
   }
 
@@ -616,7 +977,19 @@ public class Lobby {
 
     // Leave the restricted state FIRST: every attack/block/movement guard gates on
     // isInLobby, so a failed restore must never keep the player restricted after login.
-    Lobby.users.remove(this.user.username);
+    //
+    // The release is OWNERSHIP-CHECKED: a stale/second unlock must never delete a newer session's
+    // limbo entry (Lobby instances are reused per account, and the old connection's leave can race
+    // a rejoin). Only the session that owns the entry is allowed to restore its snapshot.
+    Lobby owner = Lobby.users.get(this.user.username);
+    if (owner != null && owner != this) {
+      AuthCoreServer.LOGGER.debug(
+          false,
+          "{} | stale unlock ignored - another limbo session owns the entry",
+          this.user.username);
+      return;
+    }
+    Lobby.users.remove(this.user.username, this);
 
     AuthCoreServer.LOGGER.debug(
         false,
@@ -624,28 +997,51 @@ public class Lobby {
         this.user.username,
         Lobby.users.size());
 
-    // The restore teleport puts the player back at their pre-lobby position. If AuthCore's own
-    // temporary anti-float platform occupies that space (e.g. the default (0,64,0) limbo sits one
-    // block above the world spawn), the barrier must be removed FIRST - otherwise the player is
-    // teleported into a solid block and stays stuck until the delayed restore runs.
+    // The restore teleport puts the player back at their pre-lobby position and the safe-landing
+    // pass only ever searches THAT column. If AuthCore's own temporary anti-float platform sits in
+    // that column (e.g. the default (0,64,0) limbo sits one block above the world spawn), it must
+    // be removed FIRST: otherwise the player is either teleported into a solid block, or landed on
+    // a temporary barrier that is deleted seconds later and drops them (issue #11 follow-up).
     if (player != null && this.snapshot != null && this.platformPos != null) {
       BlockPos restore = this.snapshot.blockPos;
       if (restore != null
           && this.platformWorld != null
           && this.platformWorld.dimension().equals(this.snapshot.dimensionKey)
           && this.platformPos.getX() == restore.getX()
-          && this.platformPos.getZ() == restore.getZ()
-          && this.platformPos.getY() >= restore.getY() - 1
-          && this.platformPos.getY() <= restore.getY() + 2) {
-        restorePlatformBlock(this.platformWorld, this.platformPos, this.platformOriginal);
-        this.platformPos = null;
-        this.platformOriginal = null;
-        this.platformWorld = null;
+          && this.platformPos.getZ() == restore.getZ()) {
+        ServerPlayer otherStanding = playerStandingOn(this.platformWorld, this.platformPos);
+        if (otherStanding != null && otherStanding != player) {
+          // Another player is standing on the temporary platform: removing it here would drop
+          // them. Leave it to the delayed restore (which re-checks occupancy) instead.
+          AuthCoreServer.LOGGER.debug(
+              false,
+              "Anti-float platform kept - {} is standing on it (deferred restore will re-check).",
+              otherStanding.getName().getString());
+        } else {
+          restorePlatformBlock(this.platformWorld, this.platformPos, this.platformOriginal, 0, false);
+          this.platformPos = null;
+          this.platformOriginal = null;
+          this.platformWorld = null;
+        }
       }
     }
 
-    if (player != null && this.snapshot != null) this.snapshot.reset(player);
-    else
+    if (player != null && this.snapshot != null) {
+      try {
+        this.snapshot.reset(player);
+      } catch (RuntimeException | LinkageError err) {
+        // A restore failure must never leave an authenticated player unguarded, airborne or
+        // restricted: log it (issue #11 wants this in latest.log, not only in debug mode) and run
+        // the safe-restore fallback. LinkageError covers the era-mismatch failures
+        // (NoSuchMethodError/NoSuchFieldError) that a cross-version build can hit.
+        AuthCoreServer.LOGGER.error(
+            false,
+            "{} | limbo restore failed - applying the safe-restore fallback: {}",
+            this.user.username,
+            String.valueOf(err));
+        safeRestoreFallback(player);
+      }
+    } else
       AuthCoreServer.LOGGER.debug(
           false,
           "{} left the lobby without a state restore (player or snapshot missing).",
@@ -663,7 +1059,7 @@ public class Lobby {
       long delay = Math.max(AuthCoreServer.config.lobby.antiFloatPlatformDelayMs, 1000);
       TaskScheduler.getInstance()
           .setTimeout(
-              () -> restorePlatformBlock(world, pos, original),
+              () -> restorePlatformBlock(world, pos, original, 0, true),
               delay);
     }
 
@@ -729,7 +1125,7 @@ public class Lobby {
             player,
             world,
             this.position.getX() + 0.5,
-            this.position.getY() + 0.5,
+            anchorFeetY(),
             this.position.getZ() + 0.5,
             in.potenfyr.authcore.compat.Compat.getYaw(player),
             in.potenfyr.authcore.compat.Compat.getPitch(player));
@@ -738,7 +1134,7 @@ public class Lobby {
     in.potenfyr.authcore.compat.Compat.correctClientPosition(
         player,
         this.position.getX() + 0.5,
-        this.position.getY() + 0.5,
+        anchorFeetY(),
         this.position.getZ() + 0.5,
         in.potenfyr.authcore.compat.Compat.getYaw(player),
         in.potenfyr.authcore.compat.Compat.getPitch(player));
@@ -759,10 +1155,24 @@ public class Lobby {
    * @return {@code true} if the player has moved beyond the tolerance on any axis.
    */
   public boolean isOutsideOfLobbyPos(double newX, double newY, double newZ) {
-    // Movement by jailed user event detection!
-    double oldX = this.user.player.get().getX();
-    double oldY = this.user.player.get().getY();
-    double oldZ = this.user.player.get().getZ();
+    // Compare against the ANCHOR - never the LIVE entity position. The live position can itself
+    // have drifted (a guard miss, a lagging tick, another mod moving the entity), and comparing
+    // against it would let successive sub-0.5 packets walk the player away one tolerated step at
+    // a time.
+    double oldX;
+    double oldY;
+    double oldZ;
+    if (this.position != null) {
+      oldX = this.position.getX() + 0.5;
+      oldY = anchorFeetY();
+      oldZ = this.position.getZ() + 0.5;
+    } else {
+      ServerPlayer player = this.user.player.get();
+      if (player == null) return false;
+      oldX = player.getX();
+      oldY = player.getY();
+      oldZ = player.getZ();
+    }
 
     // Sub-block position jitter is not a violation (client sync)
     return (Math.abs(newX - oldX) > 0.5)
@@ -788,8 +1198,10 @@ public class Lobby {
    */
   public boolean isFarFromLobbyPos(double x, double y, double z, double radius) {
     if (this.position == null) return false;
+    // X/Z are the block CENTRE (the anchor teleport centres the player in the column), Y is the
+    // exact feet height - the same convention the anchor teleport uses.
     double dx = x - (this.position.getX() + 0.5);
-    double dy = y - (this.position.getY() + 0.5);
+    double dy = y - anchorFeetY();
     double dz = z - (this.position.getZ() + 0.5);
     return (dx * dx + dy * dy + dz * dz) > (radius * radius);
   }
@@ -883,6 +1295,17 @@ public class Lobby {
     private final int totalXp;
 
     private final BlockPos blockPos;
+
+    /**
+     * The EXACT pre-lobby feet position. The block position alone loses the sub-block placement,
+     * and restoring a player to the block centre (+0.5 on every axis) pushed their head into the
+     * ceiling of every two-block-high space (doorways, mineshaft tunnels) and embedded the feet in
+     * partial blocks - both suffocation hazards the block-centre restore created itself.
+     */
+    private final double x;
+    private final double y;
+    private final double z;
+
     private final float health;
 
     private final Object dimensionKey;
@@ -913,6 +1336,9 @@ public class Lobby {
 
       // --- POSITION & DIMENSION ---
       this.blockPos = player.blockPosition();
+      this.x = player.getX();
+      this.y = player.getY();
+      this.z = player.getZ();
       this.dimensionKey =
           in.potenfyr.authcore.compat.Compat.worldRegistryKey(
               in.potenfyr.authcore.compat.Compat.playerLevel(player));
@@ -1088,7 +1514,9 @@ public class Lobby {
       // them on a failed world lookup left logged-in players stuck in the limbo dimension in
       // Adventure mode, unable to attack or break blocks.
       if (world != null) {
-        this.teleport(player, this.blockPos, world);
+        // Restore the EXACT feet position (see {@link #x}/{@link #y}/{@link #z}); the safe-landing
+        // pass below only moves the player when that exact spot is genuinely unsafe.
+        teleportExact(player, world, this.x, this.y, this.z, this.blockPos);
 
         // --- SAFE RESTORE (flying / riding / swimming) ---
         // The player must NEVER die or be stranded by the restore itself:
@@ -1122,7 +1550,11 @@ public class Lobby {
       in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
 
       // --- RESTORE HEALTH / FOOD ---
-      player.setHealth(health);
+      // A snapshot captured while the player was dead (health 0, e.g. they disconnected on the
+      // death screen) must never be restored verbatim: the player would authenticate at 0 HP and
+      // the very first point of damage would kill them again - the "died right after logging in"
+      // report of issue #11. Clamp to a living value on the CURRENT max health.
+      player.setHealth(clampRestoredHealth(health, player.getMaxHealth()));
       player.getFoodData().setFoodLevel(foodLevel);
       player.getFoodData().setSaturation(saturation);
 
@@ -1141,16 +1573,39 @@ public class Lobby {
       // blindly restoring it would resurrect operator powers over a concurrent deop.
       if (this.operator && !ADMIN_DEOPS_DURING_LIMBO.remove(player.getUUID()))
         in.potenfyr.authcore.compat.Compat.addToOperators(server, player, this.opPermissionLevel);
+
+      // --- POST-RESTORE SAFETY WINDOW ---
+      // Whatever the geometry did, the restore itself must never be lethal: pin the fall distance
+      // for a few seconds and re-land the player if the landing was not resolvable (issue #11).
+      armRestoreGuard(player);
     }
 
     /**
      * Guarantees the restored player is on safe ground, in water, or flying-capable - never
      * falling, suffocating or stranded (handles flying/riding/swimming restore edge cases).
+     *
+     * <p>The landing is TOTAL: when the column below the restore position has no usable surface
+     * (a liquid or hazard column, a covered pocket, the void) the player is moved to the column's
+     * surface instead of being left in the air. Leaving them was the remaining hole of the 1.0.2
+     * fix - {@code getGroundBelow} returned {@code null}, no teleport was issued and the player
+     * fell from their logout height (issue #11 follow-up).
      */
-    private void safeLandIfNeeded(ServerPlayer player, ServerLevel world) {
+    private static void safeLandIfNeeded(ServerPlayer player, ServerLevel world) {
       try {
         // Spectators fly freely - never yank them to the ground.
         if (player.isSpectator()) return;
+
+        // If the restore teleport did not take effect the player is still in the limbo level, and
+        // the geometry under them belongs to a DIFFERENT world - never "land" them using it.
+        ServerLevel current = in.potenfyr.authcore.compat.Compat.playerLevel(player);
+        if (current == null || !current.dimension().equals(world.dimension())) {
+          AuthCoreServer.LOGGER.warn(
+              false,
+              "{} could not be restored into the original world - the landing pass was skipped "
+                  + "and the post-restore fall guard stays armed",
+              player.getName().getString());
+          return;
+        }
 
         boolean flying =
             in.potenfyr.authcore.compat.Compat.getAbilities(player) != null
@@ -1161,7 +1616,7 @@ public class Lobby {
         if (player.isInWall()) {
           BlockPos safe = getGroundAbove(world, player.blockPosition());
           if (safe != null) {
-            this.teleport(player, safe.above(), world);
+            teleport(player, safe.above(), world);
             return;
           }
         }
@@ -1182,16 +1637,112 @@ public class Lobby {
             || hasSupport(player, world)) return;
         BlockPos ground = getGroundBelow(world, player.blockPosition());
         if (ground != null) {
-          this.teleport(player, ground.above(), world);
-          AuthCoreServer.LOGGER.debug(
-              false,
+          teleport(player, ground.above(), world);
+          // INFO on purpose: the owner asked for the restore path to be visible in latest.log
+          // when issue #11 recurs (the old line was DEBUG-only and never reached latest.log).
+          AuthCoreServer.LOGGER.info(
+              true,
               "{} was restored airborne - landed on safe ground at {}",
               player.getName().getString(),
               ground.above());
+          return;
         }
-      } catch (RuntimeException ignored) {
-        // safe-landing is best-effort - never break the unlock
+
+        // No usable landing below (liquid/hazard column, covered pocket or the void). Do NOT leave
+        // the player in the air: move them to the first safe position at/above the column surface.
+        BlockPos from = player.blockPosition();
+        BlockPos fallback = resolveRestoreFallback(world, from);
+        if (fallback != null) {
+          teleport(player, fallback, world);
+          double moved = Math.sqrt(from.distSqr(fallback));
+          if (moved > 32.0)
+            // A long move is better than a death, but it must be visible in the log: the player is
+            // being placed somewhere else entirely (lava sea, covered pocket, void column).
+            AuthCoreServer.LOGGER.warn(
+                false,
+                "{} was restored airborne with no landing below - moved {} blocks to the column "
+                    + "surface at {} (from {})",
+                player.getName().getString(),
+                String.valueOf(Math.round(moved)),
+                fallback,
+                from);
+          else
+            AuthCoreServer.LOGGER.info(
+                true,
+                "{} was restored airborne with no landing below - moved to the column surface at {}",
+                player.getName().getString(),
+                fallback);
+        } else {
+          AuthCoreServer.LOGGER.warn(
+              false,
+              "{} could not be placed on safe ground after the limbo restore - keeping the "
+                  + "post-restore fall guard armed (position {})",
+              player.getName().getString(),
+              player.blockPosition());
+        }
+      } catch (RuntimeException | LinkageError err) {
+        // safe-landing is best-effort - never break the unlock; the post-restore guard pins the
+        // fall distance and retries the landing, so a throw here cannot become a fall death.
+        AuthCoreServer.LOGGER.warn(
+            false, "safe-landing failed: {}", String.valueOf(err));
       }
+    }
+
+    /**
+     * Fallback landing used when the restore column has no usable surface below the player: the
+     * first safe standing position at or above the column's motion-blocking surface, preferring a
+     * water surface (water cancels fall damage) over anything hazardous, and finally the world
+     * spawn. Never teleports a player into lava, fire, cactus or the void.
+     *
+     * @return the standing position to teleport to (feet exactly there), or {@code null}
+     */
+    private static BlockPos resolveRestoreFallback(ServerLevel world, BlockPos origin) {
+      if (world == null || origin == null) return null;
+      final int x = origin.getX();
+      final int z = origin.getZ();
+      final int bottom = in.potenfyr.authcore.compat.Compat.getBottomY(world);
+      final int top = in.potenfyr.authcore.compat.Compat.getMaxBuildHeight(world);
+      int surface = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+      if (surface < bottom) surface = bottom;
+      for (int y = surface; y <= top; y++) {
+        // NOTE: this is a FEET position (the restore teleport adds the +0.5 offset itself), so the
+        // solid ground must be the block BELOW it - returning the ground block here would embed the
+        // player half a block inside the terrain.
+        BlockPos feet = new BlockPos(x, y, z);
+        BlockState below = world.getBlockState(feet.below());
+        // Standing on water is safe (water cancels fall damage and the player swims); lava/fire are
+        // not - keep scanning upwards instead of dropping the player into them.
+        if (!below.getFluidState().isEmpty()) {
+          // Water is safe to stand on - but only if the feet cell itself has room (a water
+          // surface under a low ceiling must not swallow the player).
+          if (below.getFluidState().is(net.minecraft.tags.FluidTags.WATER)
+              && hasPlayerClearance(world, feet)) return feet;
+          continue;
+        }
+        if (isBlockSafe(world, feet.below())) return feet;
+      }
+      // Last resort: the world spawn column (still validated, never blindly used).
+      BlockPos spawn = in.potenfyr.authcore.compat.Compat.sharedSpawnPos(world);
+      if (spawn != null && isBlockSafe(world, spawn.below())) return spawn;
+      return null;
+    }
+
+    /**
+     * Clamps a snapshot health value to something a living player may be restored to.
+     *
+     * <p>Pure so the host test suite can pin the behaviour: a corrupted or stale snapshot (NaN, 0,
+     * negative, absurdly large) must never restore a dead player as "alive but at 0 HP" - where the
+     * first point of damage kills them again (issue #11) - and never grant above the current max
+     * health either.
+     *
+     * @param snapshotHealth the health captured before the limbo
+     * @param maxHealth the player's CURRENT max health
+     * @return a finite health value in {@code [1, maxHealth]}
+     */
+    public static float clampRestoredHealth(float snapshotHealth, float maxHealth) {
+      float max = Float.isFinite(maxHealth) && maxHealth > 0.0F ? maxHealth : 20.0F;
+      if (!Float.isFinite(snapshotHealth) || snapshotHealth <= 0.0F) return max;
+      return Math.min(Math.max(snapshotHealth, 1.0F), max);
     }
 
     /**
@@ -1281,26 +1832,81 @@ public class Lobby {
     }
 
     /**
-     * Internal helper to execute the player teleportation with consistent offsets.
+     * Teleports the player so their FEET sit exactly on the bottom edge of {@code pos}.
+     *
+     * <p>{@code pos} is always a feet block (the block the player's legs occupy), never the ground
+     * block below it - see {@link #getTeleportPos}. The vertical offset is deliberately 0: the old
+     * {@code +0.5} placed the player half a block ABOVE the surface, so the client fell those 0.5
+     * blocks and the lobby movement guard (which compares against the anchor) snapped it back on a
+     * loop - the player was permanently falling/jumping in the limbo even when a block was right
+     * under them. Restoring the exact surface also removes the same 0.5-block drop from the
+     * post-login restore.
      *
      * @param player The player to teleport.
-     * @param pos The target block position.
+     * @param pos The target FEET block position.
      * @param world The target world.
      */
-    private void teleport(ServerPlayer player, BlockPos pos, ServerLevel world) {
+    private static void teleport(ServerPlayer player, BlockPos pos, ServerLevel world) {
       boolean ok =
           in.potenfyr.authcore.compat.Compat.teleport(
               player,
               world,
               pos.getX() + 0.5,
-              pos.getY() + 0.5,
+              exactFeetY(world, pos),
               pos.getZ() + 0.5,
               in.potenfyr.authcore.compat.Compat.getYaw(player),
               in.potenfyr.authcore.compat.Compat.getPitch(player));
-      if (!ok)
+      if (ok) {
+        // A restore teleport must never carry a fall distance: vanilla turns the distance
+        // accumulated since the last ground contact into fall damage on the next landing, and the
+        // limbo position is not where the player is being restored to (issue #11).
+        in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
+      } else
         AuthCoreServer.LOGGER.debug(
             false, "Lobby teleport failed for {} - teleport API unavailable on this version.",
             player.getName().getString());
+    }
+
+    /**
+     * Exact feet height for a FEET block: the top of the support collision shape directly below it.
+     *
+     * <p>Full blocks put the feet exactly on the block floor, but partial supports (slabs, stairs,
+     * carpets, snow layers, farmland, dirt paths) are walked on at their shape top above the block
+     * floor. Using the block floor for those left the player half a block inside the support - and
+     * when the lobby anchor/guard disagreed about the height it re-teleported the player every tick
+     * (the "endlessly falling/jumping in the limbo" report).
+     */
+    public static double exactFeetY(ServerLevel world, BlockPos feetBlock) {
+      if (world == null || feetBlock == null) return 0.0;
+      BlockPos support = feetBlock.below();
+      BlockState state = world.getBlockState(support);
+      net.minecraft.world.phys.shapes.VoxelShape shape = state.getCollisionShape(world, support);
+      if (shape.isEmpty()) return feetBlock.getY();
+      double top = shape.max(net.minecraft.core.Direction.Axis.Y);
+      if (!(top > 0.0)) return feetBlock.getY();
+      return support.getY() + Math.min(top, 1.0);
+    }
+
+    /**
+     * Teleports to an EXACT stored position (not the block centre), falling back to the block-centre
+     * teleport when the exact call is unavailable on this runtime.
+     */
+    private static void teleportExact(
+        ServerPlayer player, ServerLevel world, double x, double y, double z, BlockPos fallback) {
+      boolean ok =
+          in.potenfyr.authcore.compat.Compat.teleport(
+              player,
+              world,
+              x,
+              y,
+              z,
+              in.potenfyr.authcore.compat.Compat.getYaw(player),
+              in.potenfyr.authcore.compat.Compat.getPitch(player));
+      if (ok) {
+        in.potenfyr.authcore.compat.Compat.setFallDistance(player, 0);
+        return;
+      }
+      teleport(player, fallback, world);
     }
 
     /**
@@ -1373,6 +1979,13 @@ public class Lobby {
         if (safe != null) candidate = safe.above();
       }
 
+      // Every teleport target is a FEET block: the block the player's legs occupy, with the ground
+      // directly below it. A candidate that is itself standable is a GROUND block (the configured
+      // limbo can point straight at the floor) - the feet belong one block above it. The old code
+      // relied on the teleport's +0.5 offset to compensate, which left the player embedded in / half
+      // a block above the surface and produced the endless limbo fall-and-snap loop.
+      if (isBlockSafe(world, candidate)) candidate = candidate.above();
+
       return candidate;
     }
 
@@ -1402,15 +2015,17 @@ public class Lobby {
     /**
      * Searches downwards for the nearest safe landing surface.
      *
-     * <p>Descends from the feet: air and non-solid decoration (tall grass, flowers, torches,
-     * cobwebs...) are passed through, a fluid stops the search (the player lands in it naturally
-     * and water cancels fall damage), and the first solid surface is the landing - provided the
-     * player fits on top of it. Reaching the world bottom means the void, i.e. no landing.
+     * <p>Descends from the feet: air, non-solid decoration (tall grass, flowers, torches,
+     * cobwebs...) and the temporary anti-float barrier are passed through / rejected, lava and
+     * other hazards stop the search, and the first standable surface the player fits on is the
+     * landing. A fluid stops the search as well - water is safe to fall into, lava is not, so the
+     * caller's fallback ({@link #resolveRestoreFallback}) moves the player to a safe surface instead
+     * of leaving them in the air.
      *
      * @return the standable block (the caller teleports to {@code ground.above()}), or
      *     {@code null} when there is no safe landing below.
      */
-    private BlockPos getGroundBelow(ServerLevel world, BlockPos origin) {
+    private static BlockPos getGroundBelow(ServerLevel world, BlockPos origin) {
       final int x = origin.getX();
       final int z = origin.getZ();
       Integer groundY =
@@ -1420,6 +2035,12 @@ public class Lobby {
               y -> {
                 BlockPos pos = new BlockPos(x, y, z);
                 BlockState state = world.getBlockState(pos);
+                // Never teleport the player onto (or through) the temporary anti-float platform.
+                if (state.is(Blocks.BARRIER)) return GroundType.BLOCKED;
+                // A hazard surface (fire, cactus, magma, campfire..., and lava which is a fluid and
+                // therefore lethal) is never a landing: the whole point of the restore landing is
+                // that the player does not get hurt by it.
+                if (isHazardBlock(state)) return GroundType.BLOCKED;
                 if (isStandable(world, pos, state))
                   return isBlockSafe(world, pos) ? GroundType.LANDING : GroundType.BLOCKED;
                 if (!state.getFluidState().isEmpty()) return GroundType.FLUID;
@@ -1427,6 +2048,20 @@ public class Lobby {
                 return GroundType.PASSABLE;
               });
       return groundY == null ? null : new BlockPos(x, groundY, z);
+    }
+
+    /**
+     * Whether the block hurts a player that lands on it (or stands in it). Kept deliberately small
+     * and version-safe: only blocks that exist in every supported era (1.16+).
+     */
+    private static boolean isHazardBlock(BlockState state) {
+      if (state == null) return false;
+      return state.is(Blocks.FIRE)
+          || state.is(Blocks.SOUL_FIRE)
+          || state.is(Blocks.CACTUS)
+          || state.is(Blocks.MAGMA_BLOCK)
+          || state.is(Blocks.CAMPFIRE)
+          || state.is(Blocks.SOUL_CAMPFIRE);
     }
 
     /** What a single block in a vertical column means for {@link #findGroundBelow}. */
@@ -1482,7 +2117,7 @@ public class Lobby {
      *
      * @return The ground position, or {@code null} if the build limit is reached.
      */
-    private BlockPos getGroundAbove(ServerLevel world, BlockPos origin) {
+    private static BlockPos getGroundAbove(ServerLevel world, BlockPos origin) {
       BlockPos.MutableBlockPos check = origin.mutable();
 
       int topY =
@@ -1499,6 +2134,10 @@ public class Lobby {
 
     /** Whether a block can be stood on (full collision or a known standable shape). */
     private static boolean isStandable(ServerLevel world, BlockPos pos, BlockState state) {
+      // AuthCore's own anti-float platform is temporary (removed seconds after the auth flow): it
+      // must never be selected as a landing surface anywhere, or the player is dropped when it
+      // disappears (issue #11 follow-up).
+      if (state.is(Blocks.BARRIER)) return false;
       return state.canOcclude()
           || state.getBlock() instanceof LeavesBlock
           || state.getBlock() instanceof CarpetBlock
@@ -1519,19 +2158,59 @@ public class Lobby {
      * Validates if a block position is safe for a player to stand on without suffocating or
      * falling.
      *
+     * <p>Headroom is decided by COLLISION SHAPES, never by {@code isAir()}: vanilla only needs two
+     * collision-free blocks of space for the 1.8-block-tall body, so tall grass, flowers, torches,
+     * rails, signs, carpets and snow layers are perfectly safe to stand in. Requiring strict air
+     * made every DECORATED surface below the restore position classify as BLOCKED,
+     * {@code findGroundBelow} return {@code null} and the player stay in the air - the remaining
+     * cause of the issue #11 reopen (players logging out mid-air over grass/flowers were dropped
+     * from their logout height instead of being landed).
+     *
      * @return {@code true} if the block and the two blocks above it allow for safe standing.
      */
-    private boolean isBlockSafe(ServerLevel world, BlockPos pos) {
-
+    private static boolean isBlockSafe(ServerLevel world, BlockPos pos) {
+      if (world == null || pos == null) return false;
       BlockState state = world.getBlockState(pos);
+      // Hazard blocks are never a landing: cactus/magma/campfire hurt on contact and fire burns.
+      // The post-restore guard only pins FALL damage, so a hazard landing is still a restore death.
+      if (isHazardBlock(state)) return false;
+      if (isHazardBlock(world.getBlockState(pos.above()))) return false;
+      if (isHazardBlock(world.getBlockState(pos.above(2)))) return false;
+      return isStandable(world, pos, state)
+          && hasPlayerClearance(world, pos.above())
+          // The HEAD cell must be fully collision-free: the body is 1.8 blocks tall, so a second
+          // shallow partial shape there (stacked carpet/snow) squeezes it even though each cell
+          // looks "shallow" on its own.
+          && hasCollisionFreeSpace(world, pos.above(2));
+    }
 
-      boolean standable = isStandable(world, pos, state);
+    /** Whether a block has no collision shape at all. */
+    private static boolean hasCollisionFreeSpace(ServerLevel world, BlockPos pos) {
+      if (world == null || pos == null) return false;
+      return world.getBlockState(pos).getCollisionShape(world, pos).isEmpty();
+    }
 
-      // Must have air above for head + body
-      boolean headroom =
-          world.getBlockState(pos.above()).isAir() && world.getBlockState(pos.above(2)).isAir();
+    /**
+     * Whether a player can occupy the block without suffocating: the block has no collision shape,
+     * or only a shallow partial shape (snow layer, carpet, slab...) that vanilla simply pushes the
+     * player up onto.
+     */
+    private static boolean hasPlayerClearance(ServerLevel world, BlockPos pos) {
+      if (world == null || pos == null) return false;
+      BlockState state = world.getBlockState(pos);
+      net.minecraft.world.phys.shapes.VoxelShape shape = state.getCollisionShape(world, pos);
+      if (shape.isEmpty()) return true;
+      return isClearanceHeight(shape.max(net.minecraft.core.Direction.Axis.Y));
+    }
 
-      return standable && headroom;
+    /**
+     * Pure threshold used by {@link #hasPlayerClearance}: a collision shape up to this height is a
+     * partial block (snow layer, carpet, slab, flower bed) that vanilla pushes the player up onto,
+     * so it never blocks a landing. Public so the host test suite can pin the exact numbers that
+     * made decorated ground classify as "blocked" before the fix (issue #11 reopen).
+     */
+    public static boolean isClearanceHeight(double collisionMaxY) {
+      return collisionMaxY <= 0.6D;
     }
   }
 }

@@ -55,6 +55,8 @@ public final class SelfTest {
     checks.add(checkRateLimiterEviction());
     checks.add(checkGroundResolverDummy());
     checks.add(checkSupportGeometryDummy());
+    checks.add(checkRestoreHealthClamp());
+    checks.add(checkLandingClearance());
     checks.add(checkConfigLoaded());
     checks.add(checkSessionFlowSimulation(server));
     checks.add(checkProxyGateSimulation());
@@ -197,6 +199,73 @@ public final class SelfTest {
           "supported=" + supported + " unsupported=" + unsupported + " one-lower=" + oneLower);
     } catch (Throwable err) {
       return new Check("support-geometry-dummy", false, describe(err));
+    }
+  }
+
+  /**
+   * Pure landing clearance rule (issue #11 follow-up): headroom is decided by collision height, not
+   * by air. A decorated surface (tall grass, flowers, torches, snow layers, carpets, slabs) must
+   * still count as a usable landing - requiring strict air made every such landing "blocked", so a
+   * mid-air restore found no ground and the player fell to their death.
+   */
+  private static Check checkLandingClearance() {
+    try {
+      boolean noCollision = Lobby.Snapshot.isClearanceHeight(0.0D);
+      boolean snowLayer = Lobby.Snapshot.isClearanceHeight(0.125D);
+      boolean carpet = Lobby.Snapshot.isClearanceHeight(0.0625D);
+      boolean slab = Lobby.Snapshot.isClearanceHeight(0.5D);
+      boolean threshold = Lobby.Snapshot.isClearanceHeight(0.6D);
+      boolean fullBlock = !Lobby.Snapshot.isClearanceHeight(1.0D);
+      boolean tallPartial = !Lobby.Snapshot.isClearanceHeight(1.5D);
+      boolean ok =
+          noCollision
+              && snowLayer
+              && carpet
+              && slab
+              && threshold
+              && fullBlock
+              && tallPartial;
+      return new Check(
+          "landing-clearance",
+          ok,
+          "empty=" + noCollision + " snow=" + snowLayer + " carpet=" + carpet + " slab=" + slab
+              + " threshold=" + threshold + " full=" + fullBlock + " tall=" + tallPartial);
+    } catch (Throwable err) {
+      return new Check("landing-clearance", false, describe(err));
+    }
+  }
+
+  /**
+   * Pure restore-health clamp (issue #11 follow-up): a snapshot captured while the player was dead
+   * must never be restored verbatim, and a corrupted value must never grant above max health.
+   */
+  private static Check checkRestoreHealthClamp() {
+    try {
+      boolean deadSafe = Lobby.Snapshot.clampRestoredHealth(0.0F, 20.0F) == 20.0F;
+      boolean negativeSafe = Lobby.Snapshot.clampRestoredHealth(-4.0F, 20.0F) == 20.0F;
+      boolean nanSafe = Lobby.Snapshot.clampRestoredHealth(Float.NaN, 20.0F) == 20.0F;
+      boolean normalKept = Lobby.Snapshot.clampRestoredHealth(7.5F, 20.0F) == 7.5F;
+      boolean tinyClamped = Lobby.Snapshot.clampRestoredHealth(0.25F, 20.0F) == 1.0F;
+      boolean capped = Lobby.Snapshot.clampRestoredHealth(40.0F, 20.0F) == 20.0F;
+      boolean modifiedMax = Lobby.Snapshot.clampRestoredHealth(18.0F, 6.0F) == 6.0F;
+      boolean fallbackMax = Lobby.Snapshot.clampRestoredHealth(5.0F, 0.0F) == 5.0F;
+      boolean ok =
+          deadSafe
+              && negativeSafe
+              && nanSafe
+              && normalKept
+              && tinyClamped
+              && capped
+              && modifiedMax
+              && fallbackMax;
+      return new Check(
+          "restore-health-clamp",
+          ok,
+          "dead=" + deadSafe + " negative=" + negativeSafe + " nan=" + nanSafe
+              + " kept=" + normalKept + " tiny=" + tinyClamped + " capped=" + capped
+              + " max=" + modifiedMax + " bad-max=" + fallbackMax);
+    } catch (Throwable err) {
+      return new Check("restore-health-clamp", false, describe(err));
     }
   }
 

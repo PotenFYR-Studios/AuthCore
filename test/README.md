@@ -14,7 +14,7 @@ test/build.sh                          # build all variants (docker, temurin)
 test/run-security-tests.sh --migration # compile + run against newest built classes
 ```
 
-Coverage (229 checks): password hashing (all algorithms plus legacy/AuthMe import
+Coverage (248 checks): password hashing (all algorithms plus legacy/AuthMe import
 fallbacks), password generation, email recovery anti-abuse, rate limiter, proxy
 IP-forwarding spoof guard, trusted-proxy source + CIDR validation, Velocity modern
 forwarding (HMAC), proxy auth gate (fail-closed), proxy config parsing strictness,
@@ -54,9 +54,11 @@ intended:
   - web panel auth: unauthenticated request -> 401, valid bearer token -> 200
   - web panel CORS: a cross-origin request must NOT receive a wildcard grant
   - Discord linking: a bare link code without the real `discordId` is rejected
-  - in-mod simulation suite (`/authcore simulate`, owner-only and disabled by default, **18
+  - in-mod simulation suite (`/authcore simulate`, owner-only and disabled by default, **20
     checks**): real hash/verify with the configured algorithm, live `PASSWORD_HISTORY` round-trip on
     the actual database, rate-limiter eviction, landing/support geometry with dummy block columns,
+    the landing-clearance rule (decorated/partial blocks are landable, full blocks are not) and the
+    restore-health clamp (dead/NaN/oversized snapshot values),
     the config mapping, a join -> limbo -> guard session simulation (dummy user + real summoned
     entity targets), a proxy-gate simulation (dummy proxy config, session cache,
     fail-closed/fail-open), an SRG/Forge runtime simulation (dummy command sources with unreachable

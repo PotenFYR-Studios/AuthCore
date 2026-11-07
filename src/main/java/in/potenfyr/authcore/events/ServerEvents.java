@@ -367,6 +367,14 @@ public class ServerEvents {
     // Establish connection
     user.connect(connection);
 
+    // Limbo crash recovery FIRST: a leftover snapshot means the previous limbo session ended
+    // without a clean unlock (server crash / kill). It must be restored and deleted before ANY
+    // authentication branch can return early (session resume, premium auto-login, kicks) -
+    // otherwise the crash-persisted limbo state (forced Adventure, emptied inventory, invulnerable)
+    // sticks in playerdata, and a later join that DOES reach the recovery reloads stale items over
+    // the live inventory (1.0.3 audit: soft-lock + item duplication).
+    recoverLimboSnapshot(player, username, uuid);
+
     // Per-IP allow/deny rules (ip-rules.conf)
     if (in.potenfyr.authcore.security.IpRules.isDenied(player.getIpAddress())) {
       SecurityLog.log("IP_DENIED", player.getIpAddress() + " | " + username + " blocked by ip-rules.conf");
@@ -702,13 +710,20 @@ public class ServerEvents {
       return;
     }
 
-    // Crash recovery: if a limbo snapshot file still exists for this player, the previous
-    // limbo session ended without a clean unlock (server crash). Restore the saved
-    // pre-limbo state BEFORE the fresh lobby lock captures it - otherwise the lock would
-    // capture the crash-persisted Adventure mode + emptied inventory and the player would
-    // stay stuck after logging in.
-    java.nio.file.Path snapshot = in.potenfyr.authcore.models.Lobby.snapshotFile(uuid);
-    if (java.nio.file.Files.exists(snapshot)) {
+    // Default: lock user in lobby (the crash recovery already ran right after User.connect)
+    user.lobby.lock();
+  }
+
+  /**
+   * Restores (and clears) a leftover limbo snapshot from an unclean shutdown.
+   *
+   * <p>Runs as the FIRST join step so no authentication shortcut can skip it.
+   */
+  private static void recoverLimboSnapshot(
+      ServerPlayer player, String username, java.util.UUID uuid) {
+    try {
+      java.nio.file.Path snapshot = in.potenfyr.authcore.models.Lobby.snapshotFile(uuid);
+      if (!java.nio.file.Files.exists(snapshot)) return;
       boolean restored = in.potenfyr.authcore.models.Lobby.restoreCrashSnapshot(player, snapshot);
       AuthCoreServer.LOGGER.warn(
           restored,
@@ -723,10 +738,9 @@ public class ServerEvents {
       } catch (java.io.IOException ignored) {
         // cleanup is best-effort
       }
+    } catch (RuntimeException | LinkageError ignored) {
+      // recovery is best-effort - a corrupt snapshot file must never block the join
     }
-
-    // Default: lock user in lobby
-    user.lobby.lock();
   }
 
   /** Player leave handler */
@@ -740,42 +754,46 @@ public class ServerEvents {
     JOINED_CONNECTIONS.remove(connection);
     ServerPlayer player = connection.player;
 
-    // Give back / remove any map image the player still holds BEFORE the player data is saved,
-    // so a normal disconnect can never persist the temporary map.
-    in.potenfyr.authcore.util.MapImageService.onPlayerLeave(player);
-
-    // Drop any pending action captcha (the single human verification).
-    in.potenfyr.authcore.security.ActionCaptcha.onLeave(player);
-
-    // Packet sequence tracking cleanup.
-    cleanupPacketTracking(connection);
-
-    // ClientGuard: drop the per-player profile.
-    in.potenfyr.authcore.security.ClientGuard.onLeave(player);
-
-    // Optional integrations: drop per-player caches.
-    in.potenfyr.authcore.integration.ModIntegrations.onLeave(player.getUUID());
-
-    // Drop the per-join premium-verification marker (vanilla Mojang session authentication).
-    in.potenfyr.authcore.AuthCoreServer.clearPremiumVerified(player.getUUID());
-
     UUID uuid = player.getUUID();
     String username = player.getName().getString();
     User user = User.getUser(username, uuid);
 
+    // Connection-identity guard FIRST. Under "kick-old" duplicate logins (and any window where two
+    // connections briefly share one User), the kicked OLD connection's disconnect event can arrive
+    // AFTER the new join already registered its fresh limbo: a stale teardown must not touch the
+    // NEW session's state - including the per-player caches below, which are keyed by UUID and
+    // would otherwise delete the new session's ClientGuard profile, map image, captcha state and
+    // premium marker.
+    boolean staleTeardown = user != null && user.connection != null && user.connection != connection;
+
+    if (!staleTeardown) {
+      // Give back / remove any map image the player still holds BEFORE the player data is saved,
+      // so a normal disconnect can never persist the temporary map.
+      in.potenfyr.authcore.util.MapImageService.onPlayerLeave(player);
+
+      // Drop any pending action captcha (the single human verification).
+      in.potenfyr.authcore.security.ActionCaptcha.onLeave(player);
+
+      // ClientGuard: drop the per-player profile.
+      in.potenfyr.authcore.security.ClientGuard.onLeave(player);
+
+      // Optional integrations: drop per-player caches.
+      in.potenfyr.authcore.integration.ModIntegrations.onLeave(player.getUUID());
+
+      // Drop the per-join premium-verification marker (vanilla Mojang session authentication).
+      in.potenfyr.authcore.AuthCoreServer.clearPremiumVerified(player.getUUID());
+    }
+
+    // Packet sequence tracking cleanup - keyed by CONNECTION, always safe to run.
+    cleanupPacketTracking(connection);
+
     if (user != null) {
 
       // Drop the join-time uuid alias (see User.connect): the account must remain reachable only
-      // through its canonical stored uuid once this session is gone.
-      user.releaseJoinUuid(uuid);
+      // through its canonical stored uuid once this session is gone. Skipped for a stale leave -
+      // a stale connection sharing the drifted uuid would drop the NEW session's alias.
+      if (!staleTeardown) user.releaseJoinUuid(uuid);
 
-      // Connection-identity guard: only the leave of the connection that OWNS the current
-      // session may tear it down. Under "kick-old" duplicate logins (and any window where
-      // two connections briefly share one User), the kicked OLD connection's disconnect
-      // event can arrive AFTER the new join already locked its fresh limbo - without this
-      // check that late event would unlock the new UNAUTHENTICATED player and restore
-      // pre-limbo state onto them (full bypass). A stale teardown only clears the caches.
-      boolean staleTeardown = user.connection != null && user.connection != connection;
       if (user.isInLobby.get()) {
         if (staleTeardown) {
           AuthCoreServer.LOGGER.debug(
@@ -840,6 +858,10 @@ public class ServerEvents {
 
     TpsManager.onTick();
     TaskScheduler.getInstance().onTick();
+
+    // Post-restore fall-safety windows (issue #11): pin the fall distance and re-land a player the
+    // limbo restore could not place on safe ground.
+    Lobby.tickRestoreGuards(server);
 
     // Action captcha progress measurement (per-tick physical task verification).
     in.potenfyr.authcore.security.ActionCaptcha.tickAll();

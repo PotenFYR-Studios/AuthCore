@@ -120,6 +120,12 @@ public final class AuthCoreApi {
   public static boolean login(UUID uuid) {
     User user = getUser(uuid);
     if (user == null) return false;
+    if (!onServerThread()) {
+      // Session mutations (unlock -> restore -> teleport) belong to the server thread. A plugin
+      // calling this from an async task would otherwise touch player state concurrently.
+      in.potenfyr.authcore.util.TaskScheduler.getInstance().setTimeout(() -> login(uuid), 0L);
+      return true;
+    }
     user.login(playerOf(user));
     return true;
   }
@@ -128,6 +134,10 @@ public final class AuthCoreApi {
   public static boolean logout(UUID uuid) {
     User user = getUser(uuid);
     if (user == null) return false;
+    if (!onServerThread()) {
+      in.potenfyr.authcore.util.TaskScheduler.getInstance().setTimeout(() -> logout(uuid), 0L);
+      return true;
+    }
     user.logout(AuthCoreServer.messages.promptUserSessionExpired);
     return true;
   }
@@ -136,9 +146,32 @@ public final class AuthCoreApi {
   public static boolean kickPlayer(UUID uuid, String reason) {
     User user = getUser(uuid);
     if (user == null || !user.isActive || user.connection == null) return false;
+    if (!onServerThread()) {
+      final String why = reason;
+      in.potenfyr.authcore.util.TaskScheduler.getInstance()
+          .setTimeout(() -> kickPlayer(uuid, why), 0L);
+      return true;
+    }
 
     user.connection.disconnect(in.potenfyr.authcore.compat.Compat.text(reason));
     return true;
+  }
+
+  /**
+   * Whether the caller already runs on the server thread.
+   *
+   * <p>The public API can be called from any thread (other plugins, async tasks). Player/session
+   * mutations - login/unlock/restore/teleport/kick - must run on the server thread, so those
+   * methods hop onto it instead of mutating state concurrently.
+   */
+  private static boolean onServerThread() {
+    net.minecraft.server.MinecraftServer server = AuthCoreServer.server;
+    if (server == null) return false;
+    try {
+      return server.isSameThread();
+    } catch (RuntimeException ignored) {
+      return false;
+    }
   }
 
   /** Sends a chat message to the player. */

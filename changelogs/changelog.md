@@ -4,11 +4,170 @@
 
 All notable changes to AuthCore, from the first alpha to the current release.
 
-[![Version](https://shieldcn.dev/badge/version-1.0.2-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
+[![Version](https://shieldcn.dev/badge/version-1.0.3-blue.svg)](https://github.com/PotenFYR-Studios/AuthCore/releases) [![Build](https://shieldcn.dev/github/ci/PotenFYR-Studios/AuthCore.svg)](https://github.com/PotenFYR-Studios/AuthCore/actions) [![Back to README](https://shieldcn.dev/badge/%F0%9F%93%9A-Back_to_README-5865F2.svg)](https://github.com/PotenFYR-Studios/AuthCore/blob/main/README.md)
 
 </div>
 
 ---
+
+## [1.0.3] - 2026-11-07
+
+> Follow-up to the issue #11 reopen ("I used the new version and it happened again - there
+> wasn't any death message"). Root-cause analysis of what the 1.0.2 safe-landing fix still
+> missed, the remaining restore-death holes, the limbo anchor fall/snap loop, and the
+> diagnostics that make the next report actionable.
+
+### The limbo restore can no longer kill the player
+
+- **The landing is now total.** `getGroundBelow` returns `null` when the column under the
+  restore position has no usable surface - a liquid or hazard floor, a covered pocket (standable
+  block without the two blocks of headroom the player needs) or the void. The 1.0.2 restore
+  treated that as "nothing to do" and left the player exactly where they were, falling from their
+  logout height; that is the remaining way the restore itself could kill. The restore now falls
+  back to the first safe standing position at or above the column's motion-blocking surface
+  (preferring a water surface, which cancels fall damage, and never lava/fire/cactus/magma/
+  campfire) and finally to the world spawn, and it logs the move at **INFO** so it appears in
+  `latest.log`.
+- **Decorated ground is landable again - the real reason the 1.0.2 landing almost never fired.**
+  The headroom check required strict AIR above the landing block, but vanilla only needs two
+  collision-free blocks for the 1.8-block-tall body: tall grass, flowers, torches, rails, signs,
+  snow layers, carpets and slabs are all safe to stand in/on. Every restore above such a surface
+  classified as `BLOCKED`, the resolver returned `null` and the player was left in the air - which
+  is exactly the grass/flower terrain the reopened screenshot shows. Headroom is now decided by
+  collision height (partial shapes up to 0.6 are landable, full blocks are not).
+- **Landings work in the deep world (Y < 0).** `Compat.getBottomY` reflected
+  `Level.getBottomY`, a method the unobfuscated 26.x era no longer has (it is `getMinY`
+  there), so it silently returned `0`: every landing search below Y=0 found nothing and every
+  mid-air restore in the modern deep world was left falling. `getBottomY`/`getMaxBuildHeight`
+  now resolve the whole rename chain (`getMinY`/`getMaxY`/`getHeight` and the older names).
+- **The restore puts the player back at their EXACT saved position.** The snapshot only stored the
+  block position and restored to the block CENTRE (+0.5 on every axis), which pushed the head into
+  the ceiling of every two-block-high space (doorways, mineshaft tunnels) and embedded the feet in
+  partial blocks. The exact feet coordinates are captured now; the safe-landing pass only moves the
+  player when that exact spot is genuinely unsafe.
+- **The temporary anti-float platform is never ground.** The barrier is excluded from every landing
+  surface (it has a full collision shape, so the old resolver happily landed players on it and
+  dropped them when it was removed), and the per-session limbo anchor is reset on lock - a reused
+  `Lobby` instance used to keep the previous session's anchor, so the platform was placed (and the
+  unlock comparison made) against stale coordinates.
+- **Fall distance is pinned across every restore teleport and for four seconds afterwards.** Every
+  restore teleport now zeroes the fall distance immediately (not only at the end of the restore),
+  and a short post-restore safety window keeps it pinned to zero and re-lands a player the landing
+  pass could not resolve. Vanilla turns the distance accumulated since the last ground contact into
+  fall damage on the next landing, so this makes "the restore dealt fall damage" impossible even
+  when a geometry probe is wrong (chunk still loading, hazard floor, rubber-band after the
+  teleport).
+- **Hazard floors are never used as a landing.** Fire, soul fire, cactus, magma blocks and
+  campfires are treated as a blocked column instead of a standable surface, so a restore can never
+  place a player on a block that damages them on arrival.
+- **Restored health is clamped.** A snapshot captured while the player was dead (health 0, e.g.
+  they disconnected on the death screen) used to be restored verbatim, leaving an authenticated
+  player at 0 HP where the first point of damage kills them - the "died right after logging in"
+  pattern. Restored health is now clamped to `[1, max health]` (NaN/negative/absurd values fall
+  back to max health).
+- **The temporary anti-float platform can no longer drop a player.** The platform in the restore
+  column is removed before the restore teleport (not only when it happens to sit within two blocks
+  of the saved Y), and the delayed restore of the original block is deferred - bounded - while a
+  player is still standing on it, instead of deleting the block underneath them.
+- **The restore is exception-safe.** A failure inside `Snapshot#reset` no longer leaves the player
+  unguarded, restricted or airborne: the error is logged and the safe-restore fallback lands the
+  player, zeroes the fall distance and arms the safety window.
+- **The restore is visible in `latest.log`.** The "landed on safe ground" line was DEBUG-only and
+  never reached `latest.log` unless AuthCore debug mode was on; the noteworthy restore outcomes
+  (landed, moved to the column surface, could not be placed, restore failed) are now logged at
+  INFO/WARN.
+
+### Limbo anchor: no more perpetual falling/jumping
+
+- **The limbo no longer leaves the player half a block above the surface.** The anchor teleport
+  placed the player's feet at `blockY + 0.5`, so the client fell those 0.5 blocks and the movement
+  guard (which compares the client against the anchor) snapped it back - a permanent fall/snap loop
+  that looked like the player was endlessly jumping or falling even with a block right under them.
+  Teleport targets are now FEET blocks and the vertical offset is exact (0), both for the limbo
+  anchor and for the post-login restore, and the movement guard compares Y against the same exact
+  height.
+- **The limbo anchor is normalised to a feet position.** A configured limbo location that points
+  straight at the floor produced a `candidate` that was itself a standable block - the old code
+  relied on the +0.5 offset to compensate and could leave the player embedded in the ground.
+- **The anti-float platform no longer replaces real ground.** It is only placed when the player
+  really has nothing solid below (air/water), never over a solid block - which removes the
+  "floating over an invisible hole" look and the vanilla "standing on air - force-sending blocks
+  below" warning on a normal limbo anchor.
+
+### Death diagnostics - the "no death message" mystery
+
+- **Servers with `/gamerule showDeathMessages false` send an EMPTY death message.** Vanilla's
+  `ServerPlayer#die` sends `ClientboundPlayerCombatKillPacket(id, CommonComponents.EMPTY)` in
+  that branch and broadcasts nothing, so the death screen shows no cause line (exactly the
+  screenshot on the issue) and the chat stays silent. That was never caused by AuthCore - but it
+  is why the report could not say what killed the player.
+- **New death diagnostic.** Every player death now writes one INFO line to the server log with the
+  real damage type, attacker type, position, dimension, health, fall distance and limbo state, plus
+  a WARN line when the death happened inside the post-restore safety window (i.e. when the restore
+  is actually involved). This survives `showDeathMessages=false` and makes the next occurrence
+  diagnosable from `latest.log` alone.
+
+### Tests
+
+- `/authcore simulate` gains two pure checks - `landing-clearance` (decorated/partial blocks are
+  landable, full blocks are not) and `restore-health-clamp` (dead/negative/NaN/oversized snapshot
+  values) - bringing the in-mod suite to **20/20**.
+
+---
+
+### Hardening from the 1.0.3 edge/race/bypass audit
+
+- **Admin permission resolution no longer fails open (critical).** The player was resolved through
+  mojmap-only reflection, which does not resolve on the production runtimes of the older jars
+  (intermediary on Fabric, SRG on Forge), so `hasForSource` fell through to its console fallback
+  and **any** player - including one sitting in the limbo - passed every `/authcore` admin
+  `requires`. The source's entity is now read with a direct, build-remapped
+  `CommandSourceStack#getEntity()` call, and the permission level is checked against the SOURCE
+  itself with the era's own API (`hasPermission(int)` on 1.16-1.20.4, the `PermissionSet` API on
+  1.21.11/26.x). The console (and command blocks) keep working. On a runtime where neither the
+  source-level nor the player-level API can resolve, admin commands are now **denied** (fail closed)
+  - use LuckPerms (node check, direct API, works everywhere) or the console there.
+- **`lock()` publishes the limbo entry first and fails closed.** `isInLobby` is defined as map
+  membership, so a throw between the snapshot and the previously-late registration left an ACTIVE,
+  unauthenticated player outside the limbo where `isAuthenticated` reads true and every guard
+  fast-paths out (free roam). The entry is now reserved first; any failure unwinds it, cancels the
+  armed tasks and kicks the player. A leaked entry from an earlier session is replaced instead of
+  permanently marking the account "in limbo".
+- **`unlock()` is ownership-checked**: a stale or second unlock can no longer delete a newer
+  session's limbo entry or restore an old snapshot over it.
+- **A stale connection's leave no longer tears down the NEW session.** `onPlayerLeave` now computes
+  the stale-connection decision before the per-player cache teardown, so a kicked old connection can
+  no longer delete the new session's ClientGuard profile, map image, captcha state, premium marker
+  or join-UUID alias.
+- **Limbo crash recovery runs before any authentication shortcut.** A leftover snapshot (unclean
+  shutdown) is restored and deleted right after `User.connect`, so session-resume / premium
+  auto-login cannot skip it (stale forced-Adventure playerdata, and re-loading a stale inventory
+  over the live one - item duplication).
+- **Movement guard compares the ANCHOR, not the live entity position** - successive sub-0.5 packets
+  can no longer walk the server entity away one tolerated step at a time.
+- **Block interaction has a packet-level fallback** (`handleUseItemOn`), so the lobby stays closed
+  even if the `ServerPlayerGameMode` inject silently misses on a future signature.
+- **Off-thread state mutations removed**: the public API (`login`/`logout`/`kickPlayer`) and the
+  Redis event-bus kick now hop onto the server thread instead of touching session/connection state
+  from arbitrary threads.
+- **`forceCloseInventory` also closes the server-side menu**, so a container opened before the lock
+  can no longer be fed by hopper/dispenser logic while the player is unauthenticated.
+- **Edge-case fixes from the same audit**: hazard blocks (fire/cactus/magma/campfire) are rejected
+  as landings everywhere (not only in the primary resolver); the limbo anchor and the restore use
+  the **exact support height** (slabs/carpets/snow/stairs no longer embed or re-trigger the
+  guard); `LinkageError` (NoSuchMethodError - the issue #10 failure class) is handled on every
+  restore path; a BARRIER is never "real ground" for the platform bookkeeping; the fallback landing
+  validates the feet cell and warns when it has to move a player far; the death diagnostic keeps a
+  2-minute restore-attribution window; the post-restore guard refuses to re-land across
+  dimensions; the head cell needs full collision clearance; and `getMaxBuildHeight` no longer
+  mis-converts the `getHeight()` length on runtimes without the other accessors.
+- **Known limitations (documented, not fixed in this patch):** the single 1.19-1.21 jar is built
+  against 1.21.11, so a handful of era-gated guards (legacy `handlePickItem`, the 1.19 portal
+  driver name, `deop(GameProfile)` tracking, the 2-arg `startRiding`) only apply on the build-era
+  runtime; limbo mixins use `require = 0` so a future signature change degrades to "unguarded"
+  instead of crashing (no boot-time applied-injection audit yet); the proxy gates keep their
+  fail-open early returns for unresolvable targets; and the detection signals (packet sequencing,
+  captcha, brand) remain advisory by design.
 
 ## [1.0.2] - 2026-11-02
 

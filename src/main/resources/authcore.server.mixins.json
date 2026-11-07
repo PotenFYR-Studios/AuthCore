@@ -26,6 +26,7 @@
     "ServerPlayNetworkHandlerMixin",
     "ServerInteractPacketMixin",
     "ServerPlayerCombatMixin",
+    "ServerPlayerDeathMixin",
     "ServerPremiumVerificationMixin"
   ],
   "injectors": {
