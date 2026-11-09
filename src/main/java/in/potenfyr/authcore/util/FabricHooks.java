@@ -284,10 +284,11 @@ public final class FabricHooks {
             || in.potenfyr.authcore.events.ServerEvents.fabricTickActive;
 
     // Fabric server WITHOUT fabric-api: the mixin fallbacks (ServerEventsFallbackMixin)
-    // keep the join/leave/tick flow working, so the auth limbo still applies.
-    if (!anyRegistered
-        && in.potenfyr.authcore.compat.Compat.getLoaderVersion() != null
-        && !in.potenfyr.authcore.compat.Compat.getLoaderVersion().startsWith("FML")) {
+    // keep the join/leave/tick flow working, so the auth limbo still applies. Only a FABRIC
+    // server can lack fabric-api - telling a Forge/NeoForge admin to install it was wrong
+    // (the old check compared the loader string against "FML", which no loader reports).
+    String loader = in.potenfyr.authcore.compat.Compat.getLoaderVersion();
+    if (!anyRegistered && loader != null && loader.startsWith("Fabric Loader")) {
       in.potenfyr.authcore.AuthCoreServer.LOGGER.warn(
           false,
           "Fabric API was not found - using mixin fallbacks for join/leave/tick. "

@@ -203,8 +203,11 @@ public final class WebPanel {
       ks.store(out, password.toCharArray());
     }
 
-    AuthCoreServer.LOGGER.warn(
-        false,
+    // First boot: a self-signed certificate is the expected outcome, not a problem - INFO (and
+    // always visible) so it never trips the harness' "no warnings in the log" gate, and operators
+    // still learn that the browser needs an exception for it.
+    AuthCoreServer.LOGGER.info(
+        true,
         "Generated a self-signed certificate for the web panel: {} - add an exception in your browser!",
         target);
     AuthCoreServer.LOGGER.info(

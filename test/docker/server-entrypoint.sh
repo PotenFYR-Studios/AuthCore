@@ -208,6 +208,8 @@ session {
     enabled=true
     host="127.0.0.1"
     port=25670
+    https-enabled=true
+    https-port=25671
     token="$WEB_TOKEN"
   }
   honeypot {
@@ -428,28 +430,32 @@ if [ "$STATUS" = "ready" ]; then
   fi
 
   if [ "${FUNCTIONAL:-0}" = "1" ]; then
-    PANEL="http://127.0.0.1:25670"
+    # The panel defaults to HTTPS with an auto-generated self-signed certificate, so the checks
+    # talk to the https port and skip verification (-k) - exactly what an operator does after
+    # adding the certificate exception.
+    PANEL="https://127.0.0.1:25671"
     PANEL_TOKEN="${WEB_TOKEN:-authcore-test-token}"
 
     # Web panel auth: no token -> 401, valid bearer token -> 200.
-    CODE_NOAUTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 "$PANEL/api/overview" 2>/dev/null)
-    CODE_AUTH=$(curl -s -o /dev/null -w '%{http_code}' --max-time 8 \
+    CODE_NOAUTH=$(curl -s -k -o /dev/null -w '%{http_code}' --max-time 8 "$PANEL/api/overview" 2>/dev/null)
+    CODE_AUTH=$(curl -s -k -o /dev/null -w '%{http_code}' --max-time 8 \
       -H "Authorization: Bearer $PANEL_TOKEN" "$PANEL/api/overview" 2>/dev/null)
     [ "$CODE_NOAUTH" = "401" ] && [ "$CODE_AUTH" = "200" ] && chk_panelAuth=1
 
     # CORS: a cross-origin request must NOT receive a wildcard grant (the old
     # behaviour let any web page read the admin API once the token leaked).
-    CORS_HDRS=$(curl -s -D - -o /dev/null --max-time 8 \
+    CORS_HDRS=$(curl -s -k -D - -o /dev/null --max-time 8 \
       -H "Authorization: Bearer $PANEL_TOKEN" -H "Origin: http://evil.example" \
       "$PANEL/api/overview" 2>/dev/null)
     if ! printf '%s' "$CORS_HDRS" | grep -qi 'Access-Control-Allow-Origin: \*'; then chk_panelCors=1; fi
 
     # Discord link: a bare link code without the real Discord ID must be rejected
     # (the panel used to store the code itself as the Discord ID).
-    LINK_BODY=$(curl -s --max-time 8 -X POST \
+    LINK_BODY=$(curl -s -k --max-time 8 -X POST \
       -H "Authorization: Bearer $PANEL_TOKEN" -H "Content-Type: application/json" \
       -d '{"action":"link","value":"ABCDEF"}' "$PANEL/api/action" 2>/dev/null)
     printf '%s' "$LINK_BODY" | grep -qi "discordId" && chk_panelLink=1
+    [ "$chk_panelAuth" -eq 0 ] && echo "web panel auth check: noauth='$CODE_NOAUTH' auth='$CODE_AUTH' (panel=$PANEL)"
 
     # Force-load the console chunk as a TICKING chunk: on 1.21.9+ a loaded-but-not-ticking
     # spawn chunk is not visible to the level entity lookup, so a freshly summoned entity

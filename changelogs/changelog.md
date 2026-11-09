@@ -119,6 +119,20 @@ All notable changes to AuthCore, from the first alpha to the current release.
   load it; they now get a clean version error instead of a crash.
 - **Self-test:** new `snapshot-serialization` check (21 checks).
 
+### Host-harness fixes it caught (2026-11-09)
+
+- **Forge/NeoForge admins are no longer told to install Fabric API.** The "fabric-api missing"
+  notice only fires on a Fabric server now (the old check compared the loader string against
+  "FML", which no loader reports, so every Forge/NeoForge boot carried a Fabric-only warning).
+- **The mixin config declares `minVersion: 0.8`**, which removes the Mixin ERROR legacy Forge
+  printed on every boot ("does not specify minVersion property").
+- **The web-panel self-signed certificate notice is INFO, not WARN.** Generating the certificate
+  on first boot is the documented behaviour, so it must not read as a problem.
+- **The host harness exercises the panel it actually gets:** HTTPS on the configured https port
+  with the configured token (it was curling plain HTTP on the HTTP port after HTTPS became the
+  default, so the auth/CORS/discord-link checks could never pass). All six variant boots
+  (1.18.2 fabric/forge, 1.21.11 fabric/neoforge, 26.3 fabric/neoforge) pass locally.
+
 ### CI - verified artifacts, fast metadata failures (2026-11-09)
 
 - **Two fast jobs run beside the build.** `guard` fails the run in seconds when `mod.version` has
