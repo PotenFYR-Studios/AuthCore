@@ -1,7 +1,5 @@
 package in.potenfyr.authcore.mixin;
 
-import in.potenfyr.authcore.util.ReflectCache;
-
 import in.potenfyr.authcore.AuthCoreServer;
 import in.potenfyr.authcore.network.ProxySupport;
 /*? if fabric {*/
@@ -89,20 +87,35 @@ abstract class ServerHandshakeNetworkHandlerMixin {
     return null;
   }
 
-  /** Reads the handshake address string (record accessor or private field, by version). */
+  private static volatile java.lang.reflect.Field hostNameField;
+
+  /**
+   * Reads the handshake host string - where BungeeCord / Velocity legacy forwarding put the real
+   * client IP.
+   *
+   * <p>The field is located by SHAPE: {@code ClientIntentionPacket} declares exactly one instance
+   * {@code String} field (Mojang {@code hostName}) in every era - a plain class before 1.20.5, a
+   * record after. The previous lookup asked for the YARN name {@code address}, which exists on no
+   * runtime (intermediary/SRG ids on Fabric/Forge, {@code hostName} on Mojang-named ones), so
+   * proxied players were never given their real IP on any loader or version.
+   */
   private static String readAddress(ClientIntentionPacket packet) {
     try {
-      Object address = in.potenfyr.authcore.util.ReflectCache.method(packet.getClass(), "address").invoke(packet);
-      if (address instanceof String s) return s;
-    } catch (ReflectiveOperationException ignored) {
-      // fall through to the field accessor
-    }
-    try {
-      java.lang.reflect.Field field = packet.getClass().getDeclaredField("address");
-      field.setAccessible(true);
+      java.lang.reflect.Field field = hostNameField;
+      if (field == null) {
+        for (java.lang.reflect.Field f : ClientIntentionPacket.class.getDeclaredFields()) {
+          if (f.getType() != String.class
+              || java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+          if (field != null) return null; // ambiguous shape - never guess
+          field = f;
+        }
+        if (field == null) return null;
+        field.setAccessible(true);
+        hostNameField = field;
+      }
       Object address = field.get(packet);
       return address instanceof String s ? s : null;
-    } catch (ReflectiveOperationException e) {
+    } catch (ReflectiveOperationException | RuntimeException e) {
       return null;
     }
   }

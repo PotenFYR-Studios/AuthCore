@@ -117,7 +117,7 @@ Each compiled jar performs **both roles**: a native server mod (Fabric, Forge, o
 | Jar Artifact | Minecraft Versions | Loader | Target Java | Era & Architecture |
 |:---|:---|:---:|:---:|:---|
 | `authcore-1.16-1.18-fabric-<v>.jar` | **1.16.0 – 1.18.2** | Fabric | 17 | Intermediary mappings era |
-| `authcore-1.16-1.18-forge-<v>.jar` | **1.16.0 – 1.18.2** | Forge | 17 | Intermediary mappings era |
+| `authcore-1.16-1.18-forge-<v>.jar` | **1.18 – 1.18.2** | Forge | 17 | SRG mappings era (Forge 1.16/1.17 cannot load a Java 17, Mojang-class-named jar) |
 | `authcore-1.19-1.21-fabric-<v>.jar` | **1.19.0 – 1.21.11** | Fabric | 21 | Intermediary mappings era |
 | `authcore-1.19-1.21-neoforge-<v>.jar` | **1.19.0 – 1.21.11** | NeoForge | 21 | Intermediary mappings era |
 | `authcore-26.1-26.3-fabric-<v>.jar` | **26.1 – 26.3+ & Snapshots** | Fabric | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
@@ -219,7 +219,7 @@ AuthCore deploys a **7-layer defense-in-depth security stack** designed to make 
 | `/authcore backup` | `/authcore backup` · `export` | Trigger immediate database snapshot backup or export full JSON dump |
 | `/authcore maintenance` | `/authcore maintenance on\|off` | Toggle maintenance mode to restrict server access to administrators |
 | `/authcore map-image` | `map-image show\|clear <player>` · `map-image qr <player> <text>` · `map-image captcha <player>` · `map-image captcha-verify <player> <code>` | Give a player a map showing a rendered 128x128 image (test pattern, a generated QR code, or a captcha code) and take it back; cleanup is automatic on logout/crash. Enabled by default (`lobby.map-image`) |
-| `/authcore simulate` | `/authcore simulate` | Run the built-in self-test / simulation suite inside the live server (20 checks: hashing, live DB, landing geometry, landing clearance, restore health clamp, session flow, proxy gate, SRG runtime, bounded caches, map rendering, map give/take lifecycle, map content/QR/captcha). **Owner-only and disabled by default** (`commands.admin.simulate`) |
+| `/authcore simulate` | `/authcore simulate` | Run the built-in self-test / simulation suite inside the live server (21 checks: hashing, live DB, landing geometry, landing clearance, restore health clamp, session flow, proxy gate, SRG runtime, bounded caches, map rendering, map give/take lifecycle, map content/QR/captcha, crash-snapshot serialization). **Owner-only and disabled by default** (`commands.admin.simulate`) |
 
 ---
 
@@ -342,7 +342,7 @@ AuthCore ships with **7 languages**: English is built in, plus 6 bundled communi
 AuthCore natively supports modern Minecraft proxy architectures, whether deployed as a backend mod or directly on the proxy:
 
 - **Universal IP Forwarding Auto-Detection**: Automatically parses BungeeCord and Velocity legacy (`ip\0uuid\0properties`) handshake payloads. The authentic remote IP address is immediately applied to GeoIP lookup, session validation, rate limiting, and login intelligence.
-- **Velocity Modern Identity Forwarding**: High-security HMAC-verified `velocity:player_info` login receiver reads credentials securely using the shared `velocity-secret` configured in `velocity.toml`.
+- **Velocity Modern Forwarding**: not performed by AuthCore - pair it with FabricProxy-Lite (Fabric) or Proxy-Compatible-Forge (Forge/NeoForge), or use Velocity legacy (bungeecord) forwarding, which AuthCore reads natively.
 - **Cross-Mod Interop Channel (`authcore:auth`)**: Emits `AUTH_CHANGED|<uuid>|<username>|<1|0>` network packets, allowing AuthCore to run alongside foreign backend auth plugins.
 - **Redis SSO Hub-to-Game Transfers**: Players authenticated in hub/limbo servers maintain session validity when transferred across backend game nodes without being re-prompted for passwords.
 - **Fail-Closed Proxy Enforcement**: Direct connections bypassing the proxy are rejected outright when proxy support is active.
@@ -469,7 +469,7 @@ Each automated test validates:
 2. Banner accuracy (compiled version string, target loader, and Java runtime).
 3. Admin console command execution (`/authcore validate`, `/authcore reload`, `/authcore backup`).
 4. Configuration generation, SQLite database initialization, and network port binding.
-5. The in-mod simulation suite (**20/20 checks**): hashing, live database, landing geometry, landing clearance, restore health clamp, session flow, proxy gate, SRG runtime, bounded caches, map rendering, the map give/take lifecycle and map content/QR/captcha.
+5. The in-mod simulation suite (**21/21 checks**): hashing, live database, landing geometry, landing clearance, restore health clamp, session flow, proxy gate, SRG runtime, bounded caches, map rendering, the map give/take lifecycle, map content/QR/captcha and crash-snapshot serialization.
 
 The matrix covers **17 (version, loader) combinations**: Fabric 1.16.5/1.17.1/1.18.2/1.19.4/1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3, Forge 1.18.2 and NeoForge 1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3. Two SKIPs are genuine platform limits (Forge 1.16.5/1.17.1 cannot run a Java-17 jar; NeoForge does not exist for 1.19.4), not harness gaps.
 

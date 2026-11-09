@@ -82,9 +82,16 @@ val minecraftRangeMax: String? =
 val minecraftRange: String =
     if (minecraftRangeMax == null) ">=$minecraftRangeMin"
     else ">=$minecraftRangeMin <=$minecraftRangeMax"
+// Legacy Forge is narrower than the Fabric jar of the same group: before 1.17 Forge ran on MCP
+// names (func_/field_ members, MCP class names) and 1.17 Forge runs on Java 16 - the Java 17,
+// Mojang-class-named G1 jar can only load on Forge 1.18.x. Declaring [1.16,1.18.2] let FML
+// accept it on 1.16.5/1.17.1 and crash at the first class reference instead of reporting the
+// unsupported version cleanly.
+val forgeMinecraftMin: String =
+    if (mod.isForge && parsedVersion < "1.19") "1.18" else minecraftRangeMin
 val minecraftRangeForge: String =
-    if (minecraftRangeMax == null) "[$minecraftRangeMin,)"
-    else "[$minecraftRangeMin,$minecraftRangeMax]"
+    if (minecraftRangeMax == null) "[$forgeMinecraftMin,)"
+    else "[$forgeMinecraftMin,$minecraftRangeMax]"
 
 // Dependency pins of the current variant (versions/dependencies/<mc>.properties)
 // - used to declare accurate loader/API requirements in fabric.mod.json.
@@ -97,14 +104,14 @@ val variantDependencies = Properties().apply {
 // resolves the exact supported range. IMPORTANT: the minimum is the FIRST version that
 // supports the group's LOWEST Minecraft version - never the build target, otherwise a
 // server on an in-range version (e.g. 26.1 with the 26.3-built jar) is rejected.
-//   G1 (1.16-1.18): forge 36.1.0+ (1.16.5 line)
+//   G1 (1.16-1.18): forge 38.0.0+ (1.18 line - see minecraftRangeForge: older Forge cannot load it)
 //   G2 (1.19-1.21): forge 41.1.0+ (1.19 line), neoforge 20.2.59-beta+ (1.20.2 line)
 //   G3 (26.1-26.3): neoforge 26.1.0+ (26.1 line)
 val forgeRange: String =
-    if (parsedVersion < "1.19") "[36.1.0,)"
+    if (parsedVersion < "1.19") "[38.0.0,)"
     else "[41.1.0,)"
 val forgeLoaderRange: String =
-    if (parsedVersion < "1.19") "[36,)"
+    if (parsedVersion < "1.19") "[38,)"
     else "[40,)"
 val neoforgeRange: String =
     when {

@@ -280,14 +280,14 @@ public class Lobby {
       if (AuthCoreServer.config.lobby.hideInventory && snap.inventory != null) {
         com.google.gson.JsonArray inv = new com.google.gson.JsonArray();
         for (ItemStack stack : snap.inventory)
-          inv.add(in.potenfyr.authcore.compat.Compat.itemStackToBase64(stack));
+          inv.add(in.potenfyr.authcore.compat.Compat.itemStackToBase64(player, stack));
         o.add("inventory", inv);
       }
 
       com.google.gson.JsonArray fx = new com.google.gson.JsonArray();
       if (snap.effects != null)
         for (MobEffectInstance e : snap.effects)
-          fx.add(in.potenfyr.authcore.compat.Compat.effectToBase64(e));
+          fx.add(in.potenfyr.authcore.compat.Compat.effectToBase64(player, e));
       o.add("effects", fx);
 
       // Atomic replace: a crash DURING the write must never leave a truncated file that the next
@@ -359,14 +359,14 @@ public class Lobby {
         liveInv.clearContent();
         com.google.gson.JsonArray arr = o.getAsJsonArray("inventory");
         for (int i = 0; i < arr.size() && i < liveInv.getContainerSize(); i++)
-          liveInv.setItem(i, in.potenfyr.authcore.compat.Compat.itemStackFromBase64(arr.get(i).getAsString()));
+          liveInv.setItem(i, in.potenfyr.authcore.compat.Compat.itemStackFromBase64(player, arr.get(i).getAsString()));
       }
 
       player.removeAllEffects();
       if (!legacy && o.has("effects"))
         for (com.google.gson.JsonElement e : o.getAsJsonArray("effects")) {
           net.minecraft.world.effect.MobEffectInstance fx =
-              in.potenfyr.authcore.compat.Compat.effectFromBase64(e.getAsString());
+              in.potenfyr.authcore.compat.Compat.effectFromBase64(player, e.getAsString());
           if (fx != null) player.addEffect(fx);
         }
 
@@ -385,23 +385,19 @@ public class Lobby {
       if (o.has("totalXp")) player.totalExperience = o.get("totalXp").getAsInt();
 
       if (o.has("dimension") && o.has("x") && o.has("y") && o.has("z")) {
-        net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> key =
-            in.potenfyr.authcore.compat.Compat.parseDimensionKey(o.get("dimension").getAsString());
-        if (key != null) {
-          net.minecraft.server.level.ServerLevel world =
-              in.potenfyr.authcore.compat.Compat.getWorld(
-                  in.potenfyr.authcore.compat.Compat.getServer(player),
-                  key);
-          if (world != null)
-            in.potenfyr.authcore.compat.Compat.teleport(
-                player,
-                world,
-                o.get("x").getAsDouble(),
-                o.get("y").getAsDouble(),
-                o.get("z").getAsDouble(),
-                in.potenfyr.authcore.compat.Compat.getYaw(player),
-                in.potenfyr.authcore.compat.Compat.getPitch(player));
-        }
+        net.minecraft.server.level.ServerLevel world =
+            in.potenfyr.authcore.compat.Compat.findLevel(
+                in.potenfyr.authcore.compat.Compat.getServer(player),
+                o.get("dimension").getAsString());
+        if (world != null)
+          in.potenfyr.authcore.compat.Compat.teleport(
+              player,
+              world,
+              o.get("x").getAsDouble(),
+              o.get("y").getAsDouble(),
+              o.get("z").getAsDouble(),
+              in.potenfyr.authcore.compat.Compat.getYaw(player),
+              in.potenfyr.authcore.compat.Compat.getPitch(player));
       }
 
       // Operator status removed by safe-operators at lock time (ops.json was edited) - give it back,
@@ -685,26 +681,27 @@ public class Lobby {
 
       String raw = AuthCoreServer.config.lobby.limboConfig.location.dimension.trim().toLowerCase();
 
-      Object id = in.potenfyr.authcore.compat.Compat.tryParseDimension(raw);
-      if (id != null) {
-        Object worldKey = in.potenfyr.authcore.compat.Compat.worldKey(id);
-        ServerLevel limboWorld =
-            server != null ? in.potenfyr.authcore.compat.Compat.getWorld(server, worldKey) : null;
-        if (limboWorld != null) {
-          world = limboWorld;
+      ServerLevel limboWorld = in.potenfyr.authcore.compat.Compat.findLevel(server, raw);
+      if (limboWorld == null && !raw.isEmpty())
+        AuthCoreServer.LOGGER.warn(
+            false,
+            "lobby.limbo-config.location.dimension '{}' is not a loaded dimension - the limbo"
+                + " stays at the player's position",
+            raw);
+      if (limboWorld != null) {
+        world = limboWorld;
 
-          if (this.position == null) {
-            blockPos =
-                in.potenfyr.authcore.compat.Compat.blockPosFloored(
-                    AuthCoreServer.config.lobby.limboConfig.location.x,
-                    AuthCoreServer.config.lobby.limboConfig.location.y,
-                    AuthCoreServer.config.lobby.limboConfig.location.z);
+        if (this.position == null) {
+          blockPos =
+              in.potenfyr.authcore.compat.Compat.blockPosFloored(
+                  AuthCoreServer.config.lobby.limboConfig.location.x,
+                  AuthCoreServer.config.lobby.limboConfig.location.y,
+                  AuthCoreServer.config.lobby.limboConfig.location.z);
 
-            blockPos = this.snapshot.getTeleportPos(player, blockPos, world);
-            this.position = blockPos;
-          } else {
-            blockPos = this.position;
-          }
+          blockPos = this.snapshot.getTeleportPos(player, blockPos, world);
+          this.position = blockPos;
+        } else {
+          blockPos = this.position;
         }
       }
     }

@@ -216,55 +216,60 @@ public final class Compat {
       // client correction is best-effort
     }
     *//*?} else {*/
+    // Direct, build-remapped record shape (1.21.2+). The previous Class.forName lookup of
+    // "net.minecraft...ClientboundPlayerPositionPacket" only matched Mojang-named runtimes, so on
+    // every Fabric 1.21.2-1.21.11 server (intermediary) the limbo never sent its client correction.
     try {
-      // 1.21.1 mid-range: the legacy 8-arg constructor still exists there but does NOT exist
-      // on 1.21.2+ - resolved reflectively so the G2 jar runs on both.
-      java.lang.reflect.Constructor<?> legacy =
-          net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket.class
-              .getConstructor(
-                  double.class,
-                  double.class,
-                  double.class,
-                  float.class,
-                  float.class,
-                  java.util.Set.class,
-                  int.class,
-                  boolean.class);
-      player.connection.send(
-          (net.minecraft.network.protocol.Packet<?>)
-              legacy.newInstance(x, y, z, yaw, pitch, java.util.Set.of(), teleportId(), false));
+      ModernPosition.send(player, x, y, z, yaw, pitch, teleportId());
       return;
-    } catch (ReflectiveOperationException ignored) {
-      // 1.21.2+ / 26.x: record shape (int, PositionMoveRotation, Set<Relative>)
+    } catch (RuntimeException err) {
+      return; // best-effort - the server-side position stays authoritative
+    } catch (LinkageError olderRuntime) {
+      // 1.19-1.21.1 inside the 1.21.11 build: classic constructor, located by shape below
     }
+    // Classic shape (double x, y, z, float yaw, pitch, Set relatives, int id [, boolean dismount]):
+    // the trailing boolean was dropped at 1.19.4. Matched by parameter types, never by name.
     try {
-      // Fully reflective: PositionMoveRotation does not exist before 1.21.2, so a direct
-      // reference would crash 1.21.1 servers at class load (the G2 jar must run on both).
-      Class<?> pktClass =
-          Class.forName("net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket");
-      Class<?> pmrClass = Class.forName("net.minecraft.world.entity.PositionMoveRotation");
-      Object rotation =
-          pmrClass
-              .getConstructor(
-                  net.minecraft.world.phys.Vec3.class,
-                  net.minecraft.world.phys.Vec3.class,
-                  float.class,
-                  float.class)
-              .newInstance(
-                  new net.minecraft.world.phys.Vec3(x, y, z),
-                  net.minecraft.world.phys.Vec3.ZERO,
-                  yaw,
-                  pitch);
-      Object packet =
-          pktClass
-              .getConstructor(int.class, pmrClass, java.util.Set.class)
-              .newInstance(teleportId(), rotation, java.util.Set.of());
-      player.connection.send((net.minecraft.network.protocol.Packet<?>) packet);
-    } catch (Throwable ignored) {
+      for (java.lang.reflect.Constructor<?> ctor :
+          net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket.class.getConstructors()) {
+        Class<?>[] p = ctor.getParameterTypes();
+        if ((p.length != 7 && p.length != 8)
+            || p[0] != double.class || p[1] != double.class || p[2] != double.class
+            || p[3] != float.class || p[4] != float.class
+            || p[5] != java.util.Set.class || p[6] != int.class
+            || (p.length == 8 && p[7] != boolean.class)) continue;
+        Object packet =
+            p.length == 7
+                ? ctor.newInstance(x, y, z, yaw, pitch, java.util.Set.of(), teleportId())
+                : ctor.newInstance(x, y, z, yaw, pitch, java.util.Set.of(), teleportId(), false);
+        player.connection.send((net.minecraft.network.protocol.Packet<?>) packet);
+        return;
+      }
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
       // client correction is best-effort - the server-side position is still authoritative
     }
     /*?}*/
   }
+
+  /*? if >= 1.21.11 {*/
+  /** Isolated so an older runtime fails with a catchable LinkageError at the call, not at load. */
+  private static final class ModernPosition {
+    private ModernPosition() {}
+
+    static void send(
+        ServerPlayer player, double x, double y, double z, float yaw, float pitch, int id) {
+      player.connection.send(
+          new net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket(
+              id,
+              new net.minecraft.world.entity.PositionMoveRotation(
+                  new net.minecraft.world.phys.Vec3(x, y, z),
+                  net.minecraft.world.phys.Vec3.ZERO,
+                  yaw,
+                  pitch),
+              java.util.Set.of()));
+    }
+  }
+  /*?}*/
 
   /** A unique teleport id for client position-correction packets. */
   private static final java.util.concurrent.atomic.AtomicInteger TELEPORT_IDS =
@@ -526,37 +531,6 @@ public final class Compat {
     return null;
   }
 
-  /**
-   * Builds a world registry key for the given dimension identifier (registries moved packages in
-   * 1.19.3+ and ResourceLocation became Identifier at 1.21.11 - fully reflective so no shape is
-   * referenced at compile time). The returned value is an opaque {@link Object} - use
-   * {@link #getWorld(MinecraftServer, Object)} to resolve it.
-   */
-  public static Object worldKey(Object id) {
-    if (id == null) return null;
-    try {
-      Class<?> registryKey = resolveRegistryKeyClass();
-      Object world = dimensionRegistry();
-      if (world == null) return null;
-      return registryKey.getMethod("of", Class.class, Object.class).invoke(null, Level.class, world);
-    } catch (ReflectiveOperationException ignored) {
-      return null;
-    }
-  }
-
-  /** Resolves the version-specific registry key class. */
-  private static Class<?> resolveRegistryKeyClass() {
-    try {
-      return Class.forName("net.minecraft.registry.RegistryKey");
-    } catch (ClassNotFoundException e) {
-      try {
-        return Class.forName("net.minecraft.util.registry.RegistryKey");
-      } catch (ClassNotFoundException ignored) {
-        return null;
-      }
-    }
-  }
-
   /** The registry key of the world the player is in (direct call - stable in every era). */
   public static Object worldRegistryKey(Level world) {
     try {
@@ -576,20 +550,40 @@ public final class Compat {
     }
   }
 
-  /** Whether the given entity is considered "mountable" (horses, boats, camels, striders...).
-   *  Name-based (the package layout moved at 1.21.11 - no compile-time class reference). */
+  /**
+   * Whether the given entity is "mountable" (horses, camels, pigs, striders, boats, minecarts...).
+   *
+   * <p>The previous check matched YARN class names ({@code AbstractHorseEntity}, {@code
+   * CamelEntity}...) - those never exist at runtime, and on intermediary even "Boat" is {@code
+   * class_1690}, so the allow-mountable settings never applied. {@code PlayerRideable} sits in the
+   * same package in every era; vehicles are matched by their (remapped) base class, with a
+   * simple-name fallback for Mojang-named runtimes whose vehicle packages moved (1.21.11).
+   */
   public static boolean isMountable(Entity entity) {
-    String name = entity.getClass().getName();
-    return name.endsWith(".Boat")
-        || name.contains("Boat")
-        || name.contains("Minecart")
-        || name.endsWith(".Pig")
-        || name.contains("HorseBaseEntity")
-        || name.contains("AbstractHorseEntity")
-        || name.endsWith(".CamelEntity")
-        || name.endsWith(".StriderEntity")
-        || name.endsWith(".DonkeyEntity")
-        || name.endsWith(".MuleEntity");
+    if (entity == null) return false;
+    try {
+      if (entity instanceof net.minecraft.world.entity.PlayerRideable) return true;
+    } catch (LinkageError ignored) {
+      // fall through
+    }
+    try {
+      /*? if < 1.19 {*/
+      /*if (entity instanceof net.minecraft.world.entity.vehicle.Boat
+          || entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart) return true;
+      *//*?} else {*/
+      if (entity instanceof net.minecraft.world.entity.vehicle.VehicleEntity) return true;
+      /*?}*/
+    } catch (LinkageError olderRuntime) {
+      // vehicle base class absent on this runtime - name fallback below
+    }
+    for (Class<?> c = entity.getClass(); c != null && c != Object.class; c = c.getSuperclass()) {
+      String name = c.getSimpleName();
+      if (name.equals("Boat")
+          || name.equals("AbstractBoat")
+          || name.equals("AbstractMinecart")
+          || name.equals("VehicleEntity")) return true;
+    }
+    return false;
   }
 
   /** Whether the given block is a dripleaf (only exists on 1.17+). */
@@ -1163,81 +1157,174 @@ public final class Compat {
   }
 
   /**
-   * Sends a packet through a network handler (signature differs by version).
+   * Sends a custom payload (plugin message) to the player's client - the AuthInterop channel
+   * ({@code AUTH_CHANGED} broadcasts for proxy plugins, companion messages). Never throws.
    *
-   * <p>The handler declares {@code send(Packet, PacketSendListener)} / {@code send(Packet)}
-   * where the first parameter is the ABSTRACT {@code Packet} base type - whose class name
-   * differs per mapping era ({@code net.minecraft.network.protocol.Packet} on Mojang names,
-   * {@code net.minecraft.network.Packet} on Yarn). {@code getMethod} requires an EXACT
-   * parameter-type match, so looking it up with the concrete packet class always fails -
-   * the method is matched by name + parameter count + assignability instead.
-   */
-  public static boolean sendPacket(
-      net.minecraft.server.network.ServerGamePacketListenerImpl handler, Object packet) {
-    Method sendMethod = null;
-    for (Method m : handler.getClass().getMethods()) {
-      if (!"send".equals(m.getName()) || m.getParameterCount() < 1) continue;
-      if (!m.getParameterTypes()[0].isAssignableFrom(packet.getClass())) continue;
-      // Prefer the 2-arg PacketSendListener overload when present
-      if (m.getParameterCount() == 2) {
-        sendMethod = m;
-        break;
-      }
-      if (sendMethod == null) sendMethod = m;
-    }
-    if (sendMethod == null) return false;
-
-    try {
-      if (sendMethod.getParameterCount() == 2)
-        sendMethod.invoke(handler, packet, (Object) null);
-      else sendMethod.invoke(handler, packet);
-      return true;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // could not send packet
-      return false;
-    }
-  }
-
-  /**
-   * Sends a custom payload (plugin message) to the player's client (Mojang names, 26.1+).
-   * Uses the {@code ClientboundCustomPayloadPacket(ResourceLocation, FriendlyByteBuf)}
-   * constructor and never throws on failure - interop is best-effort.
+   * <p>1.16-1.18 builds: direct, build-remapped {@code (ResourceLocation, FriendlyByteBuf)} packet.
+   * The previous Class.forName lookups only matched a Mojang-named runtime that ALSO still had
+   * that pre-1.20.2 constructor - a combination no supported server has - so nothing was ever sent.
+   *
+   * <p>1.20.2+ builds: see {@link RawPayload} - vanilla, Fabric and NeoForge only encode payload
+   * types registered with them, so the bytes are appended on the netty pipeline instead.
    */
   public static void sendCustomPayload(
       net.minecraft.server.level.ServerPlayer player, String channel, byte[] data) {
-    try {
-      if (player == null || channel == null || data == null || player.connection == null) return;
-
-      Object location = null;
-      try {
-        Class<?> rl = Class.forName("net.minecraft.resources.ResourceLocation");
-        location = rl.getMethod("tryParse", String.class).invoke(null, channel);
-      } catch (ReflectiveOperationException ignored) {
-        // tryParse not present on this version
-      }
-      if (location == null) {
-        Class<?> rl = Class.forName("net.minecraft.resources.ResourceLocation");
-        location = rl.getConstructor(String.class).newInstance(channel);
-      }
-
-      Object buf =
-          Class.forName("net.minecraft.network.FriendlyByteBuf")
-              .getConstructor(io.netty.buffer.ByteBuf.class)
-              .newInstance(io.netty.buffer.Unpooled.buffer(data.length));
-      buf.getClass().getMethod("writeBytes", byte[].class).invoke(buf, (Object) data);
-
-      Object packet =
-          Class.forName("net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket")
-              .getConstructor(
-                  Class.forName("net.minecraft.resources.ResourceLocation"),
-                  Class.forName("net.minecraft.network.FriendlyByteBuf"))
-              .newInstance(location, buf);
-
-      sendPacket(player.connection, packet);
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
+    if (player == null || channel == null || data == null || player.connection == null) return;
+    /*? if < 1.20.2 {*/
+    /*try {
+      player.connection.send(
+          new net.minecraft.network.protocol.game.ClientboundCustomPayloadPacket(
+              new net.minecraft.resources.ResourceLocation(channel),
+              new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(data))));
+    } catch (RuntimeException | LinkageError ignored) {
       // interop is best-effort - never break gameplay
     }
+    *//*?} else {*/
+    try {
+      if (!RawPayload.send(player, channel, data)) reportPayloadUnavailable(channel, null);
+    } catch (RuntimeException | LinkageError err) {
+      reportPayloadUnavailable(channel, err);
+    }
+    /*?}*/
   }
+
+  private static final java.util.concurrent.atomic.AtomicBoolean CUSTOM_PAYLOAD_UNSUPPORTED_LOGGED =
+      new java.util.concurrent.atomic.AtomicBoolean();
+
+  /** Reports once that plugin messages cannot be sent here (warn on proxy networks, else debug). */
+  private static void reportPayloadUnavailable(String channel, Throwable cause) {
+    if (!CUSTOM_PAYLOAD_UNSUPPORTED_LOGGED.compareAndSet(false, true)) return;
+    String msg =
+        "Interop plugin messages (channel '{}', proxy AUTH_CHANGED broadcasts) could not be sent"
+            + " on this server ({}) - proxy auth gates need Redis (database.redis) here.";
+    String why = cause == null ? "no netty channel / packet encoder" : cause.toString();
+    var cfg = in.potenfyr.authcore.AuthCoreServer.config;
+    if (cfg != null && cfg.session.proxySupport.enabled)
+      in.potenfyr.authcore.AuthCoreServer.LOGGER.warn(false, msg, channel, why);
+    else in.potenfyr.authcore.AuthCoreServer.LOGGER.debug(false, msg, channel, why);
+  }
+
+  /*? if >= 1.20.2 {*/
+  /**
+   * Raw plugin messages for 1.20.2+.
+   *
+   * <p>Since 1.20.2 a custom payload is a typed object, and the packet codec only writes the body
+   * of types registered with vanilla / Fabric API / NeoForge; every other id falls back to
+   * {@code DiscardedPayload}, whose encoder writes NOTHING after the channel id. AuthCore's
+   * channels carry arbitrary bytes to the proxy, so instead of registering a codec per loader (and
+   * NeoForge's channel negotiation, which refuses payloads a vanilla client never announced) the
+   * packet is encoded as an empty {@code DiscardedPayload} of the channel and the bytes are
+   * appended by a tiny outbound handler sitting right after the packet encoder - before
+   * compression, length prefix and encryption. The result is exactly the vanilla wire format
+   * {@code [packet id][channel][bytes]}.
+   *
+   * <p>Everything runs on the channel's event loop, so the encoder output seen by the handler is
+   * the packet written in the same task. The 1.19-1.20.1 runtimes of the 1.21.11 range jar
+   * (pre-record packet) use the classic {@code (ResourceLocation, FriendlyByteBuf)} constructor,
+   * located by shape.
+   */
+  private static final class RawPayload {
+    private RawPayload() {}
+
+    static final String HANDLER = "authcore_payload";
+
+    /** Appends the pending bytes to the next encoded packet buffer. */
+    static final class Appender extends io.netty.channel.ChannelOutboundHandlerAdapter {
+      byte[] pending; // confined to the channel's event loop
+
+      @Override
+      public void write(
+          io.netty.channel.ChannelHandlerContext ctx,
+          Object msg,
+          io.netty.channel.ChannelPromise promise)
+          throws Exception {
+        byte[] data = pending;
+        if (data != null && msg instanceof io.netty.buffer.ByteBuf buf) {
+          pending = null;
+          buf.writeBytes(data);
+        }
+        super.write(ctx, msg, promise);
+      }
+    }
+
+    /** @return false when this runtime offers no way to send it (reported by the caller) */
+    static boolean send(ServerPlayer player, String channel, byte[] data) {
+      net.minecraft.network.Connection connection = networkConnection(player.connection);
+      if (connection == null) return false;
+      io.netty.channel.Channel ch =
+          ((in.potenfyr.authcore.mixin.ClientConnectionAccessor) connection).authCore$getChannel();
+      if (ch == null) return false;
+      if (!ch.isOpen()) return true; // the player is leaving - nothing to report
+      net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(channel);
+      if (id == null) return true; // invalid channel name - nothing a retry could fix
+
+      Object packet;
+      boolean append;
+      try {
+        // Fabric API / NeoForge own the channel-registration channel and announce channels
+        // themselves (their codec for it would reject a DiscardedPayload).
+        if ("minecraft:register".equals(channel)) return true;
+        packet =
+            new net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket(
+                new net.minecraft.network.protocol.common.custom.DiscardedPayload(id));
+        append = true;
+      } catch (LinkageError preRecordRuntime) {
+        packet = legacyPacket(id, data);
+        append = false;
+        if (packet == null) return false;
+      }
+
+      final Object out = packet;
+      final boolean withBytes = append;
+      ch.eventLoop()
+          .execute(
+              () -> {
+                try {
+                  io.netty.channel.ChannelPipeline pipeline = ch.pipeline();
+                  Appender appender = null;
+                  if (withBytes) {
+                    appender = (Appender) pipeline.get(HANDLER);
+                    if (appender == null) {
+                      if (pipeline.get("encoder") == null) return;
+                      appender = new Appender();
+                      pipeline.addBefore("encoder", HANDLER, appender);
+                    }
+                    appender.pending = data;
+                  }
+                  try {
+                    ch.writeAndFlush(out);
+                  } finally {
+                    if (appender != null) appender.pending = null;
+                  }
+                } catch (RuntimeException | LinkageError ignored) {
+                  // interop is best-effort - never break the connection
+                }
+              });
+      return true;
+    }
+
+    /** 1.19-1.20.1: {@code new ClientboundCustomPayloadPacket(ResourceLocation, FriendlyByteBuf)}. */
+    private static Object legacyPacket(net.minecraft.resources.Identifier id, byte[] data) {
+      try {
+        for (java.lang.reflect.Constructor<?> ctor :
+            net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket.class
+                .getConstructors()) {
+          Class<?>[] p = ctor.getParameterTypes();
+          if (p.length == 2
+              && p[0] == net.minecraft.resources.Identifier.class
+              && p[1] == net.minecraft.network.FriendlyByteBuf.class)
+            return ctor.newInstance(
+                id,
+                new net.minecraft.network.FriendlyByteBuf(
+                    io.netty.buffer.Unpooled.wrappedBuffer(data)));
+        }
+      } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+        // no classic shape on this runtime
+      }
+      return null;
+    }
+  }
+  /*?}*/
 
   /**
    * Sends the title, subtitle and fade packets.
@@ -1961,33 +2048,47 @@ public final class Compat {
    */
   private static net.minecraft.network.chat.ClickEvent buildClickEvent(
       boolean suggests, String command) {
-    // Modern nested-record shape (1.21.2+).
+    // The old Class.forName("net.minecraft.network.chat.ClickEvent...") lookups only matched
+    // Mojang-named runtimes: on intermediary (every Fabric 1.16-1.21 server) and SRG (Forge) the
+    // limbo's clickable /login and /register buttons silently rendered as plain text.
+    /*? if >= 1.21.5 {*/
     try {
-      Class<?> nested =
-          Class.forName(
-              suggests
-                  ? "net.minecraft.network.chat.ClickEvent$SuggestCommand"
-                  : "net.minecraft.network.chat.ClickEvent$RunCommand");
-      Object event = nested.getConstructor(String.class).newInstance(command);
-      if (event instanceof net.minecraft.network.chat.ClickEvent ce) return ce;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // fall through to the legacy shape
+      return ModernClick.create(suggests, command); // direct, build-remapped
+    } catch (LinkageError olderRuntime) {
+      // 1.19-1.21.4 inside the 1.21.11 build: no nested records - legacy shape below
     }
-    // Legacy shape (1.16-1.21.1): new ClickEvent(Action.SUGGEST_COMMAND/RUN_COMMAND, command).
+    /*?}*/
+    // Legacy shape: new ClickEvent(Action, String), located by signature. The enum constant
+    // NAMES survive obfuscation (Enum.name() is the literal javac compiled in), so this works on
+    // intermediary, SRG and Mojang runtimes alike.
     try {
-      Class<?> eventClass = Class.forName("net.minecraft.network.chat.ClickEvent");
-      Class<?> actionClass = Class.forName("net.minecraft.network.chat.ClickEvent$Action");
-      @SuppressWarnings({"unchecked", "rawtypes"})
-      Object action =
-          Enum.valueOf(
-              (Class) actionClass, suggests ? "SUGGEST_COMMAND" : "RUN_COMMAND");
-      Object event = eventClass.getConstructor(actionClass, String.class).newInstance(action, command);
-      if (event instanceof net.minecraft.network.chat.ClickEvent ce) return ce;
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      String wanted = suggests ? "SUGGEST_COMMAND" : "RUN_COMMAND";
+      for (java.lang.reflect.Constructor<?> ctor :
+          net.minecraft.network.chat.ClickEvent.class.getConstructors()) {
+        Class<?>[] params = ctor.getParameterTypes();
+        if (params.length != 2 || !params[0].isEnum() || params[1] != String.class) continue;
+        for (Object constant : params[0].getEnumConstants())
+          if (((Enum<?>) constant).name().equals(wanted))
+            return (net.minecraft.network.chat.ClickEvent) ctor.newInstance(constant, command);
+      }
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
       // click events unavailable
     }
     return null;
   }
+
+  /*? if >= 1.21.5 {*/
+  /** Isolated so an older runtime fails with a catchable LinkageError at the call, not at load. */
+  private static final class ModernClick {
+    private ModernClick() {}
+
+    static net.minecraft.network.chat.ClickEvent create(boolean suggests, String command) {
+      return suggests
+          ? new net.minecraft.network.chat.ClickEvent.SuggestCommand(command)
+          : new net.minecraft.network.chat.ClickEvent.RunCommand(command);
+    }
+  }
+  /*?}*/
 
 /**
    * Serializes a CompoundTag to a base64 string (stream-based NbtIo - stable on every
@@ -2003,240 +2104,283 @@ public final class Compat {
     }
   }
 
-  /** Deserializes a base64 string back into a CompoundTag (or null on failure). */
+  /**
+   * Deserializes a base64 string back into a CompoundTag (or null on failure).
+   *
+   * <p>Direct, build-remapped call for the build target. The 1.21.11 build also covers 1.19-1.20.1
+   * (no {@code NbtAccounter} argument yet): there the method is found by SHAPE - the old lookup
+   * by Mojang name ({@code "readCompressed"}) never resolved on intermediary/SRG runtimes, so every
+   * crash-snapshot read failed outside NeoForge/26.x.
+   */
   public static net.minecraft.nbt.CompoundTag compoundTagFromBase64(String data) {
+    final byte[] raw;
     try {
-      java.io.ByteArrayInputStream in =
-          new java.io.ByteArrayInputStream(java.util.Base64.getDecoder().decode(data));
+      raw = java.util.Base64.getDecoder().decode(data);
+    } catch (RuntimeException err) {
+      return null;
+    }
+    try {
       /*? if < 1.20.2 {*/
-      /*return net.minecraft.nbt.NbtIo.readCompressed(in);
+      /*return net.minecraft.nbt.NbtIo.readCompressed(new java.io.ByteArrayInputStream(raw));
       *//*?} else {*/
-      // NbtAccounter does not exist before 1.20.2 and the single-arg readCompressed was
-      // removed on 1.21.2+ - both shapes are resolved reflectively so the G2 jar runs on
-      // every version of its range without loading either missing class.
-      try {
-        Class<?> accounterClass = Class.forName("net.minecraft.nbt.NbtAccounter");
-        Object accounter = accounterClass.getMethod("unlimitedHeap").invoke(null);
-        Object tag =
-            net.minecraft.nbt.NbtIo.class
-                .getMethod("readCompressed", java.io.InputStream.class, accounterClass)
-                .invoke(null, in, accounter);
-        if (tag instanceof net.minecraft.nbt.CompoundTag compound) return compound;
-      } catch (Throwable ignored) {
-        // 1.19.0-1.20.1: no accounter - single-arg readCompressed(InputStream)
-        in.reset();
-      }
-      try {
-        Object tag =
-            net.minecraft.nbt.NbtIo.class
-                .getMethod("readCompressed", java.io.InputStream.class)
-                .invoke(null, in);
-        if (tag instanceof net.minecraft.nbt.CompoundTag compound) return compound;
-      } catch (Throwable ignored) {
-        return null;
-      }
-      return null;
+      return net.minecraft.nbt.NbtIo.readCompressed(
+          new java.io.ByteArrayInputStream(raw), net.minecraft.nbt.NbtAccounter.unlimitedHeap());
       /*?}*/
-    } catch (Throwable err) {
+    } catch (java.io.IOException | RuntimeException err) {
       return null;
+    } catch (LinkageError otherEra) {
+      return legacyReadCompressed(raw);
     }
   }
 
-  /** Serializes an ItemStack to a base64 string (for the crash-safe limbo snapshot). */
-  public static String itemStackToBase64(net.minecraft.world.item.ItemStack stack) {
-    if (stack == null || stack.isEmpty()) return "";
-    try {
-      // Legacy shape (1.16-1.21.1): stack.save(tag)
-      net.minecraft.nbt.CompoundTag tag =
-          (net.minecraft.nbt.CompoundTag)
-              net.minecraft.world.item.ItemStack.class
-                  .getMethod("save", net.minecraft.nbt.CompoundTag.class)
-                  .invoke(stack, new net.minecraft.nbt.CompoundTag());
-      return compoundTagToBase64(tag);
-    } catch (Throwable ignored) {
-      // 1.21.2+ / 26.x: ItemStack.CODEC via NbtOps - resolved reflectively (neither class
-      // exists before 1.20.5, so the G2 jar cannot reference them directly).
+  /** NbtIo's static (InputStream) -> CompoundTag reader, located by signature. */
+  private static net.minecraft.nbt.CompoundTag legacyReadCompressed(byte[] raw) {
+    for (java.lang.reflect.Method m : net.minecraft.nbt.NbtIo.class.getMethods()) {
+      if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())
+          || m.getParameterCount() != 1
+          || m.getParameterTypes()[0] != java.io.InputStream.class
+          || m.getReturnType() != net.minecraft.nbt.CompoundTag.class) continue;
+      try {
+        return (net.minecraft.nbt.CompoundTag) m.invoke(null, new java.io.ByteArrayInputStream(raw));
+      } catch (ReflectiveOperationException | RuntimeException err) {
+        // try the next candidate (readCompressed vs. an uncompressed reader)
+      }
     }
-    try {
-      net.minecraft.nbt.CompoundTag tag = codecTag(stack);
-      if (tag != null) return compoundTagToBase64(tag);
-      return "";
-    } catch (Throwable err) {
-      return "";
-    }
-  }
-
-  /** Finds a method by name and parameter count (generic-erased Codec methods). */
-  private static java.lang.reflect.Method findMethod(Class<?> type, String name, int arity) {
-    for (java.lang.reflect.Method m : type.getMethods())
-      if (m.getName().equals(name) && m.getParameterCount() == arity) return m;
     return null;
   }
 
-  /** Reflective {@code X.CODEC.encodeStart(NbtOps.INSTANCE, value).result()} -> CompoundTag. */
-  private static net.minecraft.nbt.CompoundTag codecTag(Object value) {
-    try {
-      Class<?> opsClass = Class.forName("net.minecraft.nbt.NbtOps");
-      Object ops = opsClass.getField("INSTANCE").get(null);
-      Object codec = value.getClass().getField("CODEC").get(null);
-      java.lang.reflect.Method encode = findMethod(codec.getClass(), "encodeStart", 2);
-      if (encode == null) return null;
-      Object dataResult = encode.invoke(codec, ops, value);
-      Object optional = dataResult.getClass().getMethod("result").invoke(dataResult);
-      if (optional instanceof java.util.Optional<?> opt && opt.isPresent()) {
-        Object tag = opt.get();
-        if (tag instanceof net.minecraft.nbt.CompoundTag compound) return compound;
-      }
-      return null;
-    } catch (Throwable ignored) {
-      return null;
+  // ------------------------------------------------------------------ snapshot serializers
+  //
+  // The crash-safe limbo snapshot stores the hidden inventory and the player's effects. Earlier
+  // builds looked the (de)serializers up by MOJANG name ("save", "of", "load", "CODEC") - string
+  // literals are never remapped, so on intermediary (Fabric 1.16-1.21) and SRG (Forge) runtimes
+  // every stack/effect was written as "" and a crash during the limbo lost the hidden inventory.
+  //
+  //   1.16-1.18 build     direct legacy calls (save/of/load), remapped by the toolchain
+  //   1.21.11 / 26.x      direct CODEC calls through RegistryOps (components and enchantments are
+  //                       registry-bound since 1.20.5 - plain NbtOps cannot encode them); the
+  //                       1.19-1.20.4 runtimes of that range jar fall back to the legacy shapes,
+  //                       located by signature rather than by name.
+
+  /*? if >= 1.19 {*/
+  private static net.minecraft.core.HolderLookup.Provider registries(ServerPlayer player) {
+    MinecraftServer server = getServer(player);
+    return server == null ? null : server.registryAccess();
+  }
+  /*?}*/
+
+  /** Serializes an ItemStack to a base64 string (for the crash-safe limbo snapshot). */
+  public static String itemStackToBase64(ServerPlayer player, net.minecraft.world.item.ItemStack stack) {
+    if (stack == null || stack.isEmpty()) return "";
+    net.minecraft.nbt.CompoundTag tag = null;
+    /*? if < 1.19 {*/
+    /*try {
+      tag = stack.save(new net.minecraft.nbt.CompoundTag());
+    } catch (RuntimeException | LinkageError err) {
+      tag = null;
     }
+    *//*?} else {*/
+    try {
+      tag = ModernNbt.encodeStack(registries(player), stack);
+    } catch (RuntimeException err) {
+      tag = null;
+    } catch (LinkageError olderRuntime) {
+      tag = legacySave(net.minecraft.world.item.ItemStack.class, stack);
+    }
+    /*?}*/
+    return tag == null ? "" : compoundTagToBase64(tag);
   }
 
   /** Deserializes an ItemStack from a base64 string (empty stack on failure). */
-  public static net.minecraft.world.item.ItemStack itemStackFromBase64(String data) {
+  public static net.minecraft.world.item.ItemStack itemStackFromBase64(ServerPlayer player, String data) {
     if (data == null || data.isBlank()) return net.minecraft.world.item.ItemStack.EMPTY;
     net.minecraft.nbt.CompoundTag tag = compoundTagFromBase64(data);
     if (tag == null) return net.minecraft.world.item.ItemStack.EMPTY;
-    try {
-      // Legacy shape (1.16-1.21.1): ItemStack.of(tag)
-      return (net.minecraft.world.item.ItemStack)
-          net.minecraft.world.item.ItemStack.class
-              .getMethod("of", net.minecraft.nbt.CompoundTag.class)
-              .invoke(null, tag);
-    } catch (Throwable ignored) {
-      // 1.21.2+ / 26.x: ItemStack.CODEC.parse(NbtOps.INSTANCE, tag).result()
+    net.minecraft.world.item.ItemStack stack;
+    /*? if < 1.19 {*/
+    /*try {
+      stack = net.minecraft.world.item.ItemStack.of(tag);
+    } catch (RuntimeException | LinkageError err) {
+      stack = null;
     }
+    *//*?} else {*/
     try {
-      Class<?> opsClass = Class.forName("net.minecraft.nbt.NbtOps");
-      Object ops = opsClass.getField("INSTANCE").get(null);
-      Object codec = net.minecraft.world.item.ItemStack.class.getField("CODEC").get(null);
-      java.lang.reflect.Method parse = findMethod(codec.getClass(), "parse", 2);
-      if (parse == null) return net.minecraft.world.item.ItemStack.EMPTY;
-      Object dataResult = parse.invoke(codec, ops, tag);
-      Object optional = dataResult.getClass().getMethod("result").invoke(dataResult);
-      if (optional instanceof java.util.Optional<?> opt && opt.isPresent()) {
-        Object stack = opt.get();
-        if (stack instanceof net.minecraft.world.item.ItemStack itemStack) return itemStack;
-      }
-      return net.minecraft.world.item.ItemStack.EMPTY;
-    } catch (Throwable err) {
-      return net.minecraft.world.item.ItemStack.EMPTY;
+      stack = ModernNbt.decodeStack(registries(player), tag);
+    } catch (RuntimeException err) {
+      stack = null;
+    } catch (LinkageError olderRuntime) {
+      stack = legacyLoad(net.minecraft.world.item.ItemStack.class, tag);
     }
+    /*?}*/
+    return stack == null ? net.minecraft.world.item.ItemStack.EMPTY : stack;
   }
 
   /** Serializes a status effect to a base64 string. */
-  public static String effectToBase64(net.minecraft.world.effect.MobEffectInstance effect) {
+  public static String effectToBase64(
+      ServerPlayer player, net.minecraft.world.effect.MobEffectInstance effect) {
     if (effect == null) return "";
-    try {
-      // Legacy shape (1.16-1.21.1): effect.save(new CompoundTag())
-      net.minecraft.nbt.CompoundTag tag =
-          (net.minecraft.nbt.CompoundTag)
-              net.minecraft.world.effect.MobEffectInstance.class
-                  .getMethod("save", net.minecraft.nbt.CompoundTag.class)
-                  .invoke(effect, new net.minecraft.nbt.CompoundTag());
-      return compoundTagToBase64(tag);
-    } catch (Throwable ignored) {
-      // 1.21.2+ / 26.x: MobEffectInstance.CODEC via NbtOps - reflective
+    net.minecraft.nbt.CompoundTag tag;
+    /*? if < 1.19 {*/
+    /*try {
+      tag = effect.save(new net.minecraft.nbt.CompoundTag());
+    } catch (RuntimeException | LinkageError err) {
+      tag = null;
     }
+    *//*?} else {*/
     try {
-      net.minecraft.nbt.CompoundTag tag = codecTag(effect);
-      if (tag != null) return compoundTagToBase64(tag);
-      return "";
-    } catch (Throwable err) {
-      return "";
+      tag = ModernNbt.encodeEffect(registries(player), effect);
+    } catch (RuntimeException err) {
+      tag = null;
+    } catch (LinkageError olderRuntime) {
+      tag = legacySave(net.minecraft.world.effect.MobEffectInstance.class, effect);
     }
+    /*?}*/
+    return tag == null ? "" : compoundTagToBase64(tag);
   }
 
   /** Deserializes a status effect from a base64 string (null on failure). */
-  public static net.minecraft.world.effect.MobEffectInstance effectFromBase64(String data) {
+  public static net.minecraft.world.effect.MobEffectInstance effectFromBase64(
+      ServerPlayer player, String data) {
     if (data == null || data.isBlank()) return null;
     net.minecraft.nbt.CompoundTag tag = compoundTagFromBase64(data);
     if (tag == null) return null;
-    try {
-      // Legacy shape (1.16-1.21.1): MobEffectInstance.load(tag)
-      return (net.minecraft.world.effect.MobEffectInstance)
-          net.minecraft.world.effect.MobEffectInstance.class
-              .getMethod("load", net.minecraft.nbt.CompoundTag.class)
-              .invoke(null, tag);
-    } catch (Throwable ignored) {
-      // 1.21.2+ / 26.x: MobEffectInstance.CODEC.parse(NbtOps.INSTANCE, tag).result()
-    }
-    try {
-      Class<?> opsClass = Class.forName("net.minecraft.nbt.NbtOps");
-      Object ops = opsClass.getField("INSTANCE").get(null);
-      Object codec = net.minecraft.world.effect.MobEffectInstance.class.getField("CODEC").get(null);
-      java.lang.reflect.Method parse = findMethod(codec.getClass(), "parse", 2);
-      if (parse == null) return null;
-      Object dataResult = parse.invoke(codec, ops, tag);
-      Object optional = dataResult.getClass().getMethod("result").invoke(dataResult);
-      if (optional instanceof java.util.Optional<?> opt && opt.isPresent()) {
-        Object fx = opt.get();
-        if (fx instanceof net.minecraft.world.effect.MobEffectInstance instance) return instance;
-      }
-      return null;
-    } catch (Throwable err) {
+    /*? if < 1.19 {*/
+    /*try {
+      return net.minecraft.world.effect.MobEffectInstance.load(tag);
+    } catch (RuntimeException | LinkageError err) {
       return null;
     }
+    *//*?} else {*/
+    try {
+      return ModernNbt.decodeEffect(registries(player), tag);
+    } catch (RuntimeException err) {
+      return null;
+    } catch (LinkageError olderRuntime) {
+      return legacyLoad(net.minecraft.world.effect.MobEffectInstance.class, tag);
+    }
+    /*?}*/
   }
 
-  /** Parses a dimension key from its {@code namespace:path} string (fully reflective - the
-   *  Identifier/ResourceLocation shape changed at 1.21.11, so the G2 jar cannot reference
-   *  either shape directly). */
-  @SuppressWarnings("unchecked")
-  public static net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> parseDimensionKey(
-      String location) {
-    if (location == null || location.isBlank()) return null;
-    try {
-      Object id = tryParseDimension(location);
-      if (id == null) return null;
-      Object key = worldKey(id);
-      if (key instanceof net.minecraft.resources.ResourceKey) {
-        return (net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>) key;
-      }
-      return null;
-    } catch (Throwable err) {
-      return null;
+  /**
+   * Legacy {@code value.save(CompoundTag) -> CompoundTag}, located by signature: the only public
+   * instance method of {@code type} taking and returning a CompoundTag. Ambiguity never guesses.
+   */
+  private static net.minecraft.nbt.CompoundTag legacySave(Class<?> type, Object value) {
+    java.lang.reflect.Method found = null;
+    for (java.lang.reflect.Method m : type.getMethods()) {
+      if (java.lang.reflect.Modifier.isStatic(m.getModifiers())
+          || m.getParameterCount() != 1
+          || m.getParameterTypes()[0] != net.minecraft.nbt.CompoundTag.class
+          || m.getReturnType() != net.minecraft.nbt.CompoundTag.class) continue;
+      if (found != null) return null;
+      found = m;
     }
-  }
-
-  /** Resolves the world registry key object (net.minecraft.registry.RegistryKeys.WORLD or the
-   *  1.19.2-and-older util.registry.Registry.WORLD_KEY). */
-  private static Object dimensionRegistry() {
+    if (found == null) return null;
     try {
-      Class<?> registryKeys = Class.forName("net.minecraft.registry.RegistryKeys");
-      return registryKeys.getField("WORLD").get(null);
-    } catch (ReflectiveOperationException ignored) {
-      try {
-        Class<?> registry = Class.forName("net.minecraft.util.registry.Registry");
-        return registry.getField("WORLD_KEY").get(null);
-      } catch (ReflectiveOperationException ignored2) {
-        return null;
-      }
+      return (net.minecraft.nbt.CompoundTag) found.invoke(value, new net.minecraft.nbt.CompoundTag());
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      return null;
     }
   }
 
   /**
-   * Parses a dimension location string without referencing either {@code ResourceLocation} or
-   * {@code Identifier} directly (the rename happened at 1.21.11; the G2 jar must run on both).
-   * Returns an opaque {@link Object} usable with {@link #worldKey(Object)}.
+   * Legacy static {@code Type.of/load(CompoundTag) -> Type}, located by signature (the only public
+   * static method of {@code type} taking a CompoundTag and returning {@code type}).
    */
-  public static Object tryParseDimension(String raw) {
-    if (raw == null || raw.isBlank()) return null;
-    try {
-      return Class.forName("net.minecraft.resources.Identifier")
-          .getMethod("tryParse", String.class)
-          .invoke(null, raw);
-    } catch (ReflectiveOperationException ignored) {
-      // 1.16-1.21.1: ResourceLocation
+  private static <T> T legacyLoad(Class<T> type, net.minecraft.nbt.CompoundTag tag) {
+    java.lang.reflect.Method found = null;
+    for (java.lang.reflect.Method m : type.getMethods()) {
+      if (!java.lang.reflect.Modifier.isStatic(m.getModifiers())
+          || m.getParameterCount() != 1
+          || m.getParameterTypes()[0] != net.minecraft.nbt.CompoundTag.class
+          || m.getReturnType() != type) continue;
+      if (found != null) return null;
+      found = m;
     }
+    if (found == null) return null;
     try {
-      return Class.forName("net.minecraft.resources.ResourceLocation")
-          .getMethod("tryParse", String.class)
-          .invoke(null, raw);
-    } catch (ReflectiveOperationException ignored) {
+      return type.cast(found.invoke(null, tag));
+    } catch (ReflectiveOperationException | RuntimeException err) {
       return null;
     }
+  }
+
+  /*? if >= 1.19 {*/
+  /**
+   * Codec-based (de)serialization, 1.20.5+. Isolated in its own class so the older runtimes of the
+   * range jar fail with a catchable LinkageError at the call instead of at Compat's class load.
+   */
+  private static final class ModernNbt {
+    private ModernNbt() {}
+
+    private static com.mojang.serialization.DynamicOps<net.minecraft.nbt.Tag> ops(
+        net.minecraft.core.HolderLookup.Provider registries) {
+      return registries == null
+          ? net.minecraft.nbt.NbtOps.INSTANCE
+          : registries.createSerializationContext(net.minecraft.nbt.NbtOps.INSTANCE);
+    }
+
+    private static net.minecraft.nbt.CompoundTag asCompound(
+        java.util.Optional<net.minecraft.nbt.Tag> tag) {
+      return tag.orElse(null) instanceof net.minecraft.nbt.CompoundTag compound ? compound : null;
+    }
+
+    static net.minecraft.nbt.CompoundTag encodeStack(
+        net.minecraft.core.HolderLookup.Provider registries, net.minecraft.world.item.ItemStack stack) {
+      return asCompound(
+          net.minecraft.world.item.ItemStack.CODEC.encodeStart(ops(registries), stack).result());
+    }
+
+    static net.minecraft.world.item.ItemStack decodeStack(
+        net.minecraft.core.HolderLookup.Provider registries, net.minecraft.nbt.CompoundTag tag) {
+      return net.minecraft.world.item.ItemStack.CODEC.parse(ops(registries), tag).result().orElse(null);
+    }
+
+    static net.minecraft.nbt.CompoundTag encodeEffect(
+        net.minecraft.core.HolderLookup.Provider registries,
+        net.minecraft.world.effect.MobEffectInstance effect) {
+      return asCompound(
+          net.minecraft.world.effect.MobEffectInstance.CODEC.encodeStart(ops(registries), effect).result());
+    }
+
+    static net.minecraft.world.effect.MobEffectInstance decodeEffect(
+        net.minecraft.core.HolderLookup.Provider registries, net.minecraft.nbt.CompoundTag tag) {
+      return net.minecraft.world.effect.MobEffectInstance.CODEC.parse(ops(registries), tag).result().orElse(null);
+    }
+  }
+  /*?}*/
+
+  /**
+   * The {@code namespace:path} id of a dimension key. {@code ResourceKey.toString()} is
+   * {@code "ResourceKey[minecraft:dimension / minecraft:overworld]"} in every era, so this needs
+   * neither ResourceLocation nor Identifier (renamed at 1.21.11) nor any mapping name.
+   */
+  public static String dimensionId(Object key) {
+    if (key == null) return null;
+    String s = String.valueOf(key);
+    int sep = s.indexOf("/ ");
+    int end = s.lastIndexOf(']');
+    return sep >= 0 && end > sep ? s.substring(sep + 2, end).trim() : null;
+  }
+
+  /**
+   * Finds a loaded level by its dimension id ({@code "minecraft:the_nether"}, or {@code "the_nether"}
+   * for the minecraft namespace). Compares the levels the server actually has, so it works on every
+   * mapping era and with datapack/mod dimensions. The previous lookup used YARN class names
+   * ({@code net.minecraft.registry.RegistryKey/RegistryKeys}) that never exist at runtime - the
+   * configured limbo dimension and the crash-recovery position were silently ignored everywhere.
+   */
+  public static ServerLevel findLevel(MinecraftServer server, String id) {
+    if (server == null || id == null || id.isBlank()) return null;
+    String wanted = id.trim().toLowerCase(java.util.Locale.ROOT);
+    if (wanted.indexOf(':') < 0) wanted = "minecraft:" + wanted;
+    try {
+      for (ServerLevel level : server.getAllLevels())
+        if (wanted.equals(dimensionId(level.dimension()))) return level;
+    } catch (RuntimeException | LinkageError err) {
+      return null;
+    }
+    return null;
   }
 
   /** The player inventory (direct call - {@code Player.getInventory} in every era). */
@@ -2593,24 +2737,55 @@ public final class Compat {
     return null;
   }
 
-  /** Adds a player to the vanilla whitelist (API changed across versions). */
+  /**
+   * Adds a player to the vanilla whitelist (authentication.auto-whitelist).
+   *
+   * <p>The previous lookup used YARN names ({@code net.minecraft.server.WhitelistEntry},
+   * {@code getWhitelist}, {@code addToWhitelist}) that never exist at runtime, so auto-whitelist
+   * silently did nothing on every loader and version. Direct, build-remapped call for the build
+   * target; the GameProfile-keyed eras a range jar also covers (1.19-1.21.8 under the 1.21.11
+   * build) are reached by signature shape - authlib's {@code GameProfile} is never remapped.
+   */
   public static boolean addToWhitelist(MinecraftServer server, com.mojang.authlib.GameProfile profile) {
+    if (server == null || profile == null) return false;
     try {
-      // 1.20.5+: Whitelist.add(WhitelistEntry)
-      Object whitelist = server.getPlayerList().getClass().getMethod("getWhitelist").invoke(server.getPlayerList());
-      Class<?> entryClass = Class.forName("net.minecraft.server.WhitelistEntry");
-      Object entry = entryClass.getConstructor(com.mojang.authlib.GameProfile.class).newInstance(profile);
-      whitelist.getClass().getMethod("add", entryClass).invoke(whitelist, entry);
+      /*? if >= 1.21.9 {*/
+      server.getPlayerList().getWhiteList().add(
+          new net.minecraft.server.players.UserWhiteListEntry(
+              new net.minecraft.server.players.NameAndId(profile)));
+      /*?} else {*/
+      /*server.getPlayerList().getWhiteList().add(
+          new net.minecraft.server.players.UserWhiteListEntry(profile));
+      *//*?}*/
       return true;
-    } catch (ReflectiveOperationException e) {
-      try {
-        // 1.16-1.20.4: PlayerManager.addToWhitelist(GameProfile)
-        Method m = server.getPlayerList().getClass().getMethod("addToWhitelist", com.mojang.authlib.GameProfile.class);
-        m.invoke(server.getPlayerList(), profile);
-        return true;
-      } catch (ReflectiveOperationException ignored) {
-        return false;
-      }
+    } catch (RuntimeException | LinkageError otherEra) {
+      return legacyWhitelistAdd(server, profile);
+    }
+  }
+
+  private static boolean legacyWhitelistAdd(
+      MinecraftServer server, com.mojang.authlib.GameProfile profile) {
+    try {
+      Object list = server.getPlayerList().getWhiteList();
+      Object entry =
+          net.minecraft.server.players.UserWhiteListEntry.class
+              .getConstructor(com.mojang.authlib.GameProfile.class)
+              .newInstance(profile);
+      // StoredUserList#add(V): the only single-arg method whose parameter is the type VARIABLE V
+      // (erased to StoredUserEntry) - remove(StoredUserEntry<K>) is parameterized, not a variable.
+      for (Class<?> c = list.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+          if (m.getParameterCount() != 1
+              || m.getParameterTypes()[0] != net.minecraft.server.players.StoredUserEntry.class
+              || !(m.getGenericParameterTypes()[0] instanceof java.lang.reflect.TypeVariable))
+            continue;
+          m.setAccessible(true);
+          m.invoke(list, entry);
+          return true;
+        }
+      return false;
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
+      return false;
     }
   }
 

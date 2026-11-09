@@ -243,56 +243,18 @@ public final class FabricHooks {
    * receiver is skipped gracefully.
    */
   public static void registerVelocityForwarding() {
-    try {
-      var cfg = in.potenfyr.authcore.AuthCoreServer.config;
-      if (cfg == null || !cfg.session.proxySupport.enabled) return;
-      String secret = cfg.session.proxySupport.velocitySecret;
-      if (secret == null || secret.isBlank()) return;
-
-      Class<?> networking = Class.forName("net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking");
-      Class<?> handler =
-          Class.forName("net.fabricmc.fabric.api.networking.v1.ServerLoginNetworking$LoginQueryRequestHandler");
-
-      Object identifier = null;
-      try {
-        Class<?> idClass = Class.forName("net.minecraft.resources.ResourceLocation");
-        identifier =
-            idClass.getMethod("tryParse", String.class)
-                .invoke(null, in.potenfyr.authcore.network.VelocitySupport.PLAYER_INFO_CHANNEL);
-      } catch (ReflectiveOperationException ignored) {
-        // tryParse not present on this version
-      }
-      if (identifier == null) {
-        identifier =
-            Class.forName("net.minecraft.resources.ResourceLocation")
-                .getConstructor(String.class)
-                .newInstance(in.potenfyr.authcore.network.VelocitySupport.PLAYER_INFO_CHANNEL);
-      }
-
-      Object receiver =
-          java.lang.reflect.Proxy.newProxyInstance(
-              handler.getClassLoader(),
-              new Class<?>[] {handler},
-              (proxy, method, args) -> {
-                if (method.getName().equals("receive") && args != null && args.length >= 4) {
-                  if (!Boolean.TRUE.equals(args[2]) || args[3] == null) return null;
-                  byte[] data = readRemainingBytes(args[3]);
-                  var info =
-                      in.potenfyr.authcore.network.VelocitySupport.parsePlayerInfo(
-                          data, in.potenfyr.authcore.AuthCoreServer.config.session.proxySupport.velocitySecret);
-                  if (info != null) applyForwardedProfile(args[1], info);
-                }
-                return null;
-              });
-
-      networking
-          .getMethod("registerGlobalReceiver", identifier.getClass(), handler)
-          .invoke(null, identifier, receiver);
-      in.potenfyr.authcore.AuthCoreServer.LOGGER.info(
-          true, "Velocity modern forwarding receiver registered (velocity:player_info).");
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // ServerLoginNetworking not available on this version - skipped gracefully
-    }
+    // Velocity MODERN forwarding is not implemented: the old receiver was never reached (nothing
+    // sent the login query) and applied the identity by names that exist on no runtime. Shipping
+    // an untested identity-forwarding path would be a spoofing risk, so say so instead.
+    var cfg = in.potenfyr.authcore.AuthCoreServer.config;
+    if (cfg == null || !cfg.session.proxySupport.enabled) return;
+    String secret = cfg.session.proxySupport.velocitySecret;
+    if (secret == null || secret.isBlank()) return;
+    in.potenfyr.authcore.AuthCoreServer.LOGGER.warn(
+        false,
+        "session.proxy-support.velocity-secret is set, but AuthCore does not perform Velocity"
+            + " MODERN forwarding. Use FabricProxy-Lite (Fabric) / Proxy-Compatible-Forge"
+            + " (Forge/NeoForge), or Velocity legacy (bungeecord) forwarding, which AuthCore reads.");
   }
 
   /** Copies the remaining bytes of the packet buffer (FriendlyByteBuf / ByteBuf). */

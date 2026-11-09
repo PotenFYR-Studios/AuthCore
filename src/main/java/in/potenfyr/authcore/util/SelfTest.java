@@ -67,7 +67,40 @@ public final class SelfTest {
     checks.add(checkSanitizerSimulation());
     checks.add(checkLobbyPacketPolicySimulation());
     checks.add(checkConcurrencySimulation());
+    checks.add(checkSnapshotSerializationSimulation(server));
     return checks;
+  }
+
+  /**
+   * Crash-snapshot round-trip on the real runtime: an ItemStack through the snapshot serializer
+   * and back, and the dimension lookup used by the limbo teleport and the crash recovery. Both
+   * used to resolve their Minecraft API by Mojang/Yarn NAME - silently empty on every
+   * intermediary/SRG server - so this runs the exact code path against the live mappings.
+   */
+  private static Check checkSnapshotSerializationSimulation(MinecraftServer server) {
+    try {
+      net.minecraft.world.item.ItemStack stack =
+          new net.minecraft.world.item.ItemStack(net.minecraft.world.item.Items.DIAMOND, 5);
+      String encoded = in.potenfyr.authcore.compat.Compat.itemStackToBase64(null, stack);
+      net.minecraft.world.item.ItemStack back =
+          in.potenfyr.authcore.compat.Compat.itemStackFromBase64(null, encoded);
+      boolean item =
+          !encoded.isEmpty()
+              && back.getItem() == net.minecraft.world.item.Items.DIAMOND
+              && back.getCount() == 5;
+      net.minecraft.server.level.ServerLevel overworld =
+          in.potenfyr.authcore.compat.Compat.findLevel(server, "minecraft:overworld");
+      boolean dimension =
+          overworld != null
+              && in.potenfyr.authcore.compat.Compat.findLevel(server, "overworld") == overworld
+              && in.potenfyr.authcore.compat.Compat.findLevel(server, "authcore:no_such_dim") == null;
+      return new Check(
+          "snapshot-serialization",
+          item && dimension,
+          "item-roundtrip=" + item + " (" + encoded.length() + " b64 chars) dimension-lookup=" + dimension);
+    } catch (Throwable err) {
+      return new Check("snapshot-serialization", false, describe(err));
+    }
   }
 
   /** Real hash/verify round-trip with the configured algorithm. */

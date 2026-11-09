@@ -81,6 +81,37 @@ All notable changes to AuthCore, from the first alpha to the current release.
   `alert-on-fast-rejoin = true` (alert-only). Premium auto-login was already on by default.
 - **Tests:** command-tree pruning checks - 287 security checks total.
 
+### Verification pass - API lookups that only worked under development names (2026-11-09)
+
+> Follow-up audit of the Forge 1.18.2 report: every mixin target and every direct Minecraft
+> member reference of all six jars was checked against the real runtime classes (SRG, intermediary,
+> Mojang) - all resolve. Several REFLECTIVE lookups did not: they named Yarn or Mojang members as
+> strings, which the build never remaps, so they silently did nothing on the affected servers.
+
+- **Proxy IP forwarding never applied (all versions).** The handshake host was read by the Yarn
+  name `address`, which no runtime has; behind BungeeCord/Velocity legacy forwarding every player
+  kept the proxy's IP (GeoIP, rate limits, IP rules, same-IP sessions). The field is now located by
+  its shape.
+- **Crash-safe limbo snapshot.** Inventory (with `hide-inventory`) and effects were serialised by
+  name - `""` on every Fabric 1.16-1.21 and Forge server, so a crash during the limbo lost the hidden
+  inventory. Direct calls per era now, through registry-aware codecs on 1.20.5+.
+- **Limbo dimension / crash-recovery position.** Dimension keys were built from Yarn classes that
+  never exist: `lobby.limbo-config` (on by default) and the recovery teleport were silently skipped
+  everywhere. Levels are now matched by id; an unknown dimension is logged.
+- **Clickable /login and /register hints** rendered as plain text on Fabric and Forge; **limbo
+  position correction** was never sent on Fabric 1.21.2-1.21.11; **`allow-mountable-*`** never
+  matched a mount; **auto-whitelist** never added anyone. All fixed.
+- **Interop plugin messages** (`AUTH_CHANGED` for proxy gates, companion messages) were never sent
+  on any version. 1.16-1.18 send them directly; 1.20.2+ append the bytes to an empty vanilla payload
+  on the netty pipeline (no per-loader codec or NeoForge channel negotiation needed). Proxy gates no
+  longer need Redis to see logins.
+- **Velocity modern forwarding** was never functional on the backend (no login query was sent). The
+  dead receiver is gone; a configured `velocity-secret` now logs a warning recommending
+  FabricProxy-Lite / Proxy-Compatible-Forge or legacy forwarding.
+- **Forge 1.16-1.18 jar declares Minecraft `[1.18,1.18.2]`** (Forge 38+). Forge 1.16/1.17 cannot
+  load it; they now get a clean version error instead of a crash.
+- **Self-test:** new `snapshot-serialization` check (21 checks).
+
 ### Security pass - brute-force, rate-limit and step-up bypasses (2026-11-09)
 
 - **Eight wrong passwords no longer lock an account out for good.** The failure counter was never
