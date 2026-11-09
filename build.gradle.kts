@@ -296,6 +296,13 @@ sourceSets.main.get().java.srcDir(
 // Build + collect
 // ----------------------------------------------------------------------------
 
+// The BungeeCord descriptor is not covered by Stonecraft's metadata expansion (that handles
+// fabric.mod.json / mods.toml), so its version is expanded here. Otherwise the proxy plugin
+// would advertise a stale version after every bump.
+tasks.withType<ProcessResources>().configureEach {
+    filesMatching("bungee.yml") { expand("version" to modVersion) }
+}
+
 // Legacy Forge (1.16 - 1.20.x FML) does NOT read the [[mixins]] block of mods.toml - that is a
 // NeoForge / modern-Forge feature. Old FML only applies the mixin configs named in the jar
 // MANIFEST, so the 1.16-1.18 Forge jar shipped with ZERO active mixins: no premium verification

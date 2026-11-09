@@ -428,7 +428,7 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 
 ## 🧪 Security Testing
 
-AuthCore features an autonomous security testing harness located in [`test/`](test/) with **248 automated unit and cryptographic checks** plus a 20-check in-mod simulation suite:
+AuthCore features an autonomous security testing harness located in [`test/`](test/) with **296 automated unit and cryptographic checks** plus a 21-check in-mod simulation suite:
 
 ```bash
 # Compile and execute the full security test suite

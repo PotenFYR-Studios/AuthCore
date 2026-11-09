@@ -119,6 +119,21 @@ All notable changes to AuthCore, from the first alpha to the current release.
   load it; they now get a clean version error instead of a crash.
 - **Self-test:** new `snapshot-serialization` check (21 checks).
 
+### CI - verified artifacts, fast metadata failures (2026-11-09)
+
+- **Two fast jobs run beside the build.** `guard` fails the run in seconds when `mod.version` has
+  no changelog section, disagrees with the version the mod reports at runtime, or when a
+  `versions/*` node is missing from the build matrix; `lint` runs actionlint over the workflow so
+  a broken expression or stale action major is caught before it burns a build leg.
+- **Jar verification now covers what actually breaks at runtime:** the Mixin config declaration
+  (fabric.mod.json, mods.toml, neoforge.mods.toml) *and* the legacy Forge `MixinConfigs` manifest
+  entry, the proxy descriptors' version (templated from `mod.version` - `bungee.yml` and
+  `velocity-plugin.json` no longer carry a hardcoded copy), and the bytecode target of each group
+  (classfile 61/65/69) so a toolchain change can never ship Java 25 classes to a 1.16 server.
+- **Releases carry `SHA256SUMS` and a build-provenance attestation**, and the publish step
+  re-downloads its own assets and verifies them (`sha256sum -c`, 6 jars + checksums) before the
+  run is green.
+
 ### Security pass - brute-force, rate-limit and step-up bypasses (2026-11-09)
 
 - **Eight wrong passwords no longer lock an account out for good.** The failure counter was never

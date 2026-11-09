@@ -1,15 +1,21 @@
 name: CI
 
-# ONE workflow, FOUR jobs - cross-connected so nothing builds twice:
+# ONE workflow, SIX jobs - cross-connected so nothing builds twice:
+#   guard       - metadata guard: mod.version <-> changelog section <-> runtime constant,
+#                 templated descriptors, and every versions/* node present in the matrix
+#   lint        - actionlint over .github/workflows (catches broken expressions, unknown
+#                 inputs and stale action versions without spending a build leg)
 #   build       - builds the SIX variants (3 ranges x fabric/forge/neoforge) IN PARALLEL via a
-#                 matrix (one runner per variant), verifies each jar's role, runs the security
-#                 test suite once on the primary variant, uploads per-variant jar artifacts
+#                 matrix (one runner per variant), verifies each jar's role/descriptors and
+#                 bytecode target, runs the security test suite once on the primary variant,
+#                 uploads per-variant jar artifacts
 #   merge       - needs build: collects all six jars, enforces the exact-count gate, publishes
 #                 the shared "authcore-jars" artifact
 #   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker harness
 #                 (smoke on push/PR, full range matrix on workflow_dispatch)
 #   release     - needs merge + host-tests, master pushes (and manual runs on master) only:
-#                 publishes the release for the version in gradle.properties.
+#                 publishes the release for the version in gradle.properties, with SHA256SUMS
+#                 and a build-provenance attestation.
 #
 # Release policy - ONE release per version, driven by gradle.properties (mod.version):
 #   - The version has no release yet  -> the release "AuthCore v<version>" is created and the
@@ -55,6 +61,40 @@ defaults:
     shell: bash
 
 jobs:
+  # ------------------------------------------------------------------
+  # Fast metadata checks: run in parallel with the build and fail the run
+  # in seconds when version/changelog/matrix metadata has drifted, instead
+  # of at the release step an hour later.
+  # ------------------------------------------------------------------
+  guard:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Version, changelog and matrix guard
+        run: bash .github/scripts/version-guard.sh
+
+  # ------------------------------------------------------------------
+  # Lint the workflow itself. actionlint catches broken expressions,
+  # unknown action inputs and invalid YAML - shellcheck is disabled on
+  # purpose so the run stays about the pipeline, not the test scripts.
+  # ------------------------------------------------------------------
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -shellcheck=
+
   build:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -64,27 +104,33 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Group G1: 1.16 - 1.18 (Java 17)
+          # Group G1: 1.16 - 1.18 (Java 17, classfile major 61)
           - variant: 1.18.2-fabric
             group: 1.16-1.18
             java: 17
+            classfile: 61
           - variant: 1.18.2-forge
             group: 1.16-1.18
             java: 17
-          # Group G2: 1.19 - 1.21 (Java 21)
+            classfile: 61
+          # Group G2: 1.19 - 1.21 (Java 21, classfile major 65)
           - variant: 1.21.11-fabric
             group: 1.19-1.21
             java: 21
+            classfile: 65
           - variant: 1.21.11-neoforge
             group: 1.19-1.21
             java: 21
-          # Group G3: 26.1 - 26.3 (Java 25)
+            classfile: 65
+          # Group G3: 26.1 - 26.3 (Java 25, classfile major 69)
           - variant: 26.3-fabric
             group: 26.1-26.3
             java: 25
+            classfile: 69
           - variant: 26.3-neoforge
             group: 26.1-26.3
             java: 25
+            classfile: 69
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -105,19 +151,40 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
+      - name: Resolve version
+        id: version
+        run: |
+          VER=$(grep -E '^mod\.version=' gradle.properties | cut -d= -f2 | tr -d '[:space:]')
+          if [ -z "$VER" ]; then
+            echo "::error::Could not read mod.version from gradle.properties"
+            exit 1
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "Building $VER for ${{ matrix.variant }}"
+
       - name: Build variant ${{ matrix.variant }}
         run: |
           JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
             :${{ matrix.variant }}:build --no-daemon --stacktrace
 
       - name: Stage jar
+        env:
+          VER: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p release
           cp versions/${{ matrix.variant }}/build/libs/authcore-*.jar release/
           rm -f release/*sources*.jar
           ls -la release/
+          # The artifact name carries the version - a mismatch means the jar came from stale
+          # metadata (the release job would refuse it an hour later).
+          if ! ls release/authcore-*-"$VER".jar >/dev/null 2>&1; then
+            echo "::error::No authcore-*-$VER.jar was produced"
+            exit 1
+          fi
 
       - name: Verify jar role (${{ matrix.variant }})
+        env:
+          VER: ${{ steps.version.outputs.version }}
         run: |
           STATUS=0
           for JAR in release/authcore-*.jar; do
@@ -141,15 +208,65 @@ jobs:
               # ("environment":"server") while older releases wrote a space after the colon.
               unzip -p "$JAR" fabric.mod.json | grep -Eq '"environment"[[:space:]]*:[[:space:]]*"server"' \
                 && echo "  OK fabric env server" || { echo "::error::$JAR wrong fabric environment"; STATUS=1; }
+              # Loom only loads a mixin config a mod declares - the 1.0.2 fabric jars declared it,
+              # a regression here silently disables every mixin.
+              unzip -p "$JAR" fabric.mod.json | grep -q 'authcore.server.mixins.json' \
+                && echo "  OK fabric mixin config declared" || { echo "::error::$JAR: fabric.mod.json does not declare the mixin config"; STATUS=1; }
             fi
             for TOML in META-INF/neoforge.mods.toml META-INF/mods.toml; do
               if unzip -l "$JAR" | grep -q "$TOML"; then
                 unzip -p "$JAR" "$TOML" | grep -Eq 'modId[[:space:]]*=[[:space:]]*"authcore"' \
                   && echo "  OK $TOML metadata" || { echo "::error::$JAR bad $TOML"; STATUS=1; }
+                unzip -p "$JAR" "$TOML" | grep -q 'authcore.server.mixins.json' \
+                  && echo "  OK $TOML mixin config declared" || { echo "::error::$JAR: $TOML does not declare the mixin config"; STATUS=1; }
               fi
             done
+            # Legacy Forge (1.16-1.18) ignores the [[mixins]] toml block entirely and only reads
+            # the jar manifest - the 1.0.2 forge jar shipped with zero active mixins because of it.
+            case "${{ matrix.variant }}" in
+              1.18.2-forge)
+                unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'MixinConfigs: authcore.server.mixins.json' \
+                  && echo "  OK legacy Forge MixinConfigs manifest" \
+                  || { echo "::error::$JAR: legacy Forge manifest has no MixinConfigs - no mixin would load"; STATUS=1; }
+                ;;
+            esac
+            # Proxy descriptors are templated from mod.version - a stale copy mislabels the
+            # proxy plugin (and the velocity-plugin.json is what Velocity reads at boot).
+            unzip -p "$JAR" bungee.yml | grep -Eq "^version:[[:space:]]*\"?$VER\"?[[:space:]]*$" \
+              && echo "  OK bungee.yml version $VER" || { echo "::error::$JAR: bungee.yml does not carry version $VER"; STATUS=1; }
+            unzip -p "$JAR" velocity-plugin.json | grep -Eq "\"version\"[[:space:]]*:[[:space:]]*\"$VER\"" \
+              && echo "  OK velocity-plugin.json version $VER" || { echo "::error::$JAR: velocity-plugin.json does not carry version $VER"; STATUS=1; }
           done
           exit $STATUS
+
+      # Servers in range reject a jar compiled for a newer JVM with UnsupportedClassVersionError.
+      # The matrix records the expected classfile major per version group (17 -> 61, 21 -> 65,
+      # 25 -> 69) so a toolchain change cannot silently ship 26.3 bytecode to a 1.16 server.
+      - name: Verify bytecode target (classfile ${{ matrix.classfile }})
+        run: |
+          for JAR in release/authcore-*.jar; do
+            MAJOR=$(unzip -p "$JAR" in/potenfyr/authcore/AuthCoreServer.class | od -An -j 6 -N 2 -t u1 |
+              awk '{print $1 * 256 + $2}')
+            echo "$JAR -> classfile major $MAJOR (expected ${{ matrix.classfile }})"
+            if [ "$MAJOR" != "${{ matrix.classfile }}" ]; then
+              echo "::error::$JAR targets classfile major $MAJOR, expected ${{ matrix.classfile }} (Java ${{ matrix.java }})"
+              exit 1
+            fi
+          done
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "### Build leg: ${{ matrix.variant }}"
+            echo
+            echo "| jar | size |"
+            echo "|---|---|"
+            for JAR in release/*.jar; do
+              [ -f "$JAR" ] || continue
+              echo "| $(basename "$JAR") | $(du -h "$JAR" | cut -f1) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The standalone security suite compiles against the REAL compiled classes, which
       # only exist inside a build leg - run it once on the primary (vcsVersion) variant.
@@ -321,12 +438,16 @@ jobs:
   release:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    needs: [merge, host-tests]
+    needs: [guard, lint, merge, host-tests]
     if: >-
       github.ref == 'refs/heads/master'
       && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     permissions:
       contents: write
+      # Build-provenance attestation (signed by GitHub's OIDC identity) so a published jar
+      # can be verified as built by this workflow, from this commit.
+      id-token: write
+      attestations: write
     concurrency:
       group: release-${{ github.repository }}
       cancel-in-progress: false
@@ -371,6 +492,19 @@ jobs:
             echo "::error::Expected 6 jars for $VER, found $COUNT"
             exit 1
           fi
+
+      # Checksums travel with the jars so a downloader can verify what they got, and every jar
+      # gets a build-provenance attestation (verify with `gh attestation verify <jar> -R repo`).
+      - name: Generate checksums
+        run: |
+          cd release
+          sha256sum authcore-*.jar | sort -k2 > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'release/authcore-*.jar'
 
       - name: Extract changelog section for this version
         env:
@@ -419,7 +553,7 @@ jobs:
 
           upload_with_retry() {
             for attempt in 1 2 3; do
-              if gh release upload "$TAG" release/*.jar --clobber; then return 0; fi
+              if gh release upload "$TAG" release/*.jar release/SHA256SUMS --clobber; then return 0; fi
               echo "upload attempt $attempt failed - retrying"
               sleep $((attempt * 10))
             done
@@ -445,7 +579,7 @@ jobs:
               --latest
           else
             echo "Release $TAG does not exist - creating it."
-            gh release create "$TAG" release/*.jar \
+            gh release create "$TAG" release/*.jar release/SHA256SUMS \
               --verify-tag \
               --title "$TITLE" \
               --notes-file release-notes.md \
@@ -459,8 +593,8 @@ jobs:
           gh release view "$TAG" --json name,tagName,isDraft,assets \
             --jq '"\(.name) (\(.tagName)) draft=\(.isDraft)", (.assets[] | "  \(.name)  \(.size) bytes  \(.updatedAt)")'
           PUBLISHED=$(gh release view "$TAG" --json assets --jq '.assets | length')
-          if [ "$PUBLISHED" -ne 6 ]; then
-            echo "::error::Release $TAG has $PUBLISHED assets, expected 6"
+          if [ "$PUBLISHED" -ne 7 ]; then
+            echo "::error::Release $TAG has $PUBLISHED assets, expected 7 (6 jars + SHA256SUMS)"
             exit 1
           fi
           for JAR in release/*.jar; do
@@ -472,4 +606,10 @@ jobs:
               exit 1
             fi
           done
-          echo "Release $TAG carries exactly this build's 6 jars."
+          # Re-download the published checksum file and verify the published jars against it -
+          # proving the assets on the release are byte-for-byte this build.
+          VERIFY_DIR=$(mktemp -d)
+          gh release download "$TAG" --pattern 'authcore-*.jar' --pattern 'SHA256SUMS' --dir "$VERIFY_DIR"
+          ( cd "$VERIFY_DIR" && sha256sum -c SHA256SUMS )
+          rm -rf "$VERIFY_DIR"
+          echo "Release $TAG carries exactly this build's 6 jars (checksums verified)."

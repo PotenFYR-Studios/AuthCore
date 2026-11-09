@@ -1,0 +1,19 @@
+# Keeps the release-pipeline actions current. Action majors are pinned in the
+# workflow (checkout@v7, setup-java@v6, ...) - a stale major is how CI silently
+# breaks when a runner image moves on.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - ci
+  # Gradle dependencies are resolved by the Stonecutter/Loom toolchain in each
+  # version node; Dependabot cannot follow it, so versions are bumped by hand in
+  # gradle.properties. Only setup instructions of these actions are automated.

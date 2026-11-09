@@ -21,7 +21,9 @@ import org.slf4j.Logger;
 @Plugin(
     id = "authcore",
     name = "AuthCore",
-    version = "1.0.3",
+    // Compile-time constant - keeps the plugin descriptor in step with the mod version
+    // instead of a third hardcoded copy of it.
+    version = in.potenfyr.authcore.AuthCoreServer.MOD_VERSION,
     description = "Network auth-state bridge: tracks which players authenticated on AuthCore backends.",
     authors = {"Ded3ec"})
 public final class VelocityEntry {
@@ -91,8 +93,15 @@ public final class VelocityEntry {
       return;
     }
 
+    // Velocity 3 declares register(ChannelIdentifier...) - a VARARGS array. Passing a bare
+    // identifier to that method throws, and the proxy then silently receives nothing.
+    Class<?> parameter = register.getParameterTypes()[0];
+    boolean varargs = parameter.isArray();
+    Class<?> identifierType = varargs ? parameter.getComponentType() : parameter;
+
+    java.util.List<Object> identifiers = new java.util.ArrayList<>();
     for (String channel : new String[] {InteropMessages.CHANNEL, InteropMessages.BUNGEE_CHANNEL}) {
-      Object identifier = channelIdentifier(register.getParameterTypes()[0], channel);
+      Object identifier = channelIdentifier(identifierType, channel);
       if (identifier == null) {
         logger.warn(
             "AuthCore proxy mode: could not build a Velocity channel identifier for '{}' -"
@@ -100,49 +109,93 @@ public final class VelocityEntry {
             channel);
         return;
       }
-      try {
-        register.invoke(registrar, identifier);
-      } catch (Throwable err) {
-        logger.warn(
-            "AuthCore proxy mode: registering channel '{}' failed - {}", channel, err.toString());
+      identifiers.add(identifier);
+    }
+
+    try {
+      if (varargs) {
+        Object array = java.lang.reflect.Array.newInstance(identifierType, identifiers.size());
+        for (int i = 0; i < identifiers.size(); i++) {
+          java.lang.reflect.Array.set(array, i, identifiers.get(i));
+        }
+        register.invoke(registrar, array);
+      } else {
+        for (Object identifier : identifiers) register.invoke(registrar, identifier);
       }
+      logger.info(
+          "AuthCore proxy mode: registered channels {} and {}",
+          InteropMessages.CHANNEL,
+          InteropMessages.BUNGEE_CHANNEL);
+    } catch (Throwable err) {
+      logger.warn("AuthCore proxy mode: registering the interop channels failed - {}", err.toString());
     }
   }
 
   /**
-   * Builds a Velocity channel identifier of the registrar's parameter type.
+   * Builds a Velocity channel identifier accepted by the registrar's parameter type.
    *
-   * <p>Tries the static factories and constructors used across Velocity generations
-   * ({@code from(String)}, {@code create(namespace, name)}, {@code (String)},
-   * {@code (String, String)}); the channel string is always {@code namespace:name}.
+   * <p>The registrar takes {@code ChannelIdentifier}; the concrete implementation that can be
+   * built differs between generations ({@code MinecraftChannelIdentifier.from(String)} on 3.x,
+   * a {@code ChannelIdentifier} record/factory on 4.x), and a static factory lives on the
+   * implementation, never on the interface. So the parameter type is used as the ACCEPTANCE
+   * check, and the known implementation classes are tried as builders.
    */
   private static Object channelIdentifier(Class<?> type, String channel) {
+    java.util.List<Class<?>> builders = new java.util.ArrayList<>();
+    builders.add(type);
+    for (String name :
+        new String[] {
+          "com.velocitypowered.api.proxy.messages.MinecraftChannelIdentifier",
+          "com.velocitypowered.api.proxy.messages.VelocityChannelIdentifier",
+          "com.velocitypowered.api.proxy.messages.ChannelIdentifier",
+          "com.velocitypowered.api.proxy.messages.Identifiers"
+        }) {
+      try {
+        Class<?> candidate = Class.forName(name, false, type.getClassLoader());
+        if (type.isAssignableFrom(candidate) || candidate == type) builders.add(candidate);
+      } catch (ClassNotFoundException | LinkageError ignored) {
+        // not this Velocity generation
+      }
+    }
+    for (Class<?> builder : builders) {
+      Object identifier = buildIdentifier(builder, channel);
+      if (identifier != null) return identifier;
+    }
+    return null;
+  }
+
+  /** Tries every factory/constructor shape a Velocity channel identifier class may offer. */
+  private static Object buildIdentifier(Class<?> builder, String channel) {
     int colon = channel.indexOf(':');
     String namespace = colon > 0 ? channel.substring(0, colon) : "minecraft";
     String name = colon > 0 ? channel.substring(colon + 1) : channel;
 
-    for (String factory : new String[] {"from", "of"}) {
+    for (String factory : new String[] {"from", "of", "identifier", "parse"}) {
+      for (Class<?>[] args :
+          new Class<?>[][] {{String.class}, {net.kyori.adventure.key.Key.class}}) {
+        try {
+          Object value = args[0] == String.class ? (Object) channel : net.kyori.adventure.key.Key.key(channel);
+          return builder.getMethod(factory, args).invoke(null, value);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+          // try the next shape
+        }
+      }
+    }
+    try {
+      return builder.getMethod("create", String.class, String.class).invoke(null, namespace, name);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // try the next shape
+    }
+    for (Class<?>[] args : new Class<?>[][] {{String.class}, {String.class, String.class}}) {
       try {
-        return type.getMethod(factory, String.class).invoke(null, channel);
+        return builder
+            .getConstructor(args)
+            .newInstance(args.length == 1 ? new Object[] {channel} : new Object[] {namespace, name});
       } catch (ReflectiveOperationException | RuntimeException ignored) {
         // try the next shape
       }
     }
-    try {
-      return type.getMethod("create", String.class, String.class).invoke(null, namespace, name);
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // try the next shape
-    }
-    try {
-      return type.getConstructor(String.class).newInstance(channel);
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      // try the next shape
-    }
-    try {
-      return type.getConstructor(String.class, String.class).newInstance(namespace, name);
-    } catch (ReflectiveOperationException | RuntimeException ignored) {
-      return null;
-    }
+    return null;
   }
 
   /**
