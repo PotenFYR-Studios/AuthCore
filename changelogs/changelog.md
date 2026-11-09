@@ -103,11 +103,18 @@ All notable changes to AuthCore, from the first alpha to the current release.
   matched a mount; **auto-whitelist** never added anyone. All fixed.
 - **Interop plugin messages** (`AUTH_CHANGED` for proxy gates, companion messages) were never sent
   on any version. 1.16-1.18 send them directly; 1.20.2+ append the bytes to an empty vanilla payload
-  on the netty pipeline (no per-loader codec or NeoForge channel negotiation needed). Proxy gates no
+  on the netty pipeline (no per-loader codec or NeoForge channel negotiation needed). The proxy side
+  was fixed too: Velocity never registered the interop channels, so backend messages were dropped
+  before the listener ran (the gate then blocked every transfer); both BungeeCord and Velocity now
+  register `authcore:auth` + `bungeecord:main`, consume client-sent messages on them, and accept
+  only a well-formed `AUTH_CHANGED|<uuid>|<username>|<1|0>` with a canonical UUID. Proxy gates no
   longer need Redis to see logins.
-- **Velocity modern forwarding** was never functional on the backend (no login query was sent). The
-  dead receiver is gone; a configured `velocity-secret` now logs a warning recommending
-  FabricProxy-Lite / Proxy-Compatible-Forge or legacy forwarding.
+- **Velocity modern forwarding** was never functional on the backend (no login query was sent, and
+  the parser expected a payload shape Velocity does not send). The dead receiver, its unused
+  `velocity-secret` option and the misleading "HMAC verified" documentation are gone: modern
+  forwarding is performed by FabricProxy-Lite / Proxy-Compatible-Forge, and `protocol = "velocity"`
+  now logs one clear notice instead of silently no-op IP forwarding. Legacy (bungeecord)
+  forwarding is read natively.
 - **Forge 1.16-1.18 jar declares Minecraft `[1.18,1.18.2]`** (Forge 38+). Forge 1.16/1.17 cannot
   load it; they now get a clean version error instead of a crash.
 - **Self-test:** new `snapshot-serialization` check (21 checks).

@@ -112,9 +112,7 @@ public final class BungeeEntry extends Plugin implements Listener {
       if (config == null || !config.enabled) return;
       String tag = event.getTag();
       if (tag == null) return;
-      boolean interop =
-          InteropMessages.CHANNEL.equals(tag) || InteropMessages.BUNGEE_CHANNEL.equals(tag);
-      if (!interop) return;
+      if (!InteropMessages.isInteropChannel(tag)) return;
 
       // SECURITY: AUTH_CHANGED payloads are client-spoofable if accepted from players.
       // Only backend-server connections may speak for AuthCore, and the message is always

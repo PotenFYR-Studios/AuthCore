@@ -950,30 +950,28 @@ public class Config {
 
     @Comment(
         """
-                Forwarding protocol:
-                • "auto"       - detect (BungeeCord legacy format ip\\0uuid\\0properties)
-                • "bungeecord" - BungeeCord (or Velocity legacy) IP forwarding
-                • "velocity"   - Velocity modern forwarding (real IP is delivered natively on
-                  recent protocol versions; this setting enables the legacy parse as fallback)
+                Forwarding protocol your proxy is configured with:
+                • "auto"       - detect BungeeCord / Velocity-legacy payloads
+                  (ip\\0uuid\\0properties) in the handshake address - default
+                • "bungeecord" - same legacy payload, for proxies where auto-detection is
+                  undesirable
+                • "velocity"   - the proxy runs Velocity MODERN forwarding. The handshake then
+                  carries a random token, not an IP, so no address is read here and AuthCore
+                  logs a notice at startup: modern forwarding (identity + real IP) must be
+                  provided by FabricProxy-Lite (Fabric) or Proxy-Compatible-Forge
+                  (Forge/NeoForge) - AuthCore deliberately does not verify the HMAC itself.
                 • Default: "auto\"""")
     public String protocol = "auto";
 
     @Comment(
         """
-                Velocity modern forwarding shared secret (optional).
-                • Used to verify forwarded payloads when the protocol carries them.
-                • Default: "" (disabled)""")
-    public String velocitySecret = "";
-
-    @Comment(
-        """
-                Trusted proxy sources (IPs or IPv4 CIDR ranges) allowed to CLAIM a forwarded
+                Trusted proxy sources (IPs or IPv4/IPv6 CIDR ranges) allowed to CLAIM a forwarded
                 client IP in the handshake. Forwarded data from any other source is IGNORED -
-                without this list, ANY client with a modified handshake can spoof its IP and
-                bypass IP rules, rate limits and login intelligence.
+                an empty list rejects EVERY forwarded address (fail-closed), because the
+                handshake address is client-controlled: without this list any direct client
+                could spoof its IP and bypass IP rules, rate limits and login intelligence.
                 • Example: ["10.0.0.5", "192.168.1.0/24"]
-                • Default: [] (legacy behavior: every source is trusted - NOT recommended;
-                  configure your real proxy addresses here)""")
+                • Default: [] (forwarding rejected until your proxy addresses are listed)""")
     public java.util.List<String> trustedProxies = new java.util.ArrayList<>();
   }
 

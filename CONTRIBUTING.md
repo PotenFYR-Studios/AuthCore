@@ -51,7 +51,7 @@ There is no separate formatting/lint gate in CI - format Java consistently with 
 
 ## Branches and pull requests
 
-- Branch from `master` with a descriptive name (`fix/limbo-velocity-hmac`, `feature/email-otp-rate-limit`).
+- Branch from `master` with a descriptive name (`fix/limbo-anchor-drift`, `feature/email-otp-rate-limit`).
 - Keep changes portable across loaders: put shared logic in `src/main/java`, thin entrypoints in `src/fabric/java`, `src/forge/java`, `src/neoforge/java`, and use Stonecutter conditional comments for version differences (see `settings.gradle.kts` header).
 - CI builds all six variants in parallel, runs the security suite, verifies jar roles, and boots Docker host tests - a green CI is the merge bar.
 - A PR that changes runtime behavior should state which variants/build groups you verified locally.

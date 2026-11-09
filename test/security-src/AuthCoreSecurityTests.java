@@ -9,7 +9,6 @@ import in.potenfyr.authcore.proxy.SessionCache;
 import in.potenfyr.authcore.models.Config;
 import in.potenfyr.authcore.models.Lobby;
 import in.potenfyr.authcore.network.ProxySupport;
-import in.potenfyr.authcore.network.VelocitySupport;
 import in.potenfyr.authcore.util.TimeManager;
 
 /**
@@ -31,7 +30,7 @@ public class AuthCoreSecurityTests {
     testProxyParsing();
     testProxySpoofGuard();
     testTrustedProxySource();
-    testVelocityForwarding();
+    testProxyForwardingModes();
     testProxyGate();
     testProxyConfigStrictness();
     testInteropMessages();
@@ -472,6 +471,41 @@ public class AuthCoreSecurityTests {
             && SessionCache.isAuthenticated(uuid.toString(), 60_000));
     check("bungeecord channel without subchannel prefix rejected",
         !InteropMessages.handle("bungeecord:main", payload));
+    check("bungeecord wrong subchannel rejected",
+        !InteropMessages.handle("bungeecord:main",
+            "OtherPlugin\u0000AUTH_CHANGED|".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+
+    // Buffers can be NUL-padded; the parser must still see the message.
+    byte[] padded = new byte[bungee.length + 3];
+    System.arraycopy(bungee, 0, padded, 0, bungee.length);
+    check("NUL-padded payload still parsed", InteropMessages.handle("bungeecord:main", padded));
+
+    // SECURITY: only a canonical, well-formed uuid may reach the cache.
+    UUID other = UUID.randomUUID();
+    check("non-uuid rejected",
+        !InteropMessages.handle("authcore:auth",
+            ("AUTH_CHANGED|not-a-uuid|Player|1").getBytes(java.nio.charset.StandardCharsets.US_ASCII))
+            && !SessionCache.isAuthenticated("not-a-uuid", 60_000));
+    check("extra field rejected",
+        !InteropMessages.handle("authcore:auth",
+            ("AUTH_CHANGED|" + other + "|Player|1|extra").getBytes(java.nio.charset.StandardCharsets.US_ASCII))
+            && !SessionCache.isAuthenticated(other.toString(), 60_000));
+    check("trailing separator rejected",
+        !InteropMessages.handle("authcore:auth",
+            ("AUTH_CHANGED|" + other + "|").getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+
+    // The backend may send an upper-case uuid; the gate queries the canonical lower-case form.
+    check("uuid is canonicalized for the cache",
+        InteropMessages.handle("authcore:auth",
+            ("AUTH_CHANGED|" + other.toString().toUpperCase(java.util.Locale.ROOT) + "|Player|1")
+                .getBytes(java.nio.charset.StandardCharsets.US_ASCII))
+            && SessionCache.isAuthenticated(other.toString(), 60_000));
+
+    // Logout on both channels clears the session again.
+    check("logout on bungeecord channel clears the session",
+        InteropMessages.handle("bungeecord:main",
+            ("AuthCore\u0000AUTH_CHANGED|" + uuid + "|Player|0").getBytes(java.nio.charset.StandardCharsets.US_ASCII))
+            && !SessionCache.isAuthenticated(uuid.toString(), 60_000));
   }
 
   private static void testSessionCache() {
@@ -497,63 +531,44 @@ public class AuthCoreSecurityTests {
     check("prune(0) clears expired sessions", SessionCache.size() == 0);
   }
 
-  private static void testVelocityForwarding() {
-    System.out.println("== Velocity modern forwarding ==");
-    String secret = "test-secret-123";
-
-    // Build a valid velocity:player_info payload: hmac(32) + version(1) + uuid(16) + name(utf) + 0 properties
-    java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+  private static void testProxyForwardingModes() {
+    System.out.println("== Proxy forwarding modes ==");
+    Config cfg = (Config) in.potenfyr.authcore.AuthCoreServer.config;
+    Config.Session session = cfg.session;
+    String savedProtocol = session.proxySupport.protocol;
+    boolean savedEnabled = session.proxySupport.enabled;
     try {
-      java.io.DataOutputStream out = new java.io.DataOutputStream(body);
-      out.writeInt(1); // version
-      out.writeLong(0x123456789ABCDEF0L);
-      out.writeLong(0x0FEDCBA987654321L);
-      out.writeUTF("TestPlayer");
-      out.writeInt(0); // no properties
-      out.flush();
-    } catch (java.io.IOException err) {
-      check("payload build failed", false);
-      return;
-    }
-    byte[] bodyBytes = body.toByteArray();
-    byte[] payload = new byte[32 + bodyBytes.length];
-    try {
-      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-      mac.init(new javax.crypto.spec.SecretKeySpec(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
-      byte[] hmac = mac.doFinal(bodyBytes);
-      System.arraycopy(hmac, 0, payload, 0, 32);
-      System.arraycopy(bodyBytes, 0, payload, 32, bodyBytes.length);
-    } catch (Exception err) {
-      check("hmac build failed", false);
-      return;
+      session.proxySupport.enabled = true;
+
+      session.proxySupport.protocol = "auto";
+      check("auto: legacy forwarding expected", !ProxySupport.isModernForwardingConfigured());
+      session.proxySupport.protocol = "bungeecord";
+      check("bungeecord: legacy forwarding expected", !ProxySupport.isModernForwardingConfigured());
+      session.proxySupport.protocol = "velocity";
+      check("velocity: modern forwarding declared", ProxySupport.isModernForwardingConfigured());
+      session.proxySupport.protocol = " MODERN ";
+      check("mode is case/space tolerant", ProxySupport.isModernForwardingConfigured());
+      session.proxySupport.protocol = null;
+      check("null protocol does not throw", !ProxySupport.isModernForwardingConfigured());
+
+      // A modern-forwarding proxy puts a token in the handshake address, never a payload -
+      // so no address is ever claimed from it.
+      check("velocity token is not a forwarded IP",
+          ProxySupport.parseForwardedIp("a1b2c3d4e5f6a7b8") == null);
+
+      session.proxySupport.enabled = false;
+      session.proxySupport.protocol = "velocity";
+      check("disabled proxy support -> no mode claimed",
+          !ProxySupport.isModernForwardingConfigured());
+    } finally {
+      session.proxySupport.protocol = savedProtocol;
+      session.proxySupport.enabled = savedEnabled;
     }
 
-    VelocitySupport.PlayerInfo info = VelocitySupport.parsePlayerInfo(payload, secret);
-    check("valid payload parsed", info != null && "TestPlayer".equals(info.username));
-    check(
-        "uuid matches",
-        info != null
-            && info.uuid.equals(new java.util.UUID(0x123456789ABCDEF0L, 0x0FEDCBA987654321L)));
-
-    // Tamper with the payload -> HMAC fails -> null
-    payload[40] ^= 0x01;
-    check("tampered payload rejected", VelocitySupport.parsePlayerInfo(payload, secret) == null);
-
-    // Wrong secret -> null
-    byte[] fresh = new byte[32 + bodyBytes.length];
-    try {
-      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-      mac.init(new javax.crypto.spec.SecretKeySpec("wrong-secret".getBytes(java.nio.charset.StandardCharsets.UTF_8), "HmacSHA256"));
-      byte[] hmac = mac.doFinal(bodyBytes);
-      System.arraycopy(hmac, 0, fresh, 0, 32);
-      System.arraycopy(bodyBytes, 0, fresh, 32, bodyBytes.length);
-    } catch (Exception err) {
-      check("hmac build failed", false);
-      return;
-    }
-    check("wrong secret rejected", VelocitySupport.parsePlayerInfo(fresh, secret) == null);
-    check("null payload rejected", VelocitySupport.parsePlayerInfo(null, secret) == null);
-    check("blank secret rejected", VelocitySupport.parsePlayerInfo(payload, "  ") == null);
+    check("interop channels recognized",
+        InteropMessages.isInteropChannel(InteropMessages.CHANNEL)
+            && InteropMessages.isInteropChannel(InteropMessages.BUNGEE_CHANNEL)
+            && !InteropMessages.isInteropChannel("minecraft:register"));
   }
 
   private static void testProxyGate() {

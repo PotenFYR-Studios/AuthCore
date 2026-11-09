@@ -40,6 +40,7 @@ public final class VelocityEntry {
   public void onProxyInitialize(ProxyInitializeEvent event) {
     try {
       config = ProxyConfig.load(Path.of("config"));
+      registerInteropChannels();
       server.getEventManager().register(this, new PluginMessageListener());
       server.getEventManager().register(this, new ServerGateListener());
       if (config.logEvents)
@@ -51,6 +52,96 @@ public final class VelocityEntry {
             config.authServer.isBlank() ? "(first landing server)" : config.authServer);
     } catch (Throwable err) {
       logger.warn("AuthCore proxy mode failed to start: {}", err.toString());
+    }
+  }
+
+  /**
+   * Registers the interop channels with Velocity's channel registrar.
+   *
+   * <p>Velocity only delivers a backend's plugin message to the proxy when the channel is
+   * registered (the proxy is a participant in the channel). Without this registration the
+   * AUTH_CHANGED broadcasts never reach {@link PluginMessageListener}, the session cache stays
+   * empty and the auth gate blocks every server transfer - the plugin looks healthy while doing
+   * nothing. The identifier class and its factory differ between Velocity generations, so the
+   * identifier is built reflectively from the registrar's own parameter type.
+   */
+  private void registerInteropChannels() {
+    Object registrar;
+    try {
+      registrar = server.getClass().getMethod("getChannelRegistrar").invoke(server);
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      logger.warn(
+          "AuthCore proxy mode: this Velocity build exposes no channel registrar ({}) - backend"
+              + " AUTH_CHANGED messages will not be received; use legacy forwarding with the"
+              + " AuthCore proxy plugin on BungeeCord, or Redis SSO on Velocity.",
+          err.toString());
+      return;
+    }
+    if (registrar == null) return;
+
+    java.lang.reflect.Method register = null;
+    for (java.lang.reflect.Method candidate : registrar.getClass().getMethods()) {
+      if (candidate.getName().equals("register") && candidate.getParameterCount() == 1) {
+        register = candidate;
+        break;
+      }
+    }
+    if (register == null) {
+      logger.warn("AuthCore proxy mode: Velocity's channel registrar has no register(...) method.");
+      return;
+    }
+
+    for (String channel : new String[] {InteropMessages.CHANNEL, InteropMessages.BUNGEE_CHANNEL}) {
+      Object identifier = channelIdentifier(register.getParameterTypes()[0], channel);
+      if (identifier == null) {
+        logger.warn(
+            "AuthCore proxy mode: could not build a Velocity channel identifier for '{}' -"
+                + " backend AUTH_CHANGED messages will not be received.",
+            channel);
+        return;
+      }
+      try {
+        register.invoke(registrar, identifier);
+      } catch (Throwable err) {
+        logger.warn(
+            "AuthCore proxy mode: registering channel '{}' failed - {}", channel, err.toString());
+      }
+    }
+  }
+
+  /**
+   * Builds a Velocity channel identifier of the registrar's parameter type.
+   *
+   * <p>Tries the static factories and constructors used across Velocity generations
+   * ({@code from(String)}, {@code create(namespace, name)}, {@code (String)},
+   * {@code (String, String)}); the channel string is always {@code namespace:name}.
+   */
+  private static Object channelIdentifier(Class<?> type, String channel) {
+    int colon = channel.indexOf(':');
+    String namespace = colon > 0 ? channel.substring(0, colon) : "minecraft";
+    String name = colon > 0 ? channel.substring(colon + 1) : channel;
+
+    for (String factory : new String[] {"from", "of"}) {
+      try {
+        return type.getMethod(factory, String.class).invoke(null, channel);
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // try the next shape
+      }
+    }
+    try {
+      return type.getMethod("create", String.class, String.class).invoke(null, namespace, name);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // try the next shape
+    }
+    try {
+      return type.getConstructor(String.class).newInstance(channel);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      // try the next shape
+    }
+    try {
+      return type.getConstructor(String.class, String.class).newInstance(namespace, name);
+    } catch (ReflectiveOperationException | RuntimeException ignored) {
+      return null;
     }
   }
 
@@ -198,23 +289,16 @@ public final class VelocityEntry {
       try {
         if (config == null || !config.enabled) return;
 
-        // SECURITY: AUTH_CHANGED payloads are client-spoofable if accepted from players.
-        // Only backend-server connections may speak for AuthCore.
-        Object source = event.getClass().getMethod("getSource").invoke(event);
-        if (!(source instanceof com.velocitypowered.api.proxy.ServerConnection)) return;
-
         // Velocity 3: getIdentifier() -> Identifier; Velocity 4: getIdentifier() -> String
         String channel = null;
         Object id = event.getClass().getMethod("getIdentifier").invoke(event);
         if (id != null) channel = id.toString();
-        if (!InteropMessages.CHANNEL.equals(channel)) return;
+        if (!InteropMessages.isInteropChannel(channel)) return;
 
-        // Consume the message so it is never forwarded to other clients/backends.
-        Class<?> forwardResult =
-            Class.forName("com.velocitypowered.api.proxy.messages.PluginMessageEvent$ForwardResult");
-        event.getClass()
-            .getMethod("setResult", forwardResult)
-            .invoke(event, forwardResult.getMethod("handled").invoke(null));
+        // SECURITY: AUTH_CHANGED payloads are client-spoofable if accepted from players.
+        // Only backend-server connections may speak for AuthCore - a client message on the
+        // interop channel is consumed and dropped so it never reaches a backend.
+        Object source = event.getClass().getMethod("getSource").invoke(event);
 
         // Velocity 3: getData() -> ByteBuf; Velocity 4: getData() -> byte[]
         byte[] data = null;
@@ -227,11 +311,28 @@ public final class VelocityEntry {
           buf.getBytes(buf.readerIndex(), data);
         }
 
-        if (channel != null && InteropMessages.handle(channel, data)) {
+        consume(event);
+        if (!(source instanceof com.velocitypowered.api.proxy.ServerConnection)) return;
+
+        if (InteropMessages.handle(channel, data)) {
           SessionCache.prune(config.sessionTimeoutMs);
         }
       } catch (Throwable ignored) {
         // interop is best-effort
+      }
+    }
+
+    /** Marks the message as handled so Velocity never forwards it to a client/backend. */
+    private void consume(Object event) {
+      try {
+        Class<?> forwardResult =
+            Class.forName("com.velocitypowered.api.proxy.messages.PluginMessageEvent$ForwardResult");
+        event
+            .getClass()
+            .getMethod("setResult", forwardResult)
+            .invoke(event, forwardResult.getMethod("handled").invoke(null));
+      } catch (Throwable ignored) {
+        // older/newer Velocity shape - consuming is best-effort
       }
     }
   }

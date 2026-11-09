@@ -133,7 +133,7 @@ Each compiled jar performs **both roles**: a native server mod (Fabric, Forge, o
 ```mermaid
 flowchart TD
     subgraph Connect["1. Handshake & Threat Interception"]
-        Join([Player Joins Server]) --> DetectProxy["Detect Proxy & Forwarding\n(BungeeCord / Velocity HMAC)"]
+        Join([Player Joins Server]) --> DetectProxy["Detect Proxy & Forwarding\n(BungeeCord / Velocity legacy)"]
         DetectProxy --> Intercept["ClientGuard Inspection\nPacket Floods · Ghost Anomaly · Look Variance"]
         Intercept --> RateLimit{"Exceeds Rate Limits\nor Denied IP CIDR?"}
         RateLimit -->|Yes| KickDrop["Drop Connection / Honeypot Alert"]
@@ -262,7 +262,8 @@ session {
 
     proxy-support {
         enabled = false       # Enable when placed behind Velocity or BungeeCord
-        protocol = "auto"     # Supports "auto", "velocity", "bungeecord"
+        protocol = "auto"     # "auto" / "bungeecord" = legacy forwarding; "velocity" = modern (handled by FabricProxy-Lite / Proxy-Compatible-Forge)
+        trusted-proxies = ["10.0.0.5"] # Only these sources may claim a forwarded IP (empty = reject all)
     }
 
     web-panel {
@@ -311,7 +312,7 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 | **Web Administration Panel** | `session.web-panel` | Secure token-authenticated browser interface and REST API for remote management | `session { web-panel { enabled = true; token = "..." } }` |
 | **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25599 } }` |
 | **Hybrid Auto-Login** | `session.authentication` | Automatically logs in verified Mojang accounts while allowing cracked clients | `session { authentication { premium-auto-login = true } }` |
-| **Proxy Forwarding** | `session.proxy-support` | Unpacks real client IPs and UUIDs from BungeeCord or modern Velocity HMAC handshakes | `session { proxy-support { enabled = true; protocol = "auto" } }` |
+| **Proxy Forwarding** | `session.proxy-support` | Unpacks the real client IP from BungeeCord / Velocity-legacy forwarding payloads, with trusted-source validation | `session { proxy-support { enabled = true; protocol = "auto"; trusted-proxies = ["10.0.0.5"] } }` |
 | **Maintenance Mode** | `session.maintenance` | Restricts player access to administrators during database upgrades or server updates | `/authcore maintenance on` |
 | **Automatic Whitelist** | `session.auto-whitelist` | Automatically whitelists players on the native vanilla whitelist once registered | `session { auto-whitelist { enabled = true } }` |
 | **Shadow-Ban** | `session.shadow-ban` | Silently isolates malicious actors without alerting them to detection | `session { shadow-ban { enabled = true } }` |
@@ -339,11 +340,12 @@ AuthCore ships with **7 languages**: English is built in, plus 6 bundled communi
 
 ## 🔁 Proxy & Network (Velocity / BungeeCord)
 
-AuthCore natively supports modern Minecraft proxy architectures, whether deployed as a backend mod or directly on the proxy:
+AuthCore natively supports Minecraft proxy architectures, whether deployed as a backend mod or directly on the proxy:
 
-- **Universal IP Forwarding Auto-Detection**: Automatically parses BungeeCord and Velocity legacy (`ip\0uuid\0properties`) handshake payloads. The authentic remote IP address is immediately applied to GeoIP lookup, session validation, rate limiting, and login intelligence.
-- **Velocity Modern Forwarding**: not performed by AuthCore - pair it with FabricProxy-Lite (Fabric) or Proxy-Compatible-Forge (Forge/NeoForge), or use Velocity legacy (bungeecord) forwarding, which AuthCore reads natively.
-- **Cross-Mod Interop Channel (`authcore:auth`)**: Emits `AUTH_CHANGED|<uuid>|<username>|<1|0>` network packets, allowing AuthCore to run alongside foreign backend auth plugins.
+- **Universal IP Forwarding**: Automatically parses BungeeCord and Velocity-legacy (`ip\0uuid\0properties`) handshake payloads. The authentic remote IP address is immediately applied to GeoIP lookup, session validation, rate limiting, and login intelligence. Forwarded data is only accepted from an address in `trusted-proxies` (an empty list rejects every forwarded claim), because the handshake address is client-controlled.
+- **Velocity Modern Forwarding**: not performed by AuthCore - pair it with FabricProxy-Lite (Fabric) or Proxy-Compatible-Forge (Forge/NeoForge), or use Velocity legacy (bungeecord) forwarding, which AuthCore reads natively. Setting `protocol = "velocity"` logs one startup notice so the gap is visible.
+- **Cross-Mod Interop Channel (`authcore:auth`)**: Emits `AUTH_CHANGED|<uuid>|<username>|<1|0>` network packets on every 1.16-26.x loader, allowing AuthCore to run alongside foreign backend auth plugins.
+- **Proxy Session Bridge (BungeeCord + Velocity)**: The bundled proxy plugin registers `authcore:auth` and `bungeecord:main` (subchannel `AuthCore`), consumes client-sent messages on them so they can never be spoofed or forwarded, and only accepts a well-formed `AUTH_CHANGED` with a canonical UUID.
 - **Redis SSO Hub-to-Game Transfers**: Players authenticated in hub/limbo servers maintain session validity when transferred across backend game nodes without being re-prompted for passwords.
 - **Fail-Closed Proxy Enforcement**: Direct connections bypassing the proxy are rejected outright when proxy support is active.
 
@@ -441,7 +443,7 @@ Audited components include:
 - **Hashing Algorithms**: Argon2id, BCrypt, SCrypt, PBKDF2, SHA-256, SHA-512, and legacy hash transparent auto-upgrading.
 - **Cryptographic Security**: CSPRNG salt uniqueness, constant-time comparisons, and timing leak prevention.
 - **Exploit & Abuse Defenses**: Captcha state machine lifecycle, SMTP token expiry, camera look-pattern variance, and bot farm concurrency detection.
-- **Proxy Security**: Trusted-proxy source validation, spoofed-forwarding rejection, and Velocity HMAC verification.
+- **Proxy Security**: Trusted-proxy source validation, spoofed-forwarding rejection, fail-closed empty trust lists, and a client-spoofing guard on the interop plugin-message channels.
 - **Migration Engine**: Automated checks validating legacy single-file to split-configuration migrations.
 - **Map images (new)**: palette discovery, map-data round-trip, locked-map behaviour, the give/take lifecycle (death, offhand, crash recovery, rate limits), an in-mod QR encoder verified against two independent decoders, captcha single-use/expiry/attempt limits, and the input bounds of every entry point. The map-content path is pure computation over bounded inputs - no file, network, process or reflection access and no client-controlled input - so it adds no RCE or bypass surface; QR payloads are never logged.
 
@@ -488,7 +490,7 @@ Detailed documentation guides are hosted at [https://docs.potenfyr.in/repo/authc
 | [🔌 **Developer API**](https://docs.potenfyr.in/repo/authcore/api) | `AuthCoreApi` integration guide, event bus hooks, and custom database schemas |
 | [⚙️ **Development & Architecture**](https://docs.potenfyr.in/repo/authcore/development) | Gradle build pipeline, Stonecutter conditional compiling, and test harnesses |
 | [🌐 **Web Admin Panel**](https://docs.potenfyr.in/repo/authcore/webpanel) | Web dashboard configuration, TLS/HTTPS setup, and REST API endpoints |
-| [🔁 **Proxy Setup Guide**](https://docs.potenfyr.in/repo/authcore/proxy) | Configuring Velocity modern forwarding, BungeeCord, and Redis SSO networks |
+| [🔁 **Proxy Setup Guide**](https://docs.potenfyr.in/repo/authcore/proxy) | Configuring BungeeCord / Velocity-legacy forwarding, the AUTH_CHANGED interop bridge, and Redis SSO networks |
 | [🛡️ **Security Threat Model**](https://docs.potenfyr.in/repo/authcore/security) | Comprehensive threat model aligning with OWASP and Minecraft network architecture |
 | [📦 **26.x Builds & Migration**](https://docs.potenfyr.in/repo/authcore/26x) | Guide to unobfuscated 26.x Mojang mappings, forward compatibility, and setup |
 | [📜 **Changelog**](https://docs.potenfyr.in/repo/authcore/changelog) | Complete history of releases, feature additions, and security patches |
@@ -537,8 +539,8 @@ No. AuthCore operates 100% server-side. Players connect using vanilla Minecraft 
 - [x] **Anti-Abuse Engine**: Brute-force lockouts, dynamic action captchas, CIDR IP filters, and shadow-bans.
 - [x] **Enterprise Storage**: High-performance SQLite (WAL), MySQL, PostgreSQL, and Redis SSO event buses.
 - [x] **Browser Web Panel**: Token-authenticated REST administration interface with live metrics.
-- [x] **Proxy Parity**: Modern Velocity HMAC forwarding, legacy BungeeCord detection, and fail-closed security.
-- [x] **Automated Test Rigor**: 248 automated cryptographic and security checks, a 20-check in-mod simulation suite, and a 17-endpoint parallel Docker matrix.
+- [x] **Proxy Parity**: Legacy BungeeCord / Velocity forwarding with trusted-source validation, a working `AUTH_CHANGED` proxy bridge on both proxies, and fail-closed enforcement.
+- [x] **Automated Test Rigor**: 296 automated cryptographic and security checks, a 21-check in-mod simulation suite, and a 17-endpoint parallel Docker matrix.
 - [x] **Split Configuration Architecture**: Separate domain configs (`lobby.conf`, `session.conf`, `database.conf`) with automatic legacy migration.
 
 ---

@@ -48,8 +48,12 @@ public class Registry {
     // Version-sensitive hooks (item use, damage/death) are registered reflectively
     FabricHooks.registerInteractionEvents();
 
-    // Velocity modern forwarding (velocity:player_info login receiver, HMAC-verified)
-    FabricHooks.registerVelocityForwarding();
+    // Proxy identity: legacy (BungeeCord / Velocity-"bungeecord") forwarding is read natively
+    // by the handshake mixin. Velocity MODERN forwarding is performed by the proxy-forwarding
+    // mod (FabricProxy-Lite / Proxy-Compatible-Forge), so an operator who set
+    // proxy-support.protocol = "velocity" gets one clear notice instead of silent no-op IP
+    // forwarding.
+    in.potenfyr.authcore.network.ProxySupport.warnUnsupportedModernForwarding();
 
     // Item use / block use / entity use / attack callbacks are registered
     // reflectively in FabricHooks - their interfaces are compiled per-version and

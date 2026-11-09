@@ -68,25 +68,44 @@ public final class ProxySupport {
   }
 
   /**
-   * Verifies a Velocity modern-forwarding payload (HMAC-SHA256 of the data with the shared
-   * forwarding secret). Useful for proxy-integration code and future login-phase support.
+   * Whether proxy support is ACTIVE and declared for Velocity MODERN forwarding
+   * ({@code session.proxy-support.enabled = true} + {@code protocol = "velocity"}).
    *
-   * @param payload the raw payload bytes (first 32 bytes are the HMAC, the rest is data)
-   * @param secret the shared forwarding secret bytes (UTF-8 of the configured secret)
-   * @return {@code true} when the HMAC is valid
+   * <p>Under MODERN forwarding the handshake address is a random token, not a forwarded
+   * {@code ip\0uuid\0properties} payload - the identity and the real client IP arrive in a
+   * signed login-phase payload instead, which is handled by the proxy-forwarding mod
+   * (FabricProxy-Lite / Proxy-Compatible-Forge), not by AuthCore. Reading the handshake there
+   * would only ever produce spoof-attempt log noise.
    */
-  public static boolean verifyVelocityHmac(byte[] payload, byte[] secret) {
-    if (payload == null || secret == null || payload.length <= 32) return false;
-    try {
-      javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-      mac.init(new javax.crypto.spec.SecretKeySpec(secret, "HmacSHA256"));
-      byte[] expected = new byte[32];
-      System.arraycopy(payload, 0, expected, 0, 32);
-      byte[] actual = mac.doFinal(java.util.Arrays.copyOfRange(payload, 32, payload.length));
-      return java.security.MessageDigest.isEqual(expected, actual);
-    } catch (Exception err) {
+  public static boolean isModernForwardingConfigured() {
+    var config = AuthCoreServer.config;
+    if (config == null || config.session == null || config.session.proxySupport == null) {
       return false;
     }
+    if (!config.session.proxySupport.enabled) return false;
+    String mode = config.session.proxySupport.protocol;
+    if (mode == null) return false;
+    mode = mode.trim().toLowerCase(java.util.Locale.ROOT);
+    return "velocity".equals(mode) || "modern".equals(mode);
+  }
+
+  private static final java.util.concurrent.atomic.AtomicBoolean MODERN_NOTICE_LOGGED =
+      new java.util.concurrent.atomic.AtomicBoolean();
+
+  /**
+   * Logs (once) that modern forwarding identity is not performed by AuthCore, so an operator who
+   * set {@code protocol = "velocity"} learns where the real IP / UUID actually come from instead
+   * of silently running without IP forwarding.
+   */
+  public static void warnUnsupportedModernForwarding() {
+    if (!isModernForwardingConfigured()) return;
+    if (!MODERN_NOTICE_LOGGED.compareAndSet(false, true)) return;
+    AuthCoreServer.LOGGER.warn(
+        false,
+        "session.proxy-support.protocol = 'velocity': AuthCore does not verify Velocity MODERN"
+            + " forwarding itself. Run FabricProxy-Lite (Fabric) or Proxy-Compatible-Forge"
+            + " (Forge/NeoForge) on this server for the forwarded UUID/IP, or switch the proxy"
+            + " and this setting to legacy (bungeecord) forwarding, which AuthCore reads natively.");
   }
 
   /**

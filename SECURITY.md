@@ -24,7 +24,7 @@ Include as much of the following as you are comfortable sharing: affected AuthCo
 
 Never post any of the following in public Issues, Discussions, or Discord:
 
-- **Secrets from your configuration** - web panel tokens, `session.security` webhook URLs, SMTP credentials, `velocity-secret`, database passwords, or any `config/authcore/` contents. Treat every value in those files as sensitive.
+- **Secrets from your configuration** - web panel tokens, `session.security` webhook URLs, SMTP credentials, database passwords, or any `config/authcore/` contents. Treat every value in those files as sensitive.
 - **Working exploit code or proof-of-concept payloads** for authentication bypass, session theft, or proxy spoofing.
 - **Other operators' player data** (IPs, e-mail addresses, password hashes).
 

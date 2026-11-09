@@ -10,7 +10,7 @@ body:
         the version/loader details below are the fastest path to a fix.
 
         **Before you start:** never paste secrets from `config/authcore/` (web panel token,
-        webhook URLs, SMTP credentials, `velocity-secret`, database passwords). Scrub logs
+        webhook URLs, SMTP credentials, database passwords). Scrub logs
         before attaching. If this is an exploitable **security vulnerability**, stop here and
         follow [SECURITY.md](../blob/master/SECURITY.md) for private reporting instead.
 

@@ -237,63 +237,6 @@ public final class FabricHooks {
   }
 
   /**
-   * Registers the Velocity MODERN forwarding receiver (fabric-api ServerLoginNetworking).
-   * Same logic as the classic build; Mojang class names (ResourceLocation). Registered
-   * reflectively - if the 26.x fabric-api does not expose ServerLoginNetworking yet, the
-   * receiver is skipped gracefully.
-   */
-  public static void registerVelocityForwarding() {
-    // Velocity MODERN forwarding is not implemented: the old receiver was never reached (nothing
-    // sent the login query) and applied the identity by names that exist on no runtime. Shipping
-    // an untested identity-forwarding path would be a spoofing risk, so say so instead.
-    var cfg = in.potenfyr.authcore.AuthCoreServer.config;
-    if (cfg == null || !cfg.session.proxySupport.enabled) return;
-    String secret = cfg.session.proxySupport.velocitySecret;
-    if (secret == null || secret.isBlank()) return;
-    in.potenfyr.authcore.AuthCoreServer.LOGGER.warn(
-        false,
-        "session.proxy-support.velocity-secret is set, but AuthCore does not perform Velocity"
-            + " MODERN forwarding. Use FabricProxy-Lite (Fabric) / Proxy-Compatible-Forge"
-            + " (Forge/NeoForge), or Velocity legacy (bungeecord) forwarding, which AuthCore reads.");
-  }
-
-  /** Copies the remaining bytes of the packet buffer (FriendlyByteBuf / ByteBuf). */
-  private static byte[] readRemainingBytes(Object buf) {
-    try {
-      if (buf instanceof io.netty.buffer.ByteBuf b) {
-        byte[] data = new byte[b.readableBytes()];
-        b.getBytes(b.readerIndex(), data);
-        return data;
-      }
-    } catch (Exception ignored) {
-      // fall through
-    }
-    return null;
-  }
-
-  /** Sets the login profile to the forwarded identity (reflective - profile setter varies). */
-  private static void applyForwardedProfile(Object handler, in.potenfyr.authcore.network.VelocitySupport.PlayerInfo info) {
-    try {
-      com.mojang.authlib.GameProfile profile =
-          new com.mojang.authlib.GameProfile(info.uuid, info.username);
-      try {
-        handler.getClass().getMethod("setProfile", com.mojang.authlib.GameProfile.class)
-            .invoke(handler, profile);
-      } catch (ReflectiveOperationException e) {
-        java.lang.reflect.Field f = handler.getClass().getField("profile");
-        f.set(handler, profile);
-      }
-      in.potenfyr.authcore.AuthCoreServer.LOGGER.info(
-          true,
-          "Velocity forwarding: applied identity {} ({}) for login.",
-          info.username,
-          info.uuid);
-    } catch (ReflectiveOperationException ignored) {
-      // profile could not be applied - vanilla flow continues
-    }
-  }
-
-  /**
    * Registers the fabric-api player join/leave + server tick events reflectively.
    *
    * <p>Never linked directly: the fabric-api jar's mod id renamed from {@code fabric} to

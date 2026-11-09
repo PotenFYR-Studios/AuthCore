@@ -39,6 +39,11 @@ abstract class ServerHandshakeNetworkHandlerMixin {
   private void authCore$forwardProxyIp(ClientIntentionPacket packet, CallbackInfo ci) {
     if (AuthCoreServer.config == null || !AuthCoreServer.config.session.proxySupport.enabled) return;
 
+    // Velocity MODERN forwarding puts a random token in the handshake address (the real IP and
+    // UUID arrive in a signed login payload handled by FabricProxy-Lite / Proxy-Compatible-Forge),
+    // so there is nothing to parse and no spoof to report here.
+    if (ProxySupport.isModernForwardingConfigured()) return;
+
     String rawAddress = readAddress(packet);
     String realIp = ProxySupport.parseForwardedIp(rawAddress);
     if (realIp == null) return;
