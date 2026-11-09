@@ -30,38 +30,19 @@ public class Discord {
 
   /** Registers the /discord command tree. */
   public static void load(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(
+    var root = dispatcher.register(
         literal("discord")
+            .requires(CommandVisibility::canUseDiscord)
             .then(
                 literal("link")
-                    .requires(
-                        (ctx) -> {
-                          ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                          if (player == null) return false;
-                          User user = User.getUser(player.getName().getString(), player.getUUID());
-                          return user != null
-                              && user.isRegistered.get()
-                              && McApiManager.PermissionUtil.has(
-                                  player,
-                                  AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                  AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                        })
+                    .requires(CommandVisibility::canDiscordLink)
                     .executes(ctx -> linkCommand(ctx.getSource())))
             .then(
                 literal("unlink")
-                    .requires(
-                        (ctx) -> {
-                          ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                          if (player == null) return false;
-                          User user = User.getUser(player.getName().getString(), player.getUUID());
-                          return user != null
-                              && user.isRegistered.get()
-                              && McApiManager.PermissionUtil.has(
-                                  player,
-                                  AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                  AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                        })
+                    .requires(CommandVisibility::canDiscordUnlink)
                     .executes(ctx -> unlinkCommand(ctx.getSource()))));
+    CommandTree.guardChild(root, "link", CommandVisibility.DISCORD_LINK);
+    CommandTree.guardChild(root, "unlink", CommandVisibility.DISCORD_UNLINK);
   }
 
   /** Generates a link code and publishes it (webhook + Redis) for the Discord bot. */
@@ -127,6 +108,7 @@ public class Discord {
 
       user.discordId = null;
       user.update("Discord unlinked");
+      in.potenfyr.authcore.compat.Compat.refreshCommandTree(player);
       in.potenfyr.authcore.security.SecurityLog.log("DISCORD_UNLINK", user.username + " unlinked Discord");
 
       return AuthCoreServer.LOGGER.toUser(

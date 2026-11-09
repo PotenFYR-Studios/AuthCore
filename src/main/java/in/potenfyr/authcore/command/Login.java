@@ -30,27 +30,9 @@ public class Login {
    * @param dispatcher The command dispatcher to load the command with.
    */
   public static void load(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(
+    var root = dispatcher.register(
         literal("login")
-            .requires(
-                (ctx) -> {
-                  // Ensure the player exists and meets the conditions to use the command.
-                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                  if (player == null) return false;
-                  UUID uuid = player.getUUID();
-                  String username = player.getName().getString();
-                  User user = User.getUser(username, uuid);
-
-                  // Check if the player has the required permissions.
-                  return user != null
-                      && user.isInLobby.get()
-                      && !user.isAuthenticated.get()
-                      && user.isRegistered.get()
-                      && McApiManager.PermissionUtil.has(
-                          player,
-                          AuthCoreServer.config.commands.user.login.luckPermsNode,
-                          AuthCoreServer.config.commands.user.login.permissionsLevel);
-                })
+            .requires(CommandVisibility::canLogin)
             .then(
                 // Add the "password" argument to the command.
                 argument("password", string())
@@ -64,6 +46,7 @@ public class Login {
                                         ctx.getSource(),
                                         getString(ctx, "password"),
                                         getString(ctx, "2fa-code"))))));
+    CommandTree.guardExecution(root, CommandVisibility.LOGIN);
   }
 
   /**
@@ -112,11 +95,9 @@ public class Login {
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserAlreadyRegistered);
 
-      ++user.loginAttempts;
-
       AuthCoreServer.LOGGER.debug(
           false,
-          "{} | /login attempt #{} from {}",
+          "{} | /login attempt (failures so far: {}) from {}",
           username,
           user.loginAttempts,
           player.getIpAddress());
@@ -136,8 +117,10 @@ public class Login {
             TimeManager.toDuration(Math.max(remainingMs, 1000)));
       }
 
-      // Check if the user has exceeded the maximum login attempts.
-      if (user.loginAttempts >= AuthCoreServer.config.session.authentication.maxLoginAttempts) {
+      // Failure budget already spent (e.g. max-login-attempts was lowered by a reload): punish
+      // BEFORE spending another hash. Failures are counted only when a password check actually
+      // fails (finishLogin) - a locked/cooldown/in-flight rejection is not a guess.
+      if (user.loginAttempts >= Math.max(1, AuthCoreServer.config.session.authentication.maxLoginAttempts)) {
         AuthCoreServer.LOGGER.debug(
             false,
             "{} | /login brute-force limit reached ({} attempts) - kicking",
@@ -213,7 +196,7 @@ public class Login {
   }
 
   /** Max simultaneous password verifications (each Argon2 check holds ~64 MiB). */
-  private static final java.util.concurrent.Semaphore VERIFY_PERMITS =
+  static final java.util.concurrent.Semaphore VERIFY_PERMITS =
       new java.util.concurrent.Semaphore(4);
 
   /**
@@ -282,6 +265,7 @@ public class Login {
           // eviction) is brute-forceable. Destroying the session forces a FULL re-login
           // (password + code) and counts as a failed attempt for the account lock.
           user.failed2faAttempts++;
+          user.failedLoginStreak++;
           if (user.failed2faAttempts >= 5) {
             SecurityLog.log(
                 "2FA_LOCKOUT",
@@ -291,7 +275,10 @@ public class Login {
                 "**" + username + "** had its session destroyed after repeated wrong "
                     + "2FA codes from `" + player.getIpAddress() + "`.",
                 0xE74C3C);
-            handleBruteForce(user, player);
+            // The password is known to the attacker: always lock (when locking is enabled),
+            // independent of the password-failure counters.
+            user.failed2faAttempts = 0;
+            handleBruteForce(user, player, true);
             return 1;
           }
           return AuthCoreServer.LOGGER.toUser(
@@ -339,6 +326,10 @@ public class Login {
       return AuthCoreServer.LOGGER.toUser(
           1, player.connection, AuthCoreServer.messages.promptUserLoggedInSuccessfully);
     } else {
+      // Count the failure only now that a password check really failed.
+      user.loginAttempts++;
+      user.failedLoginStreak++;
+
       // Notify the user of an incorrect password.
       SecurityLog.log(
           "LOGIN_FAILED",
@@ -349,9 +340,13 @@ public class Login {
       in.potenfyr.authcore.security.AuthIntelligence.recordFailedPassword(
           username, player.getIpAddress(), password);
 
+      if (user.loginAttempts >= Math.max(1, AuthCoreServer.config.session.authentication.maxLoginAttempts)
+          || (AuthCoreServer.config.session.accountLock.enabled
+              && user.failedLoginStreak >= Math.max(1, AuthCoreServer.config.session.accountLock.maxFailedLogins)))
+        return handleBruteForce(user, player);
+
       return AuthCoreServer.LOGGER.toUser(
           1, player.connection, AuthCoreServer.messages.promptUserWrongPassword);
-    
     }
   }
 
@@ -411,6 +406,25 @@ public class Login {
    * kick with the configured cooldown message.
    */
   private static int handleBruteForce(User user, ServerPlayer player) {
+    return handleBruteForce(user, player, false);
+  }
+
+  /**
+   * Brute-force response. The punishment is ARMED here and enforced at the next join:
+   *
+   * <ul>
+   *   <li>{@code kickCooldownUntilMs} = now + (progressive) cooldown - the old code only printed
+   *       the cooldown and kicked via a path that never armed {@code lastKickedMs}, so the attacker
+   *       could rejoin instantly;
+   *   <li>the per-session counter is reset (the punishment is the wait), while
+   *       {@code failedLoginStreak} keeps counting toward the persistent account lock;
+   *   <li>when the account is locked the streak is reset too. Previously {@code loginAttempts}
+   *       stayed at the limit forever, so after the lock expired the owner's FIRST /login - even
+   *       with the right password - was kicked and re-locked: eight wrong guesses by anyone locked
+   *       an account out permanently.
+   * </ul>
+   */
+  private static int handleBruteForce(User user, ServerPlayer player, boolean forceLock) {
     long cooldownMs = AuthCoreServer.config.session.cooldownAfterKickMs;
 
     // Progressive (exponential) punishment: base * multiplier ^ offenses
@@ -426,14 +440,27 @@ public class Login {
                   AuthCoreServer.config.session.progressivePunishment.maxCooldownMs);
     }
 
+    final int attempts = user.loginAttempts;
+    final long now = System.currentTimeMillis();
+    user.kickCooldownUntilMs = now + Math.max(cooldownMs, 0L);
+    user.lastKickedMs = now;
+    user.kickAttempts = Math.min(user.kickAttempts + 1, 1_000);
+    user.loginAttempts = 0;
+
     // Persistent account lock
+    boolean locked = false;
     if (AuthCoreServer.config.session.accountLock.enabled
-        && user.loginAttempts >= AuthCoreServer.config.session.accountLock.maxFailedLogins)
+        && (forceLock
+            || user.failedLoginStreak >= Math.max(1, AuthCoreServer.config.session.accountLock.maxFailedLogins))) {
       user.lock(AuthCoreServer.config.session.accountLock.lockDurationMs);
+      user.failedLoginStreak = 0;
+      locked = true;
+    }
 
     SecurityLog.log(
         "LOGIN_BRUTE_FORCE",
-        user.username + " exceeded " + user.loginAttempts + " attempts | cooldown " + TimeManager.toDuration(cooldownMs));
+        user.username + " exceeded " + attempts + " attempts | cooldown " + TimeManager.toDuration(cooldownMs)
+            + (locked ? " | account locked" : ""));
     Webhook.sendEmbed(
         "Brute Force Detected",
         "**" + user.username + "** exceeded the maximum login attempts. Kicked for " + TimeManager.toDuration(cooldownMs) + ".",

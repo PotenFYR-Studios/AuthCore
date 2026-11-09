@@ -106,14 +106,10 @@ abstract class ServerLoginNetworkHandlerMixin {
       return;
     }
 
-    // Floodgate requirement
-    if (AuthCoreServer.config.session.authentication.allowBedrockPlayers
-        && !in.potenfyr.authcore.compat.Compat.isModLoaded("floodgate")) {
-
-      this.disconnect(in.potenfyr.authcore.compat.Compat.text("Authentication Failed: Floodgate is not installed!"));
-      ci.cancel();
-      return;
-    }
+    // (No "Floodgate requirement" here any more: with allow-bedrock-players on and Floodgate
+    // absent, that check disconnected EVERY offline-mode login with "Floodgate is not installed".
+    // Bedrock players are only ever recognised through the Floodgate API, so without Floodgate
+    // there is nothing to allow or block.)
 
     AuthCoreServer.LOGGER.debug(
         "Detected offline-mode player \"{}(uuid: {})\" sending hello packet", username, uuid);

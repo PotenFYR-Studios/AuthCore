@@ -119,46 +119,74 @@ public final class ProxySupport {
       int slash = value.indexOf('/');
       if (slash > 0 && isValidIp(value.substring(0, slash))) {
         if (cidrMatches(ip, value)) return true;
-      } else if (ip.equals(value)) {
+      } else if (sameAddress(ip, value)) {
         return true;
       }
     }
     return false;
   }
 
-  /** IPv4 CIDR match ({@code a.b.c.d/n}); falls back to exact string compare otherwise. */
+  /**
+   * CIDR match for IPv4 ({@code a.b.c.d/n}, n &le; 32) and IPv6 ({@code fe80::/10}, n &le; 128).
+   *
+   * <p>Both sides are parsed as address literals only (validated by {@link #isValidIp} first, so
+   * no DNS lookup can ever happen). An IPv4-mapped IPv6 address ({@code ::ffff:1.2.3.4}) is
+   * matched as its IPv4 form, so a dual-stack listener reporting mapped addresses still hits
+   * IPv4 rules. Address families never cross-match otherwise.
+   */
   public static boolean cidrMatches(String ip, String cidr) {
     try {
-      String[] parts = cidr.split("/", -1);
-      if (parts.length != 2 || !parts[1].matches("[0-9]{1,2}")) return false;
+      if (ip == null || cidr == null) return false;
+      String[] parts = cidr.trim().split("/", -1);
+      if (parts.length != 2 || !parts[1].matches("[0-9]{1,3}")) return false;
       int prefix = Integer.parseInt(parts[1]);
-      if (prefix > 32) return false;
-      long ipBits = ipv4ToLong(ip);
-      long netBits = ipv4ToLong(parts[0]);
-      if (ipBits < 0 || netBits < 0) return false;
-      int shift = 32 - prefix;
-      return (ipBits >> shift) == (netBits >> shift);
+      byte[] ipBytes = addressBytes(ip.trim());
+      byte[] netBytes = addressBytes(parts[0]);
+      if (ipBytes == null || netBytes == null || ipBytes.length != netBytes.length) return false;
+      if (prefix > ipBytes.length * 8) return false;
+      int fullBytes = prefix / 8;
+      for (int i = 0; i < fullBytes; i++) if (ipBytes[i] != netBytes[i]) return false;
+      int rem = prefix % 8;
+      if (rem == 0) return true;
+      int mask = (0xFF << (8 - rem)) & 0xFF;
+      return (ipBytes[fullBytes] & mask) == (netBytes[fullBytes] & mask);
     } catch (RuntimeException err) {
       return false;
     }
   }
 
-  /** Packs an IPv4 string into 32 bits; {@code -1} when the input is not IPv4. */
-  private static long ipv4ToLong(String ip) {
-    if (!isValidIp(ip) || ip.contains(":")) return -1;
-    String[] parts = ip.split("\\.");
-    if (parts.length != 4) return -1;
-    long result = 0;
-    for (String part : parts) {
-      int value;
-      try {
-        value = Integer.parseInt(part);
-      } catch (NumberFormatException err) {
-        return -1;
+  /**
+   * Compares two IP literals by value, so {@code ::1}, {@code 0:0:0:0:0:0:0:1} and
+   * {@code ::ffff:127.0.0.1} vs {@code 127.0.0.1} all compare as the same address. Falls back to
+   * a plain string compare when either side is not a valid literal.
+   */
+  public static boolean sameAddress(String a, String b) {
+    if (a == null || b == null) return false;
+    if (a.equals(b)) return true;
+    byte[] x = addressBytes(a.trim());
+    byte[] y = addressBytes(b.trim());
+    return x != null && y != null && java.util.Arrays.equals(x, y);
+  }
+
+  /**
+   * Raw address bytes of an IPv4/IPv6 literal (4 or 16 bytes), with IPv4-mapped IPv6 collapsed
+   * to 4 bytes; {@code null} for anything that is not a literal. Never resolves hostnames.
+   */
+  private static byte[] addressBytes(String ip) {
+    if (ip == null) return null;
+    if (ip.startsWith("[") && ip.endsWith("]")) ip = ip.substring(1, ip.length() - 1);
+    if (!isValidIp(ip)) return null;
+    try {
+      byte[] bytes = java.net.InetAddress.getByName(ip).getAddress();
+      if (bytes.length == 16) {
+        boolean mapped = true;
+        for (int i = 0; i < 10 && mapped; i++) if (bytes[i] != 0) mapped = false;
+        if (mapped && (bytes[10] & 0xFF) == 0xFF && (bytes[11] & 0xFF) == 0xFF)
+          return java.util.Arrays.copyOfRange(bytes, 12, 16);
       }
-      if (value < 0 || value > 255) return -1;
-      result = (result << 8) | value;
+      return bytes;
+    } catch (java.net.UnknownHostException | RuntimeException err) {
+      return null;
     }
-    return result;
   }
 }

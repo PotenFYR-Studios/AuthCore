@@ -289,6 +289,18 @@ sourceSets.main.get().java.srcDir(
 // Build + collect
 // ----------------------------------------------------------------------------
 
+// Legacy Forge (1.16 - 1.20.x FML) does NOT read the [[mixins]] block of mods.toml - that is a
+// NeoForge / modern-Forge feature. Old FML only applies the mixin configs named in the jar
+// MANIFEST, so the 1.16-1.18 Forge jar shipped with ZERO active mixins: no premium verification
+// (online-mode players were never auto-logged-in), no packet-level limbo guards and no command
+// gate. The manifest attribute is the loader's documented mechanism and is harmless where the
+// toml block is also honoured (Mixin skips an already-registered config).
+if (mod.isForge) {
+    tasks.withType<Jar>().configureEach {
+        manifest { attributes("MixinConfigs" to "authcore.server.mixins.json") }
+    }
+}
+
 // Copies the built jar of THIS variant into the top-level dist/ folder.
 // The root-level "collectJars" aggregation task (registered once during the
 // active-variant evaluation) depends on every variant's "collectJar" task,

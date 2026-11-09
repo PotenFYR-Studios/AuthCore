@@ -120,6 +120,21 @@ public class User {
   /** Count of kicked user by the server. */
   public volatile int kickAttempts = 0;
 
+  /**
+   * Brute-force punishment: no join is accepted before this time (progressive cooldown armed by
+   * the /login brute-force kick). Separate from {@link #lastKickedMs} so the progressive value is
+   * what the join gate actually enforces - before, the computed cooldown was only printed in the
+   * kick message and the join gate never saw it.
+   */
+  public transient volatile long kickCooldownUntilMs = 0;
+
+  /**
+   * Failed password / second-factor attempts since the last SUCCESSFUL login, across sessions and
+   * reconnects. Drives the persistent account lock; reset on success and when a lock is applied
+   * (the lock IS the punishment - the owner must get a fresh budget once it expires).
+   */
+  public transient volatile int failedLoginStreak = 0;
+
   /** Lobby restriction violations this limbo session (resets on login/register/lock). */
   public volatile int violationCount = 0;
 
@@ -550,8 +565,24 @@ public class User {
    * @param password the password to load
    */
   public void register(ServerPlayer player, String password) {
-    this.passwordEncryption = in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
-    this.password = Encrypter.hash(this.passwordEncryption, password);
+    String algorithm =
+        in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
+            AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
+    registerHashed(player, algorithm, Encrypter.hash(algorithm, password));
+  }
+
+  /**
+   * Registers the account with an ALREADY computed hash. {@code /register} computes the
+   * memory-hard hash on the IO pool (it stalled the server thread for every registration) and
+   * applies the result here, on the server thread.
+   *
+   * @param player the server player entity (nullable for API registrations)
+   * @param algorithm the algorithm the hash was produced with
+   * @param hash the password hash ({@code null} = hashing failed)
+   */
+  public void registerHashed(ServerPlayer player, String algorithm, String hash) {
+    this.passwordEncryption = algorithm;
+    this.password = hash;
 
     if (this.password == null) {
       AuthCoreServer.LOGGER.error(
@@ -626,6 +657,9 @@ public class User {
         player.getClass().getSimpleName());
 
     this.loginAttempts = 0;
+    this.failedLoginStreak = 0;
+    this.failed2faAttempts = 0;
+    this.kickCooldownUntilMs = 0;
     this.lockUntilMs = 0;
     this.lastAuthenticatedMs = System.currentTimeMillis();
     this.lastKickedMs = 0;
@@ -752,6 +786,10 @@ public class User {
     } catch (Exception ignored) {
       // login history is best-effort
     }
+
+    // Paths that never enter the limbo (premium auto-login, session resume, SSO) got their tree
+    // at placement time, before AuthCore knew the player: re-send it for the authenticated state.
+    in.potenfyr.authcore.compat.Compat.refreshCommandTree(player);
   }
 
   /**
@@ -1551,6 +1589,9 @@ public class User {
     if (this.lockUntilMs == 0) return;
     this.lockUntilMs = 0;
     this.loginAttempts = 0;
+    this.failedLoginStreak = 0;
+    this.failed2faAttempts = 0;
+    this.kickCooldownUntilMs = 0;
     this.update("Account unlocked");
   }
 

@@ -53,6 +53,11 @@ public class Security {
     // (that would permanently trap every unauthenticated player in the limbo).
     if (root.equals("login") || root.equals("register")) return true;
 
+    // /authcore guards itself: every subcommand run by an unauthenticated player answers "please
+    // log in first" (CommandVisibility.LOGGED_IN) - so an admin in the limbo gets that message
+    // instead of a lobby violation.
+    if (root.equals("authcore")) return true;
+
     // The configured collection is a Set - accept any Collection here so the shared
     // decision never depends on the config field's exact container type.
     java.util.Collection<String> list = AuthCoreServer.config.lobby.whitelistedCommands;
@@ -682,6 +687,22 @@ public class Security {
         }
         return matches;
       }
+    }
+
+    /**
+     * Account-bound variant: the code is redeemable ONLY by the account it was issued for. Keyed
+     * by email alone, a code requested for one account could be redeemed on any other account
+     * that shares the address (no uniqueness is enforced on /account email).
+     */
+    public static String generateCode(java.util.UUID account, String email) {
+      if (account == null || email == null) return null;
+      return generateCode(account + "|" + normalize(email));
+    }
+
+    /** Account-bound counterpart of {@link #generateCode(java.util.UUID, String)}. */
+    public static boolean verifyCode(java.util.UUID account, String email, String code) {
+      if (account == null || email == null) return false;
+      return verifyCode(account + "|" + normalize(email), code);
     }
 
     /** Basic email format check. */

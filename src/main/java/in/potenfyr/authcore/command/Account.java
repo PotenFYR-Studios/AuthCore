@@ -49,73 +49,22 @@ public class Account {
    * @param dispatcher the Brigadier command dispatcher provided by the Minecraft server
    */
   public static void load(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(
+    var root = dispatcher.register(
         literal("account")
+            .requires(CommandVisibility::canUseAccount)
             .then(
                 literal("logout")
-                    .requires(
-                        (ctx) -> {
-                          ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                          if (player == null) return false;
-                          UUID uuid = player.getUUID();
-                          String username = player.getName().getString();
-                          User user = User.getUser(username, uuid);
-
-                          return user != null
-                              && user.isActive
-                              && McApiManager.PermissionUtil.has(
-                                  player,
-                                  AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                  AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                        })
+                    .requires(CommandVisibility::canLogout)
                     .executes(ctx -> logoutCommand(ctx.getSource())))
             .then(
                 literal("unregister")
-                    .requires(
-                        (ctx) -> {
-                          ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                          if (player == null) return false;
-                          UUID uuid = player.getUUID();
-                          String username = player.getName().getString();
-                          User user = User.getUser(username, uuid);
-
-                          return user != null
-                              && user.isAuthenticated.get()
-                              && user.isRegistered.get()
-                              && McApiManager.PermissionUtil.has(
-                                  player,
-                                  AuthCoreServer.config.commands.user.unregister.luckPermsNode,
-                                  AuthCoreServer.config.commands.user.unregister.permissionsLevel);
-                        })
+                    .requires(CommandVisibility::canUnregister)
                     .executes(ctx -> unregisterCommand(ctx.getSource())))
             .then(
                 literal("set-password")
                     .then(
                         argument("new-password", StringArgumentType.string())
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isRegistered.get()
-                                      && user.isAuthenticated.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config
-                                              .commands
-                                              .user
-                                              .changePassword
-                                              .luckPermsNode,
-                                          AuthCoreServer.config
-                                              .commands
-                                              .user
-                                              .changePassword
-                                              .permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canChangePassword)
                             .executes(
                                 ctx ->
                                     setPasswordCommand(
@@ -124,83 +73,21 @@ public class Account {
                 literal("set-mode")
                     .then(
                         literal("online")
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isAuthenticated.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config.commands.user.setMode.luckPermsNode,
-                                          AuthCoreServer.config.commands.user.setMode.permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canSetModeOnline)
                             .executes(ctx -> setOnlineModeCommand(ctx.getSource())))
                     .then(
                         literal("offline")
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isAuthenticated.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config.commands.user.setMode.luckPermsNode,
-                                          AuthCoreServer.config.commands.user.setMode.permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canSetModeOffline)
                             .executes(ctx -> setOfflineModeCommand(ctx.getSource()))))
             .then(
                 literal("codes")
-                    .requires(
-                        (ctx) -> {
-                          ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                          if (player == null) return false;
-                          UUID uuid = player.getUUID();
-                          String username = player.getName().getString();
-                          User user = User.getUser(username, uuid);
-
-                          // isAuthenticated is REQUIRED here (unlike the pre-auth
-                          // subcommands): recovery codes double as a login second factor,
-                          // so a lobby player must never be able to print or regenerate
-                          // them before authenticating.
-                          return user != null
-                              && user.isAuthenticated.get()
-                              && user.isRegistered.get()
-                              && McApiManager.PermissionUtil.has(
-                                  player,
-                                  AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                  AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                        })
+                    .requires(CommandVisibility::canViewRecoveryCodes)
                     .executes(ctx -> recoveryCodesCommand(ctx.getSource())))
             .then(
                 literal("email")
                     .then(
                         argument("address", StringArgumentType.string())
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isAuthenticated.get()
-                                      && user.isRegistered.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canSetEmail)
                             .executes(
                                 ctx ->
                                     setEmailCommand(
@@ -210,22 +97,7 @@ public class Account {
                 literal("nickname")
                     .then(
                         argument("name", StringArgumentType.string())
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isAuthenticated.get()
-                                      && user.isRegistered.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canSetNickname)
                             .executes(
                                 ctx ->
                                     setNicknameCommand(
@@ -235,22 +107,7 @@ public class Account {
                 literal("recover")
                     .then(
                         argument("email", StringArgumentType.string())
-                            .requires(
-                                (ctx) -> {
-                                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                                  if (player == null) return false;
-                                  UUID uuid = player.getUUID();
-                                  String username = player.getName().getString();
-                                  User user = User.getUser(username, uuid);
-
-                                  return user != null
-                                      && user.isRegistered.get()
-                                      && !user.isAuthenticated.get()
-                                      && McApiManager.PermissionUtil.has(
-                                          player,
-                                          AuthCoreServer.config.commands.user.logout.luckPermsNode,
-                                          AuthCoreServer.config.commands.user.logout.permissionsLevel);
-                                })
+                            .requires(CommandVisibility::canRecover)
                             .executes(
                                 ctx ->
                                     recoveryRequestCommand(
@@ -268,6 +125,18 @@ public class Account {
                                                         StringArgumentType.getString(ctx, "code"),
                                                         StringArgumentType.getString(
                                                             ctx, "new-password"))))))));
+    // Every subcommand runs only in its state; otherwise the player is told why.
+    CommandTree.guardChild(root, "logout", CommandVisibility.PASSWORD_ACCOUNT);
+    CommandTree.guardChild(root, "unregister", CommandVisibility.PASSWORD_ACCOUNT);
+    CommandTree.guardChild(root, "set-password", CommandVisibility.PASSWORD_ACCOUNT);
+    CommandTree.guardChild(root.getChild("set-mode"), "online", CommandVisibility.MODE_ONLINE);
+    CommandTree.guardChild(root.getChild("set-mode"), "offline", CommandVisibility.MODE_OFFLINE);
+    CommandTree.guardChild(root, "codes", CommandVisibility.RECOVERY_CODES);
+    CommandTree.guardChild(root, "email", CommandVisibility.EMAIL);
+    CommandTree.guardChild(root, "nickname", CommandVisibility.LOGGED_IN);
+    CommandTree.guardChild(root, "recover", CommandVisibility.RECOVER);
+    // e.g. "set-mode" with both modes hidden must not show as a dead end.
+    CommandTree.pruneUnusable(root);
   }
 
   /**
@@ -345,6 +214,11 @@ public class Account {
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
 
+      // The recovery email IS a password-reset channel: changing it from a resumed (IP-only)
+      // session, or without the second factor, let anyone behind the same IP point recovery at
+      // their own inbox and take the account over with /account recover.
+      if (!sensitiveStepUp(user, player, "/account email")) return 0;
+
       if (!in.potenfyr.authcore.security.Security.EmailRecovery.isValidEmail(address)) {
         in.potenfyr.authcore.security.SecurityLog.log("EMAIL_INVALID", username + " tried to set invalid email");
         return AuthCoreServer.LOGGER.toUser(
@@ -395,7 +269,8 @@ public class Account {
       boolean matches = user.email != null && user.email.equalsIgnoreCase(normalized);
 
       if (matches && in.potenfyr.authcore.network.EmailSender.isEnabled()) {
-        String code = in.potenfyr.authcore.security.Security.EmailRecovery.generateCode(normalized);
+        String code =
+            in.potenfyr.authcore.security.Security.EmailRecovery.generateCode(user.uuid, normalized);
         if (code != null) {
           in.potenfyr.authcore.network.EmailSender.sendAsync(
               user.email,
@@ -444,7 +319,15 @@ public class Account {
       String normalized = email.trim().toLowerCase(java.util.Locale.ROOT);
       boolean matches = user.email != null && user.email.equalsIgnoreCase(normalized);
 
-      if (!matches || !in.potenfyr.authcore.security.Security.EmailRecovery.verifyCode(normalized, code)) {
+      // Per-account attempt budget on top of the per-code cap (a fresh code every minute would
+      // otherwise reset the guess budget indefinitely).
+      if (!in.potenfyr.authcore.security.RateLimiter.tryAcquire(
+          "sec:recoververify:" + user.uuid, 10, 60 * 60_000L))
+        return AuthCoreServer.LOGGER.toUser(
+            1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "an hour");
+
+      if (!matches
+          || !in.potenfyr.authcore.security.Security.EmailRecovery.verifyCode(user.uuid, normalized, code)) {
         in.potenfyr.authcore.security.SecurityLog.log(
             "RECOVERY_FAILED", username + " provided a wrong recovery code");
         return AuthCoreServer.LOGGER.toUser(
@@ -477,7 +360,15 @@ public class Account {
             1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
       }
       user.loginAttempts = 0;
+      user.failedLoginStreak = 0;
+      user.kickCooldownUntilMs = 0;
+      if (user.lockUntilMs != 0) user.lockUntilMs = 0; // the email proved ownership
       user.authSecret = null; // 2FA secret must be re-set up after recovery
+      user.recoveryCodes = null; // tied to the old 2FA setup
+      user.sessionTokenHash = null; // any companion session token from before is void
+      user.mfaVerified = false;
+      in.potenfyr.authcore.security.Security.TOTPManager.clearReplayHistory(user.uuid);
+      in.potenfyr.authcore.network.RedisManager.removeSession(user.uuid);
       user.update("Password recovered via email");
 
       in.potenfyr.authcore.security.SecurityLog.log(
@@ -500,6 +391,37 @@ public class Account {
    * @param source the command source (must be a player)
    * @return 1 on success, 0 on failure
    */
+  /**
+   * Step-up gate for sensitive account changes, matching /account set-password: an account with a
+   * password must have proven it on THIS connection (not a silent same-IP session resume), and an
+   * account with 2FA must have satisfied the second factor this session when
+   * {@code require-mfa-for-sensitive} is on. Premium accounts without a password are proven by
+   * Mojang and pass the first check. Sends the denial message itself.
+   */
+  private static boolean sensitiveStepUp(User user, ServerPlayer player, String action) {
+    if (user.password != null && !user.passwordProvenOn(player.connection)) {
+      in.potenfyr.authcore.security.SecurityLog.log(
+          "REAUTH_REQUIRED", user.username + " tried " + action + " in a resumed session");
+      AuthCoreServer.LOGGER.toUser(
+          1, player.connection, AuthCoreServer.messages.promptUserReauthRequired);
+      return false;
+    }
+    boolean mfaConfigured =
+        AuthCoreServer.config.session.authentication.allowTOTPSupport
+            && user.authSecret != null
+            && !user.authSecret.isBlank();
+    if (AuthCoreServer.config.session.authentication.requireMfaForSensitive
+        && mfaConfigured
+        && !user.mfaVerified) {
+      in.potenfyr.authcore.security.SecurityLog.log(
+          "MFA_STEPUP_BLOCKED", user.username + " attempted " + action + " without a verified second factor");
+      AuthCoreServer.LOGGER.toUser(
+          1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
+      return false;
+    }
+    return true;
+  }
+
   private static int recoveryCodesCommand(CommandSourceStack source) {
     try {
       ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
@@ -513,6 +435,10 @@ public class Account {
       if (user == null)
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      // Recovery codes are a login second factor: printing them from a resumed session or
+      // without the current second factor bypassed 2FA entirely.
+      if (!sensitiveStepUp(user, player, "/account codes")) return 0;
 
       String codes = user.recoveryCodes;
       if (codes == null || codes.isBlank()) {

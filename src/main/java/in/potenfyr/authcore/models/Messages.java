@@ -175,6 +175,466 @@ public class Messages {
 
   @Comment(
       """
+            Shown when a logged-in player uses a command that only works before logging in (/register, /login, /account recover).
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserAlreadyLoggedIn =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "You are already logged in.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when a player who has not logged in yet uses a command that needs a logged-in account.
+            • Default display: Chat in RED""")
+  public ColTemplate promptUserLoginRequired =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Please log in first.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when a player with an existing account uses /register.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserAlreadyRegisteredUseLogin =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "You already have an account - use /login <password>.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when a command belongs to a feature that is not enabled on this server or not set up for this account.
+            • Default display: Chat in RED""")
+  public ColTemplate promptUserFeatureUnavailable =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "This feature is not available here.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown for password commands on an account that logs in automatically (online-mode, no password).
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserNoPasswordAccount =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your account logs in automatically and has no password.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when /account set-mode online is used by an account that already logs in automatically.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserModeAlreadyOnline =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your account already logs in automatically.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when /account set-mode offline is used by an account that already logs in with a password.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserModeAlreadyOffline =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Your account already logs in with a password.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Disconnect reason for a join with a malformed username.
+            • Default display: Disconnect screen in RED""")
+  public KickTemplate promptUserInvalidUsername =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text = "Invalid username";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Clickable hint shown to a registered player in the login limbo.
+            • %1$s = the command usage, %2$s = the 2FA hint (promptUserLobby2faHint) or empty
+            • Default display: clickable Chat line + Action bar in YELLOW""")
+  public ColTemplate promptUserLobbyLoginButton =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Click here to login";
+                  color = "YELLOW";
+                  clickCommand = "/login ";
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Command: %1$s - authenticate your account%2$s";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Clickable hint shown to a new player in the login limbo.
+            • %1$s = the command usage, %2$s = the 2FA hint (promptUserLobby2faHint) or empty
+            • Default display: clickable Chat line + Action bar in YELLOW""")
+  public ColTemplate promptUserLobbyRegisterButton =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Click here to register";
+                  color = "YELLOW";
+                  clickCommand = "/register ";
+                }
+              };
+          actionBar =
+              new ActionBar() {
+                {
+                  text = "Command: %1$s - create your account%2$s";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Appended (as %2$s) to the limbo hint when a 2FA code is part of the command.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserLobby2faHint =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = " A 2FA code is required.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Captcha task: hold sneak. %1$s = seconds
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserCaptchaTaskSneak =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Hold SNEAK (Shift) for %1$s seconds!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Captcha task: jump. %1$s = number of jumps
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserCaptchaTaskJump =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Jump %1$s times!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Captcha task: look at the sky. %1$s = seconds
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserCaptchaTaskLookUp =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Look UP at the sky for %1$s seconds!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Captcha task: generic fallback.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptUserCaptchaTaskMove =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Move to prove you are human!";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Shown when the human-verification task is completed.
+            • Default display: Chat in GREEN""")
+  public ColTemplate promptUserCaptchaPassed =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Captcha passed - verified as human!";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore maintenance on.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptAdminMaintenanceEnabled =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Maintenance mode ENABLED - joins are blocked.";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore maintenance off.
+            • Default display: Chat in GREEN""")
+  public ColTemplate promptAdminMaintenanceDisabled =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Maintenance mode disabled.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore backup on a non-SQLite database. %1$s = database type
+            • Default display: Chat in RED""")
+  public ColTemplate promptAdminBackupUnsupported =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Database backup is only supported for SQLite. Use your %1$s server's own backup tooling.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Admin lookup of a player AuthCore has no data for. %1$s = player
+            • Default display: Chat in RED""")
+  public ColTemplate promptAdminUserNotCached =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "User '%1$s' is not in the AuthCore cache.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Admin command given a malformed username. %1$s = name
+            • Default display: Chat in RED""")
+  public ColTemplate promptAdminInvalidUsername =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Invalid username: %1$s";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Network-ban command without Redis.
+            • Default display: Chat in RED""")
+  public ColTemplate promptAdminRedisRequired =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Network bans need Redis - enable database.redis in the config first.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            Redis did not accept a network-ban change.
+            • Default display: Chat in RED""")
+  public ColTemplate promptAdminRedisUnreachable =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Redis is unreachable - the change was NOT stored.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore network-ban result. %1$s = name, %2$s = duration
+            • Default display: Chat in GREEN""")
+  public ColTemplate promptAdminNetworkBanned =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "%1$s is now banned network-wide (%2$s).";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore network-unban result. %1$s = name
+            • Default display: Chat in GREEN""")
+  public ColTemplate promptAdminNetworkUnbanned =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "%1$s is no longer banned network-wide.";
+                  color = "GREEN";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
+            /authcore import with a missing argument.
+            • Default display: Chat in YELLOW""")
+  public ColTemplate promptAdminImportUsage =
+      new ColTemplate() {
+        {
+          message =
+              new Message() {
+                {
+                  text = "Usage: /authcore import authme <path-to-authme.db>";
+                  color = "YELLOW";
+                }
+              };
+        }
+      };
+
+  @Comment(
+      """
             Success message shown after a player successfully registers for the first time.
             • Default display: Title in GREEN with subtitle and action bar in GREEN""")
   public ColTemplate promptUserRegisteredSuccessfully =

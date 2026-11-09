@@ -240,6 +240,12 @@ public final class WebPanel {
         respond(exchange, 429, error("Too many failed attempts - try again later"));
         return;
       }
+      // Distributed guessing (many source addresses): while the global failure budget is spent,
+      // only addresses that recently authenticated successfully may even attempt a token.
+      if (System.currentTimeMillis() < globalLockUntilMs && !isTrustedSource(exchange)) {
+        respond(exchange, 429, error("Too many failed attempts - try again later"));
+        return;
+      }
 
       // Constant-time comparisons (no timing side-channel on the token)
       boolean fullAccess = constantTimeEquals(token, provided);
@@ -346,11 +352,37 @@ public final class WebPanel {
     AuthCoreServer.LOGGER.debug(
         false, "Web panel | failed token attempt from {} (brute-force lockout tracking)", ip);
 
-    // Bounded memory: if an attacker cycles through many IPs, forget stale entries
-    // instead of letting the map grow forever.
+    // Global budget across ALL sources: per-address lockouts alone are useless against a client
+    // that rotates source addresses.
+    if (!in.potenfyr.authcore.security.RateLimiter.tryAcquire(
+        "sec:webpanel-global", GLOBAL_MAX_FAILURES, LOCKOUT_MS)) {
+      if (now >= globalLockUntilMs)
+        AuthCoreServer.LOGGER.warn(
+            false,
+            "Web panel: more than {} failed token attempts per minute - only recently authenticated "
+                + "addresses are served for the next {} s.",
+            GLOBAL_MAX_FAILURES,
+            LOCKOUT_MS / 1000);
+      globalLockUntilMs = now + LOCKOUT_MS;
+    }
+
+    // Bounded memory: forget stale entries first, then evict the oldest NON-locked entries. The
+    // old fallback cleared the WHOLE map - cycling through 2048 addresses wiped every lockout,
+    // including the attacker's own.
     if (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS) {
-      FAILED_ATTEMPTS.entrySet().removeIf(e -> now - e.getValue()[0] > LOCKOUT_MS);
-      if (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS) FAILED_ATTEMPTS.clear();
+      FAILED_ATTEMPTS.entrySet()
+          .removeIf(e -> now - e.getValue()[0] > LOCKOUT_MS && (e.getValue()[2] == 0L || now > e.getValue()[2]));
+      java.util.Iterator<java.util.Map.Entry<String, long[]>> it = FAILED_ATTEMPTS.entrySet().iterator();
+      while (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS && it.hasNext()) {
+        long[] entry = it.next().getValue();
+        if (entry[2] == 0L || now > entry[2]) it.remove();
+      }
+      // Still full of LIVE lockouts: this is a distributed attack - refuse to track (and thus to
+      // admit) new failures instead of dropping existing lockouts.
+      if (FAILED_ATTEMPTS.size() >= MAX_TRACKED_IPS) {
+        globalLockUntilMs = now + LOCKOUT_MS;
+        return;
+      }
     }
 
     FAILED_ATTEMPTS.compute(
@@ -373,13 +405,37 @@ public final class WebPanel {
   }
 
   private static void recordSuccess(HttpExchange exchange) {
-    FAILED_ATTEMPTS.remove(clientIp(exchange));
+    String ip = clientIp(exchange);
+    FAILED_ATTEMPTS.remove(ip);
+    long now = System.currentTimeMillis();
+    if (TRUSTED_SOURCES.size() >= 256) TRUSTED_SOURCES.values().removeIf(exp -> exp < now);
+    if (TRUSTED_SOURCES.size() < 256 || TRUSTED_SOURCES.containsKey(ip))
+      TRUSTED_SOURCES.put(ip, now + TRUSTED_SOURCE_TTL_MS);
   }
 
+  private static boolean isTrustedSource(HttpExchange exchange) {
+    Long expiry = TRUSTED_SOURCES.get(clientIp(exchange));
+    return expiry != null && expiry > System.currentTimeMillis();
+  }
+
+  /** Global failure budget per {@link #LOCKOUT_MS} across every source address. */
+  private static final int GLOBAL_MAX_FAILURES = 30;
+
+  private static volatile long globalLockUntilMs = 0L;
+
+  /** Addresses that authenticated successfully recently (served during a global lockout). */
+  private static final java.util.Map<String, Long> TRUSTED_SOURCES =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
+  private static final long TRUSTED_SOURCE_TTL_MS = 24 * 60 * 60 * 1000L;
+
+  /** Source key: IPv4 address, or the /64 of an IPv6 address (one client owns the prefix). */
   private static String clientIp(HttpExchange exchange) {
     try {
       var addr = exchange.getRemoteAddress();
-      return addr == null || addr.getAddress() == null ? "unknown" : addr.getAddress().getHostAddress();
+      return addr == null || addr.getAddress() == null
+          ? "unknown"
+          : in.potenfyr.authcore.security.RateLimiter.ipKey(addr.getAddress().getHostAddress());
     } catch (Exception err) {
       return "unknown";
     }
@@ -509,6 +565,7 @@ public final class WebPanel {
               byName.discordId = discordId;
               byName.update("Discord linked via code");
               RedisManager.publishDiscordLink(discordId, byName.username);
+              in.potenfyr.authcore.compat.Compat.refreshCommandTree(byName.player.get());
             });
         SecurityLog.log("DISCORD_LINK", byName.username + " linked Discord " + discordId);
         Webhook.send(":white_check_mark: **" + byName.username + "** linked their Discord account.");
@@ -613,6 +670,7 @@ public final class WebPanel {
               user.discordId = discordValue;
               user.update("Discord linked");
               RedisManager.publishDiscordLink(discordValue, user.username);
+              in.potenfyr.authcore.compat.Compat.refreshCommandTree(user.player.get());
             });
         SecurityLog.log("DISCORD_LINK", user.username + " linked Discord " + discordValue);
         Webhook.send(":white_check_mark: **" + user.username + "** linked their Discord account.");

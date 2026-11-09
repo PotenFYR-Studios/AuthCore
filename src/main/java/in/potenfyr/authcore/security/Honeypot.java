@@ -81,6 +81,10 @@ public final class Honeypot {
     // Dedupe per boot: a port scanner can hit the honeypot thousands of times per second, and
     // every hit used to append another identical rule line + reload the whole rules file.
     if (ip == null) return;
+    // Strip an IPv6 zone index ("fe80::1%eth0") - a zoned literal is not a valid rule value and
+    // IpRules.load() would skip the ban line as malformed.
+    ip = IpRules.normalizeIp(ip);
+    if (!in.potenfyr.authcore.network.ProxySupport.isValidIp(ip)) return;
     // Bounded dedupe set: a botnet with millions of source IPs must never grow memory forever.
     // The ip-rules file already persists the bans, so a coarse reset only costs a duplicate line.
     if (BANNED.size() > 4096) BANNED.clear();

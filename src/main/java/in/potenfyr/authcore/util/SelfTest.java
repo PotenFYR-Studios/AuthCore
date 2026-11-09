@@ -1291,7 +1291,8 @@ public final class SelfTest {
       boolean allVerified = successes.get() == threads * iterations;
       boolean captchaBounded = MapImageCaptcha.pendingCount() <= MapImageCaptcha.MAX_CHALLENGES;
       boolean rateLimiterBounded =
-          in.potenfyr.authcore.security.RateLimiter.trackedKeys() <= 10_000;
+          in.potenfyr.authcore.security.RateLimiter.trackedKeys()
+              <= in.potenfyr.authcore.security.RateLimiter.maxTrackedKeys();
       boolean sessionsBounded = SessionCache.size() < 100_000;
       MapImageCaptcha.resetForTest();
       boolean ok =

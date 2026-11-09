@@ -51,6 +51,9 @@ public class AuthCoreSecurityTests {
     testSqliteLookupIndexAndTransaction();
     testSnapshotAndVersionSupport();
     testRestoreLandingGeometry();
+    testRateLimiterHardening();
+    testAccountBoundRecovery();
+    testCommandTreePruning();
 
     System.out.println();
     System.out.println("==============================================");
@@ -188,6 +191,93 @@ public class AuthCoreSecurityTests {
     check("code revoked after max attempts", !Security.EmailRecovery.verifyCode("guard@example.com", guarded));
   }
 
+  /** Security pass 2026-11-09: rate-limiter bypasses (flood eviction, boundary burst, IPv6). */
+  private static void testRateLimiterHardening() {
+    System.out.println("== Rate limiter hardening ==");
+    String acct = "mfa:account:" + UUID.randomUUID();
+    for (int i = 0; i < 5; i++) RateLimiter.tryAcquire(acct, 5, 60_000L);
+    check("security budget exhausted", !RateLimiter.tryAcquire(acct, 5, 60_000L));
+    // A join flood from 10k+ fresh addresses lands in a different bucket.
+    for (int i = 0; i < 10_050; i++)
+      RateLimiter.tryAcquire("join:198.51." + (i / 250) + "." + (i % 250), 10, 60_000L);
+    check("join flood cannot evict a 2FA budget", !RateLimiter.tryAcquire(acct, 5, 60_000L));
+
+    // Same bucket: filling it evicts non-blocking windows first.
+    String blocked = "sec:test-blocked-" + UUID.randomUUID();
+    RateLimiter.tryAcquire(blocked, 1, 60_000L);
+    check("blocking window armed", !RateLimiter.tryAcquire(blocked, 1, 60_000L));
+    String prefix = "sec:test-fill-" + UUID.randomUUID() + "-";
+    for (int i = 0; i < 10_050; i++) RateLimiter.tryAcquire(prefix + i, 5, 60_000L);
+    check("blocking window survives bucket eviction", !RateLimiter.tryAcquire(blocked, 1, 60_000L));
+    check("fresh key still admitted when full", RateLimiter.tryAcquire(prefix + "fresh", 5, 60_000L));
+    check("limiter stays bounded", RateLimiter.trackedKeys() <= RateLimiter.maxTrackedKeys());
+
+    // Sliding window: a burst straddling the boundary no longer gets 2x the limit.
+    String slide = "test-slide:" + UUID.randomUUID();
+    int admitted = 0;
+    for (int i = 0; i < 5; i++) if (RateLimiter.tryAcquire(slide, 5, 300L)) admitted++;
+    try { Thread.sleep(320L); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); }
+    for (int i = 0; i < 5; i++) if (RateLimiter.tryAcquire(slide, 5, 300L)) admitted++;
+    check("boundary burst limited (got " + admitted + " of 10)", admitted < 10);
+
+    // IPv6 /64 aggregation
+    check("ipv6 collapsed to /64",
+        RateLimiter.ipKey("2001:db8:1:2:aaaa::1").equals(RateLimiter.ipKey("2001:db8:1:2:ffff::9"))
+            && !RateLimiter.ipKey("2001:db8:1:2::1").equals(RateLimiter.ipKey("2001:db8:1:3::1")));
+    check("ipv4 key unchanged", "203.0.113.7".equals(RateLimiter.ipKey("203.0.113.7")));
+    check("ipv4-mapped key is ipv4", "203.0.113.7".equals(RateLimiter.ipKey("::ffff:203.0.113.7")));
+    UUID mfaAccount = UUID.randomUUID();
+    int mfaAdmitted = 0;
+    for (int i = 0; i < 20; i++)
+      if (RateLimiter.tryMfa("2001:db8:5:5::" + Integer.toHexString(i + 1), mfaAccount)) mfaAdmitted++;
+    check("2fa budget not reset by ipv6 rotation (got " + mfaAdmitted + ")", mfaAdmitted <= 5);
+  }
+
+  /** Intermediate literals are only offered when something below them is usable. */
+  private static void testCommandTreePruning() {
+    System.out.println("== Command tree pruning ==");
+    java.util.concurrent.atomic.AtomicBoolean allowed = new java.util.concurrent.atomic.AtomicBoolean(false);
+    com.mojang.brigadier.CommandDispatcher<Object> d = new com.mojang.brigadier.CommandDispatcher<>();
+    var root =
+        d.register(
+            com.mojang.brigadier.builder.LiteralArgumentBuilder.<Object>literal("admin")
+                .then(
+                    com.mojang.brigadier.builder.LiteralArgumentBuilder.<Object>literal("delete")
+                        .then(
+                            com.mojang.brigadier.builder.RequiredArgumentBuilder.<Object, String>argument(
+                                    "name", com.mojang.brigadier.arguments.StringArgumentType.word())
+                                .requires(src -> allowed.get())
+                                .executes(ctx -> 1)))
+                .then(
+                    com.mojang.brigadier.builder.LiteralArgumentBuilder.<Object>literal("info")
+                        .requires(src -> false)
+                        .executes(ctx -> 1)));
+    in.potenfyr.authcore.command.CommandTree.pruneUnusable(root);
+    Object src = new Object();
+    check("dead-end literal hidden", !root.getChild("delete").canUse(src));
+    check("root hidden when nothing below is usable", !root.canUse(src));
+    allowed.set(true);
+    check("literal shown once a child is usable", root.getChild("delete").canUse(src));
+    check("root shown once a branch is usable", root.canUse(src));
+    check("explicit requirement still respected", !root.getChild("info").canUse(src));
+    in.potenfyr.authcore.command.CommandTree.pruneUnusable(root);
+    check("pruning is idempotent", root.canUse(src));
+  }
+
+  /** Recovery codes are bound to the account they were issued for. */
+  private static void testAccountBoundRecovery() {
+    System.out.println("== Account-bound recovery codes ==");
+    UUID a = UUID.randomUUID();
+    UUID b = UUID.randomUUID();
+    String email = "shared-" + a + "@example.com";
+    String code = Security.EmailRecovery.generateCode(a, email);
+    check("code issued", code != null);
+    check("other account with same email cannot redeem", !Security.EmailRecovery.verifyCode(b, email, code));
+    check("owner redeems", Security.EmailRecovery.verifyCode(a, email.toUpperCase(), code));
+    check("redeemed once", !Security.EmailRecovery.verifyCode(a, email, code));
+    check("null account rejected", Security.EmailRecovery.generateCode(null, email) == null);
+  }
+
   private static void testRateLimiter() {
     System.out.println("== Rate limiter ==");
     check("first request allowed", RateLimiter.tryAcquire("test:ip", 3, 60000));
@@ -275,7 +365,39 @@ public class AuthCoreSecurityTests {
               && !ProxySupport.cidrMatches("192.168.1.5", "192.168.1.128/25"));
       check("cidr with garbage rejected", !ProxySupport.cidrMatches("1.2.3.4", "1.2.3.4/xx"));
       check("cidr with too-large prefix rejected", !ProxySupport.cidrMatches("1.2.3.4", "1.2.3.4/33"));
-      check("cidr with ipv6 network rejected", !ProxySupport.cidrMatches("fe80::1", "fe80::/16"));
+      check("cidr ipv6 network matches", ProxySupport.cidrMatches("fe80::1", "fe80::/16"));
+      check("cidr ipv6 prefix boundary respected",
+          ProxySupport.cidrMatches("2001:db8:abcd::1", "2001:db8::/32")
+              && !ProxySupport.cidrMatches("2001:db9::1", "2001:db8::/32"));
+      check("cidr ipv6 odd prefix boundary",
+          ProxySupport.cidrMatches("2001:db8::1", "2001:db8::/31")
+              && !ProxySupport.cidrMatches("2001:dba::1", "2001:db8::/31"));
+      check("cidr ipv6 too-large prefix rejected", !ProxySupport.cidrMatches("::1", "::1/129"));
+      check("cidr families never cross-match",
+          !ProxySupport.cidrMatches("1.2.3.4", "::/0") && !ProxySupport.cidrMatches("::1", "0.0.0.0/0"));
+      check("cidr ipv4-mapped ipv6 matches ipv4 range",
+          ProxySupport.cidrMatches("::ffff:192.168.1.7", "192.168.1.0/24"));
+      check("cidr hostname never resolved", !ProxySupport.cidrMatches("localhost", "127.0.0.0/8"));
+      check("sameAddress normalizes ipv6 spellings",
+          ProxySupport.sameAddress("::1", "0:0:0:0:0:0:0:1")
+              && ProxySupport.sameAddress("::ffff:10.0.0.1", "10.0.0.1")
+              && !ProxySupport.sameAddress("10.0.0.1", "10.0.0.2"));
+
+      // ip-rules.conf value parsing / matching
+      check("ip-rule values validated",
+          in.potenfyr.authcore.security.IpRules.isValidRuleValue("203.0.113.0/24")
+              && in.potenfyr.authcore.security.IpRules.isValidRuleValue("2001:db8::/32")
+              && in.potenfyr.authcore.security.IpRules.isValidRuleValue("::1")
+              && !in.potenfyr.authcore.security.IpRules.isValidRuleValue("203.0.113.0/33")
+              && !in.potenfyr.authcore.security.IpRules.isValidRuleValue("2001:db8::/129")
+              && !in.potenfyr.authcore.security.IpRules.isValidRuleValue("example.com")
+              && !in.potenfyr.authcore.security.IpRules.isValidRuleValue("[\"1.2.3.4\"]"));
+      check("ip-rule ipv6 exact rule matches other spelling",
+          in.potenfyr.authcore.security.IpRules.ruleMatches("2001:db8:0:0:0:0:0:1", "2001:db8::1"));
+      check("ip-rule socket address normalized",
+          "1.2.3.4".equals(in.potenfyr.authcore.security.IpRules.normalizeIp("/1.2.3.4:25565"))
+              && "fe80::1".equals(in.potenfyr.authcore.security.IpRules.normalizeIp("[fe80::1%eth0]:25565"))
+              && "2001:db8::1".equals(in.potenfyr.authcore.security.IpRules.normalizeIp("2001:db8::1")));
     } finally {
       session.proxySupport.enabled = savedEnabled;
       session.proxySupport.trustedProxies = saved;

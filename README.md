@@ -235,7 +235,7 @@ AuthCore generates all configuration files inside `config/authcore/`. The archit
 | `password-rules.conf` | Password Rules | Minimum length, required character classes, hashing algorithm (Argon2id/BCrypt) |
 | `commands.conf` | Command Permissions | Command LuckPerms permission nodes, aliases, and OP level overrides |
 | `database.conf` | Database Storage | SQLite, MySQL, PostgreSQL, and Redis connection strings & pool sizing |
-| `ip-rules.conf` | CIDR IP Rules | Explicit allow/deny lists for addresses, VPN ranges, and ASN networks |
+| `ip-rules.conf` | CIDR IP Rules | One `allow`/`deny` rule per line - exact IPv4/IPv6 addresses or CIDR ranges (first match wins) |
 | `messages-<lang>.conf` | Localization | UI messages, titles, action bars, chat text (English is built in) |
 
 ### Example Configuration Snippet
@@ -306,7 +306,7 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 | **ClientGuard Risk Engine** | `session.client-guard` | Detects macro injection, ghost clients, and packet floods using 0-100 risk scores | `session { client-guard { enabled = true } }` |
 | **AuthIntelligence** | `session.auth-intelligence` | Identifies credential stuffing bursts, multi-account bot farms, and IP rotation | `session { auth-intelligence { ... } }` |
 | **Network Rate Limits** | `session.rate-limit` | Absorbs connection and login floods per IP address without crashing the main thread | `session { rate-limit { enabled = true } }` |
-| **CIDR IP Rules** | `ip-rules.conf` | Explicitly whitelist or blacklist IP addresses, VPN ranges, or ASN networks | `deny = ["45.155.0.0/16"]` |
+| **CIDR IP Rules** | `ip-rules.conf` | Explicitly whitelist or blacklist IPv4/IPv6 addresses and CIDR ranges (e.g. VPN/hosting ranges); any `allow` line switches to whitelist mode | `deny 45.155.0.0/16` · `deny 2001:db8::/32` |
 | **Network-Wide SSO** | `session.sso` + Redis | Single sign-on across multi-server proxy networks; authenticate once, play anywhere | `database { redis { enabled = true } }` + `sso { enabled = true }` |
 | **Web Administration Panel** | `session.web-panel` | Secure token-authenticated browser interface and REST API for remote management | `session { web-panel { enabled = true; token = "..." } }` |
 | **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25599 } }` |

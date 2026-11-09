@@ -23,6 +23,128 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > snapshot, credential commands, offline-server premium verification, the database write path and
 > the red CI host-tests. The first-pass notes follow the second-pass sections below.
 
+### Forge 1.16-1.18: mixins never loaded; commands only shown when they make sense (2026-11-09)
+
+> Report: "/register and /login are missing (red in chat), even for ops; premium players are not
+> logged in automatically" - Forge 1.18.2, Vault Hunters 3rd Edition.
+
+- **Forge 1.16-1.18 jar loaded none of AuthCore's mixins.** The mixin config was only declared
+  in the `[[mixins]]` block of `mods.toml`, which legacy Forge does not read (it is a NeoForge /
+  modern-Forge feature) - old FML only applies configs named in the jar manifest. All 27 mixins were
+  inactive on that jar: no premium (online-mode) verification, so premium players were never
+  auto-logged-in, and no packet-level limbo guards or command gate. The Forge build now writes
+  `MixinConfigs` into the manifest. Fabric (fabric.mod.json) and NeoForge (mods.toml) were not
+  affected.
+- **The command list is re-sent on every auth-state change.** Vanilla sends a player's command
+  tree once, while placing them in the world - before AuthCore knows them. It is now re-sent when
+  the limbo starts, after any login (password, premium auto-login, session resume, SSO), on
+  `/authcore reload` and when a Discord link changes. All versions and loaders.
+- **Every AuthCore command has one state rule** (`CommandVisibility`) that decides both whether it
+  is offered and whether it runs:
+  - **Players** are offered a command only while it applies: `/register` for an unregistered
+    account in the limbo, `/login` for a registered one (both disappear after login);
+    `/account recover` before login (SMTP configured); `logout`, `unregister`, `set-password`
+    after login on a password account; `nickname` after login; `set-mode online` only for an
+    offline-mode account (premium auto-login on), `set-mode offline` only for a premium account;
+    `codes` only with TOTP set up; `email` only with SMTP; `/discord link` after login when not
+    linked and a bot can receive the code, `/discord unlink` when linked. `/account` and
+    `/discord` show only while one of their subcommands does (`/account logout` and both
+    `/discord` subcommands used to be offered in the limbo).
+  - **Admins** (console, OP level 2+, or any AuthCore admin permission) see every AuthCore
+    command they have permission for, in every state.
+  - **Running a command in the wrong state** - possible for admins, or by typing it - never runs
+    it and never shows "Unknown command": the player gets the reason ("You are already logged in.",
+    "Please log in first.", "You already have an account - use /login <password>.", "This feature
+    is not available here.", "Your account already uses automatic login." ...). Several executors
+    had no state check of their own (`set-mode`, `nickname`, `discord link/unlink`, `recover`).
+  - `/authcore`: the root opens for ANY admin permission (it required the reload permission,
+    locking out staff with narrower nodes); a player must be logged in to run any subcommand (an
+    admin name in the limbo keeps its LuckPerms nodes and is told to log in first - no lobby
+    violation); `map-image` gets its own permission check (it had none and relied on the root);
+    `map-image`, `network-ban/unban` and `simulate` explain when their feature is off; branches
+    with nothing permitted below them are hidden.
+  - Limbo players do not see vanilla or other mods' commands the lobby gate would reject.
+- **Every player-facing AuthCore text is now in messages.conf.** New keys (`prompt-user-...` / `prompt-admin-...` in messages.conf):
+  `already-logged-in`, `login-required`, `already-registered-use-login`, `feature-unavailable`,
+  `no-password-account`, `mode-already-set`, `invalid-username`, the limbo hint
+  (`lobby-login-button`, `lobby-register-button`, `lobby2fa-hint`), the captcha tasks and
+  `captcha-passed`, and the admin feedback for maintenance, backup, network bans and import usage
+  (these were hard-coded, the network-ban results always in red).
+- **The limbo hint shows the real command:** `<confirm>` only when password confirmation is on,
+  `<2fa-code>` only when the account has a TOTP secret.
+- **Bedrock setting no longer kicks everyone:** with `allow-bedrock-players` on and Floodgate not
+  installed, every offline-mode login was disconnected with "Floodgate is not installed". Bedrock
+  players are only recognised through Floodgate, so the check is gone.
+- **Defaults** (new installs; existing configs keep their values): `allow-bedrock-players = true`
+  (Bedrock players are recognised only through Floodgate, so it is a no-op without Geyser),
+  web panel `https-enabled = true` (the bearer token no longer travels in clear text by default),
+  `alert-on-fast-rejoin = true` (alert-only). Premium auto-login was already on by default.
+- **Tests:** command-tree pruning checks - 287 security checks total.
+
+### Security pass - brute-force, rate-limit and step-up bypasses (2026-11-09)
+
+- **Eight wrong passwords no longer lock an account out for good.** The failure counter was never
+  reset by a reconnect or by the lock expiring, so after the lock ended the owner's FIRST `/login` -
+  even with the correct password - was kicked and re-locked. Anyone could permanently lock any
+  account. Failures now only count when a password check really fails; the brute-force kick resets
+  the per-session counter (the cooldown is the punishment) and a separate streak drives the account
+  lock, which is reset once the lock is applied.
+- **The brute-force kick cooldown is enforced.** The kick used a path that never armed the
+  cooldown, so the attacker could rejoin instantly and progressive punishment never escalated. The
+  progressive cooldown is now stored and checked at join; rejected rejoins no longer extend it, and
+  the "wait" message shows the real remaining time (it printed a negative duration).
+- **2FA brute force on `/register`.** Re-registering an account that still had a TOTP secret
+  checked the code with no replay protection and only the 1 s command cooldown. It now uses the
+  shared 2FA budget, single-use codes and the 5-strike lockout of `/login`.
+- **`/register` no longer hashes on the server thread.** Argon2id (64 MiB) ran on the tick thread
+  for every registration, so a handful of bots could lag the server. The hash runs on the IO pool
+  with the same concurrency cap as `/login`; the result is applied after re-checking the limbo state.
+- **`/account email` and `/account codes` need the same step-up as a password change.** The
+  recovery email is a password-reset channel and recovery codes are a second factor: both could be
+  changed/printed from a silent same-IP session resume or without the second factor
+  (`require-mfa-for-sensitive` promised otherwise). Both now require the password proven on this
+  connection and, with 2FA on, the verified second factor.
+- **Recovery codes are bound to the account.** Codes were keyed by email only, so a code issued
+  for one account was redeemable on another account sharing the address. Code redemption also gets a
+  per-account budget (10/hour), and a completed recovery clears the lock, old recovery codes, the
+  TOTP replay history, the companion session token and the network session.
+- **Rate limiter: floods can no longer reset security budgets.** All limits shared one bounded map;
+  a join flood from 10k fresh addresses evicted the 2FA/recovery counters. Limits now live in
+  per-namespace buckets, blocking windows are evicted last, the window slides (no 2x burst across a
+  window boundary) and IPv6 clients are aggregated per /64 for join, rejoin and 2FA budgets (the 2FA
+  account budget is checked first, so IP rotation cannot reset it).
+- **Web panel brute-force lockout.** Cycling through 2048 source addresses made the panel clear its
+  whole lockout table (including the attacker's lockout), and every IPv6 address got its own
+  budget. Lockouts are now per address / IPv6 /64, are never cleared wholesale, and a global budget
+  (30 failures/minute) restricts token attempts to recently authenticated addresses while it is
+  exceeded.
+- **Tests:** 16 new checks (bucket isolation, eviction order, sliding window, /64 aggregation,
+  2FA budget vs. IPv6 rotation, account-bound recovery codes) - 281 security checks total.
+
+### Settings and features that only half worked (third pass, 2026-11-08)
+
+- **`/authcore reload` now re-reads `ip-rules.conf`.** The rules file is separate from the HOCON
+  configs and was only loaded at boot (or, by accident, on the next honeypot hit) - an edited
+  allow/deny list silently did nothing until a restart.
+- **IPv6 in `ip-rules.conf` and `trusted-proxies`.** CIDR matching was IPv4-only: `deny
+  2001:db8::/32` never matched, and exact IPv6 rules only matched the identical spelling (`::1` vs
+  `0:0:0:0:0:0:0:1`). Both address families now match by value with full CIDR support; IPv4-mapped
+  IPv6 addresses (`::ffff:1.2.3.4`) hit IPv4 rules; hostnames are never resolved. Malformed rule
+  lines are logged with their line number instead of being dropped silently, and trailing
+  `# comments` after a rule are allowed. Honeypot bans strip IPv6 zone ids so their rule lines stay
+  valid.
+- **Maintenance mode no longer locks out the admins.** It kicked every join, including the
+  operator who turned it on. Operators (`maintenance.bypass-operators`, default `true`) and holders
+  of the LuckPerms node `authcore.maintenance.bypass` (`maintenance.bypass-permission`) can now
+  join - and still authenticate in the limbo as usual.
+- **Shadow-ban covers every security block.** It only applied to the new-country block; it now
+  also hides the reason for `ip-rules.conf` denials and network bans behind the generic
+  disconnect message.
+- **Docs:** the README promised ASN rules and showed a `deny = [...]` list syntax that the parser
+  never accepted - both corrected to the real one-rule-per-line format.
+- **Tests:** 11 new checks (IPv6 CIDR boundaries, family isolation, mapped addresses, no DNS
+  resolution, rule-value validation, socket-address normalization) - 265 security checks total.
+
 ### Issue #11 (second pass) - the remaining "killed on login, no death message, everything lost" causes
 
 - **The limbo no longer heals (and the restore no longer revives) a player who joined DEAD.**

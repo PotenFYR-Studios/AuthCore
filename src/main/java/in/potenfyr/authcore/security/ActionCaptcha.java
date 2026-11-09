@@ -343,7 +343,8 @@ public final class ActionCaptcha {
     } catch (RuntimeException fallback) {
       send(player, "Human verification required!", ChatFormatting.GOLD);
     }
-    send(player, task, ChatFormatting.YELLOW);
+    AuthCoreServer.LOGGER.toUser(
+        true, player.connection, taskTemplate(type), String.format("%.0f", target));
 
     SecurityLog.log(
         "CAPTCHA_ACTION_STARTED",
@@ -389,7 +390,7 @@ public final class ActionCaptcha {
         AuthCoreServer.LOGGER.info(true, "{} completed the action captcha.", user.username);
         AuthCoreServer.LOGGER.debug(
             false, "{} | captcha completed in {}ms", user.username, now - (challenge.deadlineMs - config().actionTtlMs));
-        send(player, "Captcha passed - verified as human!", ChatFormatting.GREEN);
+        AuthCoreServer.LOGGER.toUser(true, player.connection, AuthCoreServer.messages.promptUserCaptchaPassed);
       }
     }
   }
@@ -449,6 +450,21 @@ public final class ActionCaptcha {
     }
   }
 
+  /** The configurable task line (messages.conf); %1$s = the target value. */
+  private static in.potenfyr.authcore.models.Messages.ColTemplate taskTemplate(int type) {
+    switch (type) {
+      case CHALLENGE_SNEAK:
+        return AuthCoreServer.messages.promptUserCaptchaTaskSneak;
+      case CHALLENGE_JUMP:
+        return AuthCoreServer.messages.promptUserCaptchaTaskJump;
+      case CHALLENGE_LOOK_UP:
+        return AuthCoreServer.messages.promptUserCaptchaTaskLookUp;
+      default:
+        return AuthCoreServer.messages.promptUserCaptchaTaskMove;
+    }
+  }
+
+  /** English task description for the security log / console (not shown to players). */
   private static String taskText(int type, double target, Config.Lobby.CaptchaConfig cfg) {
     switch (type) {
       case CHALLENGE_SNEAK:

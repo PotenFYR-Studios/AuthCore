@@ -193,7 +193,9 @@ public class ServerEvents {
           "Rejected a join with an invalid username: {}",
           in.potenfyr.authcore.util.Sanitizer.logDetail(joinName));
       try {
-        connection.disconnect(in.potenfyr.authcore.compat.Compat.text("Invalid username"));
+        connection.disconnect(
+            in.potenfyr.authcore.compat.Compat.text(
+                AuthCoreServer.messages.promptUserInvalidUsername.logout.text));
       } catch (RuntimeException ignored) {
         // the connection is going away anyway
       }
@@ -232,8 +234,9 @@ public class ServerEvents {
     // Register interop channels (other mods / proxy plugin messaging)
     in.potenfyr.authcore.network.AuthInterop.register(player);
 
-    // Maintenance mode: block all joins
-    if (AuthCoreServer.config.session.maintenance.enabled) {
+    // Maintenance mode: block all joins except operators / the bypass permission (the admins
+    // who turned it on must still be able to get in - the old check locked them out too).
+    if (AuthCoreServer.config.session.maintenance.enabled && !bypassesMaintenance(joinServer, player)) {
       connection.disconnect(
           in.potenfyr.authcore.compat.Compat.text(AuthCoreServer.config.session.maintenance.kickMessage));
       return;
@@ -322,7 +325,8 @@ public class ServerEvents {
     if (AuthCoreServer.config.session.rateLimit.enabled
         && !McApiManager.isPrivateAddress(player.getIpAddress())
         && !RateLimiter.tryAcquire(
-            player.getIpAddress(),
+            // IPv6 clients are aggregated per /64 (one client owns the whole prefix)
+            "join:" + RateLimiter.ipKey(player.getIpAddress()),
             AuthCoreServer.config.session.rateLimit.maxJoinsPerWindow,
             AuthCoreServer.config.session.rateLimit.windowMs)) {
 
@@ -354,6 +358,11 @@ public class ServerEvents {
     if (AuthCoreServer.config.database.redis.enabled
         && in.potenfyr.authcore.network.RedisManager.isBannedRemotely(username)) {
       SecurityLog.log("NETWORK_BAN_BLOCKED", username + " | " + player.getIpAddress());
+      if (AuthCoreServer.config.session.shadowBan.enabled) {
+        connection.disconnect(
+            in.potenfyr.authcore.compat.Compat.text(AuthCoreServer.config.session.shadowBan.disconnectReason));
+        return;
+      }
       AuthCoreServer.LOGGER.toKick(
           false, connection, AuthCoreServer.messages.promptUserNetworkBanned);
       return;
@@ -391,6 +400,11 @@ public class ServerEvents {
     // Per-IP allow/deny rules (ip-rules.conf)
     if (in.potenfyr.authcore.security.IpRules.isDenied(player.getIpAddress())) {
       SecurityLog.log("IP_DENIED", player.getIpAddress() + " | " + username + " blocked by ip-rules.conf");
+      if (AuthCoreServer.config.session.shadowBan.enabled) {
+        connection.disconnect(
+            in.potenfyr.authcore.compat.Compat.text(AuthCoreServer.config.session.shadowBan.disconnectReason));
+        return;
+      }
       AuthCoreServer.LOGGER.toKick(
           false,
           connection,
@@ -401,7 +415,7 @@ public class ServerEvents {
     // Fast-rejoin alert (bot pattern: disconnect + reconnect within milliseconds)
     if (AuthCoreServer.config.session.rateLimit.alertOnFastRejoin
         && !in.potenfyr.authcore.security.RateLimiter.tryAcquire(
-            "rejoin:" + player.getIpAddress(),
+            "rejoin:" + in.potenfyr.authcore.security.RateLimiter.ipKey(player.getIpAddress()),
             1,
             AuthCoreServer.config.session.rateLimit.fastRejoinWindowMs)) {
       SecurityLog.log("FAST_REJOIN", player.getIpAddress() + " | " + username + " rejoined too fast");
@@ -705,16 +719,22 @@ public class ServerEvents {
       user.update("Login intelligence");
     }
 
-    // Kick cooldown
-    if (user.lastKickedMs > 0
-        && AuthCoreServer.config.session.cooldownAfterKickMs
-            > (System.currentTimeMillis() - user.lastKickedMs)) {
-
-      user.kick(
+    // Kick cooldown: the later of the plain kick cooldown and the progressive brute-force
+    // cooldown. Rejected rejoins do NOT re-arm or escalate it (user.kick() would push the window
+    // forward on every retry), and the remaining time is now positive (it printed "-1m 40s").
+    long nowMs = System.currentTimeMillis();
+    long cooldownUntil =
+        Math.max(
+            user.kickCooldownUntilMs,
+            user.lastKickedMs > 0
+                ? user.lastKickedMs + AuthCoreServer.config.session.cooldownAfterKickMs
+                : 0L);
+    if (cooldownUntil > nowMs) {
+      AuthCoreServer.LOGGER.toKick(
+          false,
+          connection,
           AuthCoreServer.messages.promptUserCooldownAfterKickNotExpired,
-          TimeManager.toDuration(
-              (System.currentTimeMillis() - user.lastKickedMs)
-                  - AuthCoreServer.config.session.cooldownAfterKickMs));
+          TimeManager.toDuration(Math.max(cooldownUntil - nowMs, 1000L)));
       return;
     }
 
@@ -728,6 +748,26 @@ public class ServerEvents {
 
     // Default: lock user in lobby (the crash recovery already ran right after User.connect)
     user.lobby.lock();
+  }
+
+  /**
+   * Whether a joining player may enter while maintenance mode is on: a server operator (when
+   * {@code bypass-operators} is set) or a holder of the LuckPerms bypass node. Runs before the
+   * limbo strips OP (safe-operators), so the ops.json state is still the real one. Any failure
+   * resolves to "no bypass" (fail-closed).
+   */
+  private static boolean bypassesMaintenance(
+      net.minecraft.server.MinecraftServer server, ServerPlayer player) {
+    try {
+      var cfg = AuthCoreServer.config.session.maintenance;
+      if (cfg.bypassOperators && server != null
+          && in.potenfyr.authcore.compat.Compat.isOperator(server, player)) return true;
+      return cfg.bypassPermission != null && !cfg.bypassPermission.isBlank()
+          && in.potenfyr.authcore.network.McApiManager.PermissionUtil.hasNode(
+              player, cfg.bypassPermission.trim());
+    } catch (RuntimeException | LinkageError err) {
+      return false;
+    }
   }
 
   /**

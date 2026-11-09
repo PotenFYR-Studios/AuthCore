@@ -715,6 +715,50 @@ public final class Compat {
     resendPermissionLevel(server, player);
   }
 
+  /**
+   * Re-sends the player's command tree after an authentication-state change.
+   *
+   * <p>Vanilla sends the tree ONCE, while the player is being placed in the world - before
+   * AuthCore's join handler puts them into the limbo. Every AuthCore {@code requires()} predicate
+   * (/register, /login, /account ...) depends on the limbo/auth state, so the client kept the
+   * pre-limbo tree: /register and /login were missing (typed in red, no suggestions) for every
+   * non-op player, and after login the client still showed /login but none of the /account
+   * subcommands. Ops only escaped this because the safe-operators deop re-sends the tree.
+   */
+  public static void refreshCommandTree(ServerPlayer player) {
+    if (player == null) return;
+    try {
+      MinecraftServer server = getServer(player);
+      if (server == null) return;
+      // Packets and the dispatcher belong to the server thread (callers include the web panel
+      // and async integrations). On the server thread execute() runs the task immediately.
+      server.execute(
+          () -> {
+            try {
+              in.potenfyr.authcore.command.CommandTree.applyLimboFilter(
+                  server.getCommands().getDispatcher());
+              resendPermissionLevel(server, player);
+            } catch (RuntimeException | LinkageError ignored) {
+              // best-effort: typed commands still execute, only client-side hints are stale
+            }
+          });
+    } catch (RuntimeException | LinkageError ignored) {
+      // best-effort
+    }
+  }
+
+  /** Re-sends the command tree of every online AuthCore user (config reload). */
+  public static void refreshAllCommandTrees() {
+    for (in.potenfyr.authcore.models.User user : in.potenfyr.authcore.models.User.users.values()) {
+      if (user == null || !user.isActive) continue;
+      try {
+        refreshCommandTree(user.player.get());
+      } catch (RuntimeException | LinkageError ignored) {
+        // next user
+      }
+    }
+  }
+
   /** Re-sends the permission level + command tree (what vanilla op/deop do after editing the list). */
   private static void resendPermissionLevel(MinecraftServer server, ServerPlayer player) {
     try {

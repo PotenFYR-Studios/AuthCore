@@ -198,33 +198,31 @@ public class Lobby {
    * actual authentication requirements (password confirmation, 2FA, captcha), so the
    * player always sees exactly what they need - never a generic hint that misses a step.
    */
-  private static in.potenfyr.authcore.models.Messages.ColTemplate buildAuthButton(User user) {
-    in.potenfyr.authcore.models.Messages.ColTemplate button =
-        new in.potenfyr.authcore.models.Messages.ColTemplate();
-    button.message = new in.potenfyr.authcore.models.Messages.Message();
-    button.actionBar = new in.potenfyr.authcore.models.Messages.ActionBar();
-
+  private static Object[] authButtonArgs(User user) {
     boolean registered = user.isRegistered.get();
     StringBuilder cmd = new StringBuilder(registered ? "/login" : "/register");
-    cmd.append(registered ? " <password>" : " <password> <confirm>");
-    StringBuilder hint = new StringBuilder();
-    if (AuthCoreServer.config.session.authentication.allowTOTPSupport) {
-      cmd.append(" <2fa-code>");
-      hint.append(" A 2FA code is required.");
-    }
-
-    button.message.text = registered ? "Click here to login" : "Click here to register";
-    button.message.color = "YELLOW";
-    button.message.clickCommand = cmd + " ";
-    button.actionBar.text =
-        "Command: "
-            + cmd
-            + " - "
-            + (registered ? "authenticate your account" : "create your account")
-            + hint;
-    button.actionBar.color = "YELLOW";
-    return button;
+    cmd.append(" <password>");
+    // <confirm> only when password confirmation is actually required (it was always shown).
+    if (!registered && AuthCoreServer.config.session.authentication.registerPasswordConfirmation)
+      cmd.append(" <confirm>");
+    // A 2FA code is part of the command only when this account has (or is being given) a TOTP
+    // secret - the hint used to be shown to every player whenever TOTP support was enabled.
+    boolean totp =
+        AuthCoreServer.config.session.authentication.allowTOTPSupport
+            && user.authSecret != null
+            && !user.authSecret.isBlank();
+    if (totp) cmd.append(" <2fa-code>");
+    String hint = totp ? AuthCoreServer.messages.promptUserLobby2faHint.message.text : "";
+    return new Object[] {cmd.toString(), hint == null ? "" : hint};
   }
+
+  /** The configurable limbo hint (messages.conf: promptUserLobbyLoginButton / RegisterButton). */
+  private static in.potenfyr.authcore.models.Messages.ColTemplate buildAuthButton(User user) {
+    return user.isRegistered.get()
+        ? AuthCoreServer.messages.promptUserLobbyLoginButton
+        : AuthCoreServer.messages.promptUserLobbyRegisterButton;
+  }
+
 
   /**
    * Runs a command for the player through the server dispatcher (era-safe - see
@@ -535,6 +533,9 @@ public class Lobby {
 
     try {
       lockSession(player, user);
+      // The client got its command tree before the limbo existed: re-send it so /register or
+      // /login show up (and every gameplay command the limbo blocks disappears).
+      in.potenfyr.authcore.compat.Compat.refreshCommandTree(player);
     } catch (RuntimeException | LinkageError err) {
       // FAIL CLOSED: release the reservation, stop the armed tasks and kick. An unauthenticated
       // player must never stay online outside the limbo (that was the bypass window).
@@ -624,7 +625,8 @@ public class Lobby {
     // the server's configured authentication requirements (2FA/captcha/password rules), so
     // the player always sees the exact command they need. Click it and it fills the input.
     try {
-      AuthCoreServer.LOGGER.toUser(true, user.connection, buildAuthButton(user));
+      AuthCoreServer.LOGGER.toUser(
+          true, user.connection, buildAuthButton(user), authButtonArgs(user));
     } catch (RuntimeException ignored) {
       // the clickable button line is best-effort
     }
@@ -1163,6 +1165,10 @@ public class Lobby {
         false, "{} has been taken out from the lobby/restricted mode!", this.user.username);
 
     this.cancel();
+
+    // Authenticated now: /login and /register go away, /account and gameplay commands appear.
+    if (player != null && this.user.isActive)
+      in.potenfyr.authcore.compat.Compat.refreshCommandTree(player);
   }
 
   /**

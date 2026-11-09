@@ -34,27 +34,9 @@ public class Register {
    *     recognize and handle the `/register` command.
    */
   public static void load(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(
+    var root = dispatcher.register(
         literal("register")
-            .requires(
-                (ctx) -> {
-                  ServerPlayer player = McApiManager.PermissionUtil.resolvePlayer(ctx);
-                  if (player == null) return false;
-
-                  UUID uuid = player.getUUID();
-                  String username = player.getName().getString();
-                  User user = User.getUser(username, uuid);
-
-                  // Ensures the player is in the lobby and not already registered.
-                  return user != null
-                      && user.isInLobby.get()
-                      && !user.isAuthenticated.get()
-                      && !user.isRegistered.get()
-                      && McApiManager.PermissionUtil.has(
-                          player,
-                          AuthCoreServer.config.commands.user.register.luckPermsNode,
-                          AuthCoreServer.config.commands.user.register.permissionsLevel);
-                })
+            .requires(CommandVisibility::canRegister)
             .then(
                 argument("password", string())
                     .executes(
@@ -96,6 +78,8 @@ public class Register {
                                         getString(ctx, "password"),
                                         null,
                                         getString(ctx, "2fa-code"))))));
+    // State guard: run only in the right state, otherwise explain why (see CommandVisibility).
+    CommandTree.guardExecution(root, CommandVisibility.REGISTER);
   }
 
   /**
@@ -180,37 +164,100 @@ public class Register {
             AuthCoreServer.config.session.authentication.allowTOTPSupport
                 && user.authSecret != null
                 && !user.authSecret.isBlank();
-        if (mfaConfigured && authCode == null)
+        if (mfaConfigured && (authCode == null || authCode.isBlank()))
           return AuthCoreServer.LOGGER.toUser(
               1, player.connection, AuthCoreServer.messages.promptUserMissing2faCode);
-        else if (mfaConfigured && !Security.TOTPManager.verify(authCode, user.authSecret))
-          return AuthCoreServer.LOGGER.toUser(
-              1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
+        if (mfaConfigured) {
+          // Same budget, replay protection and lockout as /login: this path used the plain
+          // verify() with only the 1 s command cooldown - an unlimited 2FA guessing oracle for
+          // any account that still carried a TOTP secret.
+          if (!in.potenfyr.authcore.security.RateLimiter.tryMfa(player.getIpAddress(), user.uuid))
+            return AuthCoreServer.LOGGER.toUser(
+                1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "one minute");
+          if (!Security.TOTPManager.verifyOnce(user.uuid, authCode, user.authSecret)) {
+            in.potenfyr.authcore.security.AuthIntelligence.recordFailed2fa(
+                user.uuid, username, player.getIpAddress());
+            user.failed2faAttempts++;
+            if (user.failed2faAttempts >= 5) {
+              user.failed2faAttempts = 0;
+              in.potenfyr.authcore.security.SecurityLog.log(
+                  "2FA_LOCKOUT", username + " | repeated wrong 2FA codes on /register");
+              if (AuthCoreServer.config.session.accountLock.enabled)
+                user.lock(AuthCoreServer.config.session.accountLock.lockDurationMs);
+              return AuthCoreServer.LOGGER.toKick(
+                  1,
+                  player.connection,
+                  AuthCoreServer.messages.promptUserExceededLoginAttempts,
+                  5,
+                  TimeManager.toDuration(AuthCoreServer.config.session.accountLock.lockDurationMs));
+            }
+            return AuthCoreServer.LOGGER.toUser(
+                1, player.connection, AuthCoreServer.messages.promptUserWrong2faCode);
+          }
+          user.failed2faAttempts = 0;
+        }
 
-        AuthCoreServer.LOGGER.debug(
-            1, "{} has been registered to the Server!", player.getName().getString());
-        AuthCoreServer.LOGGER.toUser(
-            1, player.connection, AuthCoreServer.messages.promptUserRegisteredSuccessfully);
+        // The memory-hard hash (Argon2id: 64 MiB, 3 passes) ran on the server thread: a handful
+        // of fresh bots spamming /register stalled every tick. Hash on the IO pool, then apply
+        // on the server thread after re-validating the limbo state (the player may have left,
+        // or a second /register may have raced this one).
+        final net.minecraft.server.MinecraftServer server =
+            in.potenfyr.authcore.compat.Compat.getServer(player);
+        if (server != null) {
+          if (!user.passwordCheckInFlight.compareAndSet(false, true))
+            return AuthCoreServer.LOGGER.toUser(
+                1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+          if (!Login.VERIFY_PERMITS.tryAcquire()) {
+            user.passwordCheckInFlight.set(false);
+            return AuthCoreServer.LOGGER.toUser(
+                1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+          }
+          final String algorithm =
+              in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
+                  AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
+          try {
+            AuthCoreServer.IO_EXECUTOR.execute(
+                () -> {
+                  String hash = null;
+                  try {
+                    hash = in.potenfyr.authcore.security.Encrypter.hash(algorithm, password);
+                  } catch (Throwable err) {
+                    AuthCoreServer.LOGGER.debug(false, "Password hashing failed:", err);
+                  } finally {
+                    Login.VERIFY_PERMITS.release();
+                  }
+                  final String computed = hash;
+                  server.execute(
+                      () -> {
+                        try {
+                          if (user.player.get() != player
+                              || !user.isInLobby.get()
+                              || user.isAuthenticated.get()
+                              || user.isRegistered.get()) return;
+                          completeRegistration(user, player, username, algorithm, computed);
+                        } catch (Exception err) {
+                          AuthCoreServer.LOGGER.error(0, "Faced Error in '/register' Command: ", err);
+                        } finally {
+                          user.passwordCheckInFlight.set(false);
+                        }
+                      });
+                });
+          } catch (java.util.concurrent.RejectedExecutionException busy) {
+            Login.VERIFY_PERMITS.release();
+            user.passwordCheckInFlight.set(false);
+            return AuthCoreServer.LOGGER.toUser(
+                1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "a moment");
+          }
+          return 1;
+        }
 
-        AuthCoreServer.LOGGER.debug(
-            false,
-            "{} | /register completed from {} (2FA configured: {})",
-            username,
-            player.getIpAddress(),
-            AuthCoreServer.config.session.authentication.allowTOTPSupport);
-
-        user.passwordProvenOn = player.connection;
-        user.register(player, password); // broadcasts the auth state on login
-
-        // authentication.auto-luck-perms-group: give newly registered accounts their group.
-        String autoGroup = AuthCoreServer.config.session.authentication.autoLuckPermsGroup;
-        if (user.isRegistered.get() && autoGroup != null && !autoGroup.isBlank())
-          McApiManager.PermissionUtil.addGroup(user.uuid, autoGroup);
-
-        in.potenfyr.authcore.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIpAddress());
-        in.potenfyr.authcore.security.AuthIntelligence.recordRegistration(username, player.getIpAddress());
-        in.potenfyr.authcore.network.Webhook.sendRegistration(
-            ":white_check_mark: **" + username + "** registered on the server.");
+        // No server handle (cannot happen for a live player): hash inline.
+        String algorithm =
+            in.potenfyr.authcore.security.Encrypter.newCredentialAlgorithm(
+                AuthCoreServer.config.passwordRules.passwordHashAlgorithm);
+        completeRegistration(
+            user, player, username, algorithm,
+            in.potenfyr.authcore.security.Encrypter.hash(algorithm, password));
         return 1;
       }
 
@@ -218,6 +265,43 @@ public class Register {
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/register' Command: ", err);
     }
+  }
+
+  /** Applies a computed registration hash (server thread). */
+  private static void completeRegistration(
+      User user, ServerPlayer player, String username, String algorithm, String hash) {
+    if (hash == null) {
+      AuthCoreServer.LOGGER.error(
+          false, "Failed to hash the password for '{}' with algorithm '{}'!", username, algorithm);
+      AuthCoreServer.LOGGER.toUser(
+          1, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+      return;
+    }
+
+    AuthCoreServer.LOGGER.debug(
+        1, "{} has been registered to the Server!", player.getName().getString());
+    AuthCoreServer.LOGGER.toUser(
+        1, player.connection, AuthCoreServer.messages.promptUserRegisteredSuccessfully);
+
+    AuthCoreServer.LOGGER.debug(
+        false,
+        "{} | /register completed from {} (2FA configured: {})",
+        username,
+        player.getIpAddress(),
+        AuthCoreServer.config.session.authentication.allowTOTPSupport);
+
+    user.passwordProvenOn = player.connection;
+    user.registerHashed(player, algorithm, hash); // broadcasts the auth state on login
+
+    // authentication.auto-luck-perms-group: give newly registered accounts their group.
+    String autoGroup = AuthCoreServer.config.session.authentication.autoLuckPermsGroup;
+    if (user.isRegistered.get() && autoGroup != null && !autoGroup.isBlank())
+      McApiManager.PermissionUtil.addGroup(user.uuid, autoGroup);
+
+    in.potenfyr.authcore.security.SecurityLog.log("REGISTER", username + " | IP: " + player.getIpAddress());
+    in.potenfyr.authcore.security.AuthIntelligence.recordRegistration(username, player.getIpAddress());
+    in.potenfyr.authcore.network.Webhook.sendRegistration(
+        ":white_check_mark: **" + username + "** registered on the server.");
   }
 
   private static volatile String cachedNameRegex;

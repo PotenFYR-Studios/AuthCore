@@ -491,8 +491,10 @@ public class Config {
       @Comment(
           """
                     Allow Bedrock/Geyser/Floodgate players to join and authenticate.
-                    • Default: false (enable only if you support Bedrock clients)""")
-      public boolean allowBedrockPlayers = false;
+                    • Bedrock players are recognised ONLY through the Floodgate API, so this has
+                      no effect on servers without Geyser/Floodgate.
+                    • Default: true""")
+      public boolean allowBedrockPlayers = true;
 
       @Comment(
           """
@@ -644,7 +646,12 @@ public class Config {
   @ConfigSerializable
   public static class ShadowBanConfig {
 
-    @Comment("Enable shadow-ban behavior. Default: false")
+    @Comment(
+        """
+                Enable shadow-ban behavior: security blocks (ip-rules.conf deny, network bans
+                and new-country blocks) disconnect with the generic reason below instead of a
+                message that tells the attacker WHY they were blocked.
+                • Default: false""")
     public boolean enabled = false;
 
     @Comment("Disconnect reason shown to shadow-banned players. Default: \"Connection lost\"")
@@ -690,6 +697,20 @@ public class Config {
                 Kick reason shown to players while maintenance mode is active.
                 • Default: Server is under maintenance! Please check back later.""")
     public String kickMessage = "Server is under maintenance! Please check back later.";
+
+    @Comment(
+        """
+                Let server operators (ops.json) join while maintenance mode is active.
+                • They still have to authenticate in the limbo as usual.
+                • Default: true""")
+    public boolean bypassOperators = true;
+
+    @Comment(
+        """
+                LuckPerms permission node that lets a player join during maintenance.
+                • Only checked when LuckPerms is installed. Empty = no node bypass.
+                • Default: "authcore.maintenance.bypass\"""")
+    public String bypassPermission = "authcore.maintenance.bypass";
   }
 
   @ConfigSerializable
@@ -1001,8 +1022,10 @@ public class Config {
                 • When no keystore is configured, a self-signed certificate is generated
                   automatically on first start (config/authcore/panel-keystore.p12) and its
                   fingerprint is printed in the console.
-                • Default: false""")
-    public boolean httpsEnabled = false;
+                • The panel bearer token travels with every request - plain HTTP exposes it to
+                  anyone on the path. Keep enabled unless a TLS reverse proxy fronts the panel.
+                • Default: true""")
+    public boolean httpsEnabled = true;
 
     @Comment("HTTPS port. Default: 25571")
     public int httpsPort = 25571;
@@ -1348,8 +1371,12 @@ public class Config {
     @Comment(
         """
                 File (in the config directory) with per-IP allow/deny rules.
-                • Format: one rule per line: "allow 1.2.3.4" or "deny 5.6.7.8"
-                • Lines starting with # are comments.
+                • Format: one rule per line: "allow <ip|cidr>" or "deny <ip|cidr>"
+                  e.g. "deny 5.6.7.8", "deny 45.155.0.0/16", "deny 2001:db8::/32"
+                • IPv4 and IPv6 addresses / CIDR ranges are supported; first match wins.
+                • Any "allow" line switches to whitelist mode (unmatched IPs are denied).
+                • Lines starting with # are comments; malformed lines are logged and skipped.
+                • Re-read by /authcore reload.
                 • Default: "ip-rules.conf\"""")
     public String ipRulesFile = "ip-rules.conf";
   }
@@ -1373,8 +1400,8 @@ public class Config {
         """
                 Alert when a player rejoins extremely fast after disconnecting (bot pattern).
                 • Alert-only (no kick) - webhook + security log.
-                • Default: false""")
-    public boolean alertOnFastRejoin = false;
+                • Default: true""")
+    public boolean alertOnFastRejoin = true;
 
     @Comment(
         """

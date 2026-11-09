@@ -48,13 +48,11 @@ public class Admin {
    * @param dispatcher the Brigadier command dispatcher provided by the Minecraft server
    */
   public static void load(CommandDispatcher<CommandSourceStack> dispatcher) {
-    dispatcher.register(
+    // Pruned after building: intermediate literals whose permission sits on a deeper argument are
+    // only offered when the source can actually reach something below them.
+    var root = dispatcher.register(
         literal("authcore")
-            .requires(
-                ctx ->
-                    McApiManager.PermissionUtil.hasForSource(                        ctx,
-                        AuthCoreServer.config.commands.admin.reload.luckPermsNode,
-                        AuthCoreServer.config.commands.admin.reload.permissionsLevel))
+            .requires(CommandVisibility::canUseAdmin)
             .then(
                 literal("reload")
                     .requires(
@@ -65,20 +63,11 @@ public class Admin {
                     .executes(ctx -> reloadCommand(ctx.getSource())))
             .then(
                 literal("simulate")
-                    .requires(
-                        ctx ->
-                            AuthCoreServer.config.commands.admin.simulate.enabled
-                                && McApiManager.PermissionUtil.hasForSource(
-                                    ctx,
-                                    AuthCoreServer.config.commands.admin.simulate.luckPermsNode,
-                                    AuthCoreServer.config
-                                        .commands
-                                        .admin
-                                        .simulate
-                                        .permissionsLevel))
+                    .requires(CommandVisibility::canSimulate)
                     .executes(ctx -> simulateCommand(ctx.getSource())))
             .then(
                 literal("map-image")
+                    .requires(CommandVisibility::canMapImage)
                     .then(
                         literal("show")
                             .then(
@@ -230,12 +219,7 @@ public class Admin {
                                         EntityArgument.getPlayer(ctx, "player")))))
             .then(
                 literal("network-ban")
-                    .requires(
-                        ctx ->
-                            McApiManager.PermissionUtil.hasForSource(
-                                ctx,
-                                AuthCoreServer.config.commands.admin.networkBan.luckPermsNode,
-                                AuthCoreServer.config.commands.admin.networkBan.permissionsLevel))
+                    .requires(CommandVisibility::canNetworkBan)
                     .then(
                         argument("name", StringArgumentType.word())
                             .executes(
@@ -256,12 +240,7 @@ public class Admin {
                                                     .getInteger(ctx, "minutes"))))))
             .then(
                 literal("network-unban")
-                    .requires(
-                        ctx ->
-                            McApiManager.PermissionUtil.hasForSource(
-                                ctx,
-                                AuthCoreServer.config.commands.admin.networkBan.luckPermsNode,
-                                AuthCoreServer.config.commands.admin.networkBan.permissionsLevel))
+                    .requires(CommandVisibility::canNetworkBan)
                     .then(
                         argument("name", StringArgumentType.word())
                             .executes(
@@ -543,6 +522,14 @@ public class Admin {
                                                 ctx.getSource(),
                                                 StringArgumentType.getString(
                                                     ctx, "database-file")))))));
+    // A PLAYER must be logged in to run any admin command (admins see the tree in every state);
+    // feature subcommands additionally explain when their feature is off.
+    CommandTree.guardExecution(root, CommandVisibility.LOGGED_IN);
+    CommandTree.guardChild(root, "map-image", CommandVisibility.MAP_IMAGE);
+    CommandTree.guardChild(root, "network-ban", CommandVisibility.NETWORK_BAN);
+    CommandTree.guardChild(root, "network-unban", CommandVisibility.NETWORK_BAN);
+    CommandTree.guardChild(root, "simulate", CommandVisibility.SIMULATE);
+    CommandTree.pruneUnusable(root);
   }
 
   /**
@@ -561,11 +548,8 @@ public class Admin {
             1, "{} used '/authcore backup' command in the Server!", player.getName().getString());
 
       if (Database.dialect != Database.Dialect.SQLITE) {
-        String message =
-            "Database backup is only supported for SQLite. Use your "
-                + Database.dialect
-                + " server's own backup tooling.";
-        return sendPlainMessage(source, player, message);
+        return sendTemplate(
+            player, AuthCoreServer.messages.promptAdminBackupUnsupported, 0, String.valueOf(Database.dialect));
       }
 
       // One backup implementation (consistent WAL-safe snapshot + write-behind flush) for the
@@ -597,8 +581,8 @@ public class Admin {
       User user = User.getUser(target.getName().getString(), uuid);
 
       if (user == null) {
-        String message = "User '" + target.getName().getString() + "' is not in the AuthCore cache.";
-        return sendPlainMessage(source, player, message);
+        return sendTemplate(
+            player, AuthCoreServer.messages.promptAdminUserNotCached, 0, target.getName().getString());
       }
 
       java.util.ArrayList<String> history = User.fetchLoginHistory(uuid, 10);
@@ -688,16 +672,13 @@ public class Admin {
       AuthCoreServer.config.session.maintenance.enabled = enabled;
       in.potenfyr.authcore.util.HoconConf.saveConfig();
 
-      String msgText = enabled ? "Maintenance mode ENABLED - joins are blocked." : "Maintenance mode disabled.";
       ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
-      if (player != null)
-        return AuthCoreServer.LOGGER.toUser(1, player.connection, new Messages.ColTemplate() {
-          {
-            message.text = msgText;
-            message.color = enabled ? "YELLOW" : "GREEN";
-          }
-        });
-      return AuthCoreServer.LOGGER.info(1, msgText);
+      return sendTemplate(
+          player,
+          enabled
+              ? AuthCoreServer.messages.promptAdminMaintenanceEnabled
+              : AuthCoreServer.messages.promptAdminMaintenanceDisabled,
+          1);
     } catch (Exception err) {
       return AuthCoreServer.LOGGER.error(0, "Faced Error in '/authcore maintenance' Command: ", err);
     }
@@ -849,16 +830,7 @@ public class Admin {
       ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
 
       if (dbFilePath == null || dbFilePath.isBlank()) {
-        String usage = "Usage: /authcore import authme <path-to-authme.db>";
-        return player != null
-            ? AuthCoreServer.LOGGER.toUser(
-                0, player.connection, new Messages.ColTemplate() {
-                  {
-                    message.text = usage;
-                    message.color = "RED";
-                  }
-                })
-            : AuthCoreServer.LOGGER.info(0, usage);
+        return sendTemplate(player, AuthCoreServer.messages.promptAdminImportUsage, 0);
       }
 
       java.nio.file.Path path = java.nio.file.Path.of(dbFilePath);
@@ -895,14 +867,13 @@ public class Admin {
   private static int networkBanCommand(CommandSourceStack source, String name, int minutes) {
     ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
     if (!in.potenfyr.authcore.util.Sanitizer.isSafeUsername(name))
-      return sendPlainMessage(source, player, "Invalid username: " + name);
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminInvalidUsername, 0, name);
     if (!AuthCoreServer.config.database.redis.enabled)
-      return sendPlainMessage(
-          source, player, "Network bans need Redis - enable database.redis in the config first.");
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminRedisRequired, 0);
     String by = player != null ? player.getName().getString() : "console";
     long ttlMs = minutes > 0 ? minutes * 60_000L : 0L;
     if (!in.potenfyr.authcore.network.RedisManager.banRemotely(name, ttlMs, "banned by " + by))
-      return sendPlainMessage(source, player, "Redis is unreachable - the ban was NOT stored.");
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminRedisUnreachable, 0);
 
     String duration = minutes > 0 ? TimeManager.toDuration(ttlMs) : "permanently";
     in.potenfyr.authcore.security.SecurityLog.log(
@@ -915,31 +886,40 @@ public class Admin {
       AuthCoreServer.LOGGER.toKick(
           false, target.connection, AuthCoreServer.messages.promptUserNetworkBanned);
     in.potenfyr.authcore.network.RedisManager.publishEvent("ban", name, "banned " + duration + " by " + by);
-    return sendPlainMessage(source, player, name + " is now banned network-wide (" + duration + ").");
+    return sendTemplate(player, AuthCoreServer.messages.promptAdminNetworkBanned, 1, name, duration);
   }
 
   /** /authcore network-unban &lt;name&gt;. */
   private static int networkUnbanCommand(CommandSourceStack source, String name) {
     ServerPlayer player = in.potenfyr.authcore.compat.Compat.sourcePlayer(source);
     if (!in.potenfyr.authcore.util.Sanitizer.isSafeUsername(name))
-      return sendPlainMessage(source, player, "Invalid username: " + name);
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminInvalidUsername, 0, name);
     if (!AuthCoreServer.config.database.redis.enabled)
-      return sendPlainMessage(
-          source, player, "Network bans need Redis - enable database.redis in the config first.");
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminRedisRequired, 0);
     if (!in.potenfyr.authcore.network.RedisManager.unbanRemotely(name))
-      return sendPlainMessage(source, player, "Redis is unreachable - the ban was NOT removed.");
+      return sendTemplate(player, AuthCoreServer.messages.promptAdminRedisUnreachable, 0);
     String by = player != null ? player.getName().getString() : "console";
     in.potenfyr.authcore.security.SecurityLog.log("NETWORK_UNBAN", name + " unbanned by " + by);
-    return sendPlainMessage(source, player, name + " is no longer banned network-wide.");
+    return sendTemplate(player, AuthCoreServer.messages.promptAdminNetworkUnbanned, 1, name);
   }
 
-  private static int sendPlainMessage(CommandSourceStack source, ServerPlayer player, String text) {    Messages.ColTemplate template = new Messages.ColTemplate();
-    template.message.text = text;
-    template.message.color = "RED";
-
-    if (player != null) return AuthCoreServer.LOGGER.toUser(0, player.connection, template);
-    return AuthCoreServer.LOGGER.info(0, text);
+  /**
+   * Sends a configurable message (messages.conf) to the admin player, or prints its text to the
+   * console. Replaces the old hard-coded, always-red plain messages.
+   */
+  private static int sendTemplate(
+      ServerPlayer player, Messages.ColTemplate template, int result, Object... args) {
+    if (player != null) return AuthCoreServer.LOGGER.toUser(result, player.connection, template, args);
+    String text = template.message.text;
+    if (text == null || text.isBlank()) text = template.actionBar.text;
+    try {
+      text = String.format(text, args);
+    } catch (RuntimeException badFormat) {
+      // keep the raw text
+    }
+    return AuthCoreServer.LOGGER.info(result, text);
   }
+
 
   /**
    * Handles the {@code /authcore reload} command.
@@ -959,6 +939,14 @@ public class Admin {
             1, "{} used '/authcore reload' command in the Server!", player.getName().getString());
 
       HoconConf.initialize();
+
+      // Command visibility depends on config (email, Redis, map images, TOTP...): re-send every
+      // online player's tree so it matches the reloaded settings.
+      in.potenfyr.authcore.compat.Compat.refreshAllCommandTrees();
+
+      // ip-rules.conf is a separate file: without this an edited allow/deny list only took
+      // effect after a restart (or by accident on the next honeypot hit).
+      in.potenfyr.authcore.security.IpRules.load();
 
       // Rotate the per-server companion attestation key on reload (invalidates all pending
       // challenges - a live key change forces fresh re-attestation).

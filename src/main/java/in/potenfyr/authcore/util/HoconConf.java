@@ -305,6 +305,15 @@ public class HoconConf {
 
       HoconConfigurationLoader loader = resolveMessagesLoader();
       var node = loader.load();
+      // A locale file only overrides TEXT (messages-de.conf: "message { text=... }"). Mapped on its
+      // own, every such partial entry became a fresh template: the English colours, titles,
+      // subtitles, click commands and delays were lost - "Click here to register" no longer
+      // filled in /register and red warnings turned green on every non-English server. The
+      // English defaults are merged in UNDER the file (mergeFrom only fills absent values), so the
+      // file's values always win and everything it leaves out keeps the bundled default.
+      var defaults = loader.createNode();
+      mapper.save(new Messages(), defaults);
+      node.mergeFrom(defaults);
       AuthCoreServer.messages = mapper.load(node);
       mapper.save(AuthCoreServer.messages, node);
 

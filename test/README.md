@@ -14,9 +14,9 @@ test/build.sh                          # build all variants (docker, temurin)
 test/run-security-tests.sh --migration # compile + run against newest built classes
 ```
 
-Coverage (248 checks): password hashing (all algorithms plus legacy/AuthMe import
-fallbacks), password generation, email recovery anti-abuse, rate limiter, proxy
-IP-forwarding spoof guard, trusted-proxy source + CIDR validation, Velocity modern
+Coverage (287 checks): password hashing (all algorithms plus legacy/AuthMe import
+fallbacks), password generation, email recovery anti-abuse (account-bound codes), rate limiter (bucket isolation, sliding window, IPv6 /64), proxy
+IP-forwarding spoof guard, trusted-proxy source + IPv4/IPv6 CIDR validation, ip-rules parsing, Velocity modern
 forwarding (HMAC), proxy auth gate (fail-closed), proxy config parsing strictness,
 interop message parsing (proxy <-> backend), proxy-side session cache, device
 fingerprints, attestation keys, concurrent-farm / look-pattern / login-timing bot

@@ -141,6 +141,7 @@ public final class ModIntegrations {
     if (user.discordId == null || user.discordId.isEmpty()) {
       user.discordId = discordId;
       user.update("DiscordSRV link imported");
+      in.potenfyr.authcore.compat.Compat.refreshCommandTree(user.player.get());
       AuthCoreServer.LOGGER.debug(
           true, "Imported DiscordSRV link for {} ({}).", user.username, discordId);
     }
