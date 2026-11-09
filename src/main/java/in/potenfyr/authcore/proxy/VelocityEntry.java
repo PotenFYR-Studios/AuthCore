@@ -65,7 +65,7 @@ public final class VelocityEntry {
    * AUTH_CHANGED broadcasts never reach {@link PluginMessageListener}, the session cache stays
    * empty and the auth gate blocks every server transfer - the plugin looks healthy while doing
    * nothing. The identifier class and its factory differ between Velocity generations, so the
-   * identifier is built reflectively from the registrar's own parameter type.
+   * identifier is built reflectively (the registrar's parameter type says what it accepts).
    */
   private void registerInteropChannels() {
     Object registrar;
