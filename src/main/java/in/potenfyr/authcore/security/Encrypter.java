@@ -272,7 +272,11 @@ public final class Encrypter {
 
   private static String pbkdf2Hash(String password) {
     try {
-      byte[] salt = com.password4j.SaltGenerator.generate(16);
+      // Not password4j's SaltGenerator: its static initializer needs slf4j, which Fabric
+      // 1.16.5 / 1.17.1 do not ship (see argon2Salt) - there it threw NoClassDefFoundError, an
+      // Error that escaped every catch below and failed each PBKDF2 registration.
+      byte[] salt = new byte[16];
+      SALT_RANDOM.nextBytes(salt);
       byte[] derived = pbkdf2Derive(password, salt, PBKDF2_ITERATIONS);
       return "$pbkdf2-sha256$"
           + PBKDF2_ITERATIONS

@@ -442,7 +442,10 @@ if [ "$STATUS" = "ready" ]; then
     CODE_NOAUTH=$(curl -s -k -o /dev/null -w '%{http_code}' --max-time 8 "$PANEL/api/overview" 2>/dev/null)
     CODE_AUTH=$(curl -s -k -o /dev/null -w '%{http_code}' --max-time 8 \
       -H "Authorization: Bearer $PANEL_TOKEN" "$PANEL/api/overview" 2>/dev/null)
-    [ "$CODE_NOAUTH" = "401" ] && [ "$CODE_AUTH" = "200" ] && chk_panelAuth=1
+    # The dashboard page carries the token form, so a browser must be able to load it WITHOUT
+    # a token (it used to answer 401 and lock the admin out after five reloads).
+    CODE_PAGE=$(curl -s -k -o /dev/null -w '%{http_code}' --max-time 8 "$PANEL/" 2>/dev/null)
+    [ "$CODE_NOAUTH" = "401" ] && [ "$CODE_AUTH" = "200" ] && [ "$CODE_PAGE" = "200" ] && chk_panelAuth=1
 
     # CORS: a cross-origin request must NOT receive a wildcard grant (the old
     # behaviour let any web page read the admin API once the token leaked).
@@ -457,7 +460,7 @@ if [ "$STATUS" = "ready" ]; then
       -H "Authorization: Bearer $PANEL_TOKEN" -H "Content-Type: application/json" \
       -d '{"action":"link","value":"ABCDEF"}' "$PANEL/api/action" 2>/dev/null)
     printf '%s' "$LINK_BODY" | grep -qi "discordId" && chk_panelLink=1
-    [ "$chk_panelAuth" -eq 0 ] && echo "web panel auth check: noauth='$CODE_NOAUTH' auth='$CODE_AUTH' (panel=$PANEL)"
+    [ "$chk_panelAuth" -eq 0 ] && echo "web panel auth check: noauth='$CODE_NOAUTH' auth='$CODE_AUTH' page='$CODE_PAGE' (panel=$PANEL)"
 
     # Force-load the console chunk as a TICKING chunk: on 1.21.9+ a loaded-but-not-ticking
     # spawn chunk is not visible to the level entity lookup, so a freshly summoned entity

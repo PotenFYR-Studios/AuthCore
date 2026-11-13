@@ -30,6 +30,7 @@ public final class Webhook {
     JsonObject payload = new JsonObject();
     payload.addProperty("content", content);
 
+    noMentions(payload);
     post(payload.toString());
   }
 
@@ -56,6 +57,7 @@ public final class Webhook {
     payload.addProperty("username", "AuthCore Security");
     payload.add("embeds", embeds);
 
+    noMentions(payload);
     post(payload.toString());
   }
 
@@ -73,7 +75,19 @@ public final class Webhook {
     }
     JsonObject payload = new JsonObject();
     payload.addProperty("content", content);
+    noMentions(payload);
     postTo(roleSync.trim(), payload.toString());
+  }
+
+  /**
+   * Disables every Discord mention in a payload. The messages embed player-chosen text (names,
+   * nicknames): on an offline-mode server a player named "@everyone" or "<@&roleId>" turned each
+   * AuthCore alert into a mass ping of the staff channel.
+   */
+  private static void noMentions(JsonObject payload) {
+    JsonObject allowed = new JsonObject();
+    allowed.add("parse", new JsonArray());
+    payload.add("allowed_mentions", allowed);
   }
 
   /** Whether a webhook URL is configured. */

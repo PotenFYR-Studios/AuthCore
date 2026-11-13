@@ -23,6 +23,48 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > snapshot, credential commands, offline-server premium verification, the database write path and
 > the red CI host-tests. The first-pass notes follow the second-pass sections below.
 
+### Fixed - security and logic audit (2026-11-13)
+
+Security:
+
+- **SMTP did not verify the mail server's identity.** The TLS connection checked that the
+  certificate was trusted but not that it belonged to the configured host, so anyone on the
+  network path with any valid certificate could read the SMTP password and every recovery /
+  login code. Hostname verification is now enforced for both implicit TLS and STARTTLS.
+- **The login-flood block was never enforced.** After too many failed logins from one address
+  AuthCore logged "IP blocked for N minutes" but only `/register` consulted the block; `/login`
+  kept accepting guesses. `/login` now refuses a blocked address before spending a hash.
+- **Discord alerts could be turned into mass pings.** Webhook messages embed player names; on an
+  offline-mode server a player named `@everyone` pinged the whole staff channel with every
+  alert. All webhook payloads now disable mentions.
+- **`/account set-mode online|offline` skipped the re-authentication step** the other account
+  changes require, so a silently resumed session could flip an account's authentication mode.
+- A temporary IP block was stored even when its duration was configured as 0, and a full block
+  table was wiped (lifting every active penalty) instead of refusing the new entry.
+
+Logic:
+
+- **2FA codes had no clock tolerance.** The tolerance was passed in milliseconds where the
+  library expects it, as `1` - so only the exact current 30-second step matched. Codes typed at
+  the end of their step, or from a phone a few seconds off, were rejected. One step either side
+  is now accepted, as documented.
+- **The web panel's login page could not be opened in a browser.** The page that contains the
+  token form itself required the token, so the browser got a `401` and five reloads locked the
+  admin's address out. The static page is now served without a token; every `/api/*` route
+  still requires it.
+- **PBKDF2 registration failed on Fabric 1.16.5 / 1.17.1** (no slf4j on those servers): the salt
+  came from a library helper that needs it. It now uses the same `SecureRandom` as Argon2.
+- **Password recovery burned the emailed code on a rejected password.** The single-use code was
+  consumed before the new password was checked against the policy; a too-short password meant
+  waiting for another email. The policy is now checked first.
+- **The "login after repeated failures" alert could never fire** - it read the failure counter
+  after the login had already reset it.
+- **The JSON backup on MySQL / PostgreSQL only contained the first 1000 accounts**, and its files
+  were never pruned. The export now pages through every account and old exports are pruned with
+  the configured `keep` count.
+- CI: a failed Minecraft download from Mojang's CDN no longer fails a build leg on the first
+  attempt (three attempts with a pause).
+
 ### Added - Forge on every Minecraft version from 1.18 to 26.3 (2026-11-13)
 
 - **Three new Forge jars** close the gap between Forge 1.20.1 and today. Forge now has a jar for

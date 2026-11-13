@@ -117,6 +117,19 @@ public class Login {
             TimeManager.toDuration(Math.max(remainingMs, 1000)));
       }
 
+      // Login-flood penalty of this address (armed by AuthIntelligence after too many failed
+      // logins): refuse BEFORE spending a hash. The same generic cooldown text as every other
+      // throttle, so the reply tells a guesser nothing about the account.
+      long floodBlockMs =
+          in.potenfyr.authcore.security.AuthIntelligence.loginBlockRemainingMs(
+              player.getIpAddress());
+      if (floodBlockMs > 0)
+        return AuthCoreServer.LOGGER.toUser(
+            1,
+            player.connection,
+            AuthCoreServer.messages.promptUserCommandCooldown,
+            TimeManager.toDuration(Math.max(floodBlockMs, 1000)));
+
       // Failure budget already spent (e.g. max-login-attempts was lowered by a reload): punish
       // BEFORE spending another hash. Failures are counted only when a password check actually
       // fails (finishLogin) - a locked/cooldown/in-flight rejection is not a guess.
@@ -302,6 +315,9 @@ public class Login {
         user.update("Online-mode flag cleared after password login");
       }
 
+      // Captured BEFORE login(): it resets the counters the guess-then-success check reads.
+      final int failuresBeforeLogin = Math.max(user.loginAttempts, user.failedLoginStreak);
+
       user.passwordProvenOn = player.connection;
       user.login(player); // broadcasts the auth state to other mods / the proxy
 
@@ -321,7 +337,8 @@ public class Login {
             0xE67E22);
 
       // Auth intelligence: guess-then-success detection.
-      in.potenfyr.authcore.security.AuthIntelligence.recordSuccessfulLogin(user, player.getIpAddress());
+      in.potenfyr.authcore.security.AuthIntelligence.recordSuccessfulLogin(
+          user, player.getIpAddress(), failuresBeforeLogin);
 
       // Notify the user of successful login.
       return AuthCoreServer.LOGGER.toUser(

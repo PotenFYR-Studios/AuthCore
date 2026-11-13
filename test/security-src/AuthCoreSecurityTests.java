@@ -1196,6 +1196,21 @@ public class AuthCoreSecurityTests {
       UUID a = UUID.randomUUID();
       UUID b = UUID.randomUUID();
       check("plain verify still accepts a fresh code", Security.TOTPManager.verify(code, secret));
+      // Clock tolerance: the code of the PREVIOUS 30 s step must still be accepted (a phone a few
+      // seconds behind, or a code typed at the end of its step). The window argument used to be
+      // 1 ms, so only the exact current step ever matched.
+      long nowMs = System.currentTimeMillis();
+      String previousStep =
+          com.j256.twofactorauth.TimeBasedOneTimePasswordUtil.generateNumberString(
+              secret, nowMs - 30_000L, 30, 6);
+      String longExpired =
+          com.j256.twofactorauth.TimeBasedOneTimePasswordUtil.generateNumberString(
+              secret, nowMs - 5 * 60_000L, 30, 6);
+      check("code of the previous 30s step accepted", Security.TOTPManager.verify(previousStep, secret));
+      check(
+          "code from five minutes ago rejected",
+          longExpired.equals(code) || longExpired.equals(previousStep)
+              || !Security.TOTPManager.verify(longExpired, secret));
       check("first use accepted", Security.TOTPManager.verifyOnce(a, code, secret));
       check("replay of the same code rejected", !Security.TOTPManager.verifyOnce(a, code, secret));
       check(

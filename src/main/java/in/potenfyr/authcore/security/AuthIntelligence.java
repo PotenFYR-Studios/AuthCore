@@ -93,8 +93,11 @@ public final class AuthIntelligence {
   /** ip -> registrations window. */
   private static final Map<String, Window> IP_REGISTRATIONS = new ConcurrentHashMap<>();
 
-  /** ip -> blocked-until timestamp. */
+  /** ip -> blocked-until timestamp (registration-farm penalty). */
   private static final Map<String, Long> IP_BLOCKS = new ConcurrentHashMap<>();
+
+  /** ip -> blocked-until timestamp (login-flood penalty). */
+  private static final Map<String, Long> IP_LOGIN_BLOCKS = new ConcurrentHashMap<>();
 
   // ------------------------------------------------------------------ alerts
 
@@ -106,21 +109,56 @@ public final class AuthIntelligence {
   }
 
   private static boolean isIpBlocked(String ip) {
-    Long until = IP_BLOCKS.get(ip);
+    return isBlockedIn(IP_BLOCKS, ip);
+  }
+
+  private static boolean isBlockedIn(Map<String, Long> blocks, String ip) {
+    if (ip == null) return false;
+    Long until = blocks.get(ip);
     if (until == null) return false;
     if (until > System.currentTimeMillis()) return true;
-    IP_BLOCKS.remove(ip);
+    blocks.remove(ip, until);
     return false;
   }
 
   private static void blockIp(String ip, int minutes) {
-    if (minutes > 0 && ip != null && !ip.isBlank())
-      if (IP_BLOCKS.size() > 8192) {
+    blockIn(IP_BLOCKS, ip, minutes);
+  }
+
+  /**
+   * Records a temporary block. The guard used to cover only the pruning step (a missing pair of
+   * braces), so the block was stored even for {@code minutes <= 0} - and a null address would
+   * have thrown inside the map.
+   */
+  private static void blockIn(Map<String, Long> blocks, String ip, int minutes) {
+    if (minutes <= 0 || ip == null || ip.isBlank()) return;
+    if (blocks.size() > 8192) {
       long nowMs = System.currentTimeMillis();
-      IP_BLOCKS.entrySet().removeIf(e -> e.getValue() < nowMs);
-      if (IP_BLOCKS.size() > 8192) IP_BLOCKS.clear();
+      blocks.entrySet().removeIf(e -> e.getValue() < nowMs);
+      // Still full of LIVE blocks: keep them (dropping every block would lift the penalty of
+      // exactly the addresses being punished) and skip the new one.
+      if (blocks.size() > 8192) return;
     }
-    IP_BLOCKS.put(ip, System.currentTimeMillis() + minutes * 60_000L);
+    blocks.put(ip, System.currentTimeMillis() + minutes * 60_000L);
+  }
+
+  /**
+   * Whether the address is serving a login-flood penalty. The flood detection always logged
+   * "IP blocked for N minutes" but nothing ever enforced it: the block was only consulted by
+   * /register, so a flagged address kept guessing passwords at full speed.
+   */
+  public static boolean isLoginBlocked(String ip) {
+    if (ip == null || ip.isBlank()) return false;
+    Config.Session.AuthIntelligenceConfig cfg = config();
+    if (cfg == null || !cfg.loginFlood.enabled) return false;
+    return isBlockedIn(IP_LOGIN_BLOCKS, ip);
+  }
+
+  /** Remaining login-flood penalty in milliseconds (0 when not blocked). */
+  public static long loginBlockRemainingMs(String ip) {
+    if (!isLoginBlocked(ip)) return 0L;
+    Long until = IP_LOGIN_BLOCKS.get(ip);
+    return until == null ? 0L : Math.max(0L, until - System.currentTimeMillis());
   }
 
   // ------------------------------------------------------------------ login
@@ -144,12 +182,12 @@ public final class AuthIntelligence {
           ip,
           inWindow,
           flood.windowMin);
-      if (inWindow >= flood.maxFailuresPerIp && !isIpBlocked(ip)) {
+      if (inWindow >= flood.maxFailuresPerIp && !isBlockedIn(IP_LOGIN_BLOCKS, ip)) {
         alert(
             "LOGIN_FLOOD",
             "**" + username + "** from `" + ip + "` exceeded " + flood.maxFailuresPerIp
                 + " failed logins in " + flood.windowMin + " minutes.");
-        blockIp(ip, flood.blockMinutes);
+        blockIn(IP_LOGIN_BLOCKS, ip, flood.blockMinutes);
         AuthCoreServer.LOGGER.debug(
             false, "{} | IP {} blocked for {} minutes (login flood)", username, ip, flood.blockMinutes);
       }
@@ -225,16 +263,22 @@ public final class AuthIntelligence {
     }
   }
 
-  /** Called on a SUCCESSFUL login. Detects guess-then-success logins. */
-  public static void recordSuccessfulLogin(User user, String ip) {
+  /**
+   * Called on a SUCCESSFUL login. Detects guess-then-success logins.
+   *
+   * @param failedAttempts the failures counted BEFORE this login. It must be captured by the
+   *     caller ahead of {@code User.login()}, which resets the counter - reading it from the
+   *     user afterwards always saw 0, so this alert could never fire.
+   */
+  public static void recordSuccessfulLogin(User user, String ip, int failedAttempts) {
     Config.Session.AuthIntelligenceConfig cfg = config();
     if (cfg == null || user == null) return;
     Config.Session.SuccessAfterFailuresConfig guess = cfg.successAfterFailures;
-    if (guess.enabled && user.loginAttempts >= guess.minFailures) {
+    if (guess.enabled && failedAttempts >= guess.minFailures) {
       alert(
           "LOGIN_AFTER_BRUTEFORCE",
           "**" + user.username + "** logged in successfully from `" + ip + "` after "
-              + user.loginAttempts + " failed attempts (guess-then-success - possible compromise).");
+              + failedAttempts + " failed attempts (guess-then-success - possible compromise).");
     }
   }
 
@@ -272,8 +316,8 @@ public final class AuthIntelligence {
   public static boolean isRegistrationBlocked(String ip) {
     if (ip == null || ip.isBlank()) return false;
     Config.Session.AuthIntelligenceConfig cfg = config();
-    if (cfg == null || !cfg.registrationFarm.enabled) return false;
-    return isIpBlocked(ip);
+    if (cfg == null) return false;
+    return (cfg.registrationFarm.enabled && isIpBlocked(ip)) || isLoginBlocked(ip);
   }
 
   // ------------------------------------------------------------------ login-timing distribution

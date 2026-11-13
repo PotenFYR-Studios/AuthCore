@@ -242,6 +242,17 @@ public final class WebPanel {
 
   private static void handle(HttpExchange exchange, String token) {
     try {
+      // The dashboard page is static (it holds no data and no secret) and contains the token
+      // login form, so it must be reachable WITHOUT a token: a browser never sends an
+      // Authorization header for a page load. It used to sit behind the token check, so opening
+      // the panel returned a 401 JSON body and five reloads locked the admin's address out.
+      // Every /api/* route below still requires the token.
+      if ("GET".equals(exchange.getRequestMethod())
+          && "/".equals(exchange.getRequestURI().getPath())) {
+        respondHtml(exchange, PAGE);
+        return;
+      }
+
       String provided = extractToken(exchange);
 
       // Brute-force guard: after repeated failed token attempts from one source IP, the

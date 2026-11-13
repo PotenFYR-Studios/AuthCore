@@ -58,8 +58,21 @@ public final class Backups {
   public static Path exportUsersJson() throws Exception {
     // Queued (write-behind) user rows must be in the database before it is copied/exported.
     in.potenfyr.authcore.models.User.flushWrites(10_000L);
-    java.util.ArrayList<in.potenfyr.authcore.models.User> users =
-        in.potenfyr.authcore.models.User.fetchPlayersPublic(1000, null);
+    // Every account, page by page. The export used to take a single page of 1000 rows, so on a
+    // MySQL/PostgreSQL server with more accounts the "backup" silently dropped the rest.
+    java.util.ArrayList<in.potenfyr.authcore.models.User> users = new java.util.ArrayList<>();
+    String after = null;
+    while (true) {
+      java.util.ArrayList<in.potenfyr.authcore.models.User> page =
+          in.potenfyr.authcore.models.User.fetchPlayersAfterPublic(after, 1000);
+      if (page.isEmpty()) break;
+      users.addAll(page);
+      String last = page.get(page.size() - 1).username;
+      // A page that does not advance (null / repeated key) would loop forever - stop instead.
+      if (last == null || last.equals(after)) break;
+      after = last;
+      if (page.size() < 1000) break;
+    }
     com.google.gson.JsonArray list = new com.google.gson.JsonArray();
     for (in.potenfyr.authcore.models.User u : users) {
       com.google.gson.JsonObject o = new com.google.gson.JsonObject();
@@ -114,7 +127,13 @@ public final class Backups {
 
     try (Stream<Path> files = Files.list(backupDir)) {
       files
-          .filter(p -> p.getFileName().toString().startsWith("authcore-"))
+          // Both artifact kinds: the JSON exports (MySQL/PostgreSQL servers) were never pruned
+          // and accumulated one file per backup interval forever.
+          .filter(
+              p -> {
+                String name = p.getFileName().toString();
+                return name.startsWith("authcore-") || name.startsWith("users-export-");
+              })
           .sorted(Comparator.comparingLong(Backups::lastModified).reversed())
           .skip(keep)
           .forEach(

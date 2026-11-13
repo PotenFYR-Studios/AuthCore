@@ -298,7 +298,10 @@ public class Security {
 
     private TOTPManager() {}
 
-    /** Verifies a 6-digit TOTP code against the given base32 secret (allows ±1 time window). */
+    /** One 30-second TOTP step of tolerance on either side of the server clock. */
+    private static final long TOTP_WINDOW_MS = 30_000L;
+
+    /** Verifies a 6-digit TOTP code against the given base32 secret (allows ±1 time step). */
     public static boolean verify(String inputCode, String secret) {
       try {
         if (inputCode == null || secret == null) return false;
@@ -308,7 +311,10 @@ public class Security {
         if (!normalized.matches("\\d{6}")) return false;
 
         int code = Integer.parseInt(normalized);
-        return TimeBasedOneTimePasswordUtil.validateCurrentNumber(secret, code, 1);
+        // The third argument is a window in MILLISECONDS, not in time steps. The old value 1
+        // meant "±1 ms", i.e. no tolerance at all: a code typed in the last seconds of its
+        // 30 s step, or on a phone whose clock is a few seconds off, was rejected.
+        return TimeBasedOneTimePasswordUtil.validateCurrentNumber(secret, code, TOTP_WINDOW_MS);
       } catch (Exception e) {
         return false;
       }

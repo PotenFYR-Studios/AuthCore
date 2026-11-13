@@ -69,6 +69,7 @@ public final class EmailSender {
         socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket();
         socket.connect(address, TIMEOUT_MS);
         socket.setSoTimeout(TIMEOUT_MS);
+        verifyServerIdentity(socket, cfg.host);
         writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
         reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
       } else {
@@ -89,6 +90,7 @@ public final class EmailSender {
                   ((SSLSocketFactory) SSLSocketFactory.getDefault())
                       .createSocket(plain, cfg.host, cfg.port, true);
           socket.setSoTimeout(TIMEOUT_MS);
+          verifyServerIdentity(socket, cfg.host);
           writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
           reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         } finally {
@@ -152,6 +154,29 @@ public final class EmailSender {
       AuthCoreServer.LOGGER.debug(null, "Failed to send email to {}:", to, err);
       return false;
     }
+  }
+
+  /**
+   * Turns on hostname verification and completes the TLS handshake.
+   *
+   * <p>A raw {@link SSLSocket} validates the certificate CHAIN but - unlike HTTPS clients - does
+   * not check that the certificate belongs to the host being contacted unless an endpoint
+   * identification algorithm is set. Without it anyone on the network path holding ANY publicly
+   * trusted certificate could impersonate the mail server and read the SMTP password and every
+   * recovery / login code sent through it.
+   */
+  private static void verifyServerIdentity(SSLSocket socket, String host)
+      throws java.io.IOException {
+    javax.net.ssl.SSLParameters parameters = socket.getSSLParameters();
+    parameters.setEndpointIdentificationAlgorithm("HTTPS");
+    try {
+      parameters.setServerNames(
+          java.util.List.of(new javax.net.ssl.SNIHostName(host.trim())));
+    } catch (IllegalArgumentException ipLiteral) {
+      // an IP literal has no SNI name - the certificate is then matched against the address
+    }
+    socket.setSSLParameters(parameters);
+    socket.startHandshake();
   }
 
   /** Writes a command line and flushes. */

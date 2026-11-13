@@ -326,6 +326,16 @@ public class Account {
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserCommandCooldown, "an hour");
 
+      // Policy check BEFORE the code is verified: verifyCode() consumes the single-use code, so
+      // a new password that then failed the length/complexity rules burned the code and the
+      // player had to wait for another email. The policy is public, so checking it first
+      // reveals nothing. (The history check stays behind the code: it would otherwise let
+      // anyone in the limbo test candidate OLD passwords of the account.)
+      if (StringUtils.isBlank(newPassword))
+        return AuthCoreServer.LOGGER.toUser(
+            0, player.connection, AuthCoreServer.messages.promptUserPasswordIsBlank);
+      if (!in.potenfyr.authcore.security.Security.Password.check(player, newPassword)) return 0;
+
       if (!matches
           || !in.potenfyr.authcore.security.Security.EmailRecovery.verifyCode(user.uuid, normalized, code)) {
         in.potenfyr.authcore.security.SecurityLog.log(
@@ -527,6 +537,10 @@ public class Account {
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
 
+      // Same step-up as the other account changes: a silently resumed session must not be able
+      // to flip the authentication mode of the account.
+      if (!sensitiveStepUp(user, player, "/account set-mode online")) return 0;
+
       in.potenfyr.authcore.security.SecurityLog.log(
           "MODE_SET_ONLINE", username + " switched their account to online-mode");
 
@@ -569,6 +583,8 @@ public class Account {
       if (user == null)
         return AuthCoreServer.LOGGER.toUser(
             1, player.connection, AuthCoreServer.messages.promptUserInvalidCredentials);
+
+      if (!sensitiveStepUp(user, player, "/account set-mode offline")) return 0;
 
       in.potenfyr.authcore.security.SecurityLog.log(
           "MODE_SET_OFFLINE", username + " switched their account to offline-mode");

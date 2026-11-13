@@ -1460,6 +1460,36 @@ public class User {
     }
 
     /**
+     * One page of the full user table in username order (keyset pagination - constant memory
+     * however large the table is). Used by the JSON export, which must cover EVERY account.
+     *
+     * @param afterUsername exclusive lower bound, {@code null} for the first page
+     * @param limit page size (capped at 1000)
+     */
+    public static ArrayList<User> fetchPlayersAfter(String afterUsername, int limit) {
+      ArrayList<User> players = new ArrayList<>();
+      if (!Database.connect()) return players;
+      int capped = Math.min(Math.max(limit, 1), 1000);
+      String sql =
+          "SELECT * FROM USERS WHERE username IS NOT NULL"
+              + (afterUsername == null ? "" : " AND username > ?")
+              + " ORDER BY username LIMIT "
+              + capped;
+      try (PreparedStatement statement = Database.connection.prepareStatement(sql)) {
+        if (afterUsername != null) statement.setString(1, afterUsername);
+        try (ResultSet rs = statement.executeQuery()) {
+          while (rs.next()) {
+            User user = parse(rs);
+            if (user != null) players.add(user);
+          }
+        }
+      } catch (SQLException err) {
+        AuthCoreServer.LOGGER.error(null, "User's database is facing an error:", err);
+      }
+      return players;
+    }
+
+    /**
      * Fetches a bounded, searchable player list for the web panel (memory friendly for 100k+
      * user databases).
      *
@@ -1626,6 +1656,11 @@ public class User {
   /** Fetches a bounded, searchable player list for admin/web panel use (public wrapper). */
   public static java.util.ArrayList<User> fetchPlayersPublic(int limit, String search) {
     return db.fetchPlayers(limit, search);
+  }
+
+  /** One page of every stored account, in username order (see {@code fetchPlayersAfter}). */
+  public static java.util.ArrayList<User> fetchPlayersAfterPublic(String afterUsername, int limit) {
+    return db.fetchPlayersAfter(afterUsername, limit);
   }
 
   /** Total registered account count (database-backed - safe for 100k+ users). */
