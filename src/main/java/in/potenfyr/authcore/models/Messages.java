@@ -2753,6 +2753,28 @@ public class Messages {
         }
       };
 
+  @Comment(
+      """
+            Kick reason (shown to user as feedback): the name belongs to a premium (online-mode)
+            account on an offline-mode server, but this session was not verified with Mojang.
+            • Shown instead of the register prompt, so nobody else can register a password onto a
+              premium player's account (and take over their inventory).
+            • Also shown when Mojang's session servers are unreachable.
+            • Delay: 0 seconds""")
+  public KickTemplate promptUserPremiumSessionUnverified =
+      new KickTemplate() {
+        {
+          logout =
+              new LogoutTemplate() {
+                {
+                  text =
+                      "This name belongs to a premium Minecraft account, but your session could not be verified with Mojang. Join with the official account, or try again in a moment.";
+                  color = "RED";
+                }
+              };
+        }
+      };
+
   // ==================== Inner Classes ====================
 
   @ConfigSerializable

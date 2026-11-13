@@ -23,6 +23,171 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > snapshot, credential commands, offline-server premium verification, the database write path and
 > the red CI host-tests. The first-pass notes follow the second-pass sections below.
 
+### Upgrading to 1.0.3 - what server owners need to do
+
+> 1.0.3 is rebuilt in place: the release keeps one version number and its jars are replaced on
+> every green build. **If you already run a 1.0.3 jar, download it again** - the premium fixes
+> in the next section are only in jars built from 2026-11-11 on (compare with `SHA256SUMS` on the
+> release).
+
+**Everyone, from any version**
+
+1. Back up `config/authcore/` and the world before the first boot. Take the AuthCore backup with
+   `/authcore backup`, not by copying the `.db` file: a raw copy of a SQLite database in WAL mode
+   can miss committed data.
+2. Replace the jar with the one for your loader and Minecraft version. Behind BungeeCord/Velocity,
+   update the proxy plugin together with the backend mod - the interop messages changed.
+3. Boot once and read the log. New config and message keys are added automatically; your existing
+   values are never overwritten, so **changed defaults do not reach an existing config**:
+
+   | Setting | Old value an existing config keeps | What to do |
+   | --- | --- | --- |
+   | `session.combat-log.detect-from-mobs` | `true` - a single mob hit counts as combat, and a disconnect within the combat window kills the player | Set it to `false` (the new default), or set `kill-on-disconnect=false` in the same block to disable the punishment. This was a cause of issue #11. |
+   | web panel `https-enabled` | `false` - the bearer token travels in clear text | Set it to `true` if the panel is reachable from outside the machine, then use `https://` and the configured https port. |
+   | `alert-on-fast-rejoin` | `false` | Optional. Alert-only. |
+   | `allow-bedrock-players` | `false` | Optional. No effect without Geyser/Floodgate. |
+
+4. **Fabric and Forge: `kill-on-disconnect` now really kills.** The kill silently did nothing on
+   those loaders before, so a server that had it enabled starts punishing combat loggers with
+   this update. Check the combat-log block before players find out.
+5. Settings that were documented but did nothing now take effect without a config change:
+   `lobby.safe-operators`, `lobby.limbo-config`, `lobby.prevent-status-effect`,
+   `allow-entity-interact-with`, `allow-crafting`, `allow-mountable-*`, auto-whitelist,
+   `client-guard.allowed-name-regex` (new registrations only), `authentication.auto-luck-perms-group`,
+   `captcha.trigger-risk-threshold`, `password-rules.history-size`. Review them if you ever set them.
+6. Removed keys are ignored: `skip-combat-detection`, `bind-bedrock-xuid`, `risk2fa-threshold`
+   (2FA is always required once it is configured).
+7. `ip-rules.conf` takes one rule per line (`deny 45.155.0.0/16`). The `deny = [...]` list shown in
+   older READMEs was never parsed - rewrite such rules; malformed lines are now logged with their
+   line number.
+8. Proxy networks: the `velocity-secret` setting and the built-in Velocity modern-forwarding
+   receiver are gone. Use FabricProxy-Lite / Proxy-Compatible-Forge for modern forwarding; legacy
+   (BungeeCord) forwarding is read natively. IP forwarding never worked before 1.0.3, so GeoIP,
+   rate limits, IP rules and same-IP sessions now see real client addresses for the first time.
+9. Forge: the 1.16-1.18 jar loads on Forge **1.18-1.18.2 only** (Forge cannot run Java 17 before
+   1.18). On Forge 1.16/1.17 use Fabric.
+
+**Premium players on an offline-mode server** (all versions - see the next section for the cause)
+
+- A premium player who never set a password is logged in automatically again after this update;
+  nothing to do.
+- A premium player who was pushed through `/register` by an older build now owns a **password
+  account**. They log in with that password once and run `/account set-mode online` (or an admin
+  runs `/authcore set-mode online <player>` while they are online). From the next join they are
+  logged in automatically.
+- Minecraft 1.16 - 1.19.0: the client does not send its account id, so AuthCore can only verify
+  names whose account is already online-mode. Premium players register once and run
+  `/account set-mode online`; every later join is verified and automatic.
+- **Risk to know:** an online-mode account without a password can now only be joined with a
+  Mojang-verified session. While Mojang's session servers are unreachable those players are
+  disconnected with a clear message instead of being offered `/register` (which let anyone set a
+  password on their account). Players who want a fallback set a password and stay in offline-mode
+  authentication.
+- Default skin: fixed by the new `premium-skins` option (on by default). Real UUIDs: opt-in, read
+  the `premium-real-uuid` notes below before enabling it.
+
+**Coming from 1.0.2**
+
+- Nothing extra. If players died on login (issue #11): the cause was the combat-log default in
+  step 3 plus the limbo healing a player who joined dead; both are fixed, items already lost are not
+  restorable.
+
+**Coming from 1.0.1** - everything above, plus
+
+- Fabric 1.16.5 / 1.17.1: password hashing was completely broken on 1.0.1 (registration and login
+  could not work). Fixed by the jar; no data to repair.
+- A `PASSWORD_HISTORY` table is created on boot. Password reuse is now really blocked and weak
+  passwords are rejected by `/account set-password`, admin resets and the web panel.
+- Discord linking through the web panel: the bot must send the real numeric Discord id together
+  with the link code. Update a custom bot. A link created on 1.0.1 may have stored the code in
+  place of the id; re-link any account whose role sync does not work.
+- Web panel CORS is same-origin only - a dashboard hosted on another origin stops working.
+  If the panel token was ever used from a browser on 1.0.1, rotate it.
+- Redis config overrides are no longer written to disk. If your Redis was reachable by anything
+  untrusted, compare `config/authcore/` with a backup: an override could have been persisted.
+- Usernames outside `[A-Za-z0-9_.-]{1,16}` are rejected at join.
+- Several limbo bypasses existed (UUID-drift on offline servers, 26.x melee, inventory clicks,
+  portals). If you suspect abuse, review `security.log` for the period you ran 1.0.1.
+
+**Coming from 1.0.0** - everything above, plus
+
+- 1.0.0 crashed Fabric/NeoForge 26.1 and 26.2 servers when a player joined (issue #10). Fixed by
+  the jar.
+- The limbo command gate could be bypassed (`msg bob hi /login` passed as `login`): an
+  unauthenticated player could run arbitrary commands. Review the server log / `security.log` if
+  the server was public on 1.0.0.
+- On the 1.16-1.21 jars every `/authcore` admin command was available to **any** player
+  (permission check failed open). After upgrading, admin commands are denied when the permission
+  API cannot be resolved - use LuckPerms nodes or the console. Review what was run while on 1.0.0
+  / 1.0.1 / 1.0.2 (bans, `set-mode`, password resets) and reset passwords of staff accounts if in
+  doubt.
+- New passwords are always hashed with argon2 when `password-hash-algorithm` is `md5`, `sha-256`,
+  `sha-512` or unknown. Old hashes keep working and are upgraded on the next login.
+- TOTP codes are single-use: a player who just logged in waits for the next code to log in again.
+
+### Premium players on offline-mode servers: verified but left in the limbo; skins; real UUIDs (2026-11-11)
+
+> Reports: "I have a legitimate account and the premium option is enabled, but it asks me to
+> register", then on the current 1.0.3 build "it says I was verified but it is still trapping me in
+> the limbo" and "I am getting the default skin" - Fabric 26.3, offline-mode server.
+
+- **Verified premium players were still sent to the limbo.** The Mojang verification added in the
+  second pass worked, but auto-login was only granted to a brand-new account or one already
+  flagged online-mode. A premium player who had joined under 1.0.0 - 1.0.2 (which never verified
+  real accounts on offline servers) already had an ordinary account, so the server logged
+  "session verified" and then showed the register prompt. A verified session is now logged in
+  automatically whenever the account has no password; the account is flagged online-mode.
+- **Online-mode flags were wiped on every restart of an offline-mode server.** A boot-time
+  "migration" from the time when offline servers could not verify anyone cleared the flag of every
+  account, so even a correctly auto-logged-in premium player was back at the register prompt
+  after the first restart. It no longer runs when AuthCore verifies sessions itself.
+- **One unverified join cost the real owner their auto-login.** A join that was not verified
+  switched the account to offline-mode in memory and never switched it back, so anybody typing a
+  premium player's name disabled that player's auto-login until the account left the cache. The
+  switch is now per session: it is undone when the session ends unless a password login proved
+  ownership, and it is never written to the database before that.
+- **Account takeover (high): `/register` onto a premium player's account.** On an offline-mode
+  server everyone claiming a name shares its offline UUID. An unverified client using a premium
+  player's name was offered `/register` (the account has no password) and received the account and
+  its inventory. Such a session is now disconnected (new message
+  `promptUserPremiumSessionUnverified`, translated in all bundled locales). This only became
+  reachable once verification started working, i.e. in earlier 1.0.3 jars.
+- **Minecraft 1.16 - 1.19.0 on offline-mode servers.** Those clients send no account id, so
+  verification never started. Names whose stored account is online-mode are now challenged (the
+  account lookup runs off the network thread). An account with a password gets one unchallenged
+  attempt after two unanswered challenges, so an owner on an offline client can still get in with
+  the password.
+- **New: `session.authentication.premium-skins` (default `true`).** Verified premium players get
+  their real skin on offline-mode servers. The offline UUID is kept, so no data moves. Not applied
+  on 1.19 - 1.19.2, where the client's chat key is checked against the join profile.
+- **New: `session.authentication.premium-real-uuid` (default `false`).** Verified premium players
+  join with their real Mojang UUID, as on an online-mode server. **Read before enabling on an
+  existing server:**
+  - The UUID is the player's identity everywhere. AuthCore moves the vanilla files
+    (`playerdata`, `advancements`, `stats`) from the offline UUID to the real UUID on the first
+    verified join, rewrites the UUID stored inside the player data, and renames every moved file to
+    `<name>.authcore-bak`. Whitelist and operator entries are carried over; a banned offline
+    profile stays banned.
+  - **Not migrated:** anything other mods or plugins store per UUID (LuckPerms, claims, economy,
+    homes, waystones ...) and references to the old UUID inside the world (tamed animals, owned
+    entities). Migrate those with the mod's own tools (LuckPerms: `/lp user <old> clone <new>`), or
+    accept that the player starts fresh there. Test with one account first.
+  - The real UUID is used when the session is verified **and** the account for that name is new,
+    is online-mode, has no password, or already lives under that UUID. A premium player who owns a
+    password account keeps the offline UUID until they run `/account set-mode online` - a premium
+    account must not be able to take a same-named offline player's inventory just by connecting.
+  - While enabled, an account stored under a real UUID can only be joined with a verified session.
+    A Mojang outage keeps those players out until it ends. Offline-mode players are unaffected.
+  - Turning the option off does not move data back. To undo it for a player, stop the server and
+    restore the `.authcore-bak` files (remove the suffix) in `playerdata`, `advancements`, `stats`.
+  - Best fit: a new server, or an online-mode server that is being switched to offline-mode
+    (premium players then keep their existing data instead of losing it to the offline UUID).
+- Both options need `premium-auto-login`, an offline-mode server and `proxy-support` disabled, and
+  apply on every loader and version group (1.16-1.18, 1.19-1.21, 26.x).
+- Tests: 40 new checks for the identity decision, the in-file UUID rewrite, the file move
+  (including "never overwrite" and "fail without changing anything") and the 1.16 - 1.19.0
+  challenge rules.
+
 ### Forge 1.16-1.18: mixins never loaded; commands only shown when they make sense (2026-11-09)
 
 > Report: "/register and /login are missing (red in chat), even for ops; premium players are not

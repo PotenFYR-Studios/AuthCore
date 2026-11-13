@@ -14,13 +14,14 @@ test/build.sh                          # build all variants (docker, temurin)
 test/run-security-tests.sh --migration # compile + run against newest built classes
 ```
 
-Coverage (287 checks): password hashing (all algorithms plus legacy/AuthMe import
+Coverage (334 checks): password hashing (all algorithms plus legacy/AuthMe import
 fallbacks), password generation, email recovery anti-abuse (account-bound codes), rate limiter (bucket isolation, sliding window, IPv6 /64), proxy
 IP-forwarding spoof guard, trusted-proxy source + IPv4/IPv6 CIDR validation, ip-rules parsing, Velocity modern
 forwarding (HMAC), proxy auth gate (fail-closed), proxy config parsing strictness,
 interop message parsing (proxy <-> backend), proxy-side session cache, device
 fingerprints, attestation keys, concurrent-farm / look-pattern / login-timing bot
-detection, packet-sequence validation, and Minecraft version detection.
+detection, packet-sequence validation, Minecraft version detection, and the premium identity
+rules for offline-mode servers (real-UUID decision, in-file UUID rewrite, player-data move).
 
 ## 2. Docker host-compatibility harness - `test/docker/run-tests.sh`
 

@@ -556,10 +556,23 @@ public class ServerEvents {
     boolean verifiedPremium =
         (onlineServer && !in.potenfyr.authcore.compat.Compat.isOfflineUuid(username, uuid))
             || premiumVerifiedThisJoin;
+    //
+    // An account WITHOUT a password is auto-logged-in as well: nobody ever proved ownership of it
+    // with a password, and the verified owner of the name is the only one who can prove anything
+    // about it. This is what a premium player's account looks like when it was created by a build
+    // that did not flag it (1.0.0 - 1.0.2 never verified real accounts on offline servers, and
+    // 1.0.3 cleared the flag on every restart): verified, yet "not brand-new and not premium" -
+    // the player was told they were verified and then left in the limbo with a register prompt.
+    // (An account switched to offline-mode keeps password login as soon as it HAS a password.)
+    if (verifiedPremium && user.premiumDowngradePending) {
+      // a previous unverified session of this cached account never ended cleanly
+      user.premiumDowngradePending = false;
+      user.isPremium = true;
+    }
     boolean autoLogin =
         AuthCoreServer.config.session.authentication.premiumAutoLogin
             && verifiedPremium
-            && (brandNew || user.isPremium);
+            && (brandNew || user.isPremium || !user.isRegistered.get());
 
     if (autoLogin) {
       // A brand-new account verified as premium on this join - persist the flag so future
@@ -603,8 +616,37 @@ public class ServerEvents {
     // claiming a premium player's name (hybrid mode, name collision) could permanently clear
     // that account's online-mode flag. The downgrade is persisted after a successful password
     // login (Login#finishLogin), where ownership is proven.
+    //
+    // OFFLINE-mode server: when AuthCore verifies Mojang sessions itself, an unverified session
+    // must not get at an account that only a verified session can own:
+    //  - an online-mode account WITHOUT a password: the register prompt below would let anyone
+    //    who types the name set a password on a premium player's account and take over their
+    //    inventory (on an offline server everyone claiming the name shares its offline uuid);
+    //  - with premium-real-uuid, an account stored under a real (Mojang) uuid: an unverified
+    //    session joins with the OFFLINE uuid and would split the account from its player data.
+    // The player is disconnected with a clear message instead (also while Mojang's session servers
+    // are unreachable - exactly what an online-mode server does). Not armed through user.kick():
+    // the kick cooldown would then lock the real owner out for the next minutes.
+    // Skipped when the handshake cannot be started on this runtime (nobody could ever verify).
+    if (!onlineServer
+        && !verifiedPremium
+        && AuthCoreServer.isPremiumVerificationEnabled()
+        && !AuthCoreServer.premiumHandshakeUnavailable
+        && ((user.isPremium && !user.isRegistered.get())
+            || (AuthCoreServer.isPremiumRealUuidEnabled()
+                && !brandNew
+                && in.potenfyr.authcore.security.PremiumIdentity.isRealUuid(user.uuid)))) {
+      SecurityLog.log(
+          "PREMIUM_SESSION_UNVERIFIED",
+          username + " | " + player.getIpAddress() + " - unverified session for a premium account, rejected");
+      AuthCoreServer.LOGGER.toKick(
+          false, connection, AuthCoreServer.messages.promptUserPremiumSessionUnverified);
+      return;
+    }
+
     if (user.isPremium && !verifiedPremium) {
       user.isPremium = false;
+      user.premiumDowngradePending = true;
       AuthCoreServer.LOGGER.info(
           true,
           "{} was registered as an online-mode account but this session was not verified as "
@@ -899,6 +941,13 @@ public class ServerEvents {
       // through its canonical stored uuid once this session is gone. Skipped for a stale leave -
       // a stale connection sharing the drifted uuid would drop the NEW session's alias.
       if (!staleTeardown) user.releaseJoinUuid(uuid);
+
+      // An unverified session under an online-mode account's name ended without a password
+      // login: the account is still online-mode (see User.premiumDowngradePending).
+      if (!staleTeardown && user.premiumDowngradePending) {
+        user.premiumDowngradePending = false;
+        user.isPremium = true;
+      }
 
       // Captured BEFORE the unlock below: a player who was still unauthenticated never took part in
       // this session's gameplay and can never be a combat logger.

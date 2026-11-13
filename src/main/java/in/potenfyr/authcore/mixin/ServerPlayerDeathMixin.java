@@ -47,8 +47,8 @@ abstract class ServerPlayerDeathMixin {
           source != null && source.getEntity() != null
               ? source.getEntity().getType().toString()
               : "none";
-      /*? if < 1.20.2 {*/
-      /*// 1.16-1.19: Entity#getLevel(); the mapping was renamed to level() in 1.20.2+.
+      /*? if < 1.20 {*/
+      /*// 1.16-1.19: Entity#getLevel(); renamed to level() in 1.20.
       String dimension = in.potenfyr.authcore.compat.Compat.dimensionName(player.getLevel());
       *//*?} else {*/
       String dimension = in.potenfyr.authcore.compat.Compat.dimensionName(player.level());

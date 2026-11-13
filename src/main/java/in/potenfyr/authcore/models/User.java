@@ -188,6 +188,16 @@ public class User {
   /** Supplier edition for if the user is online-mode! */
   public boolean isPremium;
 
+  /**
+   * The online-mode flag was switched off IN MEMORY for the current session only, because that
+   * join was not verified as premium (see ServerEvents). The stored account is still online-mode:
+   * the flag is written as online-mode while this is set, and it is restored when the session ends
+   * - unless a password login proved ownership, which makes the downgrade permanent. Without the
+   * restore, one unverified join under a premium player's name cost the real owner their
+   * auto-login until the account left the cache.
+   */
+  public volatile boolean premiumDowngradePending;
+
   /** Supplier edition for if the user is in lobby/queue! */
   public Supplier<Boolean> isInLobby = () -> Lobby.users.get(this.username) != null;
 
@@ -1031,7 +1041,7 @@ public class User {
       this.username = u.username;
       this.password = u.password;
       this.authSecret = u.authSecret;
-      this.premium = u.isPremium;
+      this.premium = u.isPremium || u.premiumDowngradePending;
       this.ipAddress = u.ipAddress;
       this.passwordEncryption = u.passwordEncryption;
       this.userCreatedMs = u.userCreatedMs;

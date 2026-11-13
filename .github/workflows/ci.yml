@@ -5,11 +5,11 @@ name: CI
 #                 templated descriptors, and every versions/* node present in the matrix
 #   lint        - actionlint over .github/workflows (catches broken expressions, unknown
 #                 inputs and stale action versions without spending a build leg)
-#   build       - builds the SIX variants (3 ranges x fabric/forge/neoforge) IN PARALLEL via a
+#   build       - builds the EIGHT variants (4 ranges x fabric/forge/neoforge) IN PARALLEL via a
 #                 matrix (one runner per variant), verifies each jar's role/descriptors and
 #                 bytecode target, runs the security test suite once on the primary variant,
 #                 uploads per-variant jar artifacts
-#   merge       - needs build: collects all six jars, enforces the exact-count gate, publishes
+#   merge       - needs build: collects all eight jars, enforces the exact-count gate, publishes
 #                 the shared "authcore-jars" artifact
 #   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker harness
 #                 (smoke on push/PR, full range matrix on workflow_dispatch)
@@ -113,13 +113,22 @@ jobs:
             group: 1.16-1.18
             java: 17
             classfile: 61
-          # Group G2: 1.19 - 1.21 (Java 21, classfile major 65)
+          # Group G2a: 1.19 - 1.20.1 (Java 17, classfile major 61) - Fabric + legacy Forge
+          - variant: 1.20.1-fabric
+            group: 1.19-1.20
+            java: 17
+            classfile: 61
+          - variant: 1.20.1-forge
+            group: 1.19-1.20
+            java: 17
+            classfile: 61
+          # Group G2b: 1.20.2 - 1.21 (Java 21, classfile major 65)
           - variant: 1.21.11-fabric
-            group: 1.19-1.21
+            group: 1.20.2-1.21
             java: 21
             classfile: 65
           - variant: 1.21.11-neoforge
-            group: 1.19-1.21
+            group: 1.20.2-1.21
             java: 21
             classfile: 65
           # Group G3: 26.1 - 26.3 (Java 25, classfile major 69)
@@ -224,7 +233,7 @@ jobs:
             # Legacy Forge (1.16-1.18) ignores the [[mixins]] toml block entirely and only reads
             # the jar manifest - the 1.0.2 forge jar shipped with zero active mixins because of it.
             case "${{ matrix.variant }}" in
-              1.18.2-forge)
+              1.18.2-forge|1.20.1-forge)
                 unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'MixinConfigs: authcore.server.mixins.json' \
                   && echo "  OK legacy Forge MixinConfigs manifest" \
                   || { echo "::error::$JAR: legacy Forge manifest has no MixinConfigs - no mixin would load"; STATUS=1; }
@@ -306,7 +315,7 @@ jobs:
           if-no-files-found: ignore
 
   # ------------------------------------------------------------------
-  # Collect all six variant jars into one verified artifact that the
+  # Collect all eight variant jars into one verified artifact that the
   # host-test harness and the release consume.
   # ------------------------------------------------------------------
   merge:
@@ -323,11 +332,11 @@ jobs:
           merge-multiple: true
           path: release
 
-      - name: Verify jar count (6 variants expected)
+      - name: Verify jar count (8 variants expected)
         run: |
           COUNT=$(ls release/authcore-*.jar | wc -l)
           echo "Found $COUNT jars"
-          if [ "$COUNT" -ne 6 ]; then
+          if [ "$COUNT" -ne 8 ]; then
             echo "::error::Expected exactly 6 release jars, found $COUNT"
             exit 1
           fi
@@ -343,7 +352,7 @@ jobs:
 
   # ------------------------------------------------------------------
   # Docker compatibility harness: real servers, real boots, booted in
-  # PARALLEL across group runners (G1: 1.16-1.18, G2: 1.19-1.21, G3: 26.1-26.3)
+  # PARALLEL across group runners (G1: 1.16-1.18, G2a: 1.19-1.20, G2b: 1.20.2-1.21, G3: 26.1-26.3)
   # on the official eclipse-temurin JRE images (17/21/25).
   # Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
@@ -357,7 +366,9 @@ jobs:
         include:
           - group: 1.16-1.18
             java: 17
-          - group: 1.19-1.21
+          - group: 1.19-1.20
+            java: 17
+          - group: 1.20.2-1.21
             java: 21
           - group: 26.1-26.3
             java: 25
@@ -488,7 +499,7 @@ jobs:
               *) echo "::error::$(basename "$JAR") is not a $VER build"; exit 1 ;;
             esac
           done
-          if [ "$COUNT" -ne 6 ]; then
+          if [ "$COUNT" -ne 8 ]; then
             echo "::error::Expected 6 jars for $VER, found $COUNT"
             exit 1
           fi

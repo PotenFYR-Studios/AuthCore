@@ -408,7 +408,7 @@ public final class ActionCaptcha {
       case CHALLENGE_JUMP:
         // Count ground -> air transitions with an upward velocity as a jump.
         boolean grounded =
-            /*? if < 1.20.2 {*/
+            /*? if < 1.20 {*/
             /*player.isOnGround()
             *//*?} else {*/
             player.onGround()/*?}*/;

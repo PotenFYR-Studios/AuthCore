@@ -167,7 +167,7 @@ public final class Compat {
    */
   public static boolean kill(LivingEntity entity) {
     if (entity == null) return false;
-    /*? if < 1.19 {*/
+    /*? if < 1.21.2 {*/
     /*try {
       entity.kill();
       return true;
@@ -206,8 +206,8 @@ public final class Compat {
       double z,
       float yaw,
       float pitch) {
-    /*? if < 1.21.11 {*/
-    /*// Classic shape (1.16-1.21.1): (double, double, double, float, float, Set<Relative>, int, boolean)
+    /*? if < 1.19.4 {*/
+    /*// Classic shape (1.16-1.19.3): (double, double, double, float, float, Set<Relative>, int, boolean)
     try {
       player.connection.send(
           new net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket(
@@ -219,6 +219,7 @@ public final class Compat {
     // Direct, build-remapped record shape (1.21.2+). The previous Class.forName lookup of
     // "net.minecraft...ClientboundPlayerPositionPacket" only matched Mojang-named runtimes, so on
     // every Fabric 1.21.2-1.21.11 server (intermediary) the limbo never sent its client correction.
+    /*? if >= 1.21.2 {*/
     try {
       ModernPosition.send(player, x, y, z, yaw, pitch, teleportId());
       return;
@@ -227,6 +228,7 @@ public final class Compat {
     } catch (LinkageError olderRuntime) {
       // 1.19-1.21.1 inside the 1.21.11 build: classic constructor, located by shape below
     }
+    /*?}*/
     // Classic shape (double x, y, z, float yaw, pitch, Set relatives, int id [, boolean dismount]):
     // the trailing boolean was dropped at 1.19.4. Matched by parameter types, never by name.
     try {
@@ -251,7 +253,7 @@ public final class Compat {
     /*?}*/
   }
 
-  /*? if >= 1.21.11 {*/
+  /*? if >= 1.21.2 {*/
   /** Isolated so an older runtime fails with a catchable LinkageError at the call, not at load. */
   private static final class ModernPosition {
     private ModernPosition() {}
@@ -567,7 +569,7 @@ public final class Compat {
       // fall through
     }
     try {
-      /*? if < 1.19 {*/
+      /*? if < 1.20.3 {*/
       /*if (entity instanceof net.minecraft.world.entity.vehicle.Boat
           || entity instanceof net.minecraft.world.entity.vehicle.AbstractMinecart) return true;
       *//*?} else {*/
@@ -793,6 +795,10 @@ public final class Compat {
 
     /** The player's ops-list entry (null when not an operator or unresolvable). */
     static Object entry(MinecraftServer server, ServerPlayer player) {
+      return entry(server, player.getGameProfile());
+    }
+
+    static Object entry(MinecraftServer server, com.mojang.authlib.GameProfile profile) {
       Object ops = ops(server);
       if (ops == null) return null;
       // StoredUserList#get(K) - erasure (Object) -> StoredUserEntry
@@ -802,7 +808,7 @@ public final class Compat {
       if (get == null) return null;
       try {
         get.setAccessible(true);
-        return get.invoke(ops, player.getGameProfile());
+        return get.invoke(ops, profile);
       } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
         return null;
       }
@@ -844,6 +850,11 @@ public final class Compat {
     }
 
     static void add(MinecraftServer server, ServerPlayer player, int level, boolean bypass) {
+      add(server, player.getGameProfile(), level, bypass);
+    }
+
+    static void add(
+        MinecraftServer server, com.mojang.authlib.GameProfile profile, int level, boolean bypass) {
       Object ops = ops(server);
       if (ops == null) return;
       Object newEntry;
@@ -851,7 +862,7 @@ public final class Compat {
         newEntry =
             net.minecraft.server.players.ServerOpListEntry.class
                 .getConstructor(com.mojang.authlib.GameProfile.class, int.class, boolean.class)
-                .newInstance(player.getGameProfile(), level, bypass);
+                .newInstance(profile, level, bypass);
       } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
         return;
       }
@@ -867,7 +878,7 @@ public final class Compat {
           try {
             m.setAccessible(true);
             m.invoke(ops, newEntry);
-            if (entry(server, player) != null) return;
+            if (entry(server, profile) != null) return;
           } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
             // try the next candidate
           }
@@ -1389,7 +1400,7 @@ public final class Compat {
   public static net.minecraft.network.chat.Style applyShadow(
       net.minecraft.network.chat.Style style, boolean shadow, int strength) {
     try {
-      /*? if < 1.19.3 {*/
+      /*? if < 1.21.4 {*/
       /*return style;
       *//*?} else {*/
       return shadow ? style.withShadowColor(strength) : style.withoutShadow();
@@ -1447,7 +1458,7 @@ public final class Compat {
    */
   public static ServerLevel playerLevel(ServerPlayer player) {
     if (player == null) return null;
-    /*? if < 1.20.2 {*/
+    /*? if < 1.20 {*/
     /*try {
       return (ServerLevel) player.getLevel();
     } catch (Throwable ignored) {
@@ -1470,7 +1481,7 @@ public final class Compat {
   /** Resolves any entity's level across every era (level() / getLevel() - never throws). */
   public static net.minecraft.world.level.Level entityLevel(net.minecraft.world.entity.Entity entity) {
     if (entity == null) return null;
-    /*? if < 1.20.2 {*/
+    /*? if < 1.20 {*/
     /*try {
       return entity.getLevel();
     } catch (Throwable ignored) {
@@ -1615,28 +1626,28 @@ public final class Compat {
   public static java.util.UUID helloId(Object packet) {
     if (!(packet instanceof net.minecraft.network.protocol.login.ServerboundHelloPacket hello))
       return null;
+    /*? if >= 1.20.2 {*/
     try {
-      /*? if >= 1.20.2 {*/
       return hello.profileId();
-      /*?} else {*/
-      /*return null;
-      *//*?}*/
     } catch (RuntimeException | LinkageError otherEra) {
-      // 1.19-1.20.1 inside the range jar: profileId() returns Optional<UUID> - by shape
-      try {
-        for (java.lang.reflect.Method m : hello.getClass().getMethods()) {
-          if (m.getParameterCount() != 0) continue;
-          if (m.getReturnType() == java.util.UUID.class) return (java.util.UUID) m.invoke(hello);
-          if (m.getReturnType() == java.util.Optional.class) {
-            Object value = ((java.util.Optional<?>) m.invoke(hello)).orElse(null);
-            if (value instanceof java.util.UUID u) return u;
-          }
-        }
-      } catch (ReflectiveOperationException | RuntimeException ignored) {
-        // unreadable
-      }
-      return null;
+      // 1.19-1.20.1 inside the range jar: profileId() returns Optional<UUID> - by shape below
     }
+    /*?}*/
+    // By shape (a build target before 1.20.2, or an older runtime of a range jar): the uuid is a
+    // UUID or an Optional<UUID> accessor; 1.16-1.19.0 have neither.
+    try {
+      for (java.lang.reflect.Method m : hello.getClass().getMethods()) {
+        if (m.getParameterCount() != 0) continue;
+        if (m.getReturnType() == java.util.UUID.class) return (java.util.UUID) m.invoke(hello);
+        if (m.getReturnType() == java.util.Optional.class) {
+          Object value = ((java.util.Optional<?>) m.invoke(hello)).orElse(null);
+          if (value instanceof java.util.UUID u) return u;
+        }
+      }
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+      // unreadable
+    }
+    return null;
   }
 
   public static boolean isOfflineUuid(String username, java.util.UUID uuid) {
@@ -1833,7 +1844,7 @@ public final class Compat {
     try {
       Object sessionService = null;
       try {
-        /*? if >= 1.19.3 {*/
+        /*? if >= 1.20.5 {*/
         sessionService = mc.services().sessionService();
         /*?} else {*/
         /*sessionService = mc.getSessionService();
@@ -1905,6 +1916,277 @@ public final class Compat {
       // fall through - replay inline
     }
     replay.run();
+  }
+
+  // ------------------------------------------------------------------
+  // Premium identity on offline-mode servers (premium-skins / premium-real-uuid).
+  //
+  // After a successful server-side verification the login is resumed ON THE SERVER THREAD (login
+  // tick) and the profile vanilla just created for the offline flow is replaced before vanilla
+  // reads it in the same tick - either the offline profile carrying the Mojang skin, or the
+  // verified Mojang profile itself (real UUID). authlib types are never remapped, so its members
+  // are reached by their real names; every Minecraft member is a direct (build-remapped) call or
+  // is located by shape.
+  // ------------------------------------------------------------------
+
+  /**
+   * Replays the hello on the CALLING thread (the server thread, from the login tick): state ->
+   * HELLO and vanilla handles the packet again, creating its offline profile.
+   *
+   * @return {@code true} when vanilla handled the hello
+   */
+  public static boolean loginReplayHelloNow(Object handler, Object helloPacket) {
+    if (!(handler instanceof net.minecraft.server.network.ServerLoginPacketListenerImpl login)
+        || !(helloPacket instanceof net.minecraft.network.protocol.login.ServerboundHelloPacket hello))
+      return false;
+    try {
+      if (!setLoginState(login, "HELLO")) return false;
+      login.handleHello(hello);
+      return true;
+    } catch (RuntimeException | LinkageError err) {
+      return false;
+    }
+  }
+
+  /** Runs a task on the login connection's event loop (inline when it cannot be resolved). */
+  public static void loginExecute(Object handler, Runnable task) {
+    if (task == null) return;
+    try {
+      Object connection = loginValue(handler, net.minecraft.network.Connection.class);
+      Object channel =
+          connection == null ? null : loginValue(connection, io.netty.channel.Channel.class);
+      if (channel instanceof io.netty.channel.Channel ch) {
+        ch.eventLoop().execute(task);
+        return;
+      }
+    } catch (RuntimeException | LinkageError ignored) {
+      // fall through - run inline
+    }
+    task.run();
+  }
+
+  /** Replaces the login listener's (single) GameProfile field - the profile vanilla joins with. */
+  public static boolean loginSetProfile(Object handler, com.mojang.authlib.GameProfile profile) {
+    if (handler == null || profile == null) return false;
+    java.lang.reflect.Field field = loginField(handler, com.mojang.authlib.GameProfile.class);
+    if (field == null) return false;
+    try {
+      // Only replace a profile vanilla already set: a null field means the hello was not accepted.
+      if (field.get(handler) == null) return false;
+      field.set(handler, profile);
+      return true;
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      return false;
+    }
+  }
+
+  private static Object authlibCall(Object target, String... names) {
+    if (target == null) return null;
+    for (String name : names) {
+      try {
+        Object value = target.getClass().getMethod(name).invoke(target);
+        if (value != null) return value;
+      } catch (ReflectiveOperationException | RuntimeException ignored) {
+        // next accessor
+      }
+    }
+    return null;
+  }
+
+  /** authlib GameProfile id across authlib eras ({@code getId()} / record {@code id()}). */
+  public static java.util.UUID profileId(com.mojang.authlib.GameProfile profile) {
+    return authlibCall(profile, "getId", "id") instanceof java.util.UUID id ? id : null;
+  }
+
+  /** authlib GameProfile name across authlib eras ({@code getName()} / record {@code name()}). */
+  public static String profileName(com.mojang.authlib.GameProfile profile) {
+    return authlibCall(profile, "getName", "name") instanceof String name ? name : null;
+  }
+
+  /** Whether the profile carries a Mojang {@code textures} (skin) property. */
+  public static boolean profileHasTextures(com.mojang.authlib.GameProfile profile) {
+    Object props = authlibCall(profile, "getProperties", "properties");
+    if (!(props instanceof com.google.common.collect.Multimap<?, ?> map)) return false;
+    try {
+      return map.containsKey("textures");
+    } catch (RuntimeException err) {
+      return false;
+    }
+  }
+
+  /**
+   * A profile with the given id and name that carries the properties (the signed Mojang skin) of
+   * {@code source}. Record authlib (1.21.9+): the immutable property map is shared through the
+   * 3-arg constructor; classic authlib: the properties are copied into the new profile's map.
+   *
+   * @return the new profile, or {@code null} when it cannot be built on this runtime
+   */
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static com.mojang.authlib.GameProfile profileWithProperties(
+      java.util.UUID id, String name, com.mojang.authlib.GameProfile source) {
+    if (id == null || name == null || source == null) return null;
+    try {
+      Object sourceProps = authlibCall(source, "getProperties", "properties");
+      if (sourceProps == null) return null;
+      for (java.lang.reflect.Constructor<?> ctor :
+          com.mojang.authlib.GameProfile.class.getConstructors()) {
+        Class<?>[] p = ctor.getParameterTypes();
+        if (p.length == 3
+            && p[0] == java.util.UUID.class
+            && p[1] == String.class
+            && p[2].isInstance(sourceProps))
+          return (com.mojang.authlib.GameProfile) ctor.newInstance(id, name, sourceProps);
+      }
+      com.mojang.authlib.GameProfile out = new com.mojang.authlib.GameProfile(id, name);
+      Object outProps = authlibCall(out, "getProperties", "properties");
+      if (!(outProps instanceof com.google.common.collect.Multimap target)
+          || !(sourceProps instanceof com.google.common.collect.Multimap from)) return null;
+      target.putAll(from);
+      return out;
+    } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
+      return null;
+    }
+  }
+
+  /**
+   * Whether this runtime validates the client's chat-signing key against the JOIN profile's uuid
+   * during the login (1.19 - 1.19.2). A complete offline-uuid profile fails that check with a
+   * genuine client (its key is signed for the real uuid), so the skin-only profile is not used
+   * there. The real-uuid profile passes it, exactly as on an online-mode server.
+   */
+  public static boolean loginValidatesProfileKey() {
+    String version = getGameVersion();
+    return "1.19".equals(version) || "1.19.1".equals(version) || "1.19.2".equals(version);
+  }
+
+  /** Whether a player with this uuid is currently online. */
+  public static boolean isPlayerOnline(MinecraftServer server, java.util.UUID uuid) {
+    if (server == null || uuid == null) return false;
+    try {
+      return server.getPlayerList().getPlayer(uuid) != null;
+    } catch (RuntimeException | LinkageError err) {
+      return false;
+    }
+  }
+
+  /** The entry of a stored user list (bans / whitelist / ops) for a profile, or null. */
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private static Object storedEntry(Object list, com.mojang.authlib.GameProfile profile) {
+    if (!(list instanceof net.minecraft.server.players.StoredUserList stored) || profile == null)
+      return null;
+    try {
+      /*? if >= 1.21.9 {*/
+      return stored.get(new net.minecraft.server.players.NameAndId(profile));
+      /*?} else {*/
+      /*return stored.get(profile);
+      *//*?}*/
+    } catch (RuntimeException | LinkageError otherEra) {
+      // GameProfile-keyed runtime inside a NameAndId build: StoredUserList#get(K) by shape
+      for (Class<?> c = list.getClass(); c != null && c != Object.class; c = c.getSuperclass())
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+          if (!java.lang.reflect.Modifier.isPublic(m.getModifiers())
+              || java.lang.reflect.Modifier.isStatic(m.getModifiers())
+              || m.getParameterCount() != 1
+              || m.getParameterTypes()[0] != Object.class
+              || !net.minecraft.server.players.StoredUserEntry.class.isAssignableFrom(
+                  m.getReturnType())) continue;
+          try {
+            m.setAccessible(true);
+            return m.invoke(list, profile);
+          } catch (ReflectiveOperationException | RuntimeException | LinkageError err) {
+            return null;
+          }
+        }
+      return null;
+    }
+  }
+
+  /** Whether the profile is on the server's player ban list. */
+  public static boolean isProfileBanned(
+      MinecraftServer server, com.mojang.authlib.GameProfile profile) {
+    if (server == null || profile == null) return false;
+    try {
+      return storedEntry(server.getPlayerList().getBans(), profile) != null;
+    } catch (RuntimeException | LinkageError err) {
+      return false;
+    }
+  }
+
+  /**
+   * Carries the whitelist and operator entries of {@code from} over to {@code to} (premium-real-uuid:
+   * the offline profile's access follows the player to the real uuid). Existing entries of
+   * {@code to} are never changed and the entries of {@code from} are kept.
+   */
+  public static void carryProfileAccess(
+      MinecraftServer server,
+      com.mojang.authlib.GameProfile from,
+      com.mojang.authlib.GameProfile to) {
+    if (server == null || from == null || to == null) return;
+    try {
+      net.minecraft.server.players.PlayerList players = server.getPlayerList();
+      Object whitelist = players.getWhiteList();
+      if (storedEntry(whitelist, from) != null && storedEntry(whitelist, to) == null)
+        addToWhitelist(server, to);
+
+      Object ops = players.getOps();
+      Object opEntry = storedEntry(ops, from);
+      if (opEntry != null && storedEntry(ops, to) == null) {
+        int level;
+        boolean bypass = false;
+        try {
+          /*? if >= 1.21.9 {*/
+          level =
+              ((net.minecraft.server.players.ServerOpListEntry) opEntry).permissions().level().id();
+          /*?} else {*/
+          /*level = ((net.minecraft.server.players.ServerOpListEntry) opEntry).getLevel();
+          *//*?}*/
+        } catch (RuntimeException | LinkageError otherEra) {
+          level = LegacyOps.level(opEntry);
+        }
+        try {
+          bypass =
+              ((net.minecraft.server.players.ServerOpListEntry) opEntry).getBypassesPlayerLimit();
+        } catch (RuntimeException | LinkageError ignored) {
+          // default bypass flag
+        }
+        int lvl = Math.max(1, Math.min(4, level <= 0 ? 4 : level));
+        try {
+          /*? if >= 1.21.9 {*/
+          players.getOps().add(
+              new net.minecraft.server.players.ServerOpListEntry(
+                  new net.minecraft.server.players.NameAndId(to),
+                  net.minecraft.server.permissions.LevelBasedPermissionSet.forLevel(
+                      net.minecraft.server.permissions.PermissionLevel.byId(lvl)),
+                  bypass));
+          /*?} else {*/
+          /*players.getOps().add(
+              new net.minecraft.server.players.ServerOpListEntry(to, lvl, bypass));
+          *//*?}*/
+        } catch (RuntimeException | LinkageError otherEra) {
+          LegacyOps.add(server, to, lvl, bypass);
+        }
+      }
+    } catch (RuntimeException | LinkageError err) {
+      AuthCoreServer.LOGGER.debug(
+          false, "Whitelist/operator carry-over to the real uuid failed (best-effort):", err);
+    }
+  }
+
+  /**
+   * The world's per-player storage directories: {@code [playerdata, advancements, stats]}, or
+   * {@code null} when they cannot be resolved on this runtime.
+   */
+  public static java.nio.file.Path[] playerStorageDirs(MinecraftServer server) {
+    if (server == null) return null;
+    try {
+      return new java.nio.file.Path[] {
+        server.getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_DATA_DIR),
+        server.getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_ADVANCEMENTS_DIR),
+        server.getWorldPath(net.minecraft.world.level.storage.LevelResource.PLAYER_STATS_DIR)
+      };
+    } catch (RuntimeException | LinkageError err) {
+      return null;
+    }
   }
 
 
@@ -2162,7 +2444,7 @@ public final class Compat {
   //                       1.19-1.20.4 runtimes of that range jar fall back to the legacy shapes,
   //                       located by signature rather than by name.
 
-  /*? if >= 1.19 {*/
+  /*? if >= 1.20.5 {*/
   private static net.minecraft.core.HolderLookup.Provider registries(ServerPlayer player) {
     MinecraftServer server = getServer(player);
     return server == null ? null : server.registryAccess();
@@ -2173,7 +2455,7 @@ public final class Compat {
   public static String itemStackToBase64(ServerPlayer player, net.minecraft.world.item.ItemStack stack) {
     if (stack == null || stack.isEmpty()) return "";
     net.minecraft.nbt.CompoundTag tag = null;
-    /*? if < 1.19 {*/
+    /*? if < 1.20.5 {*/
     /*try {
       tag = stack.save(new net.minecraft.nbt.CompoundTag());
     } catch (RuntimeException | LinkageError err) {
@@ -2197,7 +2479,7 @@ public final class Compat {
     net.minecraft.nbt.CompoundTag tag = compoundTagFromBase64(data);
     if (tag == null) return net.minecraft.world.item.ItemStack.EMPTY;
     net.minecraft.world.item.ItemStack stack;
-    /*? if < 1.19 {*/
+    /*? if < 1.20.5 {*/
     /*try {
       stack = net.minecraft.world.item.ItemStack.of(tag);
     } catch (RuntimeException | LinkageError err) {
@@ -2220,7 +2502,7 @@ public final class Compat {
       ServerPlayer player, net.minecraft.world.effect.MobEffectInstance effect) {
     if (effect == null) return "";
     net.minecraft.nbt.CompoundTag tag;
-    /*? if < 1.19 {*/
+    /*? if < 1.20.5 {*/
     /*try {
       tag = effect.save(new net.minecraft.nbt.CompoundTag());
     } catch (RuntimeException | LinkageError err) {
@@ -2244,7 +2526,7 @@ public final class Compat {
     if (data == null || data.isBlank()) return null;
     net.minecraft.nbt.CompoundTag tag = compoundTagFromBase64(data);
     if (tag == null) return null;
-    /*? if < 1.19 {*/
+    /*? if < 1.20.5 {*/
     /*try {
       return net.minecraft.world.effect.MobEffectInstance.load(tag);
     } catch (RuntimeException | LinkageError err) {
@@ -2305,7 +2587,7 @@ public final class Compat {
     }
   }
 
-  /*? if >= 1.19 {*/
+  /*? if >= 1.20.5 {*/
   /**
    * Codec-based (de)serialization, 1.20.5+. Isolated in its own class so the older runtimes of the
    * range jar fail with a catchable LinkageError at the call instead of at Compat's class load.
@@ -2841,5 +3123,5 @@ public final class Compat {
       return null;
     }
   }
-}
 
+}

@@ -57,6 +57,9 @@ abstract class ServerPremiumVerificationMixin {
   /** How long to wait for the client's key packet before falling back to offline. */
   private static final long HANDSHAKE_TIMEOUT_MS = 15_000L;
 
+  /** How long a verified login may wait for its login tick before the plain replay takes over. */
+  private static final long RESUME_TIMEOUT_MS = 3_000L;
+
   /** Safety cap: the disconnect hook removes both entries, but a forged/aborted login must never
    *  let the tracking maps grow without bound if that hook does not fire on some version. */
   private static final int MAX_TRACKED_HANDSHAKES = 4096;
@@ -85,7 +88,12 @@ abstract class ServerPremiumVerificationMixin {
 
       String username = readHelloName(packet);
       UUID claimed = readHelloId(packet);
-      if (username == null || claimed == null) return;
+      if (username == null) return;
+      if (claimed == null) {
+        // 1.16 - 1.19.0: the hello carries no account uuid (see verifyWithoutUuid).
+        verifyWithoutUuid(this, packet, username, ci);
+        return;
+      }
       // Only a client claiming a REAL (non-offline) account UUID is challenged. The old check was
       // inverted: it challenged clients sending the OFFLINE uuid (cracked clients - the forced
       // handshake can only fail for them, and a vanilla client disconnects on a failed session
@@ -95,7 +103,10 @@ abstract class ServerPremiumVerificationMixin {
 
       // Start the handshake FIRST - only cancel vanilla's offline flow when it succeeded,
       // so a failure can never strand the player.
-      if (!in.potenfyr.authcore.compat.Compat.loginStartHandshake(this)) return;
+      if (!in.potenfyr.authcore.compat.Compat.loginStartHandshake(this)) {
+        handshakeUnavailable();
+        return;
+      }
 
       PENDING.put(this, packet);
       boundTracking();
@@ -109,6 +120,59 @@ abstract class ServerPremiumVerificationMixin {
       AuthCoreServer.LOGGER.debug(
           false, "Online-mode verification setup failed - continuing as offline:", err);
     }
+  }
+
+  /**
+   * Clients whose hello carries no account uuid (1.16 - 1.19.0) cannot be told apart from an
+   * offline client before the challenge, and an offline client disconnects when it is challenged.
+   * So only names whose STORED account is online-mode are challenged: a premium player registers
+   * once and runs {@code /account set-mode online}; from then on every join is verified. The
+   * account lookup may load from the database, so the hello is held and resumed from the IO pool.
+   */
+  private static void verifyWithoutUuid(
+      Object handler, ServerboundHelloPacket packet, String username, CallbackInfo ci) {
+    ci.cancel();
+    AuthCoreServer.IO_EXECUTOR.execute(
+        () -> {
+          in.potenfyr.authcore.security.PremiumIdentity.Stored stored =
+              in.potenfyr.authcore.security.PremiumIdentity.stored(username);
+          boolean challenge =
+              in.potenfyr.authcore.security.PremiumIdentity.challengeWithoutUuid(username, stored);
+          in.potenfyr.authcore.compat.Compat.loginExecute(
+              handler,
+              () -> {
+                try {
+                  if (challenge) {
+                    if (in.potenfyr.authcore.compat.Compat.loginStartHandshake(handler)) {
+                      in.potenfyr.authcore.security.PremiumIdentity.challengeSent(username);
+                      PENDING.put(handler, packet);
+                      boundTracking();
+                      in.potenfyr.authcore.util.TaskScheduler.getInstance()
+                          .setTimeout(
+                              () -> fallbackToOffline(handler, packet), HANDSHAKE_TIMEOUT_MS);
+                      return;
+                    }
+                    handshakeUnavailable();
+                  }
+                } catch (RuntimeException err) {
+                  AuthCoreServer.LOGGER.debug(
+                      false, "Online-mode verification setup failed - continuing as offline:", err);
+                }
+                HANDLED.add(handler);
+                boundTracking();
+                in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, packet);
+              });
+        });
+  }
+
+  /** The handshake could not be started on this runtime: nobody can be verified here. */
+  private static void handshakeUnavailable() {
+    if (AuthCoreServer.premiumHandshakeUnavailable) return;
+    AuthCoreServer.premiumHandshakeUnavailable = true;
+    AuthCoreServer.LOGGER.warn(
+        false,
+        "Online-mode verification could not be started on this server version - premium "
+            + "auto-login is unavailable and premium players are handled as offline players.");
   }
 
   /**
@@ -136,6 +200,8 @@ abstract class ServerPremiumVerificationMixin {
       final UUID offlineUuid = in.potenfyr.authcore.compat.Compat.offlineUuid(username);
       final UUID claimedUuid = readHelloId((ServerboundHelloPacket) hello);
       final java.net.InetAddress address = loginAddress();
+      // The client answered the challenge - it is not an offline client (see verifyWithoutUuid).
+      in.potenfyr.authcore.security.PremiumIdentity.challengeAnswered(username);
 
       if (digest == null) {
         // Handshake failed (bad nonce) - continue as offline
@@ -147,6 +213,7 @@ abstract class ServerPremiumVerificationMixin {
 
       AuthCoreServer.IO_EXECUTOR.execute(
           () -> {
+            in.potenfyr.authcore.security.PremiumIdentity.Plan plan = null;
             try {
               Object server = loginServer(handler);
               if (server == null) return;
@@ -172,18 +239,50 @@ abstract class ServerPremiumVerificationMixin {
                     username);
                 in.potenfyr.authcore.security.SecurityLog.log(
                     "PREMIUM_VERIFIED", username + " verified via server session authentication");
+
+                // premium-skins / premium-real-uuid: the join may use a better profile than the
+                // plain offline one. The real uuid gets its own connection-bound marker.
+                plan =
+                    in.potenfyr.authcore.security.PremiumIdentity.plan(
+                        helloPacket, username, offlineUuid, verified);
+                if (plan != null && plan.wantRealUuid)
+                  AuthCoreServer.markPremiumVerified(
+                      profileId(verified),
+                      in.potenfyr.authcore.compat.Compat.networkConnection(handler));
               } else {
                 AuthCoreServer.LOGGER.debug(
                     true,
                     "{} did not pass Mojang session verification - joining as offline player.",
                     username);
               }
+            } catch (RuntimeException err) {
+              plan = null;
+              AuthCoreServer.LOGGER.debug(
+                  false, "Online-mode verification failed - continuing as offline:", err);
             } finally {
-              // Resume the vanilla offline join (same hello packet, state reset to HELLO).
-              // Mark handled FIRST so the replayed hello never re-arms the handshake.
-              HANDLED.add(handler);
-              boundTracking();
-              in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
+              if (plan != null) {
+                // Resumed by the login tick on the server thread (authCore$resumeVerified), where
+                // the profile can be replaced before vanilla reads it. Fallback: if no tick picks
+                // it up (the tick hook is missing on this runtime), resume the plain offline join.
+                final in.potenfyr.authcore.security.PremiumIdentity.Plan queued = plan;
+                in.potenfyr.authcore.security.PremiumIdentity.scheduleResume(handler, queued);
+                in.potenfyr.authcore.util.TaskScheduler.getInstance()
+                    .setTimeout(
+                        () -> {
+                          if (!in.potenfyr.authcore.security.PremiumIdentity.cancelResume(
+                              handler, queued)) return;
+                          HANDLED.add(handler);
+                          boundTracking();
+                          in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
+                        },
+                        RESUME_TIMEOUT_MS);
+              } else {
+                // Resume the vanilla offline join (same hello packet, state reset to HELLO).
+                // Mark handled FIRST so the replayed hello never re-arms the handshake.
+                HANDLED.add(handler);
+                boundTracking();
+                in.potenfyr.authcore.compat.Compat.loginReplayHello(handler, helloPacket);
+              }
             }
           });
     } catch (RuntimeException err) {
@@ -202,6 +301,24 @@ abstract class ServerPremiumVerificationMixin {
   private void authCore$verifyDisconnect(net.minecraft.network.chat.Component reason, CallbackInfo ci) {
     PENDING.remove(this);
     HANDLED.remove(this);
+    in.potenfyr.authcore.security.PremiumIdentity.forget(this);
+  }
+
+  /**
+   * Resumes a verified login on the server thread: vanilla handles the hello again and the
+   * profile it created is replaced (premium-skins / premium-real-uuid) before vanilla reads it
+   * later in this same tick.
+   */
+  // Where the hook cannot apply, the 3 second fallback resumes the plain offline join.
+  @Inject(method = "tick()V", at = @At("HEAD"), require = 0)
+  private void authCore$resumeVerified(CallbackInfo ci) {
+    in.potenfyr.authcore.security.PremiumIdentity.Plan plan =
+        in.potenfyr.authcore.security.PremiumIdentity.takeResume(this);
+    if (plan == null) return;
+    // Mark handled FIRST so the replayed hello never re-arms the handshake.
+    HANDLED.add(this);
+    boundTracking();
+    in.potenfyr.authcore.security.PremiumIdentity.resume(this, plan);
   }
 
   /** Watchdog: resume the vanilla offline join when the client never answered the handshake. */

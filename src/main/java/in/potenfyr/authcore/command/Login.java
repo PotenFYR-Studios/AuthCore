@@ -296,8 +296,9 @@ public class Login {
       // The password just proved ownership: this account uses offline-mode auth, so the
       // downgrade may be persisted NOW (the join path only downgrades in memory - a pre-auth
       // join claiming a premium name must never be able to rewrite that account's stored mode).
-      if (user.isPremium) {
+      if (user.isPremium || user.premiumDowngradePending) {
         user.isPremium = false;
+        user.premiumDowngradePending = false;
         user.update("Online-mode flag cleared after password login");
       }
 

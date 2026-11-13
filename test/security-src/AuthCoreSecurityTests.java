@@ -1,4 +1,5 @@
 import java.util.UUID;
+import in.potenfyr.authcore.security.PremiumIdentity;
 import in.potenfyr.authcore.security.Encrypter;
 import in.potenfyr.authcore.security.RateLimiter;
 import in.potenfyr.authcore.security.Security;
@@ -53,12 +54,184 @@ public class AuthCoreSecurityTests {
     testRateLimiterHardening();
     testAccountBoundRecovery();
     testCommandTreePruning();
+    testPremiumIdentity();
 
     System.out.println();
     System.out.println("==============================================");
     System.out.println("  RESULT: " + passed + " passed, " + failed + " failed");
     System.out.println("==============================================");
     if (failed > 0) System.exit(1);
+  }
+
+  // ------------------------------------------------------------------
+  // premium-skins / premium-real-uuid (offline-mode servers)
+  // ------------------------------------------------------------------
+
+  private static byte[] premiumNbt(java.util.UUID own, java.util.UUID other) {
+    java.nio.ByteBuffer buf = java.nio.ByteBuffer.allocate(128);
+    buf.put((byte) 0x0A).putShort((short) 0); // root compound, empty name
+    byte[] head = {0x0B, 0x00, 0x04, 'U', 'U', 'I', 'D', 0x00, 0x00, 0x00, 0x04};
+    buf.put(head).putLong(own.getMostSignificantBits()).putLong(own.getLeastSignificantBits());
+    buf.put(head).putLong(other.getMostSignificantBits()).putLong(other.getLeastSignificantBits());
+    buf.put((byte) 0x00);
+    byte[] out = new byte[buf.position()];
+    buf.flip();
+    buf.get(out);
+    return out;
+  }
+
+  private static byte[] premiumGzip(byte[] data) throws java.io.IOException {
+    java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+    try (java.util.zip.GZIPOutputStream gz = new java.util.zip.GZIPOutputStream(out)) {
+      gz.write(data);
+    }
+    return out.toByteArray();
+  }
+
+  private static byte[] premiumGunzip(byte[] data) throws java.io.IOException {
+    try (java.util.zip.GZIPInputStream in =
+        new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(data))) {
+      return in.readAllBytes();
+    }
+  }
+
+  private static boolean premiumContains(byte[] haystack, java.util.UUID uuid) {
+    byte[] needle =
+        java.nio.ByteBuffer.allocate(16)
+            .putLong(uuid.getMostSignificantBits())
+            .putLong(uuid.getLeastSignificantBits())
+            .array();
+    outer:
+    for (int i = 0; i + needle.length <= haystack.length; i++) {
+      for (int j = 0; j < needle.length; j++) if (haystack[i + j] != needle[j]) continue outer;
+      return true;
+    }
+    return false;
+  }
+
+  private static void testPremiumIdentity() {
+    System.out.println("== Premium identity (premium-skins / premium-real-uuid) ==");
+    java.util.UUID offline =
+        java.util.UUID.nameUUIDFromBytes(
+            "OfflinePlayer:Steve".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    java.util.UUID real = java.util.UUID.fromString("069a79f4-44e9-4726-a5be-fca90e38aaf5");
+    java.util.UUID other = java.util.UUID.fromString("853c80ef-3c37-49fd-aa49-938b674adae6");
+
+    check("a Mojang uuid is recognised as real", PremiumIdentity.isRealUuid(real));
+    check("an offline uuid is not real", !PremiumIdentity.isRealUuid(offline));
+    check(
+        "an offline uuid of a case-changed name is not real",
+        !PremiumIdentity.isRealUuid(
+            java.util.UUID.nameUUIDFromBytes(
+                "OfflinePlayer:sTEVE".getBytes(java.nio.charset.StandardCharsets.UTF_8))));
+    check("a Floodgate-style uuid is not real", !PremiumIdentity.isRealUuid(new java.util.UUID(0L, 42L)));
+    check("null uuid is not real", !PremiumIdentity.isRealUuid(null));
+
+    check("real uuid: off when the option is disabled", !PremiumIdentity.useRealUuid(false, false, false, false, false));
+    check("real uuid: new account", PremiumIdentity.useRealUuid(true, false, false, false, false));
+    check("real uuid: online-mode account", PremiumIdentity.useRealUuid(true, true, true, false, false));
+    check("real uuid: online-mode account with a password", PremiumIdentity.useRealUuid(true, true, true, true, false));
+    check("real uuid: passwordless account", PremiumIdentity.useRealUuid(true, true, false, false, false));
+    check(
+        "real uuid: NOT for somebody's existing password account",
+        !PremiumIdentity.useRealUuid(true, true, false, true, false));
+    check(
+        "real uuid: password account that already lives under the real uuid",
+        PremiumIdentity.useRealUuid(true, true, false, true, true));
+
+    byte[] nbt = premiumNbt(offline, other);
+    check("uuid patch rewrites exactly the player's own uuid", PremiumIdentity.patchUuid(nbt, offline, real) == 1);
+    check("uuid patch: new uuid present", premiumContains(nbt, real));
+    check("uuid patch: old uuid gone", !premiumContains(nbt, offline));
+    check("uuid patch: another entity's uuid untouched", premiumContains(nbt, other));
+    check("uuid patch: nothing to rewrite the second time", PremiumIdentity.patchUuid(nbt, offline, real) == 0);
+    check("uuid patch tolerates null", PremiumIdentity.patchUuid(null, offline, real) == 0);
+
+    try {
+      java.nio.file.Path root = java.nio.file.Files.createTempDirectory("authcore-premium");
+      java.nio.file.Path data = java.nio.file.Files.createDirectories(root.resolve("playerdata"));
+      java.nio.file.Path adv = java.nio.file.Files.createDirectories(root.resolve("advancements"));
+      java.nio.file.Path stats = java.nio.file.Files.createDirectories(root.resolve("stats"));
+      java.nio.file.Path[] dirs = {data, adv, stats};
+
+      check(
+          "move: nothing to do for a new player",
+          PremiumIdentity.migrateFiles(dirs, offline, real) == PremiumIdentity.Migration.NOT_NEEDED);
+      check("move: unresolvable storage is a failure", PremiumIdentity.migrateFiles(null, offline, real) == PremiumIdentity.Migration.FAILED);
+
+      java.nio.file.Files.write(data.resolve(offline + ".dat"), premiumGzip(premiumNbt(offline, other)));
+      java.nio.file.Files.writeString(adv.resolve(offline + ".json"), "{\"a\":1}");
+      java.nio.file.Files.writeString(stats.resolve(offline + ".json"), "{\"s\":1}");
+
+      check(
+          "move: player data migrated",
+          PremiumIdentity.migrateFiles(dirs, offline, real) == PremiumIdentity.Migration.MIGRATED);
+      check("move: real-uuid player data exists", java.nio.file.Files.isRegularFile(data.resolve(real + ".dat")));
+      check(
+          "move: the offline file is gone (no second copy of the inventory)",
+          !java.nio.file.Files.exists(data.resolve(offline + ".dat")));
+      check("move: backup kept", java.nio.file.Files.isRegularFile(data.resolve(offline + ".dat.authcore-bak")));
+      check("move: no temporary file left", !java.nio.file.Files.exists(data.resolve(real + ".dat.authcore-tmp")));
+      byte[] moved = premiumGunzip(java.nio.file.Files.readAllBytes(data.resolve(real + ".dat")));
+      check("move: stored entity uuid rewritten to the real uuid", premiumContains(moved, real) && !premiumContains(moved, offline));
+      check("move: advancements follow", java.nio.file.Files.isRegularFile(adv.resolve(real + ".json")) && !java.nio.file.Files.exists(adv.resolve(offline + ".json")));
+      check("move: statistics follow", java.nio.file.Files.isRegularFile(stats.resolve(real + ".json")) && !java.nio.file.Files.exists(stats.resolve(offline + ".json")));
+      check(
+          "move: second run changes nothing",
+          PremiumIdentity.migrateFiles(dirs, offline, real) == PremiumIdentity.Migration.NOT_NEEDED);
+
+      // existing real-uuid data is never overwritten
+      java.nio.file.Files.write(data.resolve(offline + ".dat"), premiumGzip(premiumNbt(offline, other)));
+      long before = java.nio.file.Files.size(data.resolve(real + ".dat"));
+      check(
+          "move: existing real-uuid data is never overwritten",
+          PremiumIdentity.migrateFiles(dirs, offline, real) == PremiumIdentity.Migration.NOT_NEEDED
+              && java.nio.file.Files.size(data.resolve(real + ".dat")) == before
+              && java.nio.file.Files.exists(data.resolve(offline + ".dat")));
+
+      // unreadable source: nothing is changed
+      java.util.UUID offline2 =
+          java.util.UUID.nameUUIDFromBytes(
+              "OfflinePlayer:Alex".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+      java.nio.file.Files.writeString(data.resolve(offline2 + ".dat"), "not gzip");
+      check(
+          "move: unreadable player data fails without touching anything",
+          PremiumIdentity.migrateFiles(dirs, offline2, other) == PremiumIdentity.Migration.FAILED
+              && java.nio.file.Files.exists(data.resolve(offline2 + ".dat"))
+              && !java.nio.file.Files.exists(data.resolve(other + ".dat")));
+    } catch (java.io.IOException err) {
+      check("premium data move test setup: " + err, false);
+    }
+
+    check(
+        "no-uuid clients: an offline-mode name is never challenged",
+        !PremiumIdentity.challengeWithoutUuid("Bob", PremiumIdentity.Stored.NOT_PREMIUM));
+    check(
+        "no-uuid clients: an online-mode account is challenged",
+        PremiumIdentity.challengeWithoutUuid("Carol", PremiumIdentity.Stored.PREMIUM_WITH_PASSWORD));
+    PremiumIdentity.challengeSent("Carol");
+    check(
+        "no-uuid clients: still challenged after one unanswered challenge",
+        PremiumIdentity.challengeWithoutUuid("carol", PremiumIdentity.Stored.PREMIUM_WITH_PASSWORD));
+    PremiumIdentity.challengeSent("carol");
+    check(
+        "no-uuid clients: password account gets one unchallenged attempt after two misses",
+        !PremiumIdentity.challengeWithoutUuid("CAROL", PremiumIdentity.Stored.PREMIUM_WITH_PASSWORD));
+    check(
+        "no-uuid clients: ... and is challenged again afterwards",
+        PremiumIdentity.challengeWithoutUuid("Carol", PremiumIdentity.Stored.PREMIUM_WITH_PASSWORD));
+    PremiumIdentity.challengeSent("Dave");
+    PremiumIdentity.challengeAnswered("dave");
+    PremiumIdentity.challengeSent("Dave");
+    check(
+        "no-uuid clients: an answered challenge resets the miss counter",
+        PremiumIdentity.challengeWithoutUuid("Dave", PremiumIdentity.Stored.PREMIUM_WITH_PASSWORD));
+    PremiumIdentity.challengeSent("Erin");
+    PremiumIdentity.challengeSent("Erin");
+    PremiumIdentity.challengeSent("Erin");
+    check(
+        "no-uuid clients: a passwordless online-mode account is ALWAYS challenged",
+        PremiumIdentity.challengeWithoutUuid("Erin", PremiumIdentity.Stored.PREMIUM_PASSWORDLESS));
   }
 
   private static void check(String name, boolean condition) {

@@ -41,10 +41,16 @@ val loader: String = project.name.substringAfterLast("-")
 val parsedVersion = stonecutter.current.parsed
 val modernEra: Boolean = parsedVersion >= "26"
 val knownModernLine: Boolean = parsedVersion < "27"
+// 1.19 - 1.20.1 has its own group (build target 1.20.1): 1.20.2 reworked the login /
+// configuration phase and renamed or re-typed most of the methods AuthCore hooks, so a jar built
+// for 1.21.11 silently lost a dozen injections there, and legacy Forge (SRG runtime names, the
+// loader of most large modpacks) could not load a jar remapped for NeoForge at all.
+val midEra: Boolean = parsedVersion >= "1.19" && parsedVersion < "1.20.2"
 val rangeLabel: String =
     when {
         parsedVersion < "1.19" -> "1.16-1.18"
-        parsedVersion < "26" -> "1.19-1.21"
+        midEra -> "1.19-1.20"
+        parsedVersion < "26" -> "1.20.2-1.21"
         knownModernLine -> "26.1-26.3"
         else -> "$parsedVersion+"
     }
@@ -69,13 +75,15 @@ val rangeLabel: String =
 val minecraftRangeMin: String =
     when {
         parsedVersion < "1.19" -> "1.16"
-        parsedVersion < "26" -> "1.19"
+        midEra -> "1.19"
+        parsedVersion < "26" -> "1.20.2"
         knownModernLine -> "26.1"
         else -> parsedVersion.toString() // future line: the built version is the minimum
     }
 val minecraftRangeMax: String? =
     when {
         parsedVersion < "1.19" -> "1.18.2"
+        midEra -> "1.20.1"
         parsedVersion < "26" -> "1.21.11"
         else -> null // unobfuscated era: every future version of the line is allowed
     }
@@ -109,7 +117,7 @@ val variantDependencies = Properties().apply {
 //   G3 (26.1-26.3): neoforge 26.1.0+ (26.1 line)
 val forgeRange: String =
     if (parsedVersion < "1.19") "[38.0.0,)"
-    else "[41.1.0,)"
+    else "[41.0.0,)" // 1.19 line
 val forgeLoaderRange: String =
     if (parsedVersion < "1.19") "[38,)"
     else "[40,)"
@@ -134,7 +142,8 @@ val fabricLoaderRange: String =
 val fabricApiRange: String =
     when {
         parsedVersion < "1.19" -> ">=0.28.0"
-        parsedVersion < "26" -> ">=0.59.0"
+        midEra -> ">=0.59.0"
+        parsedVersion < "26" -> ">=0.89.0"
         else -> ">=0.134.0"
     }
 

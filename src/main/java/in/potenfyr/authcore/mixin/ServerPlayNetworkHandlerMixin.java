@@ -299,7 +299,7 @@ abstract class ServerPlayNetworkHandlerMixin {
    * handler above: the dispatcher mixins block commands too, but a version whose dispatcher
    * injection silently misses must not also lose the packet-level defense.
    */
-  /*? if >= 1.19.1 {*/
+  /*? if >= 1.20.5 {*/
   @Inject(
       method =
           "handleSignedChatCommand(Lnet/minecraft/network/protocol/game/ServerboundChatCommandSignedPacket;)V",

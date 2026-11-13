@@ -359,7 +359,7 @@ public final class MapImageService {
   }
 
   private static int selectedSlot(net.minecraft.world.entity.player.Inventory inventory) {
-    /*? if < 1.19 {*/
+    /*? if < 1.21.5 {*/
     /*return inventory.selected;
     *//*?} else {*/
     return inventory.getSelectedSlot();

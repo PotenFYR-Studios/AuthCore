@@ -520,6 +520,51 @@ public class Config {
 
       @Comment(
           """
+                    Show the real Mojang skin of verified premium players on OFFLINE-mode servers.
+                    • An offline-mode server gives every player an offline UUID with no skin data, so
+                      premium players appear with the default skin. With this enabled AuthCore attaches
+                      the skin data Mojang returned during the premium verification to the player's
+                      profile at login.
+                    • The player keeps their OFFLINE UUID - inventory, permissions, whitelist and every
+                      other mod's data are untouched. Safe to enable on existing servers.
+                    • Only applies to sessions AuthCore verified with Mojang (requires
+                      premium-auto-login, an offline-mode server and proxy-support disabled).
+                    • No effect on online-mode servers (vanilla already sends skins there).
+                    • Default: true""")
+      public boolean premiumSkins = true;
+
+      @Comment(
+          """
+                    Give verified premium players their REAL Mojang UUID on OFFLINE-mode servers
+                    (the same UUID an online-mode server would use), instead of the offline UUID.
+                    • READ THIS BEFORE ENABLING ON AN EXISTING SERVER. The UUID is the player's
+                      identity for everything on the server:
+                      - AuthCore moves the player's vanilla data (playerdata, advancements, stats) from
+                        the offline UUID to the real UUID on the first verified join and keeps a
+                        '.authcore-bak' copy of every moved file. The whitelist and operator entries
+                        are carried over, and a banned offline profile stays banned.
+                      - Data kept by OTHER mods/plugins under the offline UUID (permissions, claims,
+                        economy, homes ...) is NOT migrated - it must be migrated with that mod's own
+                        tools or the player starts fresh there.
+                    • The real UUID is only used when the Mojang session was verified AND the AuthCore
+                      account for that name is new, is an online-mode (premium) account, or already
+                      lives under that real UUID. A premium player whose account is still a password
+                      (offline-mode) account keeps the offline UUID until they run
+                      '/account set-mode online'.
+                    • While this is enabled, an account stored under a real UUID can ONLY be joined
+                      with a Mojang-verified session. If Mojang's session servers are unreachable those
+                      players cannot join until they are back (exactly like an online-mode server);
+                      offline-mode players are not affected.
+                    • Turning it OFF again does not move data back: those players return to their
+                      offline UUID (restore the '.authcore-bak' files, or move the files back by hand).
+                    • Best enabled on a NEW server, or right after switching an online-mode server to
+                      offline-mode (premium players then keep their existing data).
+                    • Requires premium-auto-login, an offline-mode server and proxy-support disabled.
+                    • Default: false""")
+      public boolean premiumRealUuid = false;
+
+      @Comment(
+          """
                     Allow offline (cracked) players to join and register/login.
                     • When false, ONLY players the server verified as genuine premium (Mojang)
                       accounts may join - offline players are kicked with a clear message on

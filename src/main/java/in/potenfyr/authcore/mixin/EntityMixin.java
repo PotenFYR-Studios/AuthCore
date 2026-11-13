@@ -74,17 +74,22 @@ public abstract class EntityMixin {
    * this method, so the limbo teleport and the post-login restore are unaffected.
    *
    * <p>The driver was renamed from {@code handleNetherPortal} to {@code handlePortal} in the
-   * 1.20 portal refactor, so each era's build must target the name its mappings actually contain:
+   * 1.21 portal refactor (the 1.20.2-1.21 jar also names the old method, which is what its
+   * 1.20.2-1.20.6 runtimes still have: intermediary on Fabric, Mojang name on NeoForge), so each era's build must target the name its mappings actually contain:
    * a single mixin listing both names makes the annotation processor warn that one of them
    * cannot be remapped for every variant.
    */
-  /*? if < 1.20 {*/
+  /*? if < 1.21 {*/
   /*@Inject(method = "handleNetherPortal()V", at = @At("HEAD"), cancellable = true, require = 0)
   private void authCore$blockNetherPortal(CallbackInfo ci) {
     if (blockLobbyPortal()) ci.cancel();
   }
   *//*?} else {*/
-  @Inject(method = "handlePortal()V", at = @At("HEAD"), cancellable = true, require = 0)
+  @Inject(
+      method = {"handlePortal()V", "method_18379()V", "handleNetherPortal()V"},
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
   private void authCore$blockPortal(CallbackInfo ci) {
     if (blockLobbyPortal()) ci.cancel();
   }

@@ -10,6 +10,11 @@ displayName = "${name}"
 description = "${description}"
 authors = "Ded3ec"
 logoFile = "assets/authcore/icon.png"
+# Server-only mod: without this the Forge default (MATCH_VERSION) flags every server running
+# AuthCore with a red X in the client's multiplayer list, because the mod is present on the
+# server and absent on the client. IGNORE_SERVER_VERSION is the documented value for this case
+# and is exactly what a modpack player needs - the pack's client files stay untouched.
+displayTest = "IGNORE_SERVER_VERSION"
 
 # Forge applies the same mixin configs as the fabric build (loader-agnostic selectors).
 [[mixins]]

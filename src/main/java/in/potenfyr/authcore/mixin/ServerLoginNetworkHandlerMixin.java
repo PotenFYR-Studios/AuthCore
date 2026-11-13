@@ -139,6 +139,12 @@ abstract class ServerLoginNetworkHandlerMixin {
   private void onVerifiedProfile(com.mojang.authlib.GameProfile profile) {
     if (profile == null) return;
 
+    // Online-mode servers only. On an offline-mode server a profile with textures is one AuthCore
+    // attached itself (premium-skins / premium-real-uuid) after its own verification, which
+    // already set a CONNECTION-BOUND marker - an unbound one here would replace it and could be
+    // consumed by another connection racing the same name to the join.
+    if (!AuthCoreServer.isServerOnline()) return;
+
     // Version-agnostic accessors: getProperties()/getId() on classic authlib, record
     // properties()/id() on 26.x.
     Object props = invoke(profile, "getProperties", "properties");

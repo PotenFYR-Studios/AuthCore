@@ -312,6 +312,8 @@ All features in AuthCore are **modular and optional**. Zero setup is required fo
 | **Web Administration Panel** | `session.web-panel` | Secure token-authenticated browser interface and REST API for remote management | `session { web-panel { enabled = true; token = "..." } }` |
 | **Honeypot Scanner Trap** | `session.honeypot` | Listens on a dummy port, automatically trapping and blocking malicious network scanners | `session { honeypot { enabled = true; port = 25599 } }` |
 | **Hybrid Auto-Login** | `session.authentication` | Automatically logs in verified Mojang accounts while allowing cracked clients | `session { authentication { premium-auto-login = true } }` |
+| **Premium Skins (offline servers)** | `session.authentication` | Verified premium players get their real Mojang skin on offline-mode servers; the offline UUID and all player data stay untouched | `session { authentication { premium-skins = true } }` |
+| **Premium Real UUID (offline servers)** | `session.authentication` | Opt-in: verified premium players join with their real Mojang UUID. Vanilla player data is moved once with `.authcore-bak` backups; data other mods store per UUID is not migrated - read the changelog notes first | `session { authentication { premium-real-uuid = false } }` |
 | **Proxy Forwarding** | `session.proxy-support` | Unpacks the real client IP from BungeeCord / Velocity-legacy forwarding payloads, with trusted-source validation | `session { proxy-support { enabled = true; protocol = "auto"; trusted-proxies = ["10.0.0.5"] } }` |
 | **Maintenance Mode** | `session.maintenance` | Restricts player access to administrators during database upgrades or server updates | `/authcore maintenance on` |
 | **Automatic Whitelist** | `session.auto-whitelist` | Automatically whitelists players on the native vanilla whitelist once registered | `session { auto-whitelist { enabled = true } }` |
@@ -428,7 +430,7 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 
 ## 🧪 Security Testing
 
-AuthCore features an autonomous security testing harness located in [`test/`](test/) with **296 automated unit and cryptographic checks** plus a 21-check in-mod simulation suite:
+AuthCore features an autonomous security testing harness located in [`test/`](test/) with **334 automated unit and cryptographic checks** plus a 21-check in-mod simulation suite:
 
 ```bash
 # Compile and execute the full security test suite
@@ -540,7 +542,7 @@ No. AuthCore operates 100% server-side. Players connect using vanilla Minecraft 
 - [x] **Enterprise Storage**: High-performance SQLite (WAL), MySQL, PostgreSQL, and Redis SSO event buses.
 - [x] **Browser Web Panel**: Token-authenticated REST administration interface with live metrics.
 - [x] **Proxy Parity**: Legacy BungeeCord / Velocity forwarding with trusted-source validation, a working `AUTH_CHANGED` proxy bridge on both proxies, and fail-closed enforcement.
-- [x] **Automated Test Rigor**: 296 automated cryptographic and security checks, a 21-check in-mod simulation suite, and a 17-endpoint parallel Docker matrix.
+- [x] **Automated Test Rigor**: 334 automated cryptographic and security checks, a 21-check in-mod simulation suite, and a 17-endpoint parallel Docker matrix.
 - [x] **Split Configuration Architecture**: Separate domain configs (`lobby.conf`, `session.conf`, `database.conf`) with automatic legacy migration.
 
 ---

@@ -16,8 +16,9 @@
 //   /*?}*/
 //
 // Version groups (one released jar per group):
-//   G1  1.16 - 1.18  (build target 1.18.2, intermediary era)
-//   G2  1.19 - 1.21  (build target 1.21.11, intermediary era)
+//   G1   1.16 - 1.18     (build target 1.18.2, intermediary era)
+//   G2a  1.19 - 1.20.1   (build target 1.20.1; Fabric + legacy Forge - the big-modpack era)
+//   G2b  1.20.2 - 1.21   (build target 1.21.11; Fabric + NeoForge)
 //   G3  26.1-26.3         (build target 26.3, unobfuscated / Mojang names)
 // ============================================================================
 
@@ -54,7 +55,8 @@ stonecutter {
         }
 
         mc("1.18.2", "fabric", "forge")          // G1: authcore-1.16-1.18-{fabric,forge}
-        mc("1.21.11", "fabric", "neoforge")      // G2: authcore-1.19-1.21-{fabric,neoforge}
+        mc("1.20.1", "fabric", "forge")          // G2a: authcore-1.19-1.20-{fabric,forge}
+        mc("1.21.11", "fabric", "neoforge")      // G2b: authcore-1.20.2-1.21-{fabric,neoforge}
         mc("26.3", "fabric", "neoforge")         // G3: authcore-26.1-26.3-{fabric,neoforge}
 
         // The default version used by IDEs and bare `gradlew` invocations.

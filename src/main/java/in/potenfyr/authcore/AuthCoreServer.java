@@ -71,7 +71,13 @@ public class AuthCoreServer {
     // premium - stale premium flags from earlier builds are bulk-cleared once per boot so
     // they cannot keep bypassing registration. Genuinely online-mode accounts are re-flagged
     // automatically when the server verifies Mojang sessions again.
-    if (!online && !premiumFlagMigrationDone) {
+    //
+    // NOT when AuthCore verifies Mojang sessions itself (offline server + premium auto-login, no
+    // proxy): the flags on such a server were set by a genuine verification, and clearing them on
+    // every boot sent every returning premium player back to the register prompt after the first
+    // restart ("it says verified but I am still in the limbo"). A flag can no longer bypass
+    // anything there - auto-login needs a verified session on THAT join.
+    if (!online && !premiumFlagMigrationDone && !isPremiumVerificationEnabled()) {
       premiumFlagMigrationDone = true;
       try {
         int cleared = in.potenfyr.authcore.util.Database.downgradePremiumAccounts();
@@ -188,6 +194,23 @@ public class AuthCoreServer {
     if (!config.session.authentication.premiumAutoLogin) return false;
     if (config.session.proxySupport.enabled) return false;
     return true;
+  }
+
+  /**
+   * The login encryption handshake could not be STARTED on this runtime (a server-side shape
+   * problem, not a client's answer). Nobody can be verified then, so the "unverified session for a
+   * premium account" rejection is switched off instead of locking every premium player out.
+   */
+  public static volatile boolean premiumHandshakeUnavailable = false;
+
+  /** premium-real-uuid: verified premium players join an offline server with their Mojang UUID. */
+  public static boolean isPremiumRealUuidEnabled() {
+    return isPremiumVerificationEnabled() && config.session.authentication.premiumRealUuid;
+  }
+
+  /** premium-skins: verified premium players keep the offline UUID but get their Mojang skin. */
+  public static boolean isPremiumSkinsEnabled() {
+    return isPremiumVerificationEnabled() && config.session.authentication.premiumSkins;
   }
 
   /** Boots the mod - called by every loader entrypoint. Idempotent for safety. */

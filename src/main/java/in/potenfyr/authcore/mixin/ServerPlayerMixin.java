@@ -139,6 +139,19 @@ abstract class ServerPlayerMixin {
     if (blockSleeping()) ci.cancel();
   }
 
+  // 26.x: startSleeping returns a boolean - the void descriptor above matches nothing there.
+  /*? if >= 26.1 {*/
+  /*@Inject(
+      method = "startSleeping(Lnet/minecraft/core/BlockPos;)Z",
+      at = @At("HEAD"),
+      cancellable = true,
+      require = 0)
+  private void authCore$blockSleepingModern(
+      net.minecraft.core.BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+    if (blockSleeping()) cir.setReturnValue(false);
+  }
+  *//*?}*/
+
   @Unique
   private boolean blockSleeping() {
     ServerPlayer player = self();
