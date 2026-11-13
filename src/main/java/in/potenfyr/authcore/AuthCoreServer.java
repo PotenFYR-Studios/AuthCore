@@ -43,6 +43,7 @@ public class AuthCoreServer {
           runnable -> {
             Thread thread = new Thread(runnable, "AuthCore-IO");
             thread.setDaemon(true);
+            thread.setContextClassLoader(AuthCoreServer.class.getClassLoader());
             return thread;
           });
 

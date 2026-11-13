@@ -52,6 +52,7 @@ public final class Honeypot {
               },
               "AuthCore-Honeypot");
       thread.setDaemon(true);
+      thread.setContextClassLoader(Honeypot.class.getClassLoader());
       thread.start();
 
       AuthCoreServer.LOGGER.warn(

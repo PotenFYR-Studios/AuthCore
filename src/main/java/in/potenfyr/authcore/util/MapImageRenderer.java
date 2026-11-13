@@ -114,11 +114,28 @@ public final class MapImageRenderer {
   }
   private static synchronized void ensurePalette() {
     if (paletteSize > 0 || paletteUnavailable) return;
-    /*? if < 1.19.4 {*/
-    /*Class<?> colorClass = net.minecraft.world.level.material.MaterialColor.class;
-    *//*?} else {*/
-    Class<?> colorClass = net.minecraft.world.level.material.MapColor.class;
-    /*?}*/
+    Class<?> colorClass;
+    try {
+      /*? if < 1.19.4 {*/
+      /*colorClass = net.minecraft.world.level.material.MaterialColor.class;
+      *//*?} else {*/
+      colorClass = net.minecraft.world.level.material.MapColor.class;
+      /*?}*/
+    } catch (LinkageError renamed) {
+      // Forge 1.19.x under the 1.20.1 build: SRG keeps Mojang CLASS names at runtime, and this
+      // class was still called MaterialColor before 1.20 - every map feature (QR codes, map
+      // captcha) failed there with NoClassDefFoundError. Intermediary runtimes never get here.
+      try {
+        colorClass =
+            Class.forName(
+                "net.minecraft.world.level.material.MaterialColor",
+                false,
+                MapImageRenderer.class.getClassLoader());
+      } catch (ClassNotFoundException | LinkageError unknownEra) {
+        paletteUnavailable = true;
+        return;
+      }
+    }
     // Strategy 1 (1.18+): enumerate byId(int) and multiply by the nested Brightness enum.
     int count = paletteFromColors(colorClass);
     // Strategy 2 (1.16.5/1.17.1): those versions have NO Brightness enum at all, so the palette

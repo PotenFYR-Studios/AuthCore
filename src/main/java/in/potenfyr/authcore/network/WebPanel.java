@@ -109,6 +109,13 @@ public final class WebPanel {
               runnable -> {
                 Thread thread = new Thread(runnable, "AuthCore-WebPanel");
                 thread.setDaemon(true);
+                // These workers are spawned by the JDK's HTTP dispatcher thread and would
+                // inherit ITS context class loader (the JVM app loader, which cannot see the
+                // mod's bundled libraries). Forge's event-bus class transformer resolves
+                // superclasses through the context loader and logged "Could not find parent
+                // org/sqlite/..." ERRORs on Forge 1.20.6 / 1.21.1 for every class first loaded
+                // on such a thread. Every AuthCore thread therefore carries the mod's loader.
+                thread.setContextClassLoader(WebPanel.class.getClassLoader());
                 return thread;
               },
               new java.util.concurrent.ThreadPoolExecutor.CallerRunsPolicy()));

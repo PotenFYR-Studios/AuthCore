@@ -284,6 +284,7 @@ public final class RedisManager {
             },
             "AuthCore-RedisEvents");
     thread.setDaemon(true);
+    thread.setContextClassLoader(RedisManager.class.getClassLoader());
     thread.start();
     AuthCoreServer.LOGGER.info(true, "Redis security event bus subscribed on '{}'", EVENT_CHANNEL);
   }

@@ -971,6 +971,7 @@ public class User {
           runnable -> {
             Thread thread = new Thread(runnable, "AuthCore-DB-Writer");
             thread.setDaemon(true);
+            thread.setContextClassLoader(User.class.getClassLoader());
             return thread;
           });
 

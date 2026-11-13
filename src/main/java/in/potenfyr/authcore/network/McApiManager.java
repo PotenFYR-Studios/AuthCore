@@ -359,21 +359,42 @@ public final class McApiManager {
       /*// 1.16-1.20.4: direct call (remapped to SRG/intermediary for the released jar).
       return Boolean.valueOf(stack.hasPermission(level));
       *//*?} else {*/
-      try {
-        return Boolean.valueOf(
-            stack
-                .permissions()
-                .hasPermission(
-                    new net.minecraft.server.permissions.Permission.HasCommandLevel(
-                        net.minecraft.server.permissions.PermissionLevel.byId(level))));
-      } catch (RuntimeException | LinkageError missingApi) {
-        // Older runtime inside this jar's range (1.19-1.21.10 under the 1.21.11 build): the int
-        // level API is located by SHAPE - CommandSourceStack's only public (int) -> boolean method
-        // is hasPermission(int) there - so no mapping name is needed on intermediary/SRG/Mojang.
-        return legacySourceHasLevel(stack, level);
+      if (!permissionSetApiMissing) {
+        try {
+          return Boolean.valueOf(PermissionSetCheck.has(stack, level));
+        } catch (RuntimeException | LinkageError missingApi) {
+          permissionSetApiMissing = true;
+        }
       }
+      // Older runtime inside this jar's range (1.19-1.21.10 under the 1.21.11 build): the int
+      // level API is located by SHAPE - CommandSourceStack's only public (int) -> boolean method
+      // is hasPermission(int) there - so no mapping name is needed on intermediary/SRG/Mojang.
+      return legacySourceHasLevel(stack, level);
       /*?}*/
     }
+
+    /*? if >= 1.20.5 {*/
+    private static volatile boolean permissionSetApiMissing;
+
+    /**
+     * The 1.21.11+ {@code PermissionSet} call, isolated in its own class ON PURPOSE. Passing a
+     * {@code HasCommandLevel} where a {@code Permission} is expected makes the JVM verifier load
+     * {@code Permission} when it links the class that CONTAINS the call - not when the call runs.
+     * Inline in {@code PermissionUtil}, a runtime without that class (1.20.6 - 1.21.10) failed to
+     * link all of {@code PermissionUtil}, outside any try block: the first command crashed the
+     * server with {@code NoClassDefFoundError} (seen on Forge 1.21.1 / 1.21.5). Here the same
+     * failure surfaces at the call to {@link #has}, inside the caller's try.
+     */
+    private static final class PermissionSetCheck {
+      static boolean has(net.minecraft.commands.CommandSourceStack stack, int level) {
+        return stack
+            .permissions()
+            .hasPermission(
+                new net.minecraft.server.permissions.Permission.HasCommandLevel(
+                    net.minecraft.server.permissions.PermissionLevel.byId(level)));
+      }
+    }
+    /*?}*/
 
     private static volatile java.lang.reflect.Method legacySourceLevelCheck;
     private static volatile boolean legacySourceLevelResolved;
