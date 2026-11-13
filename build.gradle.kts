@@ -46,10 +46,18 @@ val knownModernLine: Boolean = parsedVersion < "27"
 // for 1.21.11 silently lost a dozen injections there, and legacy Forge (SRG runtime names, the
 // loader of most large modpacks) could not load a jar remapped for NeoForge at all.
 val midEra: Boolean = parsedVersion >= "1.19" && parsedVersion < "1.20.2"
+// Forge splits the 1.20.2 - 1.21 range in two, because its runtime names changed in the middle:
+// 1.20.2 - 1.20.4 still run on SRG names and Java 17 (build target 1.20.4), while 1.20.6+ runs on
+// Mojang names and Java 21 (build target 1.21.11; Forge skipped 1.20.5). No single jar can load
+// on both, so each half is its own released jar with its own label.
+val forgeSrgTail: Boolean = loader == "forge" && parsedVersion >= "1.20.2" && parsedVersion < "1.20.5"
+val forgeMojangEra: Boolean = loader == "forge" && parsedVersion >= "1.20.5" && parsedVersion < "26"
 val rangeLabel: String =
     when {
         parsedVersion < "1.19" -> "1.16-1.18"
         midEra -> "1.19-1.20"
+        forgeSrgTail -> "1.20.2-1.20.4"
+        forgeMojangEra -> "1.20.6-1.21"
         parsedVersion < "26" -> "1.20.2-1.21"
         knownModernLine -> "26.1-26.3"
         else -> "$parsedVersion+"
@@ -84,19 +92,27 @@ val minecraftRangeMax: String? =
     when {
         parsedVersion < "1.19" -> "1.18.2"
         midEra -> "1.20.1"
+        forgeSrgTail -> "1.20.4"
         parsedVersion < "26" -> "1.21.11"
         else -> null // unobfuscated era: every future version of the line is allowed
     }
 val minecraftRange: String =
     if (minecraftRangeMax == null) ">=$minecraftRangeMin"
     else ">=$minecraftRangeMin <=$minecraftRangeMax"
-// Legacy Forge is narrower than the Fabric jar of the same group: before 1.17 Forge ran on MCP
-// names (func_/field_ members, MCP class names) and 1.17 Forge runs on Java 16 - the Java 17,
-// Mojang-class-named G1 jar can only load on Forge 1.18.x. Declaring [1.16,1.18.2] let FML
-// accept it on 1.16.5/1.17.1 and crash at the first class reference instead of reporting the
+// Legacy Forge is narrower than the Fabric jar of the same group - the G1 jar can only load on
+// Forge 1.18.x. Both older lines are platform limits, checked on real servers:
+//   - Forge 1.16.5 cannot start on Java 17 at all (a pristine 36.2.42 server dies in ModLauncher
+//     with an IllegalAccessError), and this code base is Java 17.
+//   - Forge 1.17.1 starts on Java 17 but has no jar-in-jar support (added in 1.18), so none of
+//     the bundled libraries are visible: "NoClassDefFoundError: org/spongepowered/configurate/...".
+// Declaring [1.16,1.18.2] let FML accept the jar there and crash instead of reporting the
 // unsupported version cleanly.
 val forgeMinecraftMin: String =
-    if (mod.isForge && parsedVersion < "1.19") "1.18" else minecraftRangeMin
+    when {
+        mod.isForge && parsedVersion < "1.19" -> "1.18"
+        forgeMojangEra -> "1.20.6"
+        else -> minecraftRangeMin
+    }
 val minecraftRangeForge: String =
     if (minecraftRangeMax == null) "[$forgeMinecraftMin,)"
     else "[$forgeMinecraftMin,$minecraftRangeMax]"
@@ -115,12 +131,23 @@ val variantDependencies = Properties().apply {
 //   G1 (1.16-1.18): forge 38.0.0+ (1.18 line - see minecraftRangeForge: older Forge cannot load it)
 //   G2 (1.19-1.21): forge 41.1.0+ (1.19 line), neoforge 20.2.59-beta+ (1.20.2 line)
 //   G3 (26.1-26.3): neoforge 26.1.0+ (26.1 line)
+//   Forge 1.20.2-1.20.4: forge 48.0.0+   Forge 1.20.6-1.21: forge 50.0.0+   Forge 26.x: forge 62.0.0+
 val forgeRange: String =
-    if (parsedVersion < "1.19") "[38.0.0,)"
-    else "[41.0.0,)" // 1.19 line
+    when {
+        parsedVersion < "1.19" -> "[38.0.0,)"
+        parsedVersion < "1.20.2" -> "[41.0.0,)" // 1.19 line
+        parsedVersion < "1.20.5" -> "[48.0.0,)" // 1.20.2 line
+        parsedVersion < "26" -> "[50.0.0,)" // 1.20.6 line
+        else -> "[62.0.0,)" // 26.1 line
+    }
 val forgeLoaderRange: String =
-    if (parsedVersion < "1.19") "[38,)"
-    else "[40,)"
+    when {
+        parsedVersion < "1.19" -> "[38,)"
+        parsedVersion < "1.20.2" -> "[40,)"
+        parsedVersion < "1.20.5" -> "[48,)"
+        parsedVersion < "26" -> "[50,)"
+        else -> "[62,)"
+    }
 val neoforgeRange: String =
     when {
         parsedVersion < "26" -> "[20.2.59-beta,)"
@@ -183,8 +210,15 @@ modSettings {
                     stonecutter.current.parsed < "26" -> ">=21"
                     else -> ">=25"
                 },
+            // The level must be one the loader's bundled Mixin knows, or the server refuses to
+            // boot ("compatibility level JAVA_25 which is not recognised"). Forge ships older
+            // Mixin builds than Fabric/NeoForge of the same Minecraft version: Mixin 0.8.5 on
+            // Forge 1.20.6 rejected JAVA_21 and Mixin 0.8.7 on Forge 26.x rejected JAVA_25. The
+            // levels below are the ones every Forge endpoint of each jar boots with.
             "mixinCompatibilityLevel" to
                 when {
+                    forgeMojangEra -> "JAVA_17"
+                    mod.isForge && modernEra -> "JAVA_21"
                     stonecutter.current.parsed < "1.17" -> "JAVA_16"
                     stonecutter.current.parsed < "1.20.5" -> "JAVA_17"
                     stonecutter.current.parsed < "26" -> "JAVA_21"
@@ -312,6 +346,22 @@ tasks.withType<ProcessResources>().configureEach {
     filesMatching("bungee.yml") { expand("version" to modVersion) }
 }
 
+// Forge 26.x: Stonecraft generates the mod's pack.mcmeta in the pre-1.21.9 shape
+// ("pack_format": 97.1 plus a half-open "supported_formats"), which 26.x rejects - every boot
+// logged "Error reading pack metadata ... missing mandatory fields min_format and max_format"
+// with a stack trace. The file is rewritten in the current shape; the range is open-ended on
+// purpose, matching the jar's open-ended Minecraft range (the pack carries no versioned content).
+if (mod.isForge && modernEra) {
+    tasks.withType<ProcessResources>().configureEach {
+        val description = "AuthCore server resources"
+        doLast {
+            destinationDir.resolve("pack.mcmeta").writeText(
+                """{"pack":{"description":"$description","min_format":82,"max_format":9999}}""" + "\n"
+            )
+        }
+    }
+}
+
 // Legacy Forge (1.16 - 1.20.x FML) does NOT read the [[mixins]] block of mods.toml - that is a
 // NeoForge / modern-Forge feature. Old FML only applies the mixin configs named in the jar
 // MANIFEST, so the 1.16-1.18 Forge jar shipped with ZERO active mixins: no premium verification
@@ -327,7 +377,7 @@ if (mod.isForge) {
 // Copies the built jar of THIS variant into the top-level dist/ folder.
 // The root-level "collectJars" aggregation task (registered once during the
 // active-variant evaluation) depends on every variant's "collectJar" task,
-// so a single `gradlew buildAll` collects ALL seven jars into dist/.
+// so a single `gradlew buildAll` collects the jar of EVERY variant into dist/.
 // The remapped jar is the deployable artifact on intermediary-mapped variants
 // (G1/G2 fabric+forge), while the unobfuscated G3 variants only produce a plain jar.
 val collectJar = tasks.register<Copy>("collectJar") {
@@ -362,7 +412,7 @@ val exportSecurityTestLibs = tasks.register<Copy>("exportSecurityTestLibs") {
 // ----------------------------------------------------------------------------
 // Aggregate tasks (run on EVERY variant at once).
 //
-//   buildAll          - compiles all seven variants (3 ranges x fabric/forge/neoforge)
+//   buildAll          - compiles every variant (each loader on each range it exists on)
 //                       and stages the release jars into dist/ - the one command IDEs,
 //                       CI and release scripts use. Usable as `gradlew buildAll`.
 //   testAll           - buildAll + the standalone security/migration test suite
@@ -385,7 +435,7 @@ tasks.register("buildAll") {
 // ------------------------------------------------------------------
 // Root-level aggregation: collects the jar from EVERY variant into
 // dist/ so `gradlew collectJars` (or any task that depends on it)
-// produces all 7 release artifacts regardless of which variant is
+// produces every release artifact regardless of which variant is
 // currently active. Each variant registers its own "collectJar" task
 // above; this task simply depends on all of them.
 // ------------------------------------------------------------------

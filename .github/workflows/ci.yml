@@ -5,11 +5,12 @@ name: CI
 #                 templated descriptors, and every versions/* node present in the matrix
 #   lint        - actionlint over .github/workflows (catches broken expressions, unknown
 #                 inputs and stale action versions without spending a build leg)
-#   build       - builds the EIGHT variants (4 ranges x fabric/forge/neoforge) IN PARALLEL via a
-#                 matrix (one runner per variant), verifies each jar's role/descriptors and
+#   build       - builds every variant (Fabric, Forge and NeoForge for each Minecraft range they
+#                 exist on) IN PARALLEL via a matrix (one runner per variant), verifies each
+#                 jar's role/descriptors and
 #                 bytecode target, runs the security test suite once on the primary variant,
 #                 uploads per-variant jar artifacts
-#   merge       - needs build: collects all eight jars, enforces the exact-count gate, publishes
+#   merge       - needs build: collects all the jars, enforces the exact-count gate, publishes
 #                 the shared "authcore-jars" artifact
 #   host-tests  - needs merge: downloads the jars (no rebuild) and runs the Docker harness
 #                 (smoke on push/PR, full range matrix on workflow_dispatch)
@@ -55,6 +56,12 @@ concurrency:
 # Least privilege by default; jobs that need write access declare it explicitly.
 permissions:
   contents: read
+
+env:
+  # Number of released jars = number of legs in the build matrix. This is the ONLY place the
+  # count lives: the merge gate and both release checks read it, and the guard job fails when
+  # it disagrees with the variants declared in settings.gradle.kts.
+  EXPECTED_JARS: 11
 
 defaults:
   run:
@@ -122,9 +129,19 @@ jobs:
             group: 1.19-1.20
             java: 17
             classfile: 61
-          # Group G2b: 1.20.2 - 1.21 (Java 21, classfile major 65)
+          # Forge 1.20.2 - 1.20.4 (Java 17, classfile major 61) - the last SRG-named Forge line
+          - variant: 1.20.4-forge
+            group: 1.20.2-1.20.4
+            java: 17
+            classfile: 61
+          # Group G2b: 1.20.2 - 1.21 (Java 21, classfile major 65). Forge runs on Mojang names
+          # from 1.20.6, so its jar of this build target is released as 1.20.6-1.21.
           - variant: 1.21.11-fabric
             group: 1.20.2-1.21
+            java: 21
+            classfile: 65
+          - variant: 1.21.11-forge
+            group: 1.20.6-1.21
             java: 21
             classfile: 65
           - variant: 1.21.11-neoforge
@@ -133,6 +150,10 @@ jobs:
             classfile: 65
           # Group G3: 26.1 - 26.3 (Java 25, classfile major 69)
           - variant: 26.3-fabric
+            group: 26.1-26.3
+            java: 25
+            classfile: 69
+          - variant: 26.3-forge
             group: 26.1-26.3
             java: 25
             classfile: 69
@@ -230,13 +251,13 @@ jobs:
                   && echo "  OK $TOML mixin config declared" || { echo "::error::$JAR: $TOML does not declare the mixin config"; STATUS=1; }
               fi
             done
-            # Legacy Forge (1.16-1.18) ignores the [[mixins]] toml block entirely and only reads
-            # the jar manifest - the 1.0.2 forge jar shipped with zero active mixins because of it.
+            # Forge ignores the [[mixins]] toml block entirely and only reads the jar manifest -
+            # the 1.0.2 forge jar shipped with zero active mixins because of it.
             case "${{ matrix.variant }}" in
-              1.18.2-forge|1.20.1-forge)
+              *-forge)
                 unzip -p "$JAR" META-INF/MANIFEST.MF | grep -q 'MixinConfigs: authcore.server.mixins.json' \
-                  && echo "  OK legacy Forge MixinConfigs manifest" \
-                  || { echo "::error::$JAR: legacy Forge manifest has no MixinConfigs - no mixin would load"; STATUS=1; }
+                  && echo "  OK Forge MixinConfigs manifest" \
+                  || { echo "::error::$JAR: Forge manifest has no MixinConfigs - no mixin would load"; STATUS=1; }
                 ;;
             esac
             # Proxy descriptors are templated from mod.version - a stale copy mislabels the
@@ -315,7 +336,7 @@ jobs:
           if-no-files-found: ignore
 
   # ------------------------------------------------------------------
-  # Collect all eight variant jars into one verified artifact that the
+  # Collect all the variant jars into one verified artifact that the
   # host-test harness and the release consume.
   # ------------------------------------------------------------------
   merge:
@@ -332,12 +353,12 @@ jobs:
           merge-multiple: true
           path: release
 
-      - name: Verify jar count (8 variants expected)
+      - name: Verify jar count (one per build-matrix leg)
         run: |
           COUNT=$(ls release/authcore-*.jar | wc -l)
           echo "Found $COUNT jars"
-          if [ "$COUNT" -ne 8 ]; then
-            echo "::error::Expected exactly 6 release jars, found $COUNT"
+          if [ "$COUNT" -ne "$EXPECTED_JARS" ]; then
+            echo "::error::Expected exactly $EXPECTED_JARS release jars, found $COUNT"
             exit 1
           fi
           ls -la release/
@@ -352,7 +373,8 @@ jobs:
 
   # ------------------------------------------------------------------
   # Docker compatibility harness: real servers, real boots, booted in
-  # PARALLEL across group runners (G1: 1.16-1.18, G2a: 1.19-1.20, G2b: 1.20.2-1.21, G3: 26.1-26.3)
+  # PARALLEL across group runners (G1: 1.16-1.18, G2a: 1.19-1.20, G2b: 1.20.2-1.21, G3: 26.1-26.3,
+  # plus the two Forge-only ranges 1.20.2-1.20.4 and 1.20.6-1.21)
   # on the official eclipse-temurin JRE images (17/21/25).
   # Downloads the jars from `build` (never rebuilds).
   # ------------------------------------------------------------------
@@ -368,7 +390,11 @@ jobs:
             java: 17
           - group: 1.19-1.20
             java: 17
+          - group: 1.20.2-1.20.4
+            java: 17
           - group: 1.20.2-1.21
+            java: 21
+          - group: 1.20.6-1.21
             java: 21
           - group: 26.1-26.3
             java: 25
@@ -499,8 +525,8 @@ jobs:
               *) echo "::error::$(basename "$JAR") is not a $VER build"; exit 1 ;;
             esac
           done
-          if [ "$COUNT" -ne 8 ]; then
-            echo "::error::Expected 6 jars for $VER, found $COUNT"
+          if [ "$COUNT" -ne "$EXPECTED_JARS" ]; then
+            echo "::error::Expected $EXPECTED_JARS jars for $VER, found $COUNT"
             exit 1
           fi
 
@@ -604,8 +630,9 @@ jobs:
           gh release view "$TAG" --json name,tagName,isDraft,assets \
             --jq '"\(.name) (\(.tagName)) draft=\(.isDraft)", (.assets[] | "  \(.name)  \(.size) bytes  \(.updatedAt)")'
           PUBLISHED=$(gh release view "$TAG" --json assets --jq '.assets | length')
-          if [ "$PUBLISHED" -ne 7 ]; then
-            echo "::error::Release $TAG has $PUBLISHED assets, expected 7 (6 jars + SHA256SUMS)"
+          EXPECTED_ASSETS=$((EXPECTED_JARS + 1))
+          if [ "$PUBLISHED" -ne "$EXPECTED_ASSETS" ]; then
+            echo "::error::Release $TAG has $PUBLISHED assets, expected $EXPECTED_ASSETS ($EXPECTED_JARS jars + SHA256SUMS)"
             exit 1
           fi
           for JAR in release/*.jar; do
@@ -623,4 +650,4 @@ jobs:
           gh release download "$TAG" --pattern 'authcore-*.jar' --pattern 'SHA256SUMS' --dir "$VERIFY_DIR"
           ( cd "$VERIFY_DIR" && sha256sum -c SHA256SUMS )
           rm -rf "$VERIFY_DIR"
-          echo "Release $TAG carries exactly this build's 6 jars (checksums verified)."
+          echo "Release $TAG carries exactly this build's $EXPECTED_JARS jars (checksums verified)."

@@ -2,7 +2,7 @@
 # ============================================================================
 # Version / metadata guard.
 #
-# Runs on every push and PR before the six-variant build, so a release can never
+# Runs on every push and PR alongside the variant builds, so a release can never
 # be blocked at the very last step by metadata that has drifted:
 #   - gradle.properties mod.version has a matching "## [<version>]" changelog
 #     section (the release notes are cut from that section)
@@ -84,6 +84,16 @@ for VARIANT in $MATRIX; do
   fi
 done
 echo "declared variants     = $(printf '%s\n' "$DECLARED" | tr '\n' ' ')"
+
+# --- the jar-count gate matches the number of variants ------------------------
+# EXPECTED_JARS drives the merge gate and the release asset check; a stale value passes every
+# build and then fails the run at the very last step, after the release was already updated.
+EXPECTED=$(sed -n 's/^ *EXPECTED_JARS: *\([0-9][0-9]*\) *$/\1/p' .github/workflows/ci.yml | head -1)
+ACTUAL=$(printf '%s\n' "$DECLARED" | grep -c .)
+echo "EXPECTED_JARS         = ${EXPECTED:-<missing>} (declared variants: $ACTUAL)"
+if [ "$EXPECTED" != "$ACTUAL" ]; then
+  fail "ci.yml EXPECTED_JARS (${EXPECTED:-missing}) does not match the $ACTUAL variants declared in settings.gradle.kts"
+fi
 
 if [ "$FAIL" -ne 0 ]; then
   echo "Metadata guard FAILED"

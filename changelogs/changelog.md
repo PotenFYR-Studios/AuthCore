@@ -23,6 +23,40 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > snapshot, credential commands, offline-server premium verification, the database write path and
 > the red CI host-tests. The first-pass notes follow the second-pass sections below.
 
+### Added - Forge on every Minecraft version from 1.18 to 26.3 (2026-11-13)
+
+- **Three new Forge jars** close the gap between Forge 1.20.1 and today. Forge now has a jar for
+  every version it publishes from 1.18 on, like Fabric and NeoForge already had:
+  - `authcore-1.20.2-1.20.4-forge` - Forge 1.20.2 - 1.20.4 (Java 17)
+  - `authcore-1.20.6-1.21-forge` - Forge 1.20.6 - 1.21.11 (Java 21; Forge has no 1.20.5 build)
+  - `authcore-26.1-26.3-forge` - Forge 26.1 and newer (Java 25)
+- Forge needs three jars where Fabric needs one because its runtime names changed twice in that
+  span (SRG names until 1.20.4, Mojang names from 1.20.6), and the 1.20.6+ jar registers its
+  event listeners reflectively because Forge replaced its event bus at 1.21.6.
+- Every new jar is booted on real Forge servers by the host-test harness: 1.20.2, 1.20.4, 1.20.6,
+  1.21.1, 1.21.5, 1.21.11, 26.1.2, 26.2 and 26.3.
+- **Not supported, by Forge's own limits:** Forge 1.16.x cannot start on Java 17, which AuthCore
+  requires, and Forge 1.17.x cannot load a mod's bundled libraries (jar-in-jar arrived in 1.18).
+  The Fabric jar covers 1.16 and 1.17.
+
+### Fixed - found while booting the Forge jars on every version (2026-11-13)
+
+- **Map features failed on Forge 1.19.x** (`authcore-1.19-1.20-forge`): QR codes and the map
+  captcha threw `NoClassDefFoundError: MapColor`, because that class was still named
+  `MaterialColor` before 1.20 and Forge keeps Mojang class names at runtime. The palette is now
+  found under either name.
+- **A permission check could crash command handling** on a Mojang-named runtime older than
+  1.21.11 (`NoClassDefFoundError: net/minecraft/server/permissions/Permission`, seen on Forge
+  1.21.1 and 1.21.5). The 1.21.11-only call is isolated so older versions fall back to the
+  level check as intended.
+- **AuthCore's worker threads now carry the mod's class loader.** Web-panel workers inherited the
+  JVM's loader, which made Forge 1.20.6 / 1.21.1 log `Could not find parent org/sqlite/...`
+  errors for classes first loaded on those threads.
+- **CI: the release job failed its last check** ("Release has 9 assets, expected 7") after the
+  1.19-1.20 jars were added, because the expected count was hardcoded in three places. The
+  count now lives in one place and the metadata guard fails within seconds if it disagrees with
+  the variant list.
+
 ### Fixed - nobody could eat or throw items on servers that also load Fabric API (2026-11-13)
 
 - **Every in-hand item use was cancelled for every player, authenticated or not** (reported on

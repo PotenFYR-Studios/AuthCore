@@ -117,11 +117,19 @@ Each compiled jar performs **both roles**: a native server mod (Fabric, Forge, o
 | Jar Artifact | Minecraft Versions | Loader | Target Java | Era & Architecture |
 |:---|:---|:---:|:---:|:---|
 | `authcore-1.16-1.18-fabric-<v>.jar` | **1.16.0 – 1.18.2** | Fabric | 17 | Intermediary mappings era |
-| `authcore-1.16-1.18-forge-<v>.jar` | **1.18 – 1.18.2** | Forge | 17 | SRG mappings era (Forge 1.16/1.17 cannot load a Java 17, Mojang-class-named jar) |
-| `authcore-1.19-1.21-fabric-<v>.jar` | **1.19.0 – 1.21.11** | Fabric | 21 | Intermediary mappings era |
-| `authcore-1.19-1.21-neoforge-<v>.jar` | **1.19.0 – 1.21.11** | NeoForge | 21 | Intermediary mappings era |
+| `authcore-1.16-1.18-forge-<v>.jar` | **1.18 – 1.18.2** | Forge | 17 | SRG mappings era (see the Forge note below for 1.16 / 1.17) |
+| `authcore-1.19-1.20-fabric-<v>.jar` | **1.19.0 – 1.20.1** | Fabric | 17 | Intermediary mappings era |
+| `authcore-1.19-1.20-forge-<v>.jar` | **1.19.0 – 1.20.1** | Forge (also NeoForge 1.20.1) | 17 | SRG mappings era - the big-modpack versions |
+| `authcore-1.20.2-1.20.4-forge-<v>.jar` | **1.20.2 – 1.20.4** | Forge | 17 | Last SRG-named Forge line |
+| `authcore-1.20.2-1.21-fabric-<v>.jar` | **1.20.2 – 1.21.11** | Fabric | 21 | Intermediary mappings era |
+| `authcore-1.20.6-1.21-forge-<v>.jar` | **1.20.6 – 1.21.11** | Forge | 21 | Mojang names at runtime (Forge has no 1.20.5 build) |
+| `authcore-1.20.2-1.21-neoforge-<v>.jar` | **1.20.2 – 1.21.11** | NeoForge | 21 | Mojang names at runtime |
 | `authcore-26.1-26.3-fabric-<v>.jar` | **26.1 – 26.3+ & Snapshots** | Fabric | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
+| `authcore-26.1-26.3-forge-<v>.jar` | **26.1 – 26.3+ & Snapshots** | Forge | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
 | `authcore-26.1-26.3-neoforge-<v>.jar` | **26.1 – 26.3+ & Snapshots** | NeoForge | 25 | Unobfuscated era (Official Mojang names, forward-compatible) |
+
+> [!NOTE]
+> **Every loader, every version it exists on, from 1.16 up** - with two Forge exceptions that are limits of old Forge itself, not of AuthCore: **Forge 1.16.x** cannot start on Java 17 (AuthCore requires Java 17 or newer), and **Forge 1.17.x** has no jar-in-jar support, so AuthCore's bundled libraries cannot load there. Use the Fabric jar on 1.16 / 1.17. NeoForge begins at 1.20.1.
 
 > [!TIP]
 > **Why range jars?** Minecraft 26.0+ ships completely **unobfuscated code** and Fabric intermediary is deprecated for 26.x onwards (see [Fabric announcement](https://fabricmc.net/2025/10/31/obfuscation)). Each range jar is thoroughly verified across every endpoint in its version bracket using our parallel Docker test harness.
@@ -418,12 +426,17 @@ Gradle toolchains auto-provision **JDK 17, 21, and 25** (one per version group),
 ./gradlew build
 
 # Build a specific loader and version target
-./gradlew :1.18.2-fabric:build      # -> dist/authcore-1.16-1.18-fabric-1.0.3.jar
-./gradlew :1.18.2-forge:build       # -> dist/authcore-1.16-1.18-forge-1.0.3.jar
-./gradlew :1.21.11-fabric:build     # -> dist/authcore-1.19-1.21-fabric-1.0.3.jar
-./gradlew :1.21.11-neoforge:build   # -> dist/authcore-1.19-1.21-neoforge-1.0.3.jar
-./gradlew :26.3-fabric:build        # -> dist/authcore-26.1-26.3-fabric-1.0.3.jar
-./gradlew :26.3-neoforge:build      # -> dist/authcore-26.1-26.3-neoforge-1.0.3.jar
+./gradlew :1.18.2-fabric:build      # -> authcore-1.16-1.18-fabric-1.0.3.jar
+./gradlew :1.18.2-forge:build       # -> authcore-1.16-1.18-forge-1.0.3.jar
+./gradlew :1.20.1-fabric:build      # -> authcore-1.19-1.20-fabric-1.0.3.jar
+./gradlew :1.20.1-forge:build       # -> authcore-1.19-1.20-forge-1.0.3.jar
+./gradlew :1.20.4-forge:build       # -> authcore-1.20.2-1.20.4-forge-1.0.3.jar
+./gradlew :1.21.11-fabric:build     # -> authcore-1.20.2-1.21-fabric-1.0.3.jar
+./gradlew :1.21.11-forge:build      # -> authcore-1.20.6-1.21-forge-1.0.3.jar
+./gradlew :1.21.11-neoforge:build   # -> authcore-1.20.2-1.21-neoforge-1.0.3.jar
+./gradlew :26.3-fabric:build        # -> authcore-26.1-26.3-fabric-1.0.3.jar
+./gradlew :26.3-forge:build         # -> authcore-26.1-26.3-forge-1.0.3.jar
+./gradlew :26.3-neoforge:build      # -> authcore-26.1-26.3-neoforge-1.0.3.jar
 ```
 
 ---
@@ -464,8 +477,9 @@ test/docker/run-tests.sh --all
 
 # Run specific version brackets
 test/docker/run-tests.sh --groups 1.16-1.18 --java 17
-test/docker/run-tests.sh --groups 1.19-1.21 --java 21
+test/docker/run-tests.sh --groups 1.20.2-1.21 --java 21
 test/docker/run-tests.sh --groups 26.1-26.3 --java 25
+test/docker/run-tests.sh --loaders forge --all      # every Forge endpoint
 ```
 
 Each automated test validates:
@@ -475,7 +489,7 @@ Each automated test validates:
 4. Configuration generation, SQLite database initialization, and network port binding.
 5. The in-mod simulation suite (**21/21 checks**): hashing, live database, landing geometry, landing clearance, restore health clamp, session flow, proxy gate, SRG runtime, bounded caches, map rendering, the map give/take lifecycle, map content/QR/captcha and crash-snapshot serialization.
 
-The matrix covers **17 (version, loader) combinations**: Fabric 1.16.5/1.17.1/1.18.2/1.19.4/1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3, Forge 1.18.2 and NeoForge 1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3. Two SKIPs are genuine platform limits (Forge 1.16.5/1.17.1 cannot run a Java-17 jar; NeoForge does not exist for 1.19.4), not harness gaps.
+The matrix covers **31 (version, loader) combinations**: Fabric 1.16.5/1.17.1/1.18.2/1.19.2/1.19.4/1.20.1/1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3, Forge 1.18.2/1.19.2/1.19.4/1.20.1/1.20.2/1.20.4/1.20.6/1.21.1/1.21.5/1.21.11/26.1.2/26.2/26.3 and NeoForge 1.20.6/1.21.1/1.21.11/26.1.2/26.2/26.3. Two SKIPs are genuine platform limits, not harness gaps: Forge 1.16.5 cannot start on Java 17, and Forge 1.17.1 has no jar-in-jar support for the bundled libraries.
 
 ---
 

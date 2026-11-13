@@ -282,16 +282,18 @@ for ((gi=0; gi<NGROUPS; gi++)); do
           continue
         fi
       fi
-      # KNOWN ISSUE: Forge 1.16-1.18 (SRG runtime) - the mod jar boots the game but the
-      # FML module layer never constructs the @Mod class in the harness JDK-17/Forge-40
-      # environment (same jar + source pass on every other loader/version). Tracked as a
-      # known Forge-1.16-1.18 module-layer issue - skip with a clear note instead of
-      # failing the whole matrix.
-      case "$MC" in
-        1.16.5|1.17.1)
-          [ "$LOADER" = "forge" ] && { SKIPS+=("$MC|$RANGE|$LOADER|Forge 1.16.5/1.17.1 cannot run on the Java-17 runtime this jar requires (Forge itself does not support Java 17 before 1.18); jar + source pass everywhere else"); continue; }
-          ;;
-      esac
+      # Forge before 1.18 is a platform limit, not a harness gap (both checked on real servers):
+      #   1.16.5 - a pristine Forge server (36.2.42, no mods) dies on Java 17 with an
+      #            IllegalAccessError in ModLauncher, and the AuthCore jars are Java 17 bytecode
+      #   1.17.1 - Forge has no jar-in-jar support before 1.18, so the bundled libraries are
+      #            not visible (NoClassDefFoundError: org/spongepowered/configurate/...)
+      # Skip with a clear note instead of failing the matrix.
+      if [ "$LOADER" = "forge" ]; then
+        case "$MC" in
+          1.16.5) SKIPS+=("$MC|$RANGE|$LOADER|Forge 1.16.5 cannot start on Java 17 (the runtime this jar requires) - use the Fabric jar on 1.16.x"); continue ;;
+          1.17.1) SKIPS+=("$MC|$RANGE|$LOADER|Forge 1.17.1 has no jar-in-jar support (added in Forge 1.18), so the bundled libraries cannot load - use the Fabric jar on 1.17.x"); continue ;;
+        esac
+      fi
       DESCS+=("$MC|$RANGE|$LOADER|$JMAJOR|$PIN|$JARPATH")
     done
   done

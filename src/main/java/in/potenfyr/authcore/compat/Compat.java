@@ -1266,7 +1266,12 @@ public final class Compat {
           ((in.potenfyr.authcore.mixin.ClientConnectionAccessor) connection).authCore$getChannel();
       if (ch == null) return false;
       if (!ch.isOpen()) return true; // the player is leaving - nothing to report
+      /*? if >= 1.21.11 {*/
       net.minecraft.resources.Identifier id = net.minecraft.resources.Identifier.tryParse(channel);
+      /*?} else {*/
+      /*net.minecraft.resources.ResourceLocation id =
+          net.minecraft.resources.ResourceLocation.tryParse(channel);
+      *//*?}*/
       if (id == null) return true; // invalid channel name - nothing a retry could fix
 
       Object packet;
@@ -1315,14 +1320,14 @@ public final class Compat {
     }
 
     /** 1.19-1.20.1: {@code new ClientboundCustomPayloadPacket(ResourceLocation, FriendlyByteBuf)}. */
-    private static Object legacyPacket(net.minecraft.resources.Identifier id, byte[] data) {
+    private static Object legacyPacket(Object id, byte[] data) {
       try {
         for (java.lang.reflect.Constructor<?> ctor :
             net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket.class
                 .getConstructors()) {
           Class<?>[] p = ctor.getParameterTypes();
           if (p.length == 2
-              && p[0] == net.minecraft.resources.Identifier.class
+              && p[0] == id.getClass()
               && p[1] == net.minecraft.network.FriendlyByteBuf.class)
             return ctor.newInstance(
                 id,

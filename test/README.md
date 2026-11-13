@@ -83,13 +83,13 @@ intended:
 - the game port actually listens
 
 Every boot also fails on mixin application errors/warnings, so the per-version,
-per-loader mixin targets are exercised on all 9 endpoints.
+per-loader mixin targets are exercised on every endpoint.
 
 ```bash
 test/build.sh                        # jars first (or --jar <path>)
-test/docker/run-tests.sh             # smoke: every group's BUILD target (7 runs)
+test/docker/run-tests.sh             # smoke: every group's BUILD target (11 runs)
 test/docker/run-tests.sh --all       # full verify matrix (all range endpoints)
-test/docker/run-tests.sh --groups 1.19-1.21 --loaders fabric
+test/docker/run-tests.sh --groups 1.20.2-1.21 --loaders fabric
 test/docker/run-tests.sh --parallel 6 --timeout 600
 test/docker/run-tests.sh clean       # wipe caches + work dirs + reports
 ```
@@ -106,13 +106,21 @@ server logs (`logs/<mc>-<loader>/`), with `latest.md`/`latest.json` copies at
 Defined in `test/docker/versions.json` - one released jar per (range, loader)
 group, verified on every endpoint of its range:
 
-| Group | Range     | Build target | Verify endpoints                  | Java |
-|:------|:----------|:-------------|:----------------------------------|:-----|
-| G1    | 1.16-1.18 | 1.18.2       | 1.16.5, 1.17.1, 1.18.2            | 17   |
-| G2    | 1.19-1.21 | 1.21.11      | 1.19.4, 1.20.6, 1.21.1, 1.21.11   | 21   |
-| G3    | 26.1-26.3 | 26.3         | 26.1.2, 26.2, 26.3                | 25   |
+| Range         | Build target | Loaders                 | Verify endpoints                | Java |
+|:--------------|:-------------|:------------------------|:--------------------------------|:-----|
+| 1.16-1.18     | 1.18.2       | Fabric, Forge           | 1.16.5, 1.17.1, 1.18.2          | 17   |
+| 1.19-1.20     | 1.20.1       | Fabric, Forge           | 1.19.2, 1.19.4, 1.20.1          | 17   |
+| 1.20.2-1.20.4 | 1.20.4       | Forge                   | 1.20.2, 1.20.4                  | 17   |
+| 1.20.2-1.21   | 1.21.11      | Fabric, NeoForge        | 1.20.6, 1.21.1, 1.21.11         | 21   |
+| 1.20.6-1.21   | 1.21.11      | Forge                   | 1.20.6, 1.21.1, 1.21.5, 1.21.11 | 21   |
+| 26.1-26.3     | 26.3         | Fabric, Forge, NeoForge | 26.1.2, 26.2, 26.3              | 25   |
 
-The matrix runs **17 (version, loader) combinations**. Two SKIPs are genuine platform
-limits, not harness gaps: Forge 1.16.5/1.17.1 cannot run a Java-17 jar (Forge itself does not
-support Java 17 before 1.18 - use the Fabric jar there), and NeoForge does not exist for 1.19.4
-(NeoForge starts at 1.20.1). Forge 1.18.2 runs and passes in the matrix.
+Forge has three ranges between 1.19 and 1.21 because its runtime names changed twice: SRG
+names with the pre-1.20.2 login flow (1.19-1.20.1), SRG names with the reworked login flow
+(1.20.2-1.20.4), and Mojang names from 1.20.6 on. The 1.20.6-1.21 jar is additionally verified
+on 1.21.5 and 1.21.11 because Forge replaced its event bus in between (1.21.6).
+
+The matrix runs **31 (version, loader) combinations**. Two SKIPs are genuine platform limits,
+not harness gaps, both confirmed on real servers: Forge 1.16.5 cannot start on Java 17 at all
+(a pristine server without any mod dies in ModLauncher), and Forge 1.17.1 has no jar-in-jar
+support, so the bundled libraries cannot load - use the Fabric jar on 1.16 / 1.17.

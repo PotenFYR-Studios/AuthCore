@@ -14,7 +14,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * loader-native event-bus hook registered (see ServerEvents.fabricLeaveActive /
  * ServerEvents.nativeLeaveActive), so there is no double firing on any loader.
  */
-/*? if >= 1.20.2 {*/
+/*? if >= 1.21 {*/
 import net.minecraft.network.DisconnectionDetails;
 /*?}*/
 /*? if fabric {*/
@@ -28,7 +28,7 @@ import net.fabricmc.api.Environment;
 @SuppressWarnings({"mapping", "unresolvable-target"})
 abstract class ServerEventsFallbackLeaveMixin {
 
-/*? if < 1.20.2 {*/
+/*? if < 1.21 {*/
 /*  @Inject(
       method = "onDisconnect(Lnet/minecraft/network/chat/Component;)V",
       at = @At("HEAD"),

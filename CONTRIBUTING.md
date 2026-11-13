@@ -1,6 +1,6 @@
 # Contributing to AuthCore
 
-Thanks for helping improve AuthCore! This guide covers what you need to know to report issues, improve the docs, or ship code across the six Stonecutter build variants.
+Thanks for helping improve AuthCore! This guide covers what you need to know to report issues, improve the docs, or ship code across the Stonecutter build variants.
 
 ## Reporting issues
 
@@ -12,7 +12,7 @@ Thanks for helping improve AuthCore! This guide covers what you need to know to 
 
 ## Development setup
 
-AuthCore is a **Gradle + Stonecutter (Stonecraft)** multi-loader workspace: one source tree in `src/main/java` (Mojang mappings) compiled per *version group × loader* into six release jars.
+AuthCore is a **Gradle + Stonecutter (Stonecraft)** multi-loader workspace: one source tree in `src/main/java` (Mojang mappings) compiled per *version group × loader* into one release jar per variant (the list lives in `settings.gradle.kts`).
 
 Prerequisites:
 
@@ -28,7 +28,7 @@ Workspace notes (matches `.gitignore`):
 ## Build, test, and verify
 
 ```bash
-# Build ALL six release variants and stage them into dist/
+# Build ALL release variants and stage them into dist/
 ./gradlew buildAll
 
 # Build only one variant
@@ -44,7 +44,7 @@ bash test/run-security-tests.sh 1.21.11-fabric
 # Docker host tests: boot real servers (requires Docker)
 ./gradlew dockerTest                         # smoke set
 bash test/docker/run-tests.sh --all          # full range-endpoint matrix
-bash test/docker/run-tests.sh --groups 1.19-1.21 --java 21 --smoke
+bash test/docker/run-tests.sh --groups 1.20.2-1.21 --java 21 --smoke
 ```
 
 There is no separate formatting/lint gate in CI - format Java consistently with the existing sources (google-java-format conventions: 2-space indent, 100-column lines) before opening a PR.
@@ -53,7 +53,7 @@ There is no separate formatting/lint gate in CI - format Java consistently with 
 
 - Branch from `master` with a descriptive name (`fix/limbo-anchor-drift`, `feature/email-otp-rate-limit`).
 - Keep changes portable across loaders: put shared logic in `src/main/java`, thin entrypoints in `src/fabric/java`, `src/forge/java`, `src/neoforge/java`, and use Stonecutter conditional comments for version differences (see `settings.gradle.kts` header).
-- CI builds all six variants in parallel (after a metadata guard and actionlint pass), runs the security suite, verifies jar roles/descriptors/bytecode targets, and boots Docker host tests - a green CI is the merge bar.
+- CI builds every variant in parallel (after a metadata guard and actionlint pass), runs the security suite, verifies jar roles/descriptors/bytecode targets, and boots Docker host tests - a green CI is the merge bar.
 - A PR that changes runtime behavior should state which variants/build groups you verified locally.
 
 ### PR expectations

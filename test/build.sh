@@ -3,7 +3,7 @@
 # AuthCore Docker builder - builds the mod inside the official
 # eclipse-temurin JDK image. No local JDK setup required: only Docker.
 #
-#   test/build.sh                  # build all 7 variants, jars land in dist/
+#   test/build.sh                  # build every variant, jars land in dist/
 #   test/build.sh 26.3-fabric      # build one variant
 #   test/build.sh clean            # gradle clean of all variants
 #

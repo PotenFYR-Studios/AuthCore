@@ -357,7 +357,9 @@ SEVERE_RE="Uncaught exception in thread|MixinInitialisationError|ModLoadingExcep
 #     the mod intentionally does not ship on Forge
 #   - "Assets URL ... unexpected schema": vanilla resource-pack scanner noise on
 #     SRG-mapped Forge/NeoForge server libraries - unrelated to the mod
-WARN_ALLOWLIST_RE="SERVER IS RUNNING IN OFFLINE|no attempt to authenticate usernames|ability for hackers|set .online-mode. to .true.|Can't keep up|Advanced terminal features|Reference map .* could not be read|Ambiguity between arguments|is not correct|Incorrect key .* was corrected|Fabric API was not found|LanServerPinger|Warnings were found|fabric-lifecycle-events-v1|Unable to register Log4j shutdown hook|Assets URL|Honeypot listening on port|Mod file .* is missing mods.toml file"
+#   - "oshi ... Configuration conflict": Forge 1.20.2-1.20.4 lists its own oshi-core
+#     library twice on the classpath; printed by a pristine server before any mod loads
+WARN_ALLOWLIST_RE="more than one oshi\.[a-z.]*properties file on the classpath|SERVER IS RUNNING IN OFFLINE|no attempt to authenticate usernames|ability for hackers|set .online-mode. to .true.|Can't keep up|Advanced terminal features|Reference map .* could not be read|Ambiguity between arguments|is not correct|Incorrect key .* was corrected|Fabric API was not found|LanServerPinger|Warnings were found|fabric-lifecycle-events-v1|Unable to register Log4j shutdown hook|Assets URL|Honeypot listening on port|Mod file .* is missing mods.toml file"
 ERR_ALLOWLIST_RE="No key layers in MapLike|Couldn't load mod:authcore pack"
 
 if [ "$STATUS" = "ready" ]; then
