@@ -194,8 +194,20 @@ jobs:
 
       - name: Build variant ${{ matrix.variant }}
         run: |
-          JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
-            :${{ matrix.variant }}:build --no-daemon --stacktrace
+          # Gradle configures EVERY variant project, so each leg downloads the Minecraft jars
+          # of all build targets from Mojang's CDN. A single failed download there used to fail
+          # the whole run (and block the release) although nothing was wrong with the code -
+          # retry; finished downloads and compiled outputs are kept between attempts.
+          for ATTEMPT in 1 2 3; do
+            if JAVA_HOME="${JAVA_HOME_25_X64}" ./gradlew \
+              :${{ matrix.variant }}:build --no-daemon --stacktrace; then
+              exit 0
+            fi
+            echo "::warning::Build attempt $ATTEMPT for ${{ matrix.variant }} failed"
+            if [ "$ATTEMPT" -lt 3 ]; then sleep $((ATTEMPT * 30)); fi
+          done
+          echo "::error::Build of ${{ matrix.variant }} failed 3 times"
+          exit 1
 
       - name: Stage jar
         env:
