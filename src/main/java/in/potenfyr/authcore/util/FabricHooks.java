@@ -1,6 +1,5 @@
 package in.potenfyr.authcore.util;
 
-import java.lang.reflect.Method;
 import in.potenfyr.authcore.command.Account;
 import in.potenfyr.authcore.command.Admin;
 import in.potenfyr.authcore.command.Discord;
@@ -104,14 +103,11 @@ public final class FabricHooks {
                           (net.minecraft.world.level.Level) args[1],
                           (net.minecraft.world.InteractionHand) args[2]);
 
-                  // Adapt the return type to the version-specific callback signature
-                  for (Method m : method.getReturnType().getMethods()) {
-                    if (m.getName().equals("pass") || m.getName().equals("fail")) {
-                      Object empty = net.minecraft.world.item.ItemStack.EMPTY;
-                      return m.invoke(null, empty);
-                    }
-                  }
-                  return result;
+                  return adaptUseItemResult(
+                      method.getReturnType(),
+                      result,
+                      (net.minecraft.world.entity.player.Player) args[0],
+                      (net.minecraft.world.InteractionHand) args[2]);
                 }
                 return null;
               });
@@ -189,6 +185,45 @@ public final class FabricHooks {
     } catch (ReflectiveOperationException ignored) {
       // entity damage events not available on this fabric-api version
     }
+  }
+
+  /**
+   * Adapts AuthCore's item-use decision to the callback's version-specific return type:
+   * {@code InteractionResult} itself on newer fabric-api, a holder
+   * ({@code InteractionResultHolder<ItemStack>}) wrapping it before that.
+   *
+   * <p>The holder is built through its public {@code (InteractionResult, Object)} constructor so
+   * it carries the ACTUAL decision. The previous adapter invoked whichever static factory named
+   * {@code pass} or {@code fail} reflection listed first and ignored the decision: where
+   * {@code fail} came first (NeoForge 1.21.1 with Forgified Fabric API) every in-hand item use of
+   * every player - authenticated or not - was cancelled (no eating, no throwables).
+   */
+  static Object adaptUseItemResult(
+      Class<?> returnType,
+      net.minecraft.world.InteractionResult result,
+      net.minecraft.world.entity.player.Player player,
+      net.minecraft.world.InteractionHand hand)
+      throws ReflectiveOperationException {
+    if (result == null || returnType.isInstance(result)) return result;
+
+    Object stack = net.minecraft.world.item.ItemStack.EMPTY;
+    try {
+      stack = player.getItemInHand(hand);
+    } catch (RuntimeException ignored) {
+      // the stack is informational for a pass/fail holder
+    }
+    return wrapUseItemResult(returnType, result, stack);
+  }
+
+  /** Wraps {@code result} in the callback's holder type (name-independent: by constructor). */
+  public static Object wrapUseItemResult(Class<?> returnType, Object result, Object stack)
+      throws ReflectiveOperationException {
+    if (result == null || returnType.isInstance(result)) return result;
+    for (java.lang.reflect.Constructor<?> c : returnType.getConstructors()) {
+      Class<?>[] params = c.getParameterTypes();
+      if (params.length == 2 && params[0].isInstance(result)) return c.newInstance(result, stack);
+    }
+    throw new NoSuchMethodException("no holder constructor on " + returnType.getName());
   }
 
   /**

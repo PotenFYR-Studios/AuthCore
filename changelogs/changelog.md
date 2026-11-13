@@ -23,6 +23,26 @@ All notable changes to AuthCore, from the first alpha to the current release.
 > snapshot, credential commands, offline-server premium verification, the database write path and
 > the red CI host-tests. The first-pass notes follow the second-pass sections below.
 
+### Fixed - nobody could eat or throw items on servers that also load Fabric API (2026-11-13)
+
+- **Every in-hand item use was cancelled for every player, authenticated or not** (reported on
+  NeoForge 1.21.1 + Cobblemon 1.8.4: no eating, no Poké Ball throws, everything else worked).
+  The Fabric API `UseItemCallback` adapter ignored AuthCore's own decision and returned
+  whichever of the holder's `pass` / `fail` factories reflection listed first; where that was
+  `fail`, right-click item use failed server-wide. It only triggered where the callback returns a
+  result holder (Minecraft up to 1.21.1) and Fabric API is present under Mojang names (NeoForge
+  with Forgified Fabric API / Sinytra Connector). The adapter now wraps the actual decision, so
+  only unauthenticated limbo players are restricted. Present in 1.0.0 through earlier 1.0.3 jars.
+- **Same adapter on runtimes without Mojang names** (Fabric up to 1.21.1, Forge with Sinytra
+  Connector): neither factory name matched there, so the callback handed back a result of the
+  wrong type. The holder is now built through its constructor, which does not depend on the
+  running mappings.
+- **`PASS` / `FAIL` resolved to nothing on Fabric 1.21.2 - 1.21.11.** The constants were looked
+  up by their Mojang field names, which do not exist on an intermediary runtime, so AuthCore's
+  Fabric API callbacks (item use, block use, entity use, attack) answered with an empty result
+  instead of "pass" for every player. They are now referenced directly (remapped at build time),
+  with the by-name lookup kept only for the older game versions a jar also covers.
+
 ### Upgrading to 1.0.3 - what server owners need to do
 
 > 1.0.3 is rebuilt in place: the release keeps one version number and its jars are replaced on

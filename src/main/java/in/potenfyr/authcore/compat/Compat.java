@@ -3102,6 +3102,18 @@ public final class Compat {
 
   /** Resolves an InteractionResult constant by name without referencing the nested class. */
   private static net.minecraft.world.InteractionResult actionResultConstant(String name) {
+    // Build-remapped direct reference first. The by-name lookups below only see the names of
+    // the RUNNING mappings: on a Fabric (intermediary) 1.21.2+ runtime the constants are
+    // field_5811 / field_5814, "PASS" matched nothing and null came back - which the fabric-api
+    // callbacks and the game treat as "not PASS", i.e. cancelled for everyone.
+    try {
+      net.minecraft.world.InteractionResult direct =
+          "PASS".equals(name) ? ResultConstants.pass() : ResultConstants.fail();
+      if (direct != null) return direct;
+    } catch (Throwable otherEra) {
+      // enum-era runtime under an interface-era build (1.20.2 - 1.21.1): the constant has a
+      // different field type there (NoSuchFieldError) - resolved by name below
+    }
     // 1.21.10+ / 26.x: interface with nested-typed constants - iterate the declared fields.
     try {
       for (java.lang.reflect.Field f : net.minecraft.world.InteractionResult.class.getFields())
@@ -3124,4 +3136,19 @@ public final class Compat {
     }
   }
 
+  /**
+   * Direct (build-remapped) references to the InteractionResult constants, isolated in their own
+   * class: where the running Minecraft types the constants differently than the build target,
+   * the link error stays inside this holder and is caught by the caller.
+   */
+  private static final class ResultConstants {
+    static net.minecraft.world.InteractionResult pass() {
+      return net.minecraft.world.InteractionResult.PASS;
+    }
+
+    static net.minecraft.world.InteractionResult fail() {
+      return net.minecraft.world.InteractionResult.FAIL;
+    }
+  }
 }
+

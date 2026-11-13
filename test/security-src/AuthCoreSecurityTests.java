@@ -55,12 +55,67 @@ public class AuthCoreSecurityTests {
     testAccountBoundRecovery();
     testCommandTreePruning();
     testPremiumIdentity();
+    testItemUseCallbackResult();
 
     System.out.println();
     System.out.println("==============================================");
     System.out.println("  RESULT: " + passed + " passed, " + failed + " failed");
     System.out.println("==============================================");
     if (failed > 0) System.exit(1);
+  }
+
+  // ------------------------------------------------------------------
+  // fabric-api item-use callback result ("nobody can eat" report)
+  // ------------------------------------------------------------------
+
+  /** Shaped like the pre-1.21.2 result holder: a (result, object) constructor + static factories. */
+  public static final class FakeResultHolder {
+    public final Object result;
+    public final Object object;
+
+    public FakeResultHolder(net.minecraft.world.InteractionResult result, Object object) {
+      this.result = result;
+      this.object = object;
+    }
+
+    public static FakeResultHolder fail(Object object) {
+      return new FakeResultHolder(in.potenfyr.authcore.compat.Compat.actionResultFail(), object);
+    }
+
+    public static FakeResultHolder pass(Object object) {
+      return new FakeResultHolder(in.potenfyr.authcore.compat.Compat.actionResultPass(), object);
+    }
+  }
+
+  private static void testItemUseCallbackResult() {
+    System.out.println("-- item-use callback result --");
+    net.minecraft.world.InteractionResult pass = in.potenfyr.authcore.compat.Compat.actionResultPass();
+    net.minecraft.world.InteractionResult fail = in.potenfyr.authcore.compat.Compat.actionResultFail();
+    check("PASS constant resolves", pass != null);
+    check("FAIL constant resolves", fail != null);
+    check("PASS and FAIL differ", pass != fail);
+    check("PASS is the game's own constant", pass == net.minecraft.world.InteractionResult.PASS);
+    check("FAIL is the game's own constant", fail == net.minecraft.world.InteractionResult.FAIL);
+    try {
+      Object stack = new Object();
+      Object wrappedPass =
+          in.potenfyr.authcore.util.FabricHooks.wrapUseItemResult(FakeResultHolder.class, pass, stack);
+      Object wrappedFail =
+          in.potenfyr.authcore.util.FabricHooks.wrapUseItemResult(FakeResultHolder.class, fail, stack);
+      check(
+          "holder callback: an allowed item use stays PASS",
+          wrappedPass instanceof FakeResultHolder h && h.result == pass && h.object == stack);
+      check(
+          "holder callback: a blocked item use is FAIL",
+          wrappedFail instanceof FakeResultHolder h && h.result == fail);
+      check(
+          "plain-result callback: the decision is returned as is",
+          in.potenfyr.authcore.util.FabricHooks.wrapUseItemResult(
+                  net.minecraft.world.InteractionResult.class, pass, stack)
+              == pass);
+    } catch (ReflectiveOperationException | RuntimeException err) {
+      check("item-use result adapter: " + err, false);
+    }
   }
 
   // ------------------------------------------------------------------
